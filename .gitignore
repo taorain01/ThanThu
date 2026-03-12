@@ -1,0 +1,43 @@
+# === Thông tin nhạy cảm ===
+.env
+.env2
+.env.*
+
+# === Node.js ===
+node_modules/
+package-lock.json
+
+# === Database local ===
+*.db
+*.sqlite
+*.sqlite3
+
+# === Logs ===
+*.log
+logs/
+
+# === Thư mục không cần thiết ===
+backup bot/
+backup data/
+BgRemover/
+Test gemini/
+.venv/
+kehoach/
+
+# === File nén ===
+*.zip
+*.rar
+*.7z
+
+# === File test Python ===
+test_gemini.py
+test_models.py
+test_models_2.py
+
+# === IDE ===
+.vscode/
+.idea/
+
+# === OS ===
+Thumbs.db
+.DS_Store

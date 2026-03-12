@@ -2,6 +2,7 @@
 .env
 .env2
 .env.*
+backup_env_hosting.txt
 
 # === Node.js ===
 node_modules/

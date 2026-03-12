@@ -35,6 +35,7 @@ const CMD_ALIASES = {
   'delete': 'delete', 'd': 'delete',
   'cat': 'category', 'category': 'category',
   'sales': 'sales', 'doanhthu': 'sales', 'dt': 'sales', 'revenue': 'sales',
+  'deleteall': 'deleteall', 'da': 'deleteall', 'xoahet': 'deleteall',
 };
 
 // Chỉ admin mới được dùng (trừ ?nlhelp)
@@ -110,6 +111,8 @@ module.exports = {
           return await cmdRemove(message, args);
         case 'delete':
           return await cmdDelete(message, args);
+        case 'deleteall':
+          return await cmdDeleteAll(message);
         default:
           // Không khớp lệnh nào → gợi ý dùng ?nlhelp
           return message.reply({
@@ -749,4 +752,161 @@ async function cmdSales(message, args) {
 // Format số tiền VNĐ: 199000 → "199,000đ"
 function formatVND(amount) {
   return amount.toLocaleString('vi-VN') + 'đ';
+}
+
+// ══════════════════════════════════════════════════════════
+// ?nldeleteall — Xóa TOÀN BỘ key NhacLabs trên Firebase
+// Yêu cầu 3 lần xác nhận: ✅ → ⚠️ → gõ "xac nhan"
+// ══════════════════════════════════════════════════════════
+async function cmdDeleteAll(message) {
+  const keys = await listAllKeys();
+
+  if (keys.length === 0) {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription('📋 Không có key nào để xóa.'),
+      ],
+    });
+  }
+
+  // ── BƯỚC 1: Xác nhận lần 1 (reaction ✅) ──
+  const step1 = await message.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xFF8800)
+        .setTitle('⚠️ XÁC NHẬN LẦN 1/3')
+        .setDescription(
+          `Bạn đang yêu cầu **XÓA TOÀN BỘ ${keys.length} key** trên Firebase!\n\n` +
+          `Hành động này **KHÔNG THỂ HOÀN TÁC**.\n\n` +
+          `Bấm ✅ trong 15 giây để tiếp tục.`
+        ),
+    ],
+  });
+  await step1.react('✅');
+
+  const filter1 = (reaction, user) =>
+    reaction.emoji.name === '✅' && user.id === message.author.id;
+
+  try {
+    await step1.awaitReactions({ filter: filter1, max: 1, time: 15000, errors: ['time'] });
+  } catch {
+    await step1.edit({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription('⏰ Đã hủy — hết thời gian xác nhận lần 1.'),
+      ],
+    });
+    try { await step1.reactions.removeAll(); } catch { }
+    return;
+  }
+
+  // ── BƯỚC 2: Xác nhận lần 2 (reaction ⚠️) ──
+  const step2 = await message.channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xFF4400)
+        .setTitle('🚨 XÁC NHẬN LẦN 2/3')
+        .setDescription(
+          `Bạn **thật sự chắc chắn** muốn xóa **${keys.length} key**?\n\n` +
+          `Bao gồm:\n` +
+          `> 💰 Thương mại: **${keys.filter(k => (k.category || 'thuongmai') === 'thuongmai').length}** key\n` +
+          `> 🎁 Miễn phí: **${keys.filter(k => k.category === 'mienphi').length}** key\n` +
+          `> 🧪 Dùng thử: **${keys.filter(k => k.category === 'test').length}** key\n\n` +
+          `Bấm ⚠️ trong 15 giây để tiếp tục.`
+        ),
+    ],
+  });
+  await step2.react('⚠️');
+
+  const filter2 = (reaction, user) =>
+    reaction.emoji.name === '⚠️' && user.id === message.author.id;
+
+  try {
+    await step2.awaitReactions({ filter: filter2, max: 1, time: 15000, errors: ['time'] });
+  } catch {
+    await step2.edit({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription('⏰ Đã hủy — hết thời gian xác nhận lần 2.'),
+      ],
+    });
+    try { await step2.reactions.removeAll(); } catch { }
+    return;
+  }
+
+  // ── BƯỚC 3: Xác nhận lần 3 (gõ "xac nhan") ──
+  const step3 = await message.channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('🔴 XÁC NHẬN LẦN CUỐI 3/3')
+        .setDescription(
+          `**Gõ \`xac nhan\` trong 30 giây** để xóa toàn bộ ${keys.length} key.\n\n` +
+          `⚠️ Sau bước này, TẤT CẢ KEY sẽ bị xóa vĩnh viễn!`
+        ),
+    ],
+  });
+
+  const msgFilter = (m) =>
+    m.author.id === message.author.id && m.content.trim().toLowerCase() === 'xac nhan';
+
+  try {
+    const collected = await message.channel.awaitMessages({
+      filter: msgFilter,
+      max: 1,
+      time: 30000,
+      errors: ['time'],
+    });
+
+    // Xóa tin nhắn "xac nhan" của user
+    try { await collected.first().delete(); } catch { }
+  } catch {
+    await step3.edit({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription('⏰ Đã hủy — không nhận được xác nhận lần cuối.'),
+      ],
+    });
+    return;
+  }
+
+  // ── THỰC HIỆN XÓA ──
+  const progressMsg = await message.channel.send({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0xFFAA00)
+        .setDescription(`🗑️ Đang xóa ${keys.length} key... Vui lòng chờ.`),
+    ],
+  });
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const key of keys) {
+    const ok = await deleteKey(key.key);
+    if (ok) successCount++;
+    else failCount++;
+  }
+
+  // Kết quả
+  const resultEmbed = new EmbedBuilder()
+    .setColor(failCount === 0 ? SUCCESS_COLOR : ERROR_COLOR)
+    .setTitle('🗑️ Kết Quả Xóa Toàn Bộ Key')
+    .setDescription(
+      `✅ Đã xóa thành công: **${successCount}** key\n` +
+      (failCount > 0 ? `❌ Thất bại: **${failCount}** key\n` : '') +
+      `\n*Tổng cộng: ${successCount + failCount} key đã xử lý.*`
+    )
+    .setTimestamp();
+
+  await progressMsg.edit({ embeds: [resultEmbed] });
+
+  // Xóa reactions cũ
+  try { await step1.reactions.removeAll(); } catch { }
+  try { await step2.reactions.removeAll(); } catch { }
 }

@@ -14,6 +14,7 @@ const {
   StringSelectMenuBuilder,
 } = require('discord.js');
 const { listAllKeys } = require('./firebaseLicense');
+const { CATEGORIES } = require('./firebaseLicense');
 
 // Màu chủ đạo
 const EMBED_COLOR = 0xFFD700; // Gold
@@ -58,6 +59,12 @@ function applyFilter(keys, filterType) {
       return keys.filter(k => k.blocked);
     case 'active':
       return keys.filter(k => !k.blocked);
+    case 'cat_thuongmai':
+      return keys.filter(k => (k.category || 'thuongmai') === 'thuongmai');
+    case 'cat_mienphi':
+      return keys.filter(k => k.category === 'mienphi');
+    case 'cat_test':
+      return keys.filter(k => k.category === 'test');
     default:
       return keys;
   }
@@ -106,7 +113,11 @@ function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = 
       machineInfo = names.length > 30 ? ` 💻 ${names.slice(0, 27)}...` : ` 💻 ${names}`;
     }
 
-    return `**${idx}.** ${status} \`${k.key}\` — **${tier}** — ${machineCount} máy${machineInfo}`;
+    // Emoji danh mục
+    const catKey = k.category || 'thuongmai';
+    const catEmoji = CATEGORIES[catKey]?.emoji || '💰';
+
+    return `**${idx}.** ${status} ${catEmoji} \`${k.key}\` — **${tier}** — ${machineCount} máy${machineInfo}`;
   });
 
   const embed = new EmbedBuilder()
@@ -157,6 +168,9 @@ function buildListButtons(page, totalPages, userId, filter = '', search = '') {
       .setPlaceholder('🔎 Lọc theo...')
       .addOptions([
         { label: '📋 Tất cả', value: 'all', description: 'Hiện tất cả key' },
+        { label: '💰 Thương mại', value: 'cat_thuongmai', description: 'Key bán thương mại' },
+        { label: '🎁 Miễn phí', value: 'cat_mienphi', description: 'Key phát miễn phí' },
+        { label: '🧪 Dùng thử', value: 'cat_test', description: 'Key test' },
         { label: '🟢 Đang hoạt động', value: 'active', description: 'Key chưa bị chặn' },
         { label: '🔴 Đã bị chặn', value: 'blocked', description: 'Key đã bị block' },
         { label: '✅ Đã kích hoạt', value: 'activated', description: 'Key có máy đăng ký' },
@@ -218,6 +232,7 @@ function getFilterLabel(filter) {
     'all': '', 'active': '🟢 Hoạt động', 'blocked': '🔴 Bị chặn',
     'activated': '✅ Đã KH', 'not_activated': '⬜ Chưa KH',
     'pro': '⭐ PRO', 'unl': '👑 UNL',
+    'cat_thuongmai': '💰 Thương mại', 'cat_mienphi': '🎁 Miễn phí', 'cat_test': '🧪 Dùng thử',
   };
   return labels[filter] || '';
 }

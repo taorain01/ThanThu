@@ -17,6 +17,13 @@ const HMAC_SECRET = "NhacLabs_2026_Ky_Tu_Bi_Mat_HMAC";
 // Giới hạn
 const MAX_MACHINES = 3;
 
+// Bảng danh mục key
+const CATEGORIES = {
+  'thuongmai': { label: 'Thương mại', emoji: '💰' },
+  'mienphi':   { label: 'Miễn phí', emoji: '🎁' },
+  'test':      { label: 'Dùng thử', emoji: '🧪' },
+};
+
 // ── Firebase Anonymous Auth (giống Python license.py) ──
 let _authToken = null;
 let _authExpiry = 0;
@@ -128,17 +135,22 @@ function generateKey(tierCode, days = 0) {
 }
 
 // ── Tạo document key trên Firestore ngay khi gen ──
-async function createKeyDoc(key, tierCode, days = 0) {
+async function createKeyDoc(key, tierCode, days = 0, category = 'thuongmai') {
   const docId = key.toUpperCase().replace(/-/g, "_");
   const now = new Date().toISOString();
   const expiresAt = days > 0
     ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
     : "";
 
+  // Key thương mại lưu ngày cấp để tính tiền
+  const issuedDate = category === 'thuongmai' ? now : "";
+
   const body = {
     fields: {
       key: { stringValue: key },
       tier: { stringValue: tierCode },
+      category: { stringValue: category },
+      issued_date: { stringValue: issuedDate },
       max_machines: { integerValue: String(MAX_MACHINES) },
       blocked: { booleanValue: false },
       block_reason: { stringValue: "" },
@@ -174,6 +186,8 @@ async function getKeyInfo(key) {
     exists: true,
     key: fields.key?.stringValue || key,
     tier: fields.tier?.stringValue || "unknown",
+    category: fields.category?.stringValue || "thuongmai",
+    issued_date: fields.issued_date?.stringValue || "",
     max_machines: parseInt(fields.max_machines?.integerValue || MAX_MACHINES),
     machines,
     blocked: fields.blocked?.booleanValue || false,
@@ -208,6 +222,8 @@ async function listAllKeys() {
       return {
         key: fields.key?.stringValue || "",
         tier: fields.tier?.stringValue || "",
+        category: fields.category?.stringValue || "thuongmai",
+        issued_date: fields.issued_date?.stringValue || "",
         machines,
         blocked: fields.blocked?.booleanValue || false,
         last_activated: fields.last_activated?.stringValue || "",
@@ -287,6 +303,25 @@ async function deleteKey(key) {
   return res.status === 200;
 }
 
+// ── Đổi danh mục cho key ──
+async function setCategoryKey(key, category) {
+  const docId = key.toUpperCase().replace(/-/g, "_");
+  
+  // Key thương mại lưu ngày cấp (issued_date)
+  const issuedDate = category === 'thuongmai' ? new Date().toISOString() : "";
+
+  const body = {
+    fields: {
+      category: { stringValue: category },
+      issued_date: { stringValue: issuedDate },
+    },
+  };
+
+  const path = `/licenses/${docId}?updateMask.fieldPaths=category&updateMask.fieldPaths=issued_date`;
+  const res = await firestoreRequest("PATCH", path, body);
+  return res.status === 200;
+}
+
 module.exports = {
   generateKey,
   createKeyDoc,
@@ -296,5 +331,7 @@ module.exports = {
   unblockKey,
   removeMachine,
   deleteKey,
+  setCategoryKey,
+  CATEGORIES,
   MAX_MACHINES,
 };

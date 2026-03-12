@@ -14,13 +14,15 @@ const {
   unblockKey,
   removeMachine,
   deleteKey,
+  setCategoryKey,
+  CATEGORIES,
   MAX_MACHINES,
 } = require('../../utils/firebaseLicense');
 const { sendKeyList } = require('../../utils/nlListHandlers');
 
 // Bảng alias lệnh tắt → lệnh gốc
 const CMD_ALIASES = {
-  '': 'help',       // ?nl → help
+  '': 'list',       // ?nl → list (hiện danh sách key)
   'help': 'help',
   'info': 'info', 'i': 'info',
   'list': 'list',
@@ -30,6 +32,7 @@ const CMD_ALIASES = {
   'unblock': 'unblock', 'ul': 'unblock',
   'remove': 'remove', 'rm': 'remove',
   'delete': 'delete', 'd': 'delete',
+  'cat': 'category', 'category': 'category',
 };
 
 // Chỉ admin mới được dùng (trừ ?nlhelp)
@@ -87,6 +90,8 @@ module.exports = {
           return await sendKeyList(message);
         case 'gen':
           return await cmdGen(message, args);
+        case 'category':
+          return await cmdCategory(message, args);
         case 'block':
           return await cmdBlock(message, args, false);
         case 'pblock':
@@ -138,57 +143,50 @@ function sendHelp(message, prefix) {
       {
         name: '📋  XEM THÔNG TIN',
         value:
+          `**\`${p}nl\`** hoặc **\`${p}nllist\`** — Danh sách tất cả key\n` +
+          `> 📄 Phân trang 10 key/trang, lọc theo danh mục\n` +
+          `> 🔍 Tìm kiếm, 🔎 Lọc, 📤 Chọn Key\n\n` +
           `**\`${p}nlinfo <key>\`** — Xem chi tiết 1 key\n` +
-          `> Hiện: tier, trạng thái, số máy, danh sách máy (hw_id, tên, ngày KH)\n` +
-          `> Alias: \`${p}nli\`\n` +
-          `> VD: \`${p}nli NL-UNL-11377F54A4-62EE4F4387\`\n\n` +
-          `**\`${p}nllist\`** — Danh sách tất cả key\n` +
-          `> 📄 Phân trang 10 key/trang, hiện tên máy ngắn gọn\n` +
-          `> 🔍 **Tìm kiếm** — nhập vài ký tự, lọc key + tên máy chứa chuỗi đó\n` +
-          `> 🔎 **Lọc** — theo: Hoạt động, Bị chặn, Đã KH, Chưa KH, PRO, UNL\n` +
-          `> 📤 **Chọn Key** — nhập STT, bot gửi key dạng tin nhắn thường`,
+          `> Hiện: tier, danh mục, trạng thái, số máy\n` +
+          `> Alias: \`${p}nli\``,
       },
       {
         name: '🔧  TẠO KEY',
         value:
-          `**\`${p}nlgen <PRO|UNL> [số lượng] [thời hạn]\`** — Tạo key mới\n` +
+          `**\`${p}nlgen <PRO|UNL> [số lượng] [thời hạn] [danh mục]\`**\n` +
           `> Tier: \`PRO\` (3 máy) hoặc \`UNL\` (unlimited)\n` +
-          `> Số lượng: 1–10, mặc định 1\n` +
-          `> Thời hạn: \`30d\` = 30 ngày, \`7d\` = 7 ngày, bỏ trống = vĩnh viễn\n` +
-          `> Key tạo bằng HMAC-SHA256, chưa lên Firebase cho đến khi user kích hoạt\n` +
-          `> Alias: \`${p}nlcap\`, \`${p}nlc\`, \`${p}nlg\`\n` +
-          `> VD: \`${p}nlg UNL 3\` — 3 key UNL vĩnh viễn\n` +
-          `> VD: \`${p}nlg PRO 5 30d\` — 5 key PRO hết hạn 30 ngày`,
+          `> Thời hạn: \`30d\`, \`7d\`, bỏ trống = vĩnh viễn\n` +
+          `> Danh mục: \`tm\` (thương mại), \`mp\` (miễn phí), \`test\`\n` +
+          `> VD: \`${p}nlg PRO 3 tm\` — 3 key PRO thương mại\n` +
+          `> VD: \`${p}nlg UNL 5 30d mp\` — 5 key UNL miễn phí 30 ngày`,
+      },
+      {
+        name: '📂  DANH MỤC KEY',
+        value:
+          `**\`${p}nlcat <key> <danh mục>\`** — Đổi danh mục cho key\n` +
+          `> Danh mục: \`tm\` = Thương mại, \`mp\` = Miễn phí, \`test\` = Dùng thử\n` +
+          `> Key thương mại sẽ lưu ngày cấp để tính tiền\n` +
+          `> VD: \`${p}nlcat NL-PRO-XXX tm\``,
       },
       {
         name: '🗑️  XÓA KEY & MÁY',
         value:
-          `**\`${p}nldelete <key>\`** — Xóa key hoàn toàn khỏi Firebase\n` +
-          `> Yêu cầu xác nhận bằng reaction ✅ trong 15 giây\n` +
-          `> Alias: \`${p}nld\`\n\n` +
-          `**\`${p}nlremove <key> <hw_id>\`** — Xóa 1 máy khỏi key\n` +
-          `> Dùng \`${p}nli <key>\` để xem danh sách hw_id trước\n` +
-          `> Alias: \`${p}nlrm\`\n` +
-          `> VD: \`${p}nlrm NL-PRO-XXX ABC123DEF\``,
+          `**\`${p}nldelete <key>\`** — Xóa key hoàn toàn (Alias: \`${p}nld\`)\n` +
+          `**\`${p}nlremove <key> <hw_id>\`** — Xóa 1 máy (Alias: \`${p}nlrm\`)`,
       },
       {
         name: '🚫  CHẶN & MỞ CHẶN',
         value:
-          `**\`${p}nlblock <key> [lý do]\`** — Chặn tạm thời\n` +
-          `> Key bị chặn sẽ không thể kích hoạt/sử dụng\n` +
-          `> Alias: \`${p}nlb\`\n` +
-          `> VD: \`${p}nlb NL-PRO-XXX Vi phạm điều khoản\`\n\n` +
-          `**\`${p}nlpblock <key> [lý do]\`** — Chặn vĩnh viễn\n` +
-          `> Alias: \`${p}nlpb\`\n\n` +
-          `**\`${p}nlunblock <key>\`** — Mở chặn key\n` +
-          `> Alias: \`${p}nlul\``,
+          `**\`${p}nlblock <key> [lý do]\`** — Chặn tạm (Alias: \`${p}nlb\`)\n` +
+          `**\`${p}nlpblock <key> [lý do]\`** — Chặn vĩnh viễn (Alias: \`${p}nlpb\`)\n` +
+          `**\`${p}nlunblock <key>\`** — Mở chặn (Alias: \`${p}nlul\`)`,
       },
       {
         name: '⌨️  BẢNG ALIAS TẮT',
         value:
-          `\`${p}nl\` → help │ \`${p}nli\` → info │ \`${p}nlg\` \`${p}nlc\` \`${p}nlcap\` → gen\n` +
-          `\`${p}nlb\` → block │ \`${p}nlpb\` → pblock │ \`${p}nlul\` → unblock\n` +
-          `\`${p}nlrm\` → remove │ \`${p}nld\` → delete`,
+          `\`${p}nl\` → list │ \`${p}nli\` → info │ \`${p}nlg\` \`${p}nlc\` → gen\n` +
+          `\`${p}nlcat\` → category │ \`${p}nlb\` → block │ \`${p}nlpb\` → pblock\n` +
+          `\`${p}nlul\` → unblock │ \`${p}nlrm\` → remove │ \`${p}nld\` → delete`,
       },
     )
     .setFooter({ text: '🔑 NhacLabs License Manager • Chỉ admin mới dùng được (trừ ?nl)' })
@@ -240,12 +238,18 @@ async function cmdInfo(message, args) {
     ? `\n📝 Lý do: ${info.block_reason || 'Không rõ'}`
     : '';
 
+  // Thông tin danh mục
+  const catInfo = CATEGORIES[info.category] || CATEGORIES['thuongmai'];
+  const catLine = `**Danh mục:** ${catInfo.emoji} ${catInfo.label}`;
+  const issuedLine = info.issued_date ? `\n**Ngày cấp:** ${new Date(info.issued_date).toLocaleDateString('vi-VN')}` : '';
+
   const embed = new EmbedBuilder()
     .setColor(info.blocked ? ERROR_COLOR : EMBED_COLOR)
     .setTitle(`🔑 Thông Tin Key`)
     .setDescription(
       `**Key:** \`${info.key}\`\n` +
       `**Tier:** ${info.tier.toUpperCase()}\n` +
+      `${catLine}${issuedLine}\n` +
       `**Trạng thái:** ${statusIcon}${blockInfo}\n` +
       `**Số máy:** ${info.machines.length}/${info.max_machines}\n` +
       `**Kích hoạt cuối:** ${info.last_activated || 'Chưa'}\n\n` +
@@ -274,11 +278,12 @@ async function cmdGen(message, args) {
         new EmbedBuilder()
           .setColor(ERROR_COLOR)
           .setDescription(
-            '❌ Cú pháp: `?nlgen <PRO|UNL> [số lượng] [thời hạn]`\n' +
+            '❌ Cú pháp: `?nlgen <PRO|UNL> [số lượng] [thời hạn] [danh mục]`\n' +
+            'Danh mục: `tm` (thương mại), `mp` (miễn phí), `test`\n' +
             'Ví dụ:\n' +
-            '• `?nlgen UNL 3` — 3 key UNL vĩnh viễn\n' +
-            '• `?nlgen PRO 30d` — 1 key PRO hết hạn 30 ngày\n' +
-            '• `?nlgen PRO 5 7d` — 5 key PRO hết hạn 7 ngày'
+            '• `?nlgen UNL 3 tm` — 3 key UNL thương mại\n' +
+            '• `?nlgen PRO 30d mp` — 1 key PRO miễn phí 30 ngày\n' +
+            '• `?nlgen PRO 5 7d` — 5 key PRO hết hạn 7 ngày (mặc định thương mại)'
           ),
       ],
     });
@@ -295,12 +300,26 @@ async function cmdGen(message, args) {
     });
   }
 
-  // Parse args[1], args[2] — phân biệt số lượng vs thời hạn
+  // Parse args — phân biệt số lượng, thời hạn, danh mục
   let count = 1;
   let days = 0;
+  let category = 'thuongmai'; // Mặc định thương mại
+
+  // Alias danh mục ngắn
+  const CAT_ALIASES = { 'tm': 'thuongmai', 'mp': 'mienphi', 'test': 'test' };
 
   for (let i = 1; i < args.length; i++) {
     const arg = args[i].toLowerCase();
+    // Kiểm tra category alias
+    if (CAT_ALIASES[arg]) {
+      category = CAT_ALIASES[arg];
+      continue;
+    }
+    // Kiểm tra category đầy đủ
+    if (CATEGORIES[arg]) {
+      category = arg;
+      continue;
+    }
     const dayMatch = arg.match(/^(\d+)d$/); // "30d", "7d", ...
     if (dayMatch) {
       days = parseInt(dayMatch[1]);
@@ -326,15 +345,16 @@ async function cmdGen(message, args) {
     generatedKeys.push(generateKey(tierCode, days));
   }
 
-  // Ghi tất cả key lên Firestore
+  // Ghi tất cả key lên Firestore (với category)
   const results = await Promise.all(
-    generatedKeys.map((k) => createKeyDoc(k, tierCode, days))
+    generatedKeys.map((k) => createKeyDoc(k, tierCode, days, category))
   );
   const successCount = results.filter(Boolean).length;
   const failCount = count - successCount;
 
   const keyList = generatedKeys.map((k, i) => `**${i + 1}.** \`${k}\``).join('\n');
   const daysInfo = days > 0 ? `⏰ Hết hạn: **${days} ngày** kể từ khi kích hoạt` : '♾️ Vĩnh viễn (không hết hạn)';
+  const catInfo = CATEGORIES[category];
   const fbStatus = failCount === 0
     ? '✅ Đã lưu lên Firebase'
     : `⚠️ ${successCount}/${count} key lưu thành công`;
@@ -345,6 +365,7 @@ async function cmdGen(message, args) {
     .setDescription(
       `${keyList}\n\n` +
       `${daysInfo}\n` +
+      `${catInfo.emoji} Danh mục: **${catInfo.label}**\n` +
       `${fbStatus}\n` +
       `📋 Giới hạn: ${MAX_MACHINES} máy/key`
     )
@@ -538,4 +559,72 @@ async function cmdDelete(message, args) {
 
   // Xóa reactions
   try { await confirmMsg.reactions.removeAll(); } catch { }
+}
+
+// ══════════════════════════════════════════════════════════
+// ?nlcat <key> <category> — Đổi danh mục cho key
+// ══════════════════════════════════════════════════════════
+async function cmdCategory(message, args) {
+  const CAT_ALIASES = { 'tm': 'thuongmai', 'mp': 'mienphi', 'test': 'test' };
+
+  if (args.length < 2) {
+    const catList = Object.entries(CATEGORIES)
+      .map(([k, v]) => `\`${k}\` = ${v.emoji} ${v.label}`)
+      .join('\n');
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(
+            `❌ Cú pháp: \`?nlcat <key> <danh mục>\`\n\n` +
+            `**Danh mục có sẵn:**\n${catList}\n\n` +
+            `**Alias tắt:** \`tm\` = thương mại, \`mp\` = miễn phí\n` +
+            `VD: \`?nlcat NL-PRO-XXX tm\``
+          ),
+      ],
+    });
+  }
+
+  const key = args[0];
+  const rawCat = args[1].toLowerCase();
+  const category = CAT_ALIASES[rawCat] || rawCat;
+
+  if (!CATEGORIES[category]) {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(
+            `❌ Danh mục \`${rawCat}\` không tồn tại.\n` +
+            `Danh mục hợp lệ: ${Object.keys(CATEGORIES).map(k => `\`${k}\``).join(', ')}`
+          ),
+      ],
+    });
+  }
+
+  const success = await setCategoryKey(key, category);
+
+  if (success) {
+    const catInfo = CATEGORIES[category];
+    const issuedNote = category === 'thuongmai' ? '\n📅 Đã lưu ngày cấp (hôm nay) để tính tiền.' : '';
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(SUCCESS_COLOR)
+          .setTitle(`📂 Đã Đổi Danh Mục`)
+          .setDescription(
+            `**Key:** \`${key}\`\n` +
+            `**Danh mục mới:** ${catInfo.emoji} ${catInfo.label}${issuedNote}`
+          ),
+      ],
+    });
+  } else {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(`❌ Không thể đổi danh mục. Key \`${key}\` có thể không tồn tại.`),
+      ],
+    });
+  }
 }

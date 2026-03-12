@@ -243,71 +243,82 @@ function getFilterLabel(filter) {
 // Xử lý Button click
 // ══════════════════════════════════════════════════════════════
 async function handleButton(interaction) {
-  const { action, page, userId, filter, search } = parseState(interaction.customId);
+  const customId = interaction.customId;
+  if (!customId.startsWith('nlkey_')) return false;
 
-  // Kiểm tra quyền bấm
-  if (userId && interaction.user.id !== userId) {
-    return interaction.reply({
-      content: '❌ Chỉ người sử dụng lệnh mới có thể bấm!',
-      ephemeral: true,
-    });
+  try {
+    const { action, page, userId, filter, search } = parseState(customId);
+
+    // Kiểm tra quyền bấm
+    if (userId && interaction.user.id !== userId) {
+      await interaction.reply({
+        content: '❌ Chỉ người sử dụng lệnh mới có thể bấm!',
+        ephemeral: true,
+      });
+      return true;
+    }
+
+    // ── Search button: mở modal nhập chuỗi tìm kiếm ──
+    if (action === 'search') {
+      const modal = new ModalBuilder()
+        .setCustomId(`nlkey_modal_search_${userId}`)
+        .setTitle('🔍 Tìm kiếm Key / Máy');
+
+      const input = new TextInputBuilder()
+        .setCustomId('search_query')
+        .setLabel('Nhập chuỗi ký tự để tìm')
+        .setPlaceholder('VD: FTV, PRO, tên máy... (để trống = hiện tất cả)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(50);
+
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
+      await interaction.showModal(modal);
+      return true;
+    }
+
+    // ── Pick button: mở modal nhập STT ──
+    if (action === 'pick') {
+      const modal = new ModalBuilder()
+        .setCustomId(`nlkey_modal_pick.${userId}.${filter}.${search}`)
+        .setTitle('📤 Chọn Key theo số thứ tự');
+
+      const input = new TextInputBuilder()
+        .setCustomId('pick_number')
+        .setLabel('Nhập số thứ tự của key')
+        .setPlaceholder('VD: 1, 5, 12...')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(5);
+
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
+      await interaction.showModal(modal);
+      return true;
+    }
+
+    // ── Prev / Next button: đổi trang ──
+    let newPage = page;
+    if (action === 'prev') newPage = Math.max(0, page - 1);
+    if (action === 'next') newPage = page + 1;
+
+    let keys = await getCachedKeys();
+    const totalAllKeys = keys.length;
+    if (search) keys = searchKeys(keys, search);
+    if (filter && filter !== 'all') keys = applyFilter(keys, filter);
+
+    const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
+    newPage = Math.min(newPage, totalPages - 1);
+
+    const filterLabel = getFilterLabel(filter);
+    const embed = buildListEmbed(keys, newPage, totalPages, filterLabel, search, totalAllKeys);
+    const buttons = buildListButtons(newPage, totalPages, userId, filter, search);
+
+    await interaction.update({ embeds: [embed], components: buttons });
+    return true;
+  } catch (err) {
+    console.error('[nlListHandlers] Lỗi handleButton:', err);
+    return false;
   }
-
-  // ── Search button: mở modal nhập chuỗi tìm kiếm ──
-  if (action === 'search') {
-    const modal = new ModalBuilder()
-      .setCustomId(`nlkey_modal_search_${userId}`)
-      .setTitle('🔍 Tìm kiếm Key / Máy');
-
-    const input = new TextInputBuilder()
-      .setCustomId('search_query')
-      .setLabel('Nhập chuỗi ký tự để tìm')
-      .setPlaceholder('VD: FTV, PRO, tên máy... (để trống = hiện tất cả)')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(false)
-      .setMaxLength(50);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    return interaction.showModal(modal);
-  }
-
-  // ── Pick button: mở modal nhập STT ──
-  if (action === 'pick') {
-    const modal = new ModalBuilder()
-      .setCustomId(`nlkey_modal_pick.${userId}.${filter}.${search}`)
-      .setTitle('📤 Chọn Key theo số thứ tự');
-
-    const input = new TextInputBuilder()
-      .setCustomId('pick_number')
-      .setLabel('Nhập số thứ tự của key')
-      .setPlaceholder('VD: 1, 5, 12...')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-      .setMaxLength(5);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    return interaction.showModal(modal);
-  }
-
-  // ── Prev / Next button: đổi trang ──
-  let newPage = page;
-  if (action === 'prev') newPage = Math.max(0, page - 1);
-  if (action === 'next') newPage = page + 1;
-
-  let keys = await getCachedKeys();
-  const totalAllKeys = keys.length;
-  if (search) keys = searchKeys(keys, search);
-  if (filter && filter !== 'all') keys = applyFilter(keys, filter);
-
-  const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
-  newPage = Math.min(newPage, totalPages - 1);
-
-  const filterLabel = getFilterLabel(filter);
-  const embed = buildListEmbed(keys, newPage, totalPages, filterLabel, search, totalAllKeys);
-  const buttons = buildListButtons(newPage, totalPages, userId, filter, search);
-
-  await interaction.update({ embeds: [embed], components: buttons });
-  return true;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -317,29 +328,36 @@ async function handleSelectMenu(interaction) {
   const customId = interaction.customId;
   if (!customId.startsWith('nlkey_filter_select_')) return false;
 
-  const userId = customId.replace('nlkey_filter_select_', '');
+  try {
+    const userId = customId.replace('nlkey_filter_select_', '');
 
-  // Kiểm tra quyền
-  if (userId && interaction.user.id !== userId) {
-    return interaction.reply({
-      content: '❌ Chỉ người sử dụng lệnh mới có thể lọc!',
-      ephemeral: true,
-    });
+    // Kiểm tra quyền
+    if (userId && interaction.user.id !== userId) {
+      await interaction.reply({
+        content: '❌ Chỉ người sử dụng lệnh mới có thể lọc!',
+        ephemeral: true,
+      });
+      return true;
+    }
+
+    const filterValue = interaction.values[0];
+
+    invalidateCache(); // Refresh khi lọc
+    let keys = await getCachedKeys();
+    const totalAllKeys = keys.length;
+    if (filterValue && filterValue !== 'all') keys = applyFilter(keys, filterValue);
+
+    const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
+    const filterLabel = getFilterLabel(filterValue);
+    const embed = buildListEmbed(keys, 0, totalPages, filterLabel, '', totalAllKeys);
+    const buttons = buildListButtons(0, totalPages, userId, filterValue, '');
+
+    await interaction.update({ embeds: [embed], components: buttons });
+    return true;
+  } catch (err) {
+    console.error('[nlListHandlers] Lỗi handleSelectMenu:', err);
+    return false;
   }
-
-  const filterValue = interaction.values[0];
-
-  let keys = await getCachedKeys();
-  const totalAllKeys = keys.length;
-  if (filterValue && filterValue !== 'all') keys = applyFilter(keys, filterValue);
-
-  const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
-  const filterLabel = getFilterLabel(filterValue);
-  const embed = buildListEmbed(keys, 0, totalPages, filterLabel, '', totalAllKeys);
-  const buttons = buildListButtons(0, totalPages, userId, filterValue, '');
-
-  await interaction.update({ embeds: [embed], components: buttons });
-  return true;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -348,71 +366,80 @@ async function handleSelectMenu(interaction) {
 async function handleModalSubmit(interaction) {
   const customId = interaction.customId;
 
-  // ── Modal tìm kiếm ──
-  if (customId.startsWith('nlkey_modal_search_')) {
-    const userId = customId.replace('nlkey_modal_search_', '');
+  try {
+    // ── Modal tìm kiếm ──
+    if (customId.startsWith('nlkey_modal_search_')) {
+      const userId = customId.replace('nlkey_modal_search_', '');
 
-    if (userId && interaction.user.id !== userId) {
-      return interaction.reply({
-        content: '❌ Chỉ người sử dụng lệnh mới có thể tìm kiếm!',
-        ephemeral: true,
-      });
+      if (userId && interaction.user.id !== userId) {
+        await interaction.reply({
+          content: '❌ Chỉ người sử dụng lệnh mới có thể tìm kiếm!',
+          ephemeral: true,
+        });
+        return true;
+      }
+
+      const query = (interaction.fields.getTextInputValue('search_query') || '').trim();
+
+      let keys = await getCachedKeys();
+      const totalAllKeys = keys.length;
+      if (query) keys = searchKeys(keys, query);
+
+      const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
+      const embed = buildListEmbed(keys, 0, totalPages, '', query, totalAllKeys);
+      const buttons = buildListButtons(0, totalPages, userId, '', query);
+
+      await interaction.update({ embeds: [embed], components: buttons });
+      return true;
     }
 
-    const query = (interaction.fields.getTextInputValue('search_query') || '').trim();
+    // ── Modal chọn key theo STT ──
+    if (customId.startsWith('nlkey_modal_pick.')) {
+      const parts = customId.replace('nlkey_modal_pick.', '').split('.');
+      const userId = parts[0] || '';
+      const filter = parts[1] || '';
+      const search = parts.slice(2).join('.') || '';
 
-    let keys = await getCachedKeys();
-    if (query) keys = searchKeys(keys, query);
+      if (userId && interaction.user.id !== userId) {
+        await interaction.reply({
+          content: '❌ Chỉ người sử dụng lệnh mới có thể chọn key!',
+          ephemeral: true,
+        });
+        return true;
+      }
 
-    const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
-    const embed = buildListEmbed(keys, 0, totalPages, '', query);
-    const buttons = buildListButtons(0, totalPages, userId, '', query);
+      const numStr = (interaction.fields.getTextInputValue('pick_number') || '').trim();
+      const num = parseInt(numStr);
 
-    await interaction.update({ embeds: [embed], components: buttons });
-    return true;
-  }
+      if (isNaN(num) || num < 1) {
+        await interaction.reply({
+          content: '❌ Vui lòng nhập số thứ tự hợp lệ!',
+          ephemeral: true,
+        });
+        return true;
+      }
 
-  // ── Modal chọn key theo STT ──
-  if (customId.startsWith('nlkey_modal_pick.')) {
-    const parts = customId.replace('nlkey_modal_pick.', '').split('.');
-    const userId = parts[0] || '';
-    const filter = parts[1] || '';
-    const search = parts.slice(2).join('.') || '';
+      let keys = await getCachedKeys();
+      if (search) keys = searchKeys(keys, search);
+      if (filter && filter !== 'all') keys = applyFilter(keys, filter);
 
-    if (userId && interaction.user.id !== userId) {
-      return interaction.reply({
-        content: '❌ Chỉ người sử dụng lệnh mới có thể chọn key!',
-        ephemeral: true,
-      });
+      if (num > keys.length) {
+        await interaction.reply({
+          content: `❌ Số thứ tự ${num} vượt quá tổng số key (${keys.length})!`,
+          ephemeral: true,
+        });
+        return true;
+      }
+
+      const selectedKey = keys[num - 1];
+
+      // Gửi tin nhắn bình thường chỉ chứa key
+      await interaction.deferUpdate();
+      await interaction.channel.send(selectedKey.key);
+      return true;
     }
-
-    const numStr = (interaction.fields.getTextInputValue('pick_number') || '').trim();
-    const num = parseInt(numStr);
-
-    if (isNaN(num) || num < 1) {
-      return interaction.reply({
-        content: '❌ Vui lòng nhập số thứ tự hợp lệ!',
-        ephemeral: true,
-      });
-    }
-
-    let keys = await getCachedKeys();
-    if (search) keys = searchKeys(keys, search);
-    if (filter && filter !== 'all') keys = applyFilter(keys, filter);
-
-    if (num > keys.length) {
-      return interaction.reply({
-        content: `❌ Số thứ tự ${num} vượt quá tổng số key (${keys.length})!`,
-        ephemeral: true,
-      });
-    }
-
-    const selectedKey = keys[num - 1];
-
-    // Gửi tin nhắn bình thường chỉ chứa key (không embed, không gì thêm)
-    await interaction.deferUpdate(); // Ẩn loading của modal
-    await interaction.channel.send(selectedKey.key);
-    return true;
+  } catch (err) {
+    console.error('[nlListHandlers] Lỗi handleModalSubmit:', err);
   }
 
   return false;

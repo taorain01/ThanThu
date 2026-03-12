@@ -134,28 +134,28 @@ function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = 
 // Tạo các button điều hướng
 // ══════════════════════════════════════════════════════════════
 function buildListButtons(page, totalPages, userId, filter = '', search = '') {
-  // Encode state vào customId: nlkey_{action}_{page}_{userId}_{filter}_{search}
-  // Do customId giới hạn 100 ký tự → dùng ngắn gọn
-  const state = `${page}_${userId}_${filter}_${search}`;
+  // Encode state: nlkey_{action}.{page}.{userId}.{filter}.{search}
+  // Dùng '.' làm delimiter để tránh xung đột với filter chứa '_' (cat_thuongmai)
+  const state = `${page}.${userId}.${filter}.${search}`;
 
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`nlkey_prev_${state}`)
+      .setCustomId(`nlkey_prev.${state}`)
       .setLabel('◀ Trước')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page === 0),
     new ButtonBuilder()
-      .setCustomId(`nlkey_next_${state}`)
+      .setCustomId(`nlkey_next.${state}`)
       .setLabel('Sau ▶')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= totalPages - 1),
     new ButtonBuilder()
-      .setCustomId(`nlkey_search_${state}`)
+      .setCustomId(`nlkey_search.${state}`)
       .setEmoji('🔍')
       .setLabel('Tìm kiếm')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`nlkey_pick_${state}`)
+      .setCustomId(`nlkey_pick.${state}`)
       .setEmoji('📤')
       .setLabel('Chọn Key')
       .setStyle(ButtonStyle.Success),
@@ -185,17 +185,18 @@ function buildListButtons(page, totalPages, userId, filter = '', search = '') {
 
 // ══════════════════════════════════════════════════════════════
 // Parse state từ customId
-// Format: nlkey_{action}_{page}_{userId}_{filter}_{search}
+// Format: nlkey_{action}.{page}.{userId}.{filter}.{search}
 // ══════════════════════════════════════════════════════════════
 function parseState(customId) {
-  // nlkey_prev_0_123456_pro_FTV → action=prev, page=0, userId=123456, filter=pro, search=FTV
-  const parts = customId.split('_');
-  // parts[0] = 'nlkey', parts[1] = action
-  const action = parts[1];
-  const page = parseInt(parts[2]) || 0;
-  const userId = parts[3] || '';
-  const filter = parts[4] || '';
-  const search = parts.slice(5).join('_') || ''; // search có thể chứa _
+  // Bước 1: Tách prefix 'nlkey_' và lấy phần còn lại
+  const withoutPrefix = customId.slice(6); // bỏ 'nlkey_'
+  // withoutPrefix = 'prev.0.123456.cat_thuongmai.FTV'
+  const parts = withoutPrefix.split('.');
+  const action = parts[0] || '';
+  const page = parseInt(parts[1]) || 0;
+  const userId = parts[2] || '';
+  const filter = parts[3] || '';
+  const search = parts.slice(4).join('.') || ''; // search có thể chứa '.'
   return { action, page, userId, filter, search };
 }
 
@@ -273,7 +274,7 @@ async function handleButton(interaction) {
   // ── Pick button: mở modal nhập STT ──
   if (action === 'pick') {
     const modal = new ModalBuilder()
-      .setCustomId(`nlkey_modal_pick_${userId}_${filter}_${search}`)
+      .setCustomId(`nlkey_modal_pick.${userId}.${filter}.${search}`)
       .setTitle('📤 Chọn Key theo số thứ tự');
 
     const input = new TextInputBuilder()
@@ -372,11 +373,11 @@ async function handleModalSubmit(interaction) {
   }
 
   // ── Modal chọn key theo STT ──
-  if (customId.startsWith('nlkey_modal_pick_')) {
-    const parts = customId.replace('nlkey_modal_pick_', '').split('_');
+  if (customId.startsWith('nlkey_modal_pick.')) {
+    const parts = customId.replace('nlkey_modal_pick.', '').split('.');
     const userId = parts[0] || '';
     const filter = parts[1] || '';
-    const search = parts.slice(2).join('_') || '';
+    const search = parts.slice(2).join('.') || '';
 
     if (userId && interaction.user.id !== userId) {
       return interaction.reply({

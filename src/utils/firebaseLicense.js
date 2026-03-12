@@ -24,6 +24,12 @@ const CATEGORIES = {
   'test':      { label: 'Dùng thử', emoji: '🧪' },
 };
 
+// Bảng giá các gói (VNĐ)
+const TIER_PRICES = {
+  'PRO': 199000,
+  'UNL': 399000,
+};
+
 // ── Firebase Anonymous Auth (giống Python license.py) ──
 let _authToken = null;
 let _authExpiry = 0;
@@ -333,5 +339,6 @@ module.exports = {
   deleteKey,
   setCategoryKey,
   CATEGORIES,
+  TIER_PRICES,
   MAX_MACHINES,
 };

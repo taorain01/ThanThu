@@ -16,6 +16,7 @@ const {
   deleteKey,
   setCategoryKey,
   CATEGORIES,
+  TIER_PRICES,
   MAX_MACHINES,
 } = require('../../utils/firebaseLicense');
 const { sendKeyList } = require('../../utils/nlListHandlers');
@@ -33,6 +34,7 @@ const CMD_ALIASES = {
   'remove': 'remove', 'rm': 'remove',
   'delete': 'delete', 'd': 'delete',
   'cat': 'category', 'category': 'category',
+  'sales': 'sales', 'doanhthu': 'sales', 'dt': 'sales', 'revenue': 'sales',
 };
 
 // Chỉ admin mới được dùng (trừ ?nlhelp)
@@ -92,6 +94,8 @@ module.exports = {
           return await cmdGen(message, args);
         case 'category':
           return await cmdCategory(message, args);
+        case 'sales':
+          return await cmdSales(message, args);
         case 'block':
           return await cmdBlock(message, args, false);
         case 'pblock':
@@ -182,11 +186,19 @@ function sendHelp(message, prefix) {
           `**\`${p}nlunblock <key>\`** — Mở chặn (Alias: \`${p}nlul\`)`,
       },
       {
+        name: '📊  DOANH THU',
+        value:
+          `**\`${p}nlsales\`** — Tổng quan doanh thu (PRO/UNL)\n` +
+          `**\`${p}nlsales pro\`** — Chi tiết key PRO đã bán\n` +
+          `**\`${p}nlsales unl\`** — Chi tiết key UNL đã bán\n` +
+          `> Alias: \`${p}nldoanhthu\`, \`${p}nldt\``,
+      },
+      {
         name: '⌨️  BẢNG ALIAS TẮT',
         value:
           `\`${p}nl\` → list │ \`${p}nli\` → info │ \`${p}nlg\` \`${p}nlc\` → gen\n` +
-          `\`${p}nlcat\` → category │ \`${p}nlb\` → block │ \`${p}nlpb\` → pblock\n` +
-          `\`${p}nlul\` → unblock │ \`${p}nlrm\` → remove │ \`${p}nld\` → delete`,
+          `\`${p}nlcat\` → category │ \`${p}nldt\` → sales │ \`${p}nlb\` → block\n` +
+          `\`${p}nlpb\` → pblock │ \`${p}nlul\` → unblock │ \`${p}nlrm\` → remove │ \`${p}nld\` → delete`,
       },
     )
     .setFooter({ text: '🔑 NhacLabs License Manager • Chỉ admin mới dùng được (trừ ?nl)' })
@@ -627,4 +639,111 @@ async function cmdCategory(message, args) {
       ],
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// ?nlsales [pro|unl] — Thống kê doanh thu từ key thương mại
+// ══════════════════════════════════════════════════════════
+async function cmdSales(message, args) {
+  const keys = await listAllKeys();
+
+  // Lọc key thương mại
+  const soldKeys = keys.filter(k => (k.category || 'thuongmai') === 'thuongmai');
+
+  // Nếu có tham số → chi tiết 1 gói
+  const tierFilter = args[0]?.toUpperCase();
+
+  if (tierFilter && ['PRO', 'UNL'].includes(tierFilter)) {
+    // ── Chi tiết 1 gói ──
+    const tierKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === tierFilter);
+    const price = TIER_PRICES[tierFilter] || 0;
+    const totalRevenue = tierKeys.length * price;
+
+    // Sắp xếp theo ngày cấp (mới nhất trước)
+    tierKeys.sort((a, b) => {
+      const da = a.issued_date ? new Date(a.issued_date) : new Date(0);
+      const db = b.issued_date ? new Date(b.issued_date) : new Date(0);
+      return db - da;
+    });
+
+    // Danh sách key (tối đa 15)
+    const keyLines = tierKeys.slice(0, 15).map((k, i) => {
+      const date = k.issued_date
+        ? new Date(k.issued_date).toLocaleDateString('vi-VN')
+        : 'N/A';
+      const status = k.blocked ? '🔴' : '🟢';
+      const machineCount = k.machines ? k.machines.length : 0;
+      return `**${i + 1}.** ${status} \`${k.key}\` — ${machineCount} máy — 📅 ${date}`;
+    }).join('\n');
+
+    const remaining = tierKeys.length > 15 ? `\n*...và ${tierKeys.length - 15} key khác*` : '';
+
+    const embed = new EmbedBuilder()
+      .setColor(EMBED_COLOR)
+      .setTitle(`📊 Chi Tiết Gói ${tierFilter} — Thương Mại`)
+      .setDescription(
+        `💰 **Giá gói:** ${formatVND(price)}\n` +
+        `🔑 **Tổng key đã bán:** ${tierKeys.length}\n` +
+        `💵 **Tổng doanh thu:** ${formatVND(totalRevenue)}\n\n` +
+        `📋 **Danh sách key (mới → cũ):**\n${keyLines || '*Chưa có key nào*'}${remaining}`
+      )
+      .setTimestamp();
+
+    return message.reply({ embeds: [embed] });
+  }
+
+  // ── Tổng quan doanh thu ──
+  const proKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === 'PRO');
+  const unlKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === 'UNL');
+
+  const proRevenue = proKeys.length * (TIER_PRICES['PRO'] || 0);
+  const unlRevenue = unlKeys.length * (TIER_PRICES['UNL'] || 0);
+  const totalRevenue = proRevenue + unlRevenue;
+
+  // Key đang hoạt động vs bị chặn
+  const activeKeys = soldKeys.filter(k => !k.blocked);
+  const blockedKeys = soldKeys.filter(k => k.blocked);
+
+  // Key đã kích hoạt vs chưa
+  const activatedKeys = soldKeys.filter(k => k.machines && k.machines.length > 0);
+  const notActivatedKeys = soldKeys.filter(k => !k.machines || k.machines.length === 0);
+
+  // Thống kê key miễn phí & test (không tính doanh thu)
+  const freeKeys = keys.filter(k => k.category === 'mienphi');
+  const testKeys = keys.filter(k => k.category === 'test');
+
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF88)
+    .setTitle('📊 Thống Kê Doanh Thu NhacLabs')
+    .setDescription(
+      `### 💰 Tổng Doanh Thu: **${formatVND(totalRevenue)}**\n\n` +
+
+      `**⭐ Gói PRO — ${formatVND(TIER_PRICES['PRO'])}**\n` +
+      `> 🔑 Đã bán: **${proKeys.length}** key\n` +
+      `> 💵 Doanh thu: **${formatVND(proRevenue)}**\n\n` +
+
+      `**👑 Gói UNL — ${formatVND(TIER_PRICES['UNL'])}**\n` +
+      `> 🔑 Đã bán: **${unlKeys.length}** key\n` +
+      `> 💵 Doanh thu: **${formatVND(unlRevenue)}**\n\n` +
+
+      `───────────────────\n` +
+      `📈 **Tổng quan key thương mại:**\n` +
+      `> 🟢 Hoạt động: **${activeKeys.length}** │ 🔴 Bị chặn: **${blockedKeys.length}**\n` +
+      `> ✅ Đã KH: **${activatedKeys.length}** │ ⬜ Chưa KH: **${notActivatedKeys.length}**\n\n` +
+
+      `📦 **Các loại khác (không tính doanh thu):**\n` +
+      `> 🎁 Miễn phí: **${freeKeys.length}** key\n` +
+      `> 🧪 Dùng thử: **${testKeys.length}** key\n\n` +
+
+      `*Dùng \`?nlsales pro\` hoặc \`?nlsales unl\` để xem chi tiết từng gói.*`
+    )
+    .setFooter({ text: `Tổng cộng: ${keys.length} key trên hệ thống` })
+    .setTimestamp();
+
+  return message.reply({ embeds: [embed] });
+}
+
+// Format số tiền VNĐ: 199000 → "199,000đ"
+function formatVND(amount) {
+  return amount.toLocaleString('vi-VN') + 'đ';
 }

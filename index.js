@@ -4,5 +4,4 @@
  * Redirects to the actual bot file at src/bot.js
  */
 
-console.log('✅ [GIT TEST] Code mới từ GitHub đã được cập nhật! - ' + new Date().toLocaleString('vi-VN'));
 require('./src/bot.js');

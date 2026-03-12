@@ -89,6 +89,10 @@ module.exports = {
         case 'info':
           return await cmdInfo(message, args);
         case 'list':
+          // ?nl thông minh: nếu có args và arg đầu là PRO/UNL → chuyển sang gen
+          if (args.length > 0 && ['PRO', 'UNL'].includes(args[0].toUpperCase())) {
+            return await cmdGen(message, args);
+          }
           return await sendKeyList(message);
         case 'gen':
           return await cmdGen(message, args);
@@ -147,12 +151,11 @@ function sendHelp(message, prefix) {
       {
         name: '📋  XEM THÔNG TIN',
         value:
-          `**\`${p}nl\`** hoặc **\`${p}nllist\`** — Danh sách tất cả key\n` +
-          `> 📄 Phân trang 10 key/trang, lọc theo danh mục\n` +
-          `> 🔍 Tìm kiếm, 🔎 Lọc, 📤 Chọn Key\n\n` +
-          `**\`${p}nlinfo <key>\`** — Xem chi tiết 1 key\n` +
-          `> Hiện: tier, danh mục, trạng thái, số máy\n` +
-          `> Alias: \`${p}nli\``,
+          `**\`${p}nl\`** — Danh sách key / hoặc tạo key nhanh\n` +
+          `> Không args → hiện danh sách │ Có args PRO/UNL → tạo key\n` +
+          `> VD: \`${p}nl\` = list │ \`${p}nl unl 3 tm\` = tạo 3 key UNL\n` +
+          `> 📄 Phân trang, lọc theo danh mục, 🔍 tìm kiếm\n\n` +
+          `**\`${p}nlinfo <key>\`** — Xem chi tiết 1 key (Alias: \`${p}nli\`)`,
       },
       {
         name: '🔧  TẠO KEY',
@@ -332,7 +335,7 @@ async function cmdGen(message, args) {
       category = arg;
       continue;
     }
-    const dayMatch = arg.match(/^(\d+)d$/); // "30d", "7d", ...
+    const dayMatch = arg.match(/^(\d+)[dn]$/i); // "30d", "7d", "30n", "7n",...
     if (dayMatch) {
       days = parseInt(dayMatch[1]);
       if (days < 1 || days > 3650) {

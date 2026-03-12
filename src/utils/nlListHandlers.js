@@ -90,7 +90,7 @@ function searchKeys(keys, query) {
 // ══════════════════════════════════════════════════════════════
 // Tạo embed phân trang
 // ══════════════════════════════════════════════════════════════
-function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = '') {
+function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = '', totalAllKeys = 0) {
   const start = page * ITEMS_PER_PAGE;
   const end = Math.min(start + ITEMS_PER_PAGE, keys.length);
   const pageKeys = keys.slice(start, end);
@@ -124,7 +124,7 @@ function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = 
     .setColor(EMBED_COLOR)
     .setTitle(title)
     .setDescription(lines.join('\n') || '*Không có key nào.*')
-    .setFooter({ text: `Trang ${page + 1}/${totalPages || 1} • Bấm 📤 để lấy key theo STT` })
+    .setFooter({ text: `Trang ${page + 1}/${totalPages || 1} • Tổng: ${totalAllKeys || keys.length} key • Bấm 📤 để lấy key` })
     .setTimestamp();
 
   return embed;
@@ -203,8 +203,9 @@ function parseState(customId) {
 // Hàm chính: Gửi danh sách key ban đầu (gọi từ nhacLabsCommands)
 // ══════════════════════════════════════════════════════════════
 async function sendKeyList(message, filter = '', search = '') {
-  invalidateCache(); // Lần gọi đầu luôn refresh
+  invalidateCache();
   let keys = await getCachedKeys();
+  const totalAllKeys = keys.length; // Tổng key trước khi lọc
 
   if (keys.length === 0) {
     return message.reply({
@@ -221,7 +222,7 @@ async function sendKeyList(message, filter = '', search = '') {
 
   const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
   const filterLabel = getFilterLabel(filter);
-  const embed = buildListEmbed(keys, 0, totalPages, filterLabel, search);
+  const embed = buildListEmbed(keys, 0, totalPages, filterLabel, search, totalAllKeys);
   const buttons = buildListButtons(0, totalPages, message.author.id, filter, search);
 
   await message.channel.send({ embeds: [embed], components: buttons });
@@ -293,6 +294,7 @@ async function handleButton(interaction) {
   if (action === 'next') newPage = page + 1;
 
   let keys = await getCachedKeys();
+  const totalAllKeys = keys.length;
   if (search) keys = searchKeys(keys, search);
   if (filter && filter !== 'all') keys = applyFilter(keys, filter);
 
@@ -300,7 +302,7 @@ async function handleButton(interaction) {
   newPage = Math.min(newPage, totalPages - 1);
 
   const filterLabel = getFilterLabel(filter);
-  const embed = buildListEmbed(keys, newPage, totalPages, filterLabel, search);
+  const embed = buildListEmbed(keys, newPage, totalPages, filterLabel, search, totalAllKeys);
   const buttons = buildListButtons(newPage, totalPages, userId, filter, search);
 
   await interaction.update({ embeds: [embed], components: buttons });
@@ -327,11 +329,12 @@ async function handleSelectMenu(interaction) {
   const filterValue = interaction.values[0];
 
   let keys = await getCachedKeys();
+  const totalAllKeys = keys.length;
   if (filterValue && filterValue !== 'all') keys = applyFilter(keys, filterValue);
 
   const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
   const filterLabel = getFilterLabel(filterValue);
-  const embed = buildListEmbed(keys, 0, totalPages, filterLabel, '');
+  const embed = buildListEmbed(keys, 0, totalPages, filterLabel, '', totalAllKeys);
   const buttons = buildListButtons(0, totalPages, userId, filterValue, '');
 
   await interaction.update({ embeds: [embed], components: buttons });

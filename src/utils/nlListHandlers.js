@@ -297,6 +297,9 @@ async function handleButton(interaction) {
     }
 
     // ── Prev / Next button: đổi trang ──
+    // Defer trước để tránh timeout 3 giây khi gọi Firebase
+    await interaction.deferUpdate();
+
     let newPage = page;
     if (action === 'prev') newPage = Math.max(0, page - 1);
     if (action === 'next') newPage = page + 1;
@@ -313,11 +316,19 @@ async function handleButton(interaction) {
     const embed = buildListEmbed(keys, newPage, totalPages, filterLabel, search, totalAllKeys);
     const buttons = buildListButtons(newPage, totalPages, userId, filter, search);
 
-    await interaction.update({ embeds: [embed], components: buttons });
+    await interaction.editReply({ embeds: [embed], components: buttons });
     return true;
   } catch (err) {
     console.error('[nlListHandlers] Lỗi handleButton:', err);
-    return false;
+    // Reply lỗi để tránh "Tương tác không thành công"
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ Đã xảy ra lỗi khi xử lý!', ephemeral: true });
+      } else {
+        await interaction.editReply({ content: '❌ Đã xảy ra lỗi khi xử lý!' });
+      }
+    } catch (_) { /* bỏ qua nếu không reply được */ }
+    return true;
   }
 }
 
@@ -340,6 +351,9 @@ async function handleSelectMenu(interaction) {
       return true;
     }
 
+    // Defer trước để tránh timeout 3 giây khi gọi Firebase
+    await interaction.deferUpdate();
+
     const filterValue = interaction.values[0];
 
     invalidateCache(); // Refresh khi lọc
@@ -352,11 +366,19 @@ async function handleSelectMenu(interaction) {
     const embed = buildListEmbed(keys, 0, totalPages, filterLabel, '', totalAllKeys);
     const buttons = buildListButtons(0, totalPages, userId, filterValue, '');
 
-    await interaction.update({ embeds: [embed], components: buttons });
+    await interaction.editReply({ embeds: [embed], components: buttons });
     return true;
   } catch (err) {
     console.error('[nlListHandlers] Lỗi handleSelectMenu:', err);
-    return false;
+    // Reply lỗi để tránh "Tương tác không thành công"
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ Đã xảy ra lỗi khi lọc!', ephemeral: true });
+      } else {
+        await interaction.editReply({ content: '❌ Đã xảy ra lỗi khi lọc!' });
+      }
+    } catch (_) { /* bỏ qua nếu không reply được */ }
+    return true;
   }
 }
 
@@ -379,6 +401,9 @@ async function handleModalSubmit(interaction) {
         return true;
       }
 
+      // Defer trước để tránh timeout 3 giây khi gọi Firebase
+      await interaction.deferUpdate();
+
       const query = (interaction.fields.getTextInputValue('search_query') || '').trim();
 
       let keys = await getCachedKeys();
@@ -389,7 +414,7 @@ async function handleModalSubmit(interaction) {
       const embed = buildListEmbed(keys, 0, totalPages, '', query, totalAllKeys);
       const buttons = buildListButtons(0, totalPages, userId, '', query);
 
-      await interaction.update({ embeds: [embed], components: buttons });
+      await interaction.editReply({ embeds: [embed], components: buttons });
       return true;
     }
 
@@ -440,6 +465,14 @@ async function handleModalSubmit(interaction) {
     }
   } catch (err) {
     console.error('[nlListHandlers] Lỗi handleModalSubmit:', err);
+    // Reply lỗi để tránh "Tương tác không thành công"
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: '❌ Đã xảy ra lỗi!', ephemeral: true });
+      } else {
+        await interaction.editReply({ content: '❌ Đã xảy ra lỗi!' });
+      }
+    } catch (_) { /* bỏ qua nếu không reply được */ }
   }
 
   return false;

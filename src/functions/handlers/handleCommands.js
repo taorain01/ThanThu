@@ -15,14 +15,12 @@ module.exports = (client) => {
         const command = require(`../../commands/${folder}/${file}`);
 
         if (!command.data) {
-          console.error(`Command in file ${file} is missing 'data' or 'name'.`);
-          continue;
+          continue; // Bỏ qua prefix commands (không có data)
         } else {
           commands.set(command.data.name, command);
           if (command.data.toJSON) {
             commandArray.push(command.data.toJSON());
           }
-          console.log(`Loaded command: ${command.data.name}`); // Thêm log để debug
         }
       }
     }

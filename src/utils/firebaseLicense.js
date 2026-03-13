@@ -132,7 +132,7 @@ function generateKey(tierCode, days = 0) {
   const payload = crypto.randomBytes(5).toString("hex").toUpperCase();
   const raw = `NL-${tierSegment}-${payload}`;
   const sig = crypto
-    .createHmac("sha256", HMAC_SECRET)
+    .createHmac("sha256", Buffer.from(HMAC_SECRET, 'hex'))
     .update(raw)
     .digest("hex")
     .slice(0, 10)

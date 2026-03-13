@@ -245,6 +245,7 @@ function getFilterLabel(filter) {
 async function handleButton(interaction) {
   const customId = interaction.customId;
   if (!customId.startsWith('nlkey_')) return false;
+  console.log('[nlListHandlers] handleButton được gọi, customId:', customId);
 
   try {
     const { action, page, userId, filter, search } = parseState(customId);
@@ -319,7 +320,7 @@ async function handleButton(interaction) {
     await interaction.editReply({ embeds: [embed], components: buttons });
     return true;
   } catch (err) {
-    console.error('[nlListHandlers] Lỗi handleButton:', err);
+    console.error('[nlListHandlers] Lỗi handleButton:', err.stack || err);
     // Reply lỗi để tránh "Tương tác không thành công"
     try {
       if (!interaction.replied && !interaction.deferred) {
@@ -338,6 +339,7 @@ async function handleButton(interaction) {
 async function handleSelectMenu(interaction) {
   const customId = interaction.customId;
   if (!customId.startsWith('nlkey_filter_select_')) return false;
+  console.log('[nlListHandlers] handleSelectMenu được gọi, customId:', customId);
 
   try {
     const userId = customId.replace('nlkey_filter_select_', '');
@@ -369,7 +371,7 @@ async function handleSelectMenu(interaction) {
     await interaction.editReply({ embeds: [embed], components: buttons });
     return true;
   } catch (err) {
-    console.error('[nlListHandlers] Lỗi handleSelectMenu:', err);
+    console.error('[nlListHandlers] Lỗi handleSelectMenu:', err.stack || err);
     // Reply lỗi để tránh "Tương tác không thành công"
     try {
       if (!interaction.replied && !interaction.deferred) {

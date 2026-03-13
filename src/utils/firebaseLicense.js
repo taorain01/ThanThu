@@ -230,6 +230,7 @@ async function listAllKeys() {
         tier: fields.tier?.stringValue || "",
         category: fields.category?.stringValue || "thuongmai",
         issued_date: fields.issued_date?.stringValue || "",
+        created_at: fields.created_at?.stringValue || "",
         machines,
         blocked: fields.blocked?.booleanValue || false,
         last_activated: fields.last_activated?.stringValue || "",

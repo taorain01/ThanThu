@@ -21,6 +21,28 @@ const EMBED_COLOR = 0xFFD700; // Gold
 const ERROR_COLOR = 0xFF4444;
 const ITEMS_PER_PAGE = 10;
 
+// ── Helper: format ngày ISO → DD/MM/YYYY ──
+function formatDate(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  } catch { return ''; }
+}
+
+// ── Sắp xếp key theo ngày ──
+function sortKeys(keys, sortType = 'sort_newest') {
+  return [...keys].sort((a, b) => {
+    const dateA = new Date(a.created_at || a.issued_date || 0).getTime();
+    const dateB = new Date(b.created_at || b.issued_date || 0).getTime();
+    return sortType === 'sort_oldest' ? dateA - dateB : dateB - dateA;
+  });
+}
+
 // ── Cache tạm key list (tránh gọi Firebase mỗi lần bấm button) ──
 // Cache hết hạn sau 60 giây
 let cachedKeys = null;
@@ -65,6 +87,10 @@ function applyFilter(keys, filterType) {
       return keys.filter(k => k.category === 'mienphi');
     case 'cat_test':
       return keys.filter(k => k.category === 'test');
+    // sort_newest / sort_oldest không phải filter, chỉ là sort → trả nguyên
+    case 'sort_newest':
+    case 'sort_oldest':
+      return keys;
     default:
       return keys;
   }
@@ -117,7 +143,11 @@ function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = 
     const catKey = k.category || 'thuongmai';
     const catEmoji = CATEGORIES[catKey]?.emoji || '💰';
 
-    return `**${idx}.** ${status} ${catEmoji} \`${k.key}\` — **${tier}** — ${machineCount} máy${machineInfo}`;
+    // Ngày tạo key (DD/MM/YYYY)
+    const dateStr = formatDate(k.created_at || k.issued_date);
+    const dateInfo = dateStr ? ` 📅 ${dateStr}` : '';
+
+    return `**${idx}.** ${status} ${catEmoji} \`${k.key}\` — **${tier}** — ${machineCount} máy${dateInfo}${machineInfo}`;
   });
 
   const embed = new EmbedBuilder()
@@ -133,10 +163,10 @@ function buildListEmbed(keys, page, totalPages, filterLabel = '', searchQuery = 
 // ══════════════════════════════════════════════════════════════
 // Tạo các button điều hướng
 // ══════════════════════════════════════════════════════════════
-function buildListButtons(page, totalPages, userId, filter = '', search = '') {
-  // Encode state: nlkey_{action}.{page}.{userId}.{filter}.{search}
+function buildListButtons(page, totalPages, userId, filter = '', search = '', sort = 'sort_newest') {
+  // Encode state: nlkey_{action}.{page}.{userId}.{filter}.{search}.{sort}
   // Dùng '.' làm delimiter để tránh xung đột với filter chứa '_' (cat_thuongmai)
-  const state = `${page}.${userId}.${filter}.${search}`;
+  const state = `${page}.${userId}.${filter}.${search}.${sort}`;
 
   const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -161,13 +191,15 @@ function buildListButtons(page, totalPages, userId, filter = '', search = '') {
       .setStyle(ButtonStyle.Success),
   );
 
-  // Row 2: Select menu lọc
+  // Row 2: Select menu lọc + sort
   const row2 = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`nlkey_filter_select_${userId}`)
       .setPlaceholder('🔎 Lọc theo...')
       .addOptions([
         { label: '📋 Tất cả', value: 'all', description: 'Hiện tất cả key' },
+        { label: '📅 Mới nhất trước', value: 'sort_newest', description: 'Sắp xếp theo ngày tạo mới nhất' },
+        { label: '📅 Cũ nhất trước', value: 'sort_oldest', description: 'Sắp xếp theo ngày tạo cũ nhất' },
         { label: '💰 Thương mại', value: 'cat_thuongmai', description: 'Key bán thương mại' },
         { label: '🎁 Miễn phí', value: 'cat_mienphi', description: 'Key phát miễn phí' },
         { label: '🧪 Dùng thử', value: 'cat_test', description: 'Key test' },
@@ -190,14 +222,20 @@ function buildListButtons(page, totalPages, userId, filter = '', search = '') {
 function parseState(customId) {
   // Bước 1: Tách prefix 'nlkey_' và lấy phần còn lại
   const withoutPrefix = customId.slice(6); // bỏ 'nlkey_'
-  // withoutPrefix = 'prev.0.123456.cat_thuongmai.FTV'
+  // withoutPrefix = 'prev.0.123456.cat_thuongmai.FTV.sort_newest'
   const parts = withoutPrefix.split('.');
   const action = parts[0] || '';
   const page = parseInt(parts[1]) || 0;
   const userId = parts[2] || '';
   const filter = parts[3] || '';
-  const search = parts.slice(4).join('.') || ''; // search có thể chứa '.'
-  return { action, page, userId, filter, search };
+  // Phần cuối là sort (sort_newest / sort_oldest), search ở giữa
+  const lastPart = parts[parts.length - 1] || '';
+  const hasSort = lastPart === 'sort_newest' || lastPart === 'sort_oldest';
+  const sort = hasSort ? lastPart : 'sort_newest';
+  // search nằm giữa filter và sort
+  const searchParts = hasSort ? parts.slice(4, -1) : parts.slice(4);
+  const search = searchParts.join('.') || '';
+  return { action, page, userId, filter, search, sort };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -221,10 +259,13 @@ async function sendKeyList(message, filter = '', search = '') {
   if (search) keys = searchKeys(keys, search);
   if (filter && filter !== 'all') keys = applyFilter(keys, filter);
 
+  // Mặc định sắp xếp theo ngày mới nhất
+  keys = sortKeys(keys, 'sort_newest');
+
   const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
   const filterLabel = getFilterLabel(filter);
   const embed = buildListEmbed(keys, 0, totalPages, filterLabel, search, totalAllKeys);
-  const buttons = buildListButtons(0, totalPages, message.author.id, filter, search);
+  const buttons = buildListButtons(0, totalPages, message.author.id, filter, search, 'sort_newest');
 
   await message.channel.send({ embeds: [embed], components: buttons });
 }
@@ -235,6 +276,7 @@ function getFilterLabel(filter) {
     'activated': '✅ Đã KH', 'not_activated': '⬜ Chưa KH',
     'pro': '⭐ PRO', 'unl': '👑 UNL',
     'cat_thuongmai': '💰 Thương mại', 'cat_mienphi': '🎁 Miễn phí', 'cat_test': '🧪 Dùng thử',
+    'sort_newest': '📅 Mới nhất', 'sort_oldest': '📅 Cũ nhất',
   };
   return labels[filter] || '';
 }
@@ -308,13 +350,14 @@ async function handleButton(interaction) {
     const totalAllKeys = keys.length;
     if (search) keys = searchKeys(keys, search);
     if (filter && filter !== 'all') keys = applyFilter(keys, filter);
+    keys = sortKeys(keys, sort);
 
     const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
     newPage = Math.min(newPage, totalPages - 1);
 
     const filterLabel = getFilterLabel(filter);
     const embed = buildListEmbed(keys, newPage, totalPages, filterLabel, search, totalAllKeys);
-    const buttons = buildListButtons(newPage, totalPages, userId, filter, search);
+    const buttons = buildListButtons(newPage, totalPages, userId, filter, search, sort);
 
     await interaction.editReply({ embeds: [embed], components: buttons });
     return true;
@@ -356,15 +399,22 @@ async function handleSelectMenu(interaction) {
 
     const filterValue = interaction.values[0];
 
+    // Xác định sort: nếu chọn sort thì dùng sort đó, không thì mặc định newest
+    const isSort = filterValue === 'sort_newest' || filterValue === 'sort_oldest';
+    const sort = isSort ? filterValue : 'sort_newest';
+    // Nếu chọn sort thì không thay đổi filter (reset về all)
+    const actualFilter = isSort ? 'all' : filterValue;
+
     invalidateCache(); // Refresh khi lọc
     let keys = await getCachedKeys();
     const totalAllKeys = keys.length;
-    if (filterValue && filterValue !== 'all') keys = applyFilter(keys, filterValue);
+    if (actualFilter && actualFilter !== 'all') keys = applyFilter(keys, actualFilter);
+    keys = sortKeys(keys, sort);
 
     const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
-    const filterLabel = getFilterLabel(filterValue);
+    const filterLabel = isSort ? getFilterLabel(filterValue) : getFilterLabel(actualFilter);
     const embed = buildListEmbed(keys, 0, totalPages, filterLabel, '', totalAllKeys);
-    const buttons = buildListButtons(0, totalPages, userId, filterValue, '');
+    const buttons = buildListButtons(0, totalPages, userId, actualFilter, '', sort);
 
     await interaction.editReply({ embeds: [embed], components: buttons });
     return true;
@@ -409,10 +459,11 @@ async function handleModalSubmit(interaction) {
       let keys = await getCachedKeys();
       const totalAllKeys = keys.length;
       if (query) keys = searchKeys(keys, query);
+      keys = sortKeys(keys, 'sort_newest'); // Mặc định sort mới nhất
 
       const totalPages = Math.ceil(keys.length / ITEMS_PER_PAGE) || 1;
       const embed = buildListEmbed(keys, 0, totalPages, '', query, totalAllKeys);
-      const buttons = buildListButtons(0, totalPages, userId, '', query);
+      const buttons = buildListButtons(0, totalPages, userId, '', query, 'sort_newest');
 
       await interaction.editReply({ embeds: [embed], components: buttons });
       return true;
@@ -447,6 +498,7 @@ async function handleModalSubmit(interaction) {
       let keys = await getCachedKeys();
       if (search) keys = searchKeys(keys, search);
       if (filter && filter !== 'all') keys = applyFilter(keys, filter);
+      keys = sortKeys(keys, 'sort_newest');
 
       if (num > keys.length) {
         await interaction.reply({

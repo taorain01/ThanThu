@@ -46,7 +46,8 @@ module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
     // ═══════════════════════════════════════════════════════════════════════
-    // GUILD VALIDATION
+    // GUILD VALIDATION (chỉ chặn slash commands, cho phép button/select/modal
+    // vì bot đã tự gửi message có component ở guild đó rồi)
     // ═══════════════════════════════════════════════════════════════════════
     if (ALLOWED_GUILD_ID && interaction.guildId !== ALLOWED_GUILD_ID) {
       if (interaction.isCommand()) {
@@ -55,7 +56,7 @@ module.exports = {
           flags: MessageFlags.Ephemeral
         });
       }
-      return;
+      // Không chặn button/select/modal — cho phép hoạt động ở mọi guild
     }
 
     // ═══════════════════════════════════════════════════════════════════════

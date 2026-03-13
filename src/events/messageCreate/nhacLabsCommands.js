@@ -96,6 +96,10 @@ module.exports = {
           if (args.length > 0 && ['PRO', 'UNL'].includes(args[0].toUpperCase())) {
             return await cmdGen(message, args);
           }
+          // ?nl thông minh: nếu có args khác → tìm key/mã máy
+          if (args.length > 0) {
+            return await cmdSmartSearch(message, args);
+          }
           return await sendKeyList(message);
         case 'gen':
           return await cmdGen(message, args);
@@ -290,9 +294,70 @@ async function cmdInfo(message, args) {
 }
 
 // ══════════════════════════════════════════════════════════
-// ?nllist — Đã chuyển sang dùng nlListHandlers.sendKeyList()
-// Xem src/utils/nlListHandlers.js
+// ?nl <key/mã máy> — Tìm kiếm thông minh
+// Ưu tiên: khớp chính xác key → khớp hw_id → khớp một phần
 // ══════════════════════════════════════════════════════════
+async function cmdSmartSearch(message, args) {
+  const query = args.join(' ').trim();
+  if (!query) return await sendKeyList(message);
+
+  const queryUpper = query.toUpperCase();
+
+  // Bước 1: Thử tìm chính xác key trước (nhanh nhất, chỉ 1 API call)
+  const directInfo = await getKeyInfo(query);
+  if (directInfo.exists) {
+    return await cmdInfo(message, args);
+  }
+
+  // Bước 2: Tìm trong toàn bộ danh sách key
+  const allKeys = await listAllKeys();
+
+  // Tìm khớp chính xác hw_id
+  const hwMatch = allKeys.find(k =>
+    k.machines && k.machines.some(m =>
+      (m.hw_id || '').toUpperCase() === queryUpper
+    )
+  );
+
+  if (hwMatch) {
+    // Tìm thấy máy → hiện chi tiết key chứa máy đó
+    return await cmdInfo(message, [hwMatch.key]);
+  }
+
+  // Tìm khớp một phần (key, tên máy, hw_id)
+  const partialMatches = allKeys.filter(k => {
+    if ((k.key || '').toUpperCase().includes(queryUpper)) return true;
+    if (k.machines && k.machines.some(m =>
+      (m.name || '').toUpperCase().includes(queryUpper) ||
+      (m.hw_id || '').toUpperCase().includes(queryUpper)
+    )) return true;
+    return false;
+  });
+
+  if (partialMatches.length === 1) {
+    // Chỉ 1 kết quả → hiện chi tiết luôn
+    return await cmdInfo(message, [partialMatches[0].key]);
+  }
+
+  if (partialMatches.length > 1) {
+    // Nhiều kết quả → hiện danh sách tìm kiếm
+    return await sendKeyList(message, '', query);
+  }
+
+  // Không tìm thấy gì
+  return message.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(ERROR_COLOR)
+        .setDescription(
+          `🔍 Không tìm thấy key hoặc mã máy nào khớp với \`${query}\`\n\n` +
+          `💡 Thử:\n` +
+          `• \`?nlinfo <key đầy đủ>\` — xem chi tiết 1 key\n` +
+          `• \`?nl\` — hiện danh sách tất cả key`
+        ),
+    ],
+  });
+}
 
 // ══════════════════════════════════════════════════════════
 // ?nlgen <PRO|UNL> [số lượng] [thời hạn] — Tạo key mới

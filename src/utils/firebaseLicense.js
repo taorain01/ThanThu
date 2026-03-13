@@ -12,7 +12,7 @@ const FIREBASE_API_KEY = "AIzaSyDyoMtBgpaIaN3St5nIuvHOVuCxkMMu2Fk";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 
 // HMAC secret (hex) — phải giống với Cloudflare Worker & Python (core/license.py)
-const HMAC_SECRET = "3b299073e6e5bd97a10c2597c8e1f3b09d442f60e76e085e018fb40";
+const HMAC_SECRET = "3b299073e6e5bd97a10c25b97acead0d0b004111830442f60e76e085e018fb40";
 
 // Giới hạn
 const MAX_MACHINES = 3;

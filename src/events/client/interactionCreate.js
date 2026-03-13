@@ -84,6 +84,7 @@ module.exports = {
     if (interaction.isButton()) {
       try {
         const customId = interaction.customId;
+        console.log('[interactionCreate] BUTTON nhận được, customId:', customId);
 
         // ROUTE 1: Thông báo handlers
         if (customId.startsWith('confirm_edit_') || customId.startsWith('cancel_edit_') ||
@@ -203,6 +204,7 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       try {
         const customId = interaction.customId;
+        console.log('[interactionCreate] SELECT MENU nhận được, customId:', customId);
 
         // Route to selectMenuHandlers (event role, bangchien kick/priority)
         // Lưu ý: show_role_select_ đã chuyển sang collector trong show.js

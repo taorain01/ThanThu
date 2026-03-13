@@ -45,21 +45,10 @@ const ALLOWED_GUILD_ID = process.env.guildId;
 module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
-    // ═══ DEBUG TẠM: Kiểm tra interaction có đến handler không ═══
-    console.log(`[DEBUG-IC] Nhận interaction: type=${interaction.type}, isButton=${interaction.isButton()}, isSelectMenu=${interaction.isStringSelectMenu()}, customId=${interaction.customId || 'N/A'}`);
-    if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId?.startsWith('nlkey_')) {
-      console.log(`[DEBUG-IC] >>> NLKEY interaction detected! customId=${interaction.customId}`);
-      try {
-        await interaction.channel?.send({ content: `🔧 DEBUG: Nhận interaction \`${interaction.customId}\``, allowedMentions: { parse: [] } }).then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
-      } catch (_) {}
-    }
-    // ═══ END DEBUG ═══
-
     // ═══════════════════════════════════════════════════════════════════════
     // GUILD VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
     if (ALLOWED_GUILD_ID && interaction.guildId !== ALLOWED_GUILD_ID) {
-      console.log(`[DEBUG-IC] ❌ BLOCKED bởi guild check! ALLOWED="${ALLOWED_GUILD_ID}", actual="${interaction.guildId}"`);
       if (interaction.isCommand()) {
         return interaction.reply({
           content: '❌ Bot chỉ hoạt động trên server được cấu hình!',
@@ -68,7 +57,6 @@ module.exports = {
       }
       return;
     }
-    console.log(`[DEBUG-IC] ✅ Passed guild check. ALLOWED="${ALLOWED_GUILD_ID}", actual="${interaction.guildId}"`);
 
     // ═══════════════════════════════════════════════════════════════════════
     // SLASH COMMANDS

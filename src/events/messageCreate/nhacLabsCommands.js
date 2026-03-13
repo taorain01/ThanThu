@@ -736,8 +736,8 @@ async function cmdSales(message, args) {
   const tierFilter = args[0]?.toUpperCase();
 
   if (tierFilter && ['PRO', 'UNL'].includes(tierFilter)) {
-    // ── Chi tiết 1 gói ──
-    const tierKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === tierFilter);
+    // ── Chi tiết 1 gói (startsWith để khớp cả PRO2D, UNL7D,...) ──
+    const tierKeys = soldKeys.filter(k => (k.tier || '').toUpperCase().startsWith(tierFilter));
     const price = TIER_PRICES[tierFilter] || 0;
     // Tính doanh thu: key upgrade có paid_amount riêng, key thường dùng giá gốc
     const totalRevenue = tierKeys.reduce((sum, k) => {
@@ -779,8 +779,9 @@ async function cmdSales(message, args) {
   }
 
   // ── Tổng quan doanh thu ──
-  const proKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === 'PRO');
-  const unlKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === 'UNL');
+  // startsWith để khớp cả key theo ngày (PRO2D, UNL7D,...)
+  const proKeys = soldKeys.filter(k => (k.tier || '').toUpperCase().startsWith('PRO'));
+  const unlKeys = soldKeys.filter(k => (k.tier || '').toUpperCase().startsWith('UNL'));
 
   // Tính doanh thu: key upgrade có paid_amount riêng
   const proPrice = TIER_PRICES['PRO'] || 0;

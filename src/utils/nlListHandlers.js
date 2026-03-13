@@ -52,9 +52,9 @@ function applyFilter(keys, filterType) {
     case 'not_activated':
       return keys.filter(k => !k.machines || k.machines.length === 0);
     case 'pro':
-      return keys.filter(k => (k.tier || '').toUpperCase() === 'PRO');
+      return keys.filter(k => (k.tier || '').toUpperCase().startsWith('PRO'));
     case 'unl':
-      return keys.filter(k => (k.tier || '').toUpperCase() === 'UNL');
+      return keys.filter(k => (k.tier || '').toUpperCase().startsWith('UNL'));
     case 'blocked':
       return keys.filter(k => k.blocked);
     case 'active':

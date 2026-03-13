@@ -59,6 +59,7 @@ module.exports = {
     // GUILD VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
     if (ALLOWED_GUILD_ID && interaction.guildId !== ALLOWED_GUILD_ID) {
+      console.log(`[DEBUG-IC] ❌ BLOCKED bởi guild check! ALLOWED="${ALLOWED_GUILD_ID}", actual="${interaction.guildId}"`);
       if (interaction.isCommand()) {
         return interaction.reply({
           content: '❌ Bot chỉ hoạt động trên server được cấu hình!',
@@ -67,6 +68,7 @@ module.exports = {
       }
       return;
     }
+    console.log(`[DEBUG-IC] ✅ Passed guild check. ALLOWED="${ALLOWED_GUILD_ID}", actual="${interaction.guildId}"`);
 
     // ═══════════════════════════════════════════════════════════════════════
     // SLASH COMMANDS

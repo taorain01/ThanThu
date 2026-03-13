@@ -8,6 +8,7 @@ const { Events, EmbedBuilder } = require('discord.js');
 const {
   generateKey,
   createKeyDoc,
+  createUpgradeKeyDoc,
   getKeyInfo,
   listAllKeys,
   blockKey,
@@ -35,6 +36,7 @@ const CMD_ALIASES = {
   'delete': 'delete', 'd': 'delete',
   'cat': 'category', 'category': 'category',
   'sales': 'sales', 'doanhthu': 'sales', 'dt': 'sales', 'revenue': 'sales',
+  'up': 'upgrade', 'upgrade': 'upgrade',
   'deleteall': 'deleteall', 'da': 'deleteall', 'xoahet': 'deleteall',
 };
 
@@ -111,6 +113,8 @@ module.exports = {
           return await cmdRemove(message, args);
         case 'delete':
           return await cmdDelete(message, args);
+        case 'upgrade':
+          return await cmdUpgrade(message, args);
         case 'deleteall':
           return await cmdDeleteAll(message);
         default:
@@ -192,6 +196,13 @@ function sendHelp(message, prefix) {
           `**\`${p}nlunblock <key>\`** — Mở chặn (Alias: \`${p}nlul\`)`,
       },
       {
+        name: '⬆️  UPGRADE KEY',
+        value:
+          `**\`${p}nlup <key_PRO>\`** — Upgrade PRO → UNL\n` +
+          `> Verify key PRO hợp lệ → tạo key UNL mới (giá chênh lệch)\n` +
+          `> Tự động block key PRO cũ + lưu thông tin upgrade`,
+      },
+      {
         name: '📊  DOANH THU',
         value:
           `**\`${p}nlsales\`** — Tổng quan doanh thu (PRO/UNL)\n` +
@@ -203,8 +214,8 @@ function sendHelp(message, prefix) {
         name: '⌨️  BẢNG ALIAS TẮT',
         value:
           `\`${p}nl\` → list │ \`${p}nli\` → info │ \`${p}nlg\` \`${p}nlc\` → gen\n` +
-          `\`${p}nlcat\` → category │ \`${p}nldt\` → sales │ \`${p}nlb\` → block\n` +
-          `\`${p}nlpb\` → pblock │ \`${p}nlul\` → unblock │ \`${p}nlrm\` → remove │ \`${p}nld\` → delete`,
+          `\`${p}nlup\` → upgrade │ \`${p}nlcat\` → category │ \`${p}nldt\` → sales\n` +
+          `\`${p}nlb\` → block │ \`${p}nlpb\` → pblock │ \`${p}nlul\` → unblock │ \`${p}nlrm\` → remove │ \`${p}nld\` → delete`,
       },
     )
     .setFooter({ text: '🔑 NhacLabs License Manager • Chỉ admin mới dùng được (trừ ?nl)' })
@@ -663,7 +674,11 @@ async function cmdSales(message, args) {
     // ── Chi tiết 1 gói ──
     const tierKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === tierFilter);
     const price = TIER_PRICES[tierFilter] || 0;
-    const totalRevenue = tierKeys.length * price;
+    // Tính doanh thu: key upgrade có paid_amount riêng, key thường dùng giá gốc
+    const totalRevenue = tierKeys.reduce((sum, k) => {
+      const pa = k.paid_amount;
+      return sum + (pa != null && pa >= 0 ? pa : price);
+    }, 0);
 
     // Sắp xếp theo ngày cấp (mới nhất trước)
     tierKeys.sort((a, b) => {
@@ -702,8 +717,11 @@ async function cmdSales(message, args) {
   const proKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === 'PRO');
   const unlKeys = soldKeys.filter(k => (k.tier || '').toUpperCase() === 'UNL');
 
-  const proRevenue = proKeys.length * (TIER_PRICES['PRO'] || 0);
-  const unlRevenue = unlKeys.length * (TIER_PRICES['UNL'] || 0);
+  // Tính doanh thu: key upgrade có paid_amount riêng
+  const proPrice = TIER_PRICES['PRO'] || 0;
+  const unlPrice = TIER_PRICES['UNL'] || 0;
+  const proRevenue = proKeys.reduce((s, k) => s + (k.paid_amount != null && k.paid_amount >= 0 ? k.paid_amount : proPrice), 0);
+  const unlRevenue = unlKeys.reduce((s, k) => s + (k.paid_amount != null && k.paid_amount >= 0 ? k.paid_amount : unlPrice), 0);
   const totalRevenue = proRevenue + unlRevenue;
 
   // Key đang hoạt động vs bị chặn
@@ -752,6 +770,114 @@ async function cmdSales(message, args) {
 // Format số tiền VNĐ: 199000 → "199,000đ"
 function formatVND(amount) {
   return amount.toLocaleString('vi-VN') + 'đ';
+}
+
+// ══════════════════════════════════════════════════════════
+// ?nlup <key_PRO> — Upgrade key PRO → UNL
+// Verify key PRO hợp lệ → tạo key UNL mới (giá chênh lệch)
+// ══════════════════════════════════════════════════════════
+async function cmdUpgrade(message, args) {
+  const prefix = process.env.PREFIX || '?';
+  const upgradeCost = (TIER_PRICES['UNL'] || 0) - (TIER_PRICES['PRO'] || 0);
+
+  if (args.length < 1) {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(
+            `❌ Cú pháp: \`${prefix}nlup <key_PRO>\`\n\n` +
+            `**Chức năng:** Upgrade key PRO → UNL\n` +
+            `> Khách gửi key PRO hiện tại → bot verify → tạo key UNL mới\n` +
+            `> Giá upgrade: **${formatVND(upgradeCost)}** (chênh lệch PRO → UNL)\n` +
+            `> Key PRO cũ tự động bị block\n\n` +
+            `VD: \`${prefix}nlup NL-PRO-A1B2C3D4E5-F6G7H8I9J0\``
+          ),
+      ],
+    });
+  }
+
+  const proKey = args[0];
+
+  // Bước 1: Check key PRO trên Firebase
+  const info = await getKeyInfo(proKey);
+
+  if (!info.exists) {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(`❌ Key \`${proKey}\` không tồn tại trên Firebase.`),
+      ],
+    });
+  }
+
+  // Bước 2: Verify tier = PRO
+  if (info.tier.toUpperCase() !== 'PRO') {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(
+            `❌ Key \`${proKey}\` không phải tier **PRO** (hiện tại: **${info.tier}**).\n` +
+            `Chỉ có thể upgrade từ PRO → UNL.`
+          ),
+      ],
+    });
+  }
+
+  // Bước 3: Check không bị block
+  if (info.blocked) {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(
+            `❌ Key \`${proKey}\` đang bị **chặn**.\n` +
+            `Lý do: ${info.block_reason || 'Không rõ'}\n` +
+            `Không thể upgrade key đang bị chặn.`
+          ),
+      ],
+    });
+  }
+
+  // Bước 4: Tạo key UNL mới
+  const newKey = generateKey('UNL', 0);
+  const success = await createUpgradeKeyDoc(newKey, proKey);
+
+  if (!success) {
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(ERROR_COLOR)
+          .setDescription(`❌ Lỗi khi tạo key UNL mới. Vui lòng thử lại.`),
+      ],
+    });
+  }
+
+  // Bước 5: Thông báo thành công
+  const machineInfo = info.machines.length > 0
+    ? info.machines.map(m => `\`${m.hw_id}\` — ${m.name || 'N/A'}`).join(', ')
+    : 'Chưa có máy';
+
+  const embed = new EmbedBuilder()
+    .setColor(SUCCESS_COLOR)
+    .setTitle('⬆️ Upgrade Thành Công — PRO → UNL')
+    .setDescription(
+      `**Key PRO cũ:** \`${proKey}\`\n` +
+      `> 🔴 Đã bị block (lý do: upgrade)\n` +
+      `> 💻 Máy: ${machineInfo}\n\n` +
+      `**Key UNL mới:** \`${newKey}\`\n` +
+      `> 🟢 Sẵn sàng kích hoạt\n\n` +
+      `💰 **Giá upgrade:** ${formatVND(upgradeCost)}\n` +
+      `📋 Đã lưu thông tin upgrade lên Firebase`
+    )
+    .setTimestamp();
+
+  await message.reply({ embeds: [embed] });
+
+  // Gửi key thuần để dễ copy
+  return message.channel.send(newKey);
 }
 
 // ══════════════════════════════════════════════════════════

@@ -204,8 +204,9 @@ module.exports = {
       try {
         const customId = interaction.customId;
 
-        // Route to selectMenuHandlers
-        if (customId === 'event_role_select' || customId.startsWith('show_role_select_') ||
+        // Route to selectMenuHandlers (event role, bangchien kick/priority)
+        // Lưu ý: show_role_select_ đã chuyển sang collector trong show.js
+        if (customId === 'event_role_select' ||
           customId.startsWith('bangchien_kick_select_') || customId.startsWith('bangchien_priority_select_')) {
           const handled = await selectMenuHandlers.handleSelectMenu(interaction, client);
           if (handled) return;

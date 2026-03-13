@@ -11,8 +11,8 @@ const FIREBASE_PROJECT_ID = "nhaclabs-9b413";
 const FIREBASE_API_KEY = "AIzaSyDyoMtBgpaIaN3St5nIuvHOVuCxkMMu2Fk";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 
-// HMAC secret — phải giống với Python (core/license.py)
-const HMAC_SECRET = "NhacLabs_2026_Ky_Tu_Bi_Mat_HMAC";
+// HMAC secret (hex) — phải giống với Cloudflare Worker & Python (core/license.py)
+const HMAC_SECRET = "3b299073e6e5bd97a10c2597c8e1f3b09d442f60e76e085e018fb40";
 
 // Giới hạn
 const MAX_MACHINES = 3;
@@ -233,6 +233,10 @@ async function listAllKeys() {
         machines,
         blocked: fields.blocked?.booleanValue || false,
         last_activated: fields.last_activated?.stringValue || "",
+        // Thông tin upgrade (nếu có)
+        paid_amount: fields.paid_amount?.integerValue != null
+          ? parseInt(fields.paid_amount.integerValue) : null,
+        upgraded_from: fields.upgraded_from?.stringValue || "",
       };
     });
 }
@@ -328,9 +332,46 @@ async function setCategoryKey(key, category) {
   return res.status === 200;
 }
 
+// ── Tạo key UNL upgrade từ PRO (paid_amount = chênh lệch, lưu key cũ) ──
+async function createUpgradeKeyDoc(newKey, oldProKey) {
+  const docId = newKey.toUpperCase().replace(/-/g, "_");
+  const now = new Date().toISOString();
+
+  // Giá upgrade = UNL - PRO = chênh lệch
+  const upgradeCost = (TIER_PRICES['UNL'] || 0) - (TIER_PRICES['PRO'] || 0);
+
+  const body = {
+    fields: {
+      key: { stringValue: newKey },
+      tier: { stringValue: "UNL" },
+      category: { stringValue: "thuongmai" },
+      issued_date: { stringValue: now },
+      max_machines: { integerValue: String(MAX_MACHINES) },
+      blocked: { booleanValue: false },
+      block_reason: { stringValue: "" },
+      last_activated: { stringValue: "" },
+      created_at: { stringValue: now },
+      expires_at: { stringValue: "" },
+      machines: { arrayValue: { values: [] } },
+      // Thông tin upgrade
+      paid_amount: { integerValue: String(upgradeCost) },
+      upgraded_from: { stringValue: oldProKey },
+    },
+  };
+
+  const res = await firestoreRequest("PATCH", `/licenses/${docId}`, body);
+  if (res.status !== 200) return false;
+
+  // Block key PRO cũ
+  await blockKey(oldProKey, `Đã upgrade lên UNL — key mới: ${newKey}`, false);
+
+  return true;
+}
+
 module.exports = {
   generateKey,
   createKeyDoc,
+  createUpgradeKeyDoc,
   getKeyInfo,
   listAllKeys,
   blockKey,

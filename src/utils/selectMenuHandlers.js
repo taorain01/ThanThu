@@ -54,90 +54,9 @@ async function handleSelectMenu(interaction, client) {
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // Xử lý show role select menu (?show command)
+        // show_role_select_ → Đã chuyển sang collector trong show.js
+        // Collector xử lý trực tiếp, không cần handler ở đây nữa
         // ═══════════════════════════════════════════════════════════════
-        if (customId.startsWith('show_role_select_')) {
-            const userId = customId.replace('show_role_select_', '');
-
-            // Chỉ cho phép người tạo menu được sử dụng
-            if (interaction.user.id !== userId) {
-                await interaction.reply({
-                    content: '❌ Bạn không thể sử dụng menu này!',
-                    flags: MessageFlags.Ephemeral
-                });
-                return true;
-            }
-
-            const selectedValue = interaction.values[0];
-            const member = interaction.member;
-            const db = require('../database/db');
-            const { getRoleMappings } = require('../commands/quanly/subrole/addrole');
-            const { removeAllDisplayRoles, assignDisplayRole } = require('../commands/quanly/subrole/setrole');
-
-            // Nếu chọn ẩn role
-            if (selectedValue === 'hide_icon') {
-                await removeAllDisplayRoles(member);
-                db.setUserDisplay(member.id, 'hidden'); // Set 'hidden' thay vì clear
-
-                // Invalidate member card cache
-                try {
-                    const cardCache = require('./memberCardCache');
-                    cardCache.invalidateUser(member.id);
-                } catch (e) { }
-
-                await interaction.reply({
-                    content: '✅ Đã ẩn role hiển thị!',
-                    flags: MessageFlags.Ephemeral
-                });
-                return true;
-            }
-
-            // Gán display role mới
-            const mappings = getRoleMappings();
-            const entry = mappings[selectedValue];
-
-            if (!entry) {
-                await interaction.reply({
-                    content: `❌ Mã \`${selectedValue}\` không tồn tại!`,
-                    flags: MessageFlags.Ephemeral
-                });
-                return true;
-            }
-
-            const roleName = typeof entry === 'string' ? entry : entry.name;
-
-            // Kiểm tra user có role gốc không
-            const sourceRole = interaction.guild.roles.cache.find(r => r.name === roleName);
-            if (!sourceRole || !member.roles.cache.has(sourceRole.id)) {
-                await interaction.reply({
-                    content: `❌ Bạn không có role **${roleName}**!`,
-                    flags: MessageFlags.Ephemeral
-                });
-                return true;
-            }
-
-            // Gán display role
-            const displayAssigned = await assignDisplayRole(member, interaction.guild.id, selectedValue);
-
-            if (displayAssigned) {
-                // Invalidate member card cache
-                try {
-                    const cardCache = require('./memberCardCache');
-                    cardCache.invalidateUser(member.id);
-                } catch (e) { }
-
-                await interaction.reply({
-                    content: `✅ Đã đổi icon hiển thị thành **${roleName}**!`,
-                    flags: MessageFlags.Ephemeral
-                });
-            } else {
-                await interaction.reply({
-                    content: `⚠️ Không tìm thấy display role cho \`${selectedValue}\`. Liên hệ Bang Chủ!`,
-                    flags: MessageFlags.Ephemeral
-                });
-            }
-            return true;
-        }
 
         // ═══════════════════════════════════════════════════════════════
         // Xử lý bangchien kick select menu

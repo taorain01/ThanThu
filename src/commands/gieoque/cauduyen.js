@@ -213,11 +213,7 @@ Yêu cầu:
     } catch (error) {
         console.error("[CauDuyen] Error:", error.message);
 
-        let errorMsg = `❌ Thầy bói hôm nay đau bụng, thử lại sau nhé!`;
-        if (error.message?.includes("429")) {
-            errorMsg = `❌ Thầy bói đang quá tải, thử lại sau 1-2 phút nhé!`;
-        }
-        await waitingMessage.edit(errorMsg);
+        await waitingMessage.edit(`❌ Thầy bói đau bụng, ngày mai quay lại nhé!`);
     }
 }
 

@@ -194,6 +194,7 @@ async function getKeyInfo(key) {
     tier: fields.tier?.stringValue || "unknown",
     category: fields.category?.stringValue || "thuongmai",
     issued_date: fields.issued_date?.stringValue || "",
+    expires_at: fields.expires_at?.stringValue || "",
     max_machines: parseInt(fields.max_machines?.integerValue || MAX_MACHINES),
     machines,
     blocked: fields.blocked?.booleanValue || false,

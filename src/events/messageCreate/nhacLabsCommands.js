@@ -276,13 +276,28 @@ async function cmdInfo(message, args) {
   const catLine = `**Danh mục:** ${catInfo.emoji} ${catInfo.label}`;
   const issuedLine = info.issued_date ? `\n**Ngày cấp:** ${new Date(info.issued_date).toLocaleDateString('vi-VN')}` : '';
 
+  // Thông tin hết hạn
+  let expiryLine = '';
+  if (info.expires_at) {
+    const expiryDate = new Date(info.expires_at);
+    const now = new Date();
+    const isExpired = expiryDate <= now;
+    const diffMs = expiryDate - now;
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (isExpired) {
+      expiryLine = `\n**Hết hạn:** ⛔ ${expiryDate.toLocaleDateString('vi-VN')} (đã hết hạn)`;
+    } else {
+      expiryLine = `\n**Hết hạn:** ⏰ ${expiryDate.toLocaleDateString('vi-VN')} (còn ${diffDays} ngày)`;
+    }
+  }
+
   const embed = new EmbedBuilder()
     .setColor(info.blocked ? ERROR_COLOR : EMBED_COLOR)
     .setTitle(`🔑 Thông Tin Key`)
     .setDescription(
       `**Key:** \`${info.key}\`\n` +
       `**Tier:** ${info.tier.toUpperCase()}\n` +
-      `${catLine}${issuedLine}\n` +
+      `${catLine}${issuedLine}${expiryLine}\n` +
       `**Trạng thái:** ${statusIcon}${blockInfo}\n` +
       `**Số máy:** ${info.machines.length}/${info.max_machines}\n` +
       `**Kích hoạt cuối:** ${info.last_activated || 'Chưa'}\n\n` +
@@ -397,7 +412,8 @@ async function cmdGen(message, args) {
   // Parse args — phân biệt số lượng, thời hạn, danh mục
   let count = 1;
   let days = 0;
-  let category = 'thuongmai'; // Mặc định thương mại
+  let category = null; // Sẽ tự xác định sau khi parse xong
+  let userSetCategory = false; // User có chỉ định category không
 
   // Alias danh mục ngắn
   const CAT_ALIASES = { 'tm': 'thuongmai', 'mp': 'mienphi', 'test': 'test' };
@@ -407,11 +423,13 @@ async function cmdGen(message, args) {
     // Kiểm tra category alias
     if (CAT_ALIASES[arg]) {
       category = CAT_ALIASES[arg];
+      userSetCategory = true;
       continue;
     }
     // Kiểm tra category đầy đủ
     if (CATEGORIES[arg]) {
       category = arg;
+      userSetCategory = true;
       continue;
     }
     const dayMatch = arg.match(/^(\d+)[dn]$/i); // "30d", "7d", "30n", "7n",...
@@ -433,6 +451,11 @@ async function cmdGen(message, args) {
   }
 
   count = Math.min(Math.max(count, 1), 10); // Tối đa 10 key/lần
+
+  // Key theo ngày mà user không chỉ định category → tự động gán 'test' (dùng thử)
+  if (!userSetCategory) {
+    category = days > 0 ? 'test' : 'thuongmai';
+  }
   const generatedKeys = [];
 
   for (let i = 0; i < count; i++) {

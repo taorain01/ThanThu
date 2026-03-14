@@ -213,9 +213,9 @@ Yêu cầu:
     } catch (error) {
         console.error("[CauDuyen] Error:", error.message);
 
-        let errorMsg = `❌ Thầy bói hôm nay đau bụng. Lỗi: \`${error.message}\``;
+        let errorMsg = `❌ Thầy bói hôm nay đau bụng, thử lại sau nhé!`;
         if (error.message?.includes("429")) {
-            errorMsg = `❌ Tất cả ${apiKeys.length} API key đều đang bị rate limit. Thử lại sau 1-2 phút nhé!`;
+            errorMsg = `❌ Thầy bói đang quá tải, thử lại sau 1-2 phút nhé!`;
         }
         await waitingMessage.edit(errorMsg);
     }

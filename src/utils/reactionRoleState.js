@@ -31,18 +31,41 @@ function loadReactionRoles() {
             reactionRolesCache = {};
             return reactionRolesCache;
         }
-        const data = fs.readFileSync(REACTION_ROLES_FILE, 'utf8');
-        reactionRolesCache = JSON.parse(data);
+        const buf = fs.readFileSync(REACTION_ROLES_FILE);
+        let text = '';
+
+        // Phát hiện BOM UTF-16LE (FF FE) → decode đúng encoding
+        if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {
+            text = buf.toString('utf16le');
+        } else {
+            text = buf.toString('utf8');
+        }
+
+        // Loại bỏ BOM UTF-8 (EF BB BF) nếu có
+        text = text.replace(/^\uFEFF/, '').trim();
+
+        if (!text || text === '') {
+            console.warn('[ReactionRole] File reaction_roles.json rỗng, khởi tạo mới.');
+            reactionRolesCache = {};
+            return reactionRolesCache;
+        }
+
+        reactionRolesCache = JSON.parse(text);
         return reactionRolesCache;
     } catch (error) {
         console.error('Lỗi khi load reaction_roles.json:', error);
-        return {};
+        reactionRolesCache = {};
+        return reactionRolesCache;
     }
 }
 
 function saveReactionRoles(data) {
     try {
         ensureDataDir();
+        // Xóa file cũ trước để tránh BOM UTF-16LE ký sinh
+        if (fs.existsSync(REACTION_ROLES_FILE)) {
+            fs.unlinkSync(REACTION_ROLES_FILE);
+        }
         fs.writeFileSync(REACTION_ROLES_FILE, JSON.stringify(data, null, 2), 'utf8');
         reactionRolesCache = data;
         return true;

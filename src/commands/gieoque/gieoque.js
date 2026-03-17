@@ -180,8 +180,8 @@ ${wwmLine}
             try {
                 const genAI = new GoogleGenerativeAI(apiKey);
 
-                // Thử gemini-2.5-flash trước, fallback gemini-2.0-flash
-                const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+                // Thử gemini-2.5-flash-lite trước, fallback gemini-2.0-flash
+                const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 
                 for (const modelName of modelsToTry) {
                     const model = genAI.getGenerativeModel({ model: modelName });

@@ -25,12 +25,12 @@ async function main() {
     if (fs.existsSync(LOG_FILE)) fs.unlinkSync(LOG_FILE);
 
     log('--- TEST GEMINI VISION API ---');
-    log('Model: gemini-2.5-flash');
+    log('Model: gemini-2.5-flash-lite');
     log('API Key: ' + API_KEY.substring(0, 10) + '...');
     log('');
 
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     // Tai anh tu URL (picsum cho anh truc tiep, khong redirect HTML)
     const imageUrl = 'https://picsum.photos/200/200.jpg';

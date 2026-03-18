@@ -53,6 +53,13 @@ const bossRefreshTimers = new Map();
 // Debounce time (5 phút)
 const BOSS_REFRESH_DEBOUNCE = 5 * 60 * 1000;
 
+// Map lưu auto-close timers (tự đóng party sau 1 tiếng)
+// Key: partyKey, Value: timeoutId
+const bossAutoCloseTimers = new Map();
+
+// Thời gian tự đóng party (1 tiếng)
+const BOSS_AUTO_CLOSE_DURATION = 60 * 60 * 1000;
+
 // Lịch Boss Guild (có thể chỉnh sửa)
 // dayOfWeek: 0=CN, 1=T2, 2=T3, 3=T4, 4=T5, 5=T6, 6=T7
 const bossSchedule = [
@@ -161,6 +168,8 @@ module.exports = {
     lastScheduleEmbed,
     bossRefreshTimers,
     BOSS_REFRESH_DEBOUNCE,
+    bossAutoCloseTimers,
+    BOSS_AUTO_CLOSE_DURATION,
     MAX_PARTIES_PER_GUILD,
     getGuildPartyKeys,
     getUserRegisteredParty,

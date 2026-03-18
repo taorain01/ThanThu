@@ -13,7 +13,7 @@
  */
 
 const { EmbedBuilder, MessageFlags } = require('discord.js');
-const { bossNotifications, bossRegistrations, getUserRegisteredParty, finalizedParties, clearPreRegistrations } = require('./bossState');
+const { bossNotifications, bossRegistrations, getUserRegisteredParty, finalizedParties, clearPreRegistrations, bossAutoCloseTimers, bossRefreshTimers } = require('./bossState');
 const { createScheduleOnlyEmbed, createBossEmbed, createButtons } = require('../commands/thongbao/bossguild');
 
 /**
@@ -213,6 +213,18 @@ async function handleButton(interaction, client) {
             // Gửi embed chỉ có lịch (sau khi chốt)
             const scheduleEmbed = createScheduleOnlyEmbed();
             await interaction.channel.send({ embeds: [scheduleEmbed] });
+
+            // Clear auto-close timer vì đã chốt thủ công
+            if (bossAutoCloseTimers.has(partyKey)) {
+                clearTimeout(bossAutoCloseTimers.get(partyKey));
+                bossAutoCloseTimers.delete(partyKey);
+            }
+
+            // Clear refresh timer nếu có
+            if (bossRefreshTimers.has(partyKey)) {
+                clearTimeout(bossRefreshTimers.get(partyKey));
+                bossRefreshTimers.delete(partyKey);
+            }
 
             // Xóa dữ liệu party
             bossNotifications.delete(partyKey);

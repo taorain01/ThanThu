@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { bossNotifications, bossRegistrations, MAX_PARTIES_PER_GUILD, getGuildPartyKeys, getUserRegisteredParty, bossChannels, bossSchedule, getPreRegistrations, clearPreRegistrations, bossRefreshTimers, BOSS_REFRESH_DEBOUNCE } = require('../../utils/bossState');
+const { bossNotifications, bossRegistrations, MAX_PARTIES_PER_GUILD, getGuildPartyKeys, getUserRegisteredParty, bossChannels, bossSchedule, getPreRegistrations, clearPreRegistrations, bossRefreshTimers, BOSS_REFRESH_DEBOUNCE, bossAutoCloseTimers, BOSS_AUTO_CLOSE_DURATION, finalizedParties } = require('../../utils/bossState');
 
 // Hàm tính thời gian đến buổi boss tiếp theo
 function getNextBossSession() {
@@ -122,7 +122,7 @@ function createBossEmbed(partyKey, leaderName) {
                 inline: true
             }
         )
-        .setFooter({ text: `Leader: ${leaderName} • Chat +1 hoặc xin slot để tham gia` })
+        .setFooter({ text: `Leader: ${leaderName} • Tự đóng sau 1 tiếng • Chat +1 hoặc xin slot để tham gia` })
         .setTimestamp();
 
     return embed;
@@ -257,6 +257,79 @@ module.exports = {
         db.setBossChannelId(guildId, message.channel.id);
 
         console.log(`[bossguild] ${leaderName} tạo party tại ${message.guild.name} (${currentParties.length + 1}/${MAX_PARTIES_PER_GUILD})`);
+
+        // ═══ Auto-close sau 1 tiếng ═══
+        const autoCloseTimeout = setTimeout(async () => {
+            try {
+                const notifData = bossNotifications.get(partyKey);
+                if (!notifData) {
+                    bossAutoCloseTimers.delete(partyKey);
+                    return; // Đã chốt thủ công rồi
+                }
+
+                const registrations = bossRegistrations.get(partyKey) || [];
+                const channel = await client.channels.fetch(notifData.channelId);
+
+                if (registrations.length > 0) {
+                    // Gửi embed chốt danh sách
+                    const db = require('../../database/db');
+                    const participantList = registrations.map((r, i) => {
+                        const userData = db.getUserByDiscordId(r.id);
+                        const gameName = userData?.game_username || null;
+                        const nameDisplay = gameName ? `<@${r.id}> (${gameName})` : `<@${r.id}>`;
+                        return `${i + 1}. ${nameDisplay}${r.isLeader ? ' 👑' : ''}`;
+                    }).join('\n');
+
+                    const finalEmbed = new EmbedBuilder()
+                        .setColor(0xFFA500)
+                        .setTitle('⏰ TỰ ĐỘNG CHỐT DANH SÁCH ĐI BOSS!')
+                        .setDescription(`**Party đã hết thời gian (1 tiếng)**\n\n**Danh sách tham gia (${registrations.length} người):**\n` + participantList)
+                        .setFooter({ text: '💡 Leader reply tin này để tag • ?lichboss để xem lịch' })
+                        .setTimestamp();
+
+                    const finalMessage = await channel.send({ embeds: [finalEmbed] });
+
+                    // Lưu danh sách để reply tag sau
+                    finalizedParties.set(finalMessage.id, {
+                        leaderId: notifData.leaderId,
+                        participants: registrations.map(r => ({ id: r.id, username: r.username })),
+                        guildId: partyKey.split('_')[0],
+                        channelId: notifData.channelId,
+                        createdAt: Date.now()
+                    });
+                } else {
+                    await channel.send('⏰ Party boss guild đã hết thời gian (1 tiếng) mà không có ai đăng ký.');
+                }
+
+                // Xóa embed đăng ký cũ
+                try {
+                    if (notifData.message) await notifData.message.delete();
+                } catch (e) { }
+
+                // Gửi embed lịch mới
+                const scheduleEmbed = createScheduleOnlyEmbed();
+                await channel.send({ embeds: [scheduleEmbed] });
+
+                // Dọn dữ liệu party
+                bossNotifications.delete(partyKey);
+                bossRegistrations.delete(partyKey);
+                clearPreRegistrations(partyKey.split('_')[0]);
+
+                // Clear refresh timer nếu có
+                if (bossRefreshTimers.has(partyKey)) {
+                    clearTimeout(bossRefreshTimers.get(partyKey));
+                    bossRefreshTimers.delete(partyKey);
+                }
+
+                console.log(`[bossguild] Auto-closed party of ${leaderName} sau 1 tiếng`);
+            } catch (error) {
+                console.error('[bossguild] Lỗi auto-close:', error);
+            } finally {
+                bossAutoCloseTimers.delete(partyKey);
+            }
+        }, BOSS_AUTO_CLOSE_DURATION);
+
+        bossAutoCloseTimers.set(partyKey, autoCloseTimeout);
     },
 
     // Export functions

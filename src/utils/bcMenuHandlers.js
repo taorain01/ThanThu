@@ -288,7 +288,13 @@ async function handleBcMenuButton(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        // Nếu bấm từ ephemeral message (nút "Quay lại") → update, nếu lần đầu → reply
+        if (interaction.message?.flags?.has(64)) {
+            // Message đã là ephemeral → update thay vì gửi tin mới
+            await interaction.update({ embeds: [embed], components: [row] });
+        } else {
+            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        }
         return true;
     }
 

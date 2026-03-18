@@ -14,6 +14,7 @@ const {
 } = require('@discordjs/voice');
 const googleTTS = require('google-tts-api');
 const { Readable } = require('stream');
+const storage = require('./storage');
 
 // Store audio players per guild
 const players = new Map();
@@ -59,6 +60,9 @@ async function joinChannel(voiceChannel) {
         await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
         console.log(`[TTS] Joined voice channel: ${voiceChannel.name}`);
 
+        // Lưu voice state để restore khi restart
+        storage.saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
+
         // Subscribe player to connection
         const player = getPlayer(voiceChannel.guild.id);
         connection.subscribe(player);
@@ -77,6 +81,8 @@ async function joinChannel(voiceChannel) {
 function leaveChannel(guildId) {
     const connection = getVoiceConnection(guildId);
     if (connection) {
+        // Xóa voice state khi rời channel
+        storage.removeVoiceState(guildId);
         connection.destroy();
         players.delete(guildId);
         console.log(`[TTS] Left voice channel in guild: ${guildId}`);

@@ -348,6 +348,37 @@ function initializeDatabase() {
     } catch (e) { /* Index exists */ }
 
     console.log('✅ Black Stone tables initialized');
+
+    // ============== EXP LEVEL SYSTEM ==============
+    db.prepare(`
+        CREATE TABLE IF NOT EXISTS exp_levels (
+            discord_id TEXT PRIMARY KEY,
+            text_exp INTEGER DEFAULT 0,
+            voice_exp INTEGER DEFAULT 0,
+            total_exp INTEGER DEFAULT 0,
+            level INTEGER DEFAULT 0,
+            last_text_exp_at DATETIME,
+            total_messages INTEGER DEFAULT 0,
+            total_voice_minutes INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `).run();
+
+    // Index cho leaderboard (ORDER BY total_exp DESC)
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_exp_total ON exp_levels(total_exp)').run();
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_exp_level ON exp_levels(level)').run();
+    } catch (e) { /* Index exists */ }
+
+    // Migration: Thêm columns tracking mic mở/mute (ẩn, không công khai)
+    try {
+        db.prepare('ALTER TABLE exp_levels ADD COLUMN voice_unmuted_minutes INTEGER DEFAULT 0').run();
+    } catch (e) { /* Column exists */ }
+    try {
+        db.prepare('ALTER TABLE exp_levels ADD COLUMN voice_muted_minutes INTEGER DEFAULT 0').run();
+    } catch (e) { /* Column exists */ }
+
+    console.log('✅ EXP Level tables initialized');
 }
 
 
@@ -1450,6 +1481,236 @@ function getEnhanceCost(discordId, equipmentId) {
     return Math.pow(2, count); // 1, 2, 4, 8, ...
 }
 
+// ============== EXP LEVEL SYSTEM ==============
+
+/**
+ * Công thức tính EXP cần để lên level tiếp theo
+ * @param {number} level - Level hiện tại
+ * @returns {number} EXP cần
+ */
+function getExpForLevel(level) {
+    return 5 * (level * level) + 50 * level + 100;
+}
+
+/**
+ * Tính tổng EXP cần để đạt một level nhất định (từ 0)
+ * @param {number} targetLevel - Level mục tiêu
+ * @returns {number} Tổng EXP cần
+ */
+function getTotalExpForLevel(targetLevel) {
+    let total = 0;
+    for (let i = 0; i < targetLevel; i++) {
+        total += getExpForLevel(i);
+    }
+    return total;
+}
+
+/**
+ * Lấy hoặc tạo record EXP cho user
+ * @param {string} discordId
+ * @returns {Object} EXP record
+ */
+/**
+ * Hệ số suy giảm EXP theo level
+ * Level 0: 100% | Level 10: 67% | Level 20: 50% | Level 50: 29% | Level 100: 17%
+ * @param {number} level
+ * @returns {number} Hệ số (0-1)
+ */
+function getExpMultiplier(level) {
+    return 100 / (100 + level * 5);
+}
+
+function getOrCreateExp(discordId) {
+    let record = db.prepare('SELECT * FROM exp_levels WHERE discord_id = ?').get(discordId);
+    if (!record) {
+        db.prepare('INSERT INTO exp_levels (discord_id) VALUES (?)').run(discordId);
+        record = db.prepare('SELECT * FROM exp_levels WHERE discord_id = ?').get(discordId);
+    }
+    return record;
+}
+
+/**
+ * Thêm EXP từ text chat (có cooldown 60s)
+ * @param {string} discordId
+ * @returns {Object} { success, expGained, levelUp, newLevel, totalExp }
+ */
+function addTextExp(discordId) {
+    const record = getOrCreateExp(discordId);
+    const now = Date.now();
+    const lastExp = record.last_text_exp_at ? new Date(record.last_text_exp_at).getTime() : 0;
+
+    // Cooldown 60 giây
+    if (now - lastExp < 60000) {
+        return { success: false, reason: 'cooldown' };
+    }
+
+    // Random 15-25 EXP × hệ số suy giảm theo level (tối thiểu 3 EXP)
+    const baseExp = Math.floor(Math.random() * 11) + 15;
+    const expGained = Math.max(3, Math.floor(baseExp * getExpMultiplier(record.level)));
+    const newTextExp = record.text_exp + expGained;
+    const newTotalExp = record.total_exp + expGained;
+    const newMessages = record.total_messages + 1;
+
+    // Tính level mới
+    let newLevel = record.level;
+    let expForNext = getExpForLevel(newLevel);
+    let currentLevelExp = newTotalExp - getTotalExpForLevel(newLevel);
+
+    let leveledUp = false;
+    while (currentLevelExp >= expForNext) {
+        newLevel++;
+        expForNext = getExpForLevel(newLevel);
+        currentLevelExp = newTotalExp - getTotalExpForLevel(newLevel);
+        leveledUp = true;
+    }
+
+    db.prepare(`
+        UPDATE exp_levels SET
+            text_exp = ?, total_exp = ?, level = ?,
+            last_text_exp_at = ?, total_messages = ?
+        WHERE discord_id = ?
+    `).run(newTextExp, newTotalExp, newLevel, new Date().toISOString(), newMessages, discordId);
+
+    return {
+        success: true,
+        expGained,
+        levelUp: leveledUp,
+        oldLevel: record.level,
+        newLevel,
+        totalExp: newTotalExp
+    };
+}
+
+/**
+ * Thêm EXP từ voice chat (phân biệt mic mở/mute)
+ * @param {string} discordId
+ * @param {number} minutes - Số phút trong voice
+ * @param {boolean} isMuted - True nếu user đang self-mute
+ * @returns {Object} { success, expGained, levelUp, newLevel, totalExp }
+ */
+function addVoiceExp(discordId, minutes = 1, isMuted = false) {
+    const record = getOrCreateExp(discordId);
+
+    // Mic mở = 10 EXP/phút, mic mute = 1/8 (1.25 EXP/phút)
+    const baseRate = isMuted ? 1.25 : 10;
+    const baseExp = baseRate * minutes;
+    const minExp = isMuted ? 1 : 2 * minutes;
+    const expGained = Math.max(minExp, Math.floor(baseExp * getExpMultiplier(record.level)));
+
+    const newVoiceExp = record.voice_exp + expGained;
+    const newTotalExp = record.total_exp + expGained;
+    const newVoiceMinutes = record.total_voice_minutes + minutes;
+
+    // Tracking thời gian mic mở/mute (ẩn)
+    const unmutedAdd = isMuted ? 0 : minutes;
+    const mutedAdd = isMuted ? minutes : 0;
+
+    // Tính level mới
+    let newLevel = record.level;
+    let expForNext = getExpForLevel(newLevel);
+    let currentLevelExp = newTotalExp - getTotalExpForLevel(newLevel);
+
+    let leveledUp = false;
+    while (currentLevelExp >= expForNext) {
+        newLevel++;
+        expForNext = getExpForLevel(newLevel);
+        currentLevelExp = newTotalExp - getTotalExpForLevel(newLevel);
+        leveledUp = true;
+    }
+
+    db.prepare(`
+        UPDATE exp_levels SET
+            voice_exp = ?, total_exp = ?, level = ?,
+            total_voice_minutes = ?,
+            voice_unmuted_minutes = COALESCE(voice_unmuted_minutes, 0) + ?,
+            voice_muted_minutes = COALESCE(voice_muted_minutes, 0) + ?
+        WHERE discord_id = ?
+    `).run(newVoiceExp, newTotalExp, newLevel, newVoiceMinutes, unmutedAdd, mutedAdd, discordId);
+
+    return {
+        success: true,
+        expGained,
+        levelUp: leveledUp,
+        oldLevel: record.level,
+        newLevel,
+        totalExp: newTotalExp
+    };
+}
+
+/**
+ * Lấy thông tin EXP của user
+ * @param {string} discordId
+ * @returns {Object} { level, totalExp, textExp, voiceExp, expForNext, currentLevelExp, rank }
+ */
+function getExpInfo(discordId) {
+    const record = getOrCreateExp(discordId);
+    const expForNext = getExpForLevel(record.level);
+    const totalExpForCurrentLevel = getTotalExpForLevel(record.level);
+    const currentLevelExp = record.total_exp - totalExpForCurrentLevel;
+
+    // Tính rank
+    const rankResult = db.prepare(
+        'SELECT COUNT(*) as rank FROM exp_levels WHERE total_exp > ?'
+    ).get(record.total_exp);
+
+    return {
+        level: record.level,
+        totalExp: record.total_exp,
+        textExp: record.text_exp,
+        voiceExp: record.voice_exp,
+        expForNext,
+        currentLevelExp,
+        totalMessages: record.total_messages,
+        totalVoiceMinutes: record.total_voice_minutes,
+        rank: rankResult.rank + 1
+    };
+}
+
+/**
+ * Lấy bảng xếp hạng EXP
+ * @param {string} type - 'total', 'text', 'voice'
+ * @param {number} limit - Số lượng top
+ * @returns {Array} Danh sách top users
+ */
+function getExpLeaderboard(type = 'total', limit = 10) {
+    let orderBy = 'total_exp';
+    if (type === 'text') orderBy = 'text_exp';
+    if (type === 'voice') orderBy = 'voice_exp';
+
+    return db.prepare(`
+        SELECT * FROM exp_levels
+        WHERE ${orderBy} > 0
+        ORDER BY ${orderBy} DESC
+        LIMIT ?
+    `).all(limit);
+}
+
+/**
+ * Lấy tổng số users có EXP
+ * @returns {number}
+ */
+function getExpUserCount() {
+    return db.prepare('SELECT COUNT(*) as count FROM exp_levels WHERE total_exp > 0').get().count;
+}
+
+// Phần thưởng theo level
+const LEVEL_REWARDS = {
+    5:  { hat: 500,   roleName: 'Tân Thủ',    emoji: '🌱' },
+    10: { hat: 1000,  roleName: 'Lữ Khách',   emoji: '⚔️' },
+    20: { hat: 2500,  roleName: 'Kiếm Khách', emoji: '🗡️' },
+    30: { hat: 5000,  roleName: 'Đại Hiệp',   emoji: '🛡️' },
+    50: { hat: 10000, roleName: 'Vô Song',    emoji: '👑' }
+};
+
+/**
+ * Kiểm tra phần thưởng cho level mới
+ * @param {number} newLevel
+ * @returns {Object|null} Reward object hoặc null
+ */
+function getLevelReward(newLevel) {
+    return LEVEL_REWARDS[newLevel] || null;
+}
+
 module.exports = {
 
     db,
@@ -1544,6 +1805,17 @@ module.exports = {
     purchaseSlots,
     // Cleanup
     cleanupOldSessions,
+    // EXP System
+    getOrCreateExp,
+    addTextExp,
+    addVoiceExp,
+    getExpInfo,
+    getExpLeaderboard,
+    getExpUserCount,
+    getExpForLevel,
+    getTotalExpForLevel,
+    getLevelReward,
+    LEVEL_REWARDS,
     // Database access
     db
 };

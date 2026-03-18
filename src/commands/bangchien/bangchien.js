@@ -770,7 +770,7 @@ module.exports = {
             // Tag lúc 19:15 (15 phút trước BC)
             scheduleTag(19, 15, '⚔️ Còn **15 phút** nữa là đến giờ Bang Chiến! Tập trung ngay!');
 
-            // ===== XÓA ROLE BC LÚC 23:00 VN (sau khi đánh xong) =====
+            // ===== TỰ ĐỘNG END BC LÚC 23:00 VN (full logic giống ?bcend) =====
             const cleanupDate = new Date(vnNow);
             cleanupDate.setDate(cleanupDate.getDate() + daysUntilTarget);
             cleanupDate.setHours(23, 0, 0, 0);
@@ -781,33 +781,132 @@ module.exports = {
             if (msUntilCleanup > 0 && msUntilCleanup < 7 * 24 * 60 * 60 * 1000) {
                 setTimeout(async () => {
                     try {
+                        const dbCleanup = require('../../database/db');
                         const channel = await client.channels.fetch(channelId).catch(() => null);
                         if (!channel) return;
                         const guild = channel.guild;
-                        const bcRole = guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
-                        if (!bcRole) return;
 
-                        // Lấy tất cả member có role BC
-                        const membersWithRole = bcRole.members;
-                        let removedCount = 0;
+                        // Lấy session từ DB
+                        const autoEndSession = dbCleanup.getActiveBangchienByDay(guildId, day);
+                        if (!autoEndSession) {
+                            console.log(`[bangchien] Auto-end 23:00 ${day}: Session đã được end trước đó, bỏ qua.`);
+                            return;
+                        }
+                        const autoEndPartyKey = autoEndSession.party_key;
 
-                        for (const [, member] of membersWithRole) {
-                            try {
-                                await member.roles.remove(bcRole);
-                                removedCount++;
-                            } catch (e) { }
+                        // 1. AUTO-SAVE PRESET Team Thủ/Rừng
+                        const autoEndTeamDefense = autoEndSession.team_defense || [];
+                        const autoEndTeamForest = autoEndSession.team_forest || [];
+                        let presetSaved = { thu: 0, rung: 0 };
+
+                        if (autoEndTeamDefense.length > 0) {
+                            const currentPresetThu = dbCleanup.getBcPreset(guildId, 'thu', day);
+                            const newPresetThu = [...currentPresetThu];
+                            for (const p of autoEndTeamDefense) {
+                                if (!newPresetThu.some(m => m.id === p.id)) {
+                                    newPresetThu.push({ id: p.id, username: p.username });
+                                }
+                            }
+                            dbCleanup.setBcPreset(guildId, 'thu', newPresetThu, day);
+                            presetSaved.thu = autoEndTeamDefense.length;
                         }
 
-                        await channel.send(`🔴 Đã tự động xóa role @${BC_ROLE_NAME} cho **${removedCount}** người sau khi Bang Chiến kết thúc.`);
-                        console.log(`[bangchien] Auto-cleanup: Xóa role BC cho ${removedCount} người lúc 23:00 ${day}`);
+                        if (autoEndTeamForest.length > 0) {
+                            const currentPresetRung = dbCleanup.getBcPreset(guildId, 'rung', day);
+                            const newPresetRung = [...currentPresetRung];
+                            for (const p of autoEndTeamForest) {
+                                if (!newPresetRung.some(m => m.id === p.id)) {
+                                    newPresetRung.push({ id: p.id, username: p.username });
+                                }
+                            }
+                            dbCleanup.setBcPreset(guildId, 'rung', newPresetRung, day);
+                            presetSaved.rung = autoEndTeamForest.length;
+                        }
+
+                        // 2. XÓA ROLE BC cho tất cả participants
+                        const participants = [
+                            ...(autoEndSession.team_attack1 || []),
+                            ...(autoEndSession.team_attack2 || []),
+                            ...(autoEndSession.team_defense || []),
+                            ...(autoEndSession.team_forest || [])
+                        ];
+
+                        const bcRole = guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
+                        let removedCount = 0;
+
+                        if (bcRole && participants.length > 0) {
+                            for (const p of participants) {
+                                try {
+                                    const member = await guild.members.fetch({ user: p.id, force: true }).catch(() => null);
+                                    if (member && member.roles.cache.has(bcRole.id)) {
+                                        await member.roles.remove(bcRole);
+                                        removedCount++;
+                                    }
+                                } catch (e) { }
+                            }
+                        }
+
+                        // 3. XÓA MEMORY DATA
+                        const notifData = bangchienNotifications.get(autoEndPartyKey);
+                        if (notifData) {
+                            if (notifData.intervalId) clearInterval(notifData.intervalId);
+                            try { if (notifData.message) await notifData.message.delete(); } catch (e) { }
+                        }
+                        bangchienNotifications.delete(autoEndPartyKey);
+                        bangchienRegistrations.delete(autoEndPartyKey);
+
+                        // Xóa finalized parties liên quan
+                        const { bangchienFinalizedParties } = require('../../utils/bangchienState');
+                        for (const [msgId, data] of bangchienFinalizedParties.entries()) {
+                            if (data.guildId === guildId && data.leaderId === autoEndSession.leader_id) {
+                                bangchienFinalizedParties.delete(msgId);
+                            }
+                        }
+
+                        // Chỉ xóa bangchienChannels nếu không còn session nào khác
+                        const remainingKeys = getGuildBangchienKeys(guildId);
+                        // Trừ session đang end ra (vì chưa xóa khỏi notifications)
+                        if (remainingKeys.filter(k => k !== autoEndPartyKey).length === 0) {
+                            bangchienChannels.delete(guildId);
+                        }
+
+                        // 4. XÓA SESSION KHỎI DB
+                        dbCleanup.deleteActiveBangchien(autoEndPartyKey);
+
+                        // 5. CẬP NHẬT OVERVIEW EMBED
+                        await refreshOverviewEmbed(client, guildId);
+
+                        // 6. CẬP NHẬT LỊCH TUẦN
+                        try {
+                            const { refreshScheduleEmbed } = require('../thongbao/thongbaoguild');
+                            await refreshScheduleEmbed(client, guildId, channelId, 'edit');
+                        } catch (e) {
+                            console.log('[bangchien] Auto-end: Không thể cập nhật lịch tuần:', e.message);
+                        }
+
+                        // 7. GỬI THÔNG BÁO
+                        const { EmbedBuilder: AutoEndEmbed } = require('discord.js');
+                        const autoEndEmbed = new AutoEndEmbed()
+                            .setColor(0x2ECC71)
+                            .setTitle(`✅ BANG CHIẾN ${DAY_CONFIG[day].name.toUpperCase()} ĐÃ TỰ ĐỘNG KẾT THÚC!`)
+                            .setDescription(`⏰ Đã 23:00 - Bang Chiến **${DAY_CONFIG[day].name}** tự động kết thúc.`)
+                            .addFields(
+                                { name: '👥 Số người đã đi', value: `${participants.length} người`, inline: true },
+                                { name: '🔴 Đã xóa role', value: `${removedCount} người`, inline: true },
+                                { name: '💾 Preset đã lưu', value: `🛡️ Thủ: ${presetSaved.thu} | 🌲 Rừng: ${presetSaved.rung}`, inline: true }
+                            )
+                            .setTimestamp();
+
+                        await channel.send({ embeds: [autoEndEmbed] });
+                        console.log(`[bangchien] Auto-end 23:00 ${day}: End thành công (${removedCount} role removed, preset: thu=${presetSaved.thu} rung=${presetSaved.rung})`);
                     } catch (e) {
-                        console.error('[bangchien] Lỗi auto-cleanup role:', e.message);
+                        console.error('[bangchien] Lỗi auto-end 23:00:', e.message);
                     }
                 }, msUntilCleanup);
 
                 const hoursUntil = Math.floor(msUntilCleanup / (60 * 60 * 1000));
                 const minutesUntil = Math.floor((msUntilCleanup % (60 * 60 * 1000)) / (60 * 1000));
-                console.log(`[bangchien] Đặt lịch xóa role BC lúc 23:00 ${day} sau ${hoursUntil}h${minutesUntil}m`);
+                console.log(`[bangchien] Đặt lịch auto-end BC lúc 23:00 ${day} sau ${hoursUntil}h${minutesUntil}m`);
             }
 
         } catch (e) {

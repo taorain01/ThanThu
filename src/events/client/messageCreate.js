@@ -657,11 +657,52 @@ module.exports = {
             }
         }
 
-        // ============== CẤP ROLE THÔNG MINH (Gemini AI) ==============
-        // Phân tích tin nhắn + ảnh trong kênh cấp role
+        // ============== CẤP ROLE THÔNG MINH ==============
+        // Phân tích tin nhắn trong kênh cấp role (so khớp text)
         const { handleCaproleMessage } = require('../../utils/caproleHandler');
         const caproleHandled = await handleCaproleMessage(message, client);
         if (caproleHandled) return;
+
+        // ============== EXP TEXT CHAT ==============
+        // Cộng EXP mỗi tin nhắn (≥3 ký tự, không phải command, cooldown 60s)
+        if (message.content.length >= 3 && !message.content.startsWith(prefix)) {
+            try {
+                const { addTextExp, getLevelReward, addHat } = require('../../database/economy');
+                const expResult = addTextExp(message.author.id);
+
+                if (expResult.success && expResult.levelUp) {
+                    // Thông báo level up
+                    const reward = getLevelReward(expResult.newLevel);
+                    const levelEmojis = ['🌱', '⚔️', '🗡️', '🛡️', '👑', '🌟', '💎', '🔥'];
+                    const emoji = levelEmojis[Math.min(Math.floor(expResult.newLevel / 10), levelEmojis.length - 1)];
+
+                    let msg = `${emoji} **Lên cấp!** <@${message.author.id}> đã đạt **Level ${expResult.newLevel}**! 🎉`;
+
+                    if (reward) {
+                        addHat(message.author.id, reward.hat);
+                        msg += `\n🎁 Phần thưởng: **+${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`;
+
+                        // Tự động gán role thưởng
+                        try {
+                            let role = message.guild.roles.cache.find(r => r.name === reward.roleName);
+                            if (!role) {
+                                role = await message.guild.roles.create({
+                                    name: reward.roleName,
+                                    reason: `EXP Level ${expResult.newLevel} reward`
+                                });
+                            }
+                            await message.member.roles.add(role);
+                        } catch (e) {
+                            console.error('[EXP] Lỗi gán role:', e.message);
+                        }
+                    }
+
+                    message.channel.send(msg).catch(() => { });
+                }
+            } catch (e) {
+                // Không log lỗi EXP để tránh spam console
+            }
+        }
 
         // Kiểm tra có bắt đầu với prefix không
         if (!message.content.startsWith(prefix)) return;
@@ -690,6 +731,12 @@ module.exports = {
         }
 
         // ============== MEMBER MANAGEMENT COMMANDS ==============
+
+        // ?tongrole - Xem tổng số role trong server (Owner only)
+        if (commandName === 'tongrole') {
+            const tongroleCommand = require('../../commands/quanly/tongrole');
+            return tongroleCommand.execute(message, args);
+        }
 
         // ?addhelp - Show help
         if (commandName === 'addhelp') {
@@ -878,6 +925,20 @@ module.exports = {
                 return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
             }
             return memCommand.execute(message, args);
+        }
+
+        // ============== EXP COMMANDS ==============
+
+        // ?rank, ?level, ?xp, ?exp - Xem EXP/level cá nhân
+        if (['rank', 'level', 'xp', 'exp'].includes(commandName)) {
+            const rankCommand = require('../../commands/exp/rank');
+            return rankCommand.execute(message, args);
+        }
+
+        // ?top, ?leaderboard, ?lb, ?bxh - Bảng xếp hạng
+        if (['top', 'leaderboard', 'lb', 'bxh'].includes(commandName)) {
+            const topCommand = require('../../commands/exp/top');
+            return topCommand.execute(message, args);
         }
 
         // ?randomavt, ?rda - Random avatar từ album

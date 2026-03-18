@@ -108,7 +108,9 @@ module.exports = {
         if (customId.startsWith('listmem_') || customId.startsWith('listid_') ||
           customId.startsWith('listallmem_') || customId.startsWith('confirmdeleteall_') ||
           customId.startsWith('canceldeleteall_') || customId.startsWith('addid_confirm_') ||
-          customId.startsWith('addid_cancel_') || customId.startsWith('locmem_') ||
+          customId.startsWith('addid_cancel_') || customId.startsWith('addid_reset_') ||
+          customId.startsWith('addid_rejoin_') || customId.startsWith('addid_resetcancel_') ||
+          customId.startsWith('locmem_') ||
           customId.startsWith('listbc_view_')) {
           const handled = await quanlyHandlers.handleButton(interaction, client);
           if (handled) return;

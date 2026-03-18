@@ -50,7 +50,7 @@ async function execute(message, args) {
             `**Danh sách ${codes.length} role có thể cấp:**\n` +
             roleLines.join('\n')
         )
-        .setFooter({ text: 'Phân tích ảnh + text' })
+        .setFooter({ text: 'So khớp text tự động' })
         .setTimestamp();
 
     await message.channel.send({ embeds: [embed] });

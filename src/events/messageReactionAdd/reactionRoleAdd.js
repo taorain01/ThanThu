@@ -20,7 +20,7 @@ module.exports = {
         const messageId = reaction.message.id;
         const emojiKey = reaction.emoji.id ? reaction.emoji.id.toString() : reaction.emoji.name;
 
-        // ============== CẤP ROLE THÔNG MINH (Gemini AI) ==============
+        // ============== CẤP ROLE THÔNG MINH ==============
         const { handleCaproleReaction } = require('../../utils/caproleHandler');
         const caproleHandled = await handleCaproleReaction(reaction, user, null);
         if (caproleHandled) return;

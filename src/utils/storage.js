@@ -6,6 +6,7 @@ const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
 const WEEKEND_PREF_FILE = path.join(DATA_DIR, 'weekend_yentiec_preference.json');
 const SCHEDULE_MESSAGES_FILE = path.join(DATA_DIR, 'schedule_messages.json');
 const ACTIVE_EVENTS_FILE = path.join(DATA_DIR, 'active_event_messages.json');
+const VOICE_STATE_FILE = path.join(DATA_DIR, 'voice_state.json');
 
 // Đảm bảo thư mục data tồn tại
 function ensureDataDir() {
@@ -187,6 +188,49 @@ function loadActiveEventMessages() {
     }
 }
 
+// === VOICE STATE PERSISTENCE ===
+// Lưu voice channel ID để bot restart có thể kết nối lại
+function saveVoiceState(guildId, channelId) {
+    try {
+        ensureDataDir();
+        let data = {};
+        if (fs.existsSync(VOICE_STATE_FILE)) {
+            data = JSON.parse(fs.readFileSync(VOICE_STATE_FILE, 'utf8'));
+        }
+        data[guildId] = { channelId, savedAt: Date.now() };
+        fs.writeFileSync(VOICE_STATE_FILE, JSON.stringify(data, null, 2), 'utf8');
+        console.log(`[storage] Đã lưu voice state: guild=${guildId}, channel=${channelId}`);
+        return true;
+    } catch (error) {
+        console.error('[storage] Lỗi lưu voice state:', error);
+        return false;
+    }
+}
+
+function removeVoiceState(guildId) {
+    try {
+        if (!fs.existsSync(VOICE_STATE_FILE)) return false;
+        const data = JSON.parse(fs.readFileSync(VOICE_STATE_FILE, 'utf8'));
+        delete data[guildId];
+        fs.writeFileSync(VOICE_STATE_FILE, JSON.stringify(data, null, 2), 'utf8');
+        console.log(`[storage] Đã xóa voice state: guild=${guildId}`);
+        return true;
+    } catch (error) {
+        console.error('[storage] Lỗi xóa voice state:', error);
+        return false;
+    }
+}
+
+function loadVoiceState() {
+    try {
+        if (!fs.existsSync(VOICE_STATE_FILE)) return {};
+        return JSON.parse(fs.readFileSync(VOICE_STATE_FILE, 'utf8'));
+    } catch (error) {
+        console.error('[storage] Lỗi load voice state:', error);
+        return {};
+    }
+}
+
 module.exports = {
     saveNotifications,
     loadNotifications,
@@ -199,7 +243,10 @@ module.exports = {
     loadScheduleMessages,
     saveActiveEventMessage,
     removeActiveEventMessage,
-    loadActiveEventMessages
+    loadActiveEventMessages,
+    saveVoiceState,
+    removeVoiceState,
+    loadVoiceState
 };
 
 // === CONFIRMATION DATE TRACKING ===

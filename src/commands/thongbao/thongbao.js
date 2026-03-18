@@ -455,8 +455,9 @@ function initializeNotifications(client) {
                     storage.saveScheduleMessages(scheduleMessages);
                   }
 
-                  // Gửi embed lịch tuần mới
-                  const weeklySchedule = getWeeklySchedule(channel.guild.id);
+                  // Gửi embed lịch tuần mới (dùng hàm từ thongbaoguild có hỗ trợ BC)
+                  const { getWeeklySchedule: getWeeklyScheduleGuild } = require('./thongbaoguild');
+                  const weeklySchedule = getWeeklyScheduleGuild(channel.guild.id, true);
                   if (weeklySchedule) {
                     const scheduleEmbed = new EmbedBuilder()
                       .setColor(0x3498DB)
@@ -722,8 +723,9 @@ function initializeNotifications(client) {
                   storage.saveScheduleMessages(scheduleMessages);
                 }
 
-                // Gửi embed lịch tuần mới
-                const weeklySchedule = getWeeklySchedule(channel.guild.id);
+                // Gửi embed lịch tuần mới (dùng hàm từ thongbaoguild có hỗ trợ BC)
+                const { getWeeklySchedule: getWeeklyScheduleGuild } = require('./thongbaoguild');
+                const weeklySchedule = getWeeklyScheduleGuild(channel.guild.id, true);
                 if (weeklySchedule) {
                   const scheduleEmbed = new EmbedBuilder()
                     .setColor(0x3498DB)

@@ -767,7 +767,7 @@ async function createGuildNotification(interaction, missionType, hours, minutes,
                         }
 
                         // Gửi embed lịch tuần mới
-                        const weeklySchedule = getWeeklySchedule(channel.guild.id);
+                        const weeklySchedule = getWeeklySchedule(channel.guild.id, true);
                         if (weeklySchedule) {
                             const scheduleEmbed = new EmbedBuilder()
                                 .setColor(0x3498DB)

@@ -202,7 +202,7 @@ async function execute(message, args) {
         });
 
         if (availableRoles.length === 0) {
-            return message.channel.send('❌ Ngươi chưa có danh hiệu nào! Liên hệ **Bang Chủ** để được ban tặng.');
+            return message.channel.send('❌ Ngươi chưa có danh hiệu nào!\nDùng `?listrole` để xem các danh hiệu có thể nhận, rồi post hình chứng minh vào đây để được cấp role nhé!');
         }
 
         // Lấy display hiện tại

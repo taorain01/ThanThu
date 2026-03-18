@@ -72,7 +72,9 @@ async function handleButton(interaction, client) {
         // ═══════════════════════════════════════════════════════════════
         // Xử lý addid confirmation buttons
         // ═══════════════════════════════════════════════════════════════
-        if (customId.startsWith('addid_confirm_') || customId.startsWith('addid_cancel_')) {
+        if (customId.startsWith('addid_confirm_') || customId.startsWith('addid_cancel_') ||
+            customId.startsWith('addid_reset_') || customId.startsWith('addid_rejoin_') ||
+            customId.startsWith('addid_resetcancel_')) {
             await getAddidCommand().handleConfirmation(interaction);
             return true;
         }

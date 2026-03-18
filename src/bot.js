@@ -48,6 +48,10 @@ client.once("ready", async () => {
   const { initGieoQueScheduler } = require('./utils/gieoqueScheduler');
   initGieoQueScheduler();
 
+  // Khởi tạo voice EXP tracker (quét voice channels mỗi 60s)
+  const { initVoiceExpTracker } = require('./utils/voiceExpTracker');
+  initVoiceExpTracker(client);
+
   // Khởi tạo weekly scheduler (gửi lịch boss + hướng dẫn phòng ảnh hàng tuần)
   const { initWeeklyScheduler } = require('./utils/weeklyScheduler');
   initWeeklyScheduler(client);
@@ -142,6 +146,37 @@ client.once("ready", async () => {
         }
       } catch (scheduleError) {
         console.error('❌ Schedule messages restore error:', scheduleError);
+      }
+
+      // === RESTORE VOICE STATE ===
+      // Kết nối lại voice channel nếu bot đang trong voice trước khi restart
+      try {
+        const ttsService = require('./utils/ttsService');
+        const savedVoiceState = storage.loadVoiceState();
+        const entries = Object.entries(savedVoiceState);
+
+        if (entries.length > 0) {
+          console.log(`🎤 Đang restore ${entries.length} voice connection(s)...`);
+
+          for (const [guildId, data] of entries) {
+            try {
+              const channel = await client.channels.fetch(data.channelId).catch(() => null);
+              if (!channel) {
+                console.log(`  ⚠️ Không tìm thấy voice channel ${data.channelId}, bỏ qua`);
+                storage.removeVoiceState(guildId);
+                continue;
+              }
+
+              await ttsService.joinChannel(channel);
+              console.log(`  ✅ Đã kết nối lại voice: ${channel.name} (guild: ${guildId})`);
+            } catch (e) {
+              console.log(`  ❌ Lỗi restore voice ${guildId}:`, e.message);
+              storage.removeVoiceState(guildId);
+            }
+          }
+        }
+      } catch (voiceError) {
+        console.error('❌ Voice state restore error:', voiceError);
       }
 
     } catch (error) {

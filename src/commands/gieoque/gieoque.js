@@ -199,9 +199,14 @@ ${wwmLine}
                                 console.log(`[GieoQue] ${keyLabel} (${modelName}) rate limit, retry ${attempt + 1}/${maxRetries}...`);
                                 await delay(5000);
                             } else {
-                                // Nếu model này fail → thử model tiếp theo
-                                console.log(`[GieoQue] ${keyLabel} (${modelName}) failed: ${apiError.message?.slice(0, 80)}`);
-                                break;
+                                // Kiểm tra lỗi API key expired/invalid → skip key này luôn
+                                const isKeyInvalid = apiError.message?.includes("API_KEY_INVALID") || apiError.message?.includes("API key expired") || apiError.message?.includes("400 Bad Request");
+                                console.log(`[GieoQue] ${keyLabel} (${modelName}) failed: ${apiError.message?.slice(0, 100)}`);
+                                if (isKeyInvalid) {
+                                    // Key hết hạn → bỏ qua tất cả model cho key này, thử key tiếp
+                                    throw apiError;
+                                }
+                                break; // Lỗi model khác → thử model tiếp theo
                             }
                         }
                     }
@@ -213,9 +218,9 @@ ${wwmLine}
 
             } catch (keyError) {
                 const isRateLimit = keyError.message?.includes("429") || keyError.message?.includes("Too Many Requests");
-                if (isRateLimit && keyAttempt < maxKeyAttempts - 1) {
-                    console.log(`[GieoQue] ${keyLabel} exhausted, trying next key...`);
-                    await waitingMessage.edit(`🔮 Thầy đang bận, đổi quẻ thẻ... (thử key ${keyAttempt + 2}/${maxKeyAttempts})`);
+                const isKeyInvalid = keyError.message?.includes("API_KEY_INVALID") || keyError.message?.includes("API key expired") || keyError.message?.includes("400 Bad Request");
+                if ((isRateLimit || isKeyInvalid) && keyAttempt < maxKeyAttempts - 1) {
+                    console.log(`[GieoQue] ${keyLabel} ${isKeyInvalid ? 'expired/invalid' : 'rate limit'}, trying next key...`);
                     continue;
                 }
                 throw keyError; // Tất cả key đều fail
@@ -241,11 +246,7 @@ ${wwmLine}
     } catch (error) {
         console.error("[GieoQue] Error:", error.message);
 
-        let errorMsg = `❌ Thầy bói hôm nay đau bụng. Lỗi: \`${error.message}\``;
-        if (error.message?.includes("429")) {
-            errorMsg = `❌ Tất cả ${apiKeys.length} API key đều đang bị rate limit. Thử lại sau 1-2 phút nhé!`;
-        }
-        await waitingMessage.edit(errorMsg);
+        await waitingMessage.edit(`❌ Thầy bói hôm nay đau bụng, ngày mai quay lại nhé!`);
     }
 }
 

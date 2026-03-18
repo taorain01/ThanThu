@@ -1,10 +1,10 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * caproleHandler.js - Xử lý cấp role thông minh qua Gemini AI
+ * caproleHandler.js - Xử lý cấp role thông minh qua so khớp text
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * Hai chức năng chính:
- *   1. handleCaproleMessage  : Phân tích tin nhắn + ảnh bằng Gemini AI
+ *   1. handleCaproleMessage  : Phân tích tin nhắn bằng so khớp text
  *   2. handleCaproleReaction : Duyệt yêu cầu cấp role khi admin reaction
  * 
  * Được gọi từ:
@@ -14,7 +14,6 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const db = require('../database/db');
 const { getRoleMappings } = require('../commands/quanly/subrole/addrole');
 
@@ -30,35 +29,68 @@ const pendingRequests = new Map();
 // Map<userId, timestamp> cooldown
 const cooldowns = new Map();
 
-// ============== API KEY ROTATION (giống gieoque.js) ==============
-function loadApiKeys() {
-    const keys = [];
-    for (let i = 1; i <= 30; i++) {
-        const key = process.env[`GEMINI_API_KEY_${i}`];
-        if (key) keys.push(key);
-    }
-    if (keys.length === 0 && process.env.GEMINI_API_KEY) {
-        keys.push(process.env.GEMINI_API_KEY);
-    }
-    return keys;
+// ============== SO KHỚP TEXT ==============
+/**
+ * Bỏ dấu tiếng Việt → chữ thường
+ */
+function removeDiacritics(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .toLowerCase().trim();
 }
 
-let currentKeyIndex = 0;
-function getNextApiKey(keys) {
-    if (keys.length === 0) return null;
-    const key = keys[currentKeyIndex % keys.length];
-    currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-    return key;
-}
+/**
+ * So khớp text của user với danh sách role
+ * Trả về { role_code, confidence, reason } hoặc null
+ */
+function fallbackTextMatch(text, mappings) {
+    if (!text || text.trim().length === 0) return null;
 
-// ============== DOWNLOAD ẢNH → BASE64 ==============
-async function imageToBase64(attachment) {
-    const response = await fetch(attachment.url);
-    const arrayBuffer = await response.arrayBuffer();
-    return {
-        data: Buffer.from(arrayBuffer).toString('base64'),
-        mimeType: attachment.contentType || 'image/png'
-    };
+    const normalizedInput = removeDiacritics(text);
+    const codes = Object.keys(mappings);
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const code of codes) {
+        const entry = mappings[code];
+        const roleName = typeof entry === 'string' ? entry : entry.name;
+        const normalizedName = removeDiacritics(roleName);
+
+        // 1. So chính xác code (VD: user gõ "clm")
+        if (normalizedInput === code || normalizedInput.split(/\s+/).includes(code)) {
+            return { role_code: code, confidence: 85, reason: `Nhận diện mã role: ${code}` };
+        }
+
+        // 2. So chính xác tên đầy đủ (VD: "Cửu Lưu Môn")
+        if (removeDiacritics(text) === normalizedName) {
+            return { role_code: code, confidence: 90, reason: `Nhận diện tên role: ${roleName}` };
+        }
+
+        // 3. Text chứa tên role không dấu (VD: "tôi ở cuu luu mon")
+        if (normalizedInput.includes(normalizedName) && normalizedName.length >= 3) {
+            const score = normalizedName.length; // Ưu tiên tên dài hơn
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = { role_code: code, confidence: 75, reason: `Phát hiện "${roleName}" trong tin nhắn` };
+            }
+        }
+
+        // 4. So từng từ trong tên role (VD: text có "lưu môn" → match "Cửu Lưu Môn")
+        const nameWords = normalizedName.split(/\s+/);
+        if (nameWords.length >= 2) {
+            const matchedWords = nameWords.filter(w => normalizedInput.includes(w) && w.length >= 2);
+            const matchRatio = matchedWords.length / nameWords.length;
+            if (matchRatio >= 0.6 && matchedWords.length >= 2) {
+                const score = matchedWords.length * 10 + matchRatio * 20;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = { role_code: code, confidence: 65, reason: `Phát hiện từ khóa liên quan ${roleName}` };
+                }
+            }
+        }
+    }
+
+    return bestMatch;
 }
 
 // ============== HÀM 1: XỬ LÝ TIN NHẮN ==============
@@ -96,113 +128,30 @@ async function handleCaproleMessage(message, client) {
     const codes = Object.keys(mappings);
     if (codes.length === 0) return false;
 
-    // Tạo danh sách role cho prompt
-    const roleList = codes.map(code => {
-        const entry = mappings[code];
-        const name = typeof entry === 'string' ? entry : entry.name;
-        return `- code: "${code}", tên: "${name}"`;
-    }).join('\n');
-
     // Set cooldown
     cooldowns.set(message.author.id, Date.now());
 
     // Gửi tin nhắn đang xử lý
     const waitMsg = await message.reply('🔍 Đang phân tích yêu cầu...');
 
+    // So khớp text để tìm role phù hợp
+    let parsed = null;
+    const textMatchResult = fallbackTextMatch(message.content, mappings);
+    if (textMatchResult) {
+        parsed = textMatchResult;
+        console.log(`[CapRole] Text match: ${textMatchResult.role_code} (${textMatchResult.confidence}%)`);
+    }
+
+    // === BƯỚC 3: Xử lý kết quả (chung cho cả Gemini và fallback) ===
     try {
-        // Chuẩn bị nội dung gửi Gemini
-        const contentParts = [];
-
-        // Prompt chính
-        const prompt = `Bạn là một AI hỗ trợ phân tích yêu cầu cấp role Discord cho một game guild.
-
-Danh sách roles có thể cấp:
-${roleList}
-
-User "${message.member?.displayName || message.author.username}" gửi tin nhắn:
-"${message.content || '(không có text, chỉ có ảnh)'}"
-
-${images.length > 0 ? `User cũng gửi kèm ${images.length} ảnh để chứng minh.` : 'User không gửi ảnh.'}
-
-YÊU CẦU:
-1. Phân tích text và ảnh (nếu có) để xác định user muốn role nào trong danh sách trên.
-2. Ảnh có thể chứa: tên môn phái, rank, thành tựu, hoặc bằng chứng liên quan đến role.
-3. Trả về ĐÚNG 1 dòng JSON, KHÔNG có markdown, KHÔNG có giải thích thêm:
-{"role_code": "mã_role_hoặc_null", "confidence": số_từ_0_đến_100, "reason": "lý_do_ngắn_gọn"}
-
-Ví dụ: {"role_code": "clm", "confidence": 90, "reason": "Ảnh hiển thị đang ở Cửu Lưu Môn"}
-Nếu không match: {"role_code": null, "confidence": 0, "reason": "Không tìm thấy thông tin liên quan role nào"}`;
-
-        contentParts.push(prompt);
-
-        // Thêm ảnh (base64)
-        for (const img of images) {
-            try {
-                const imgData = await imageToBase64(img);
-                contentParts.push({ inlineData: imgData });
-            } catch (e) {
-                console.error('[CapRole] Lỗi tải ảnh:', e.message);
-            }
-        }
-
-        // Gọi Gemini API với key rotation
-        const apiKeys = loadApiKeys();
-        if (apiKeys.length === 0) {
-            await waitMsg.edit('❌ Chưa cấu hình Gemini API Key!');
-            return true;
-        }
-
-        let resultText = null;
-
-        for (let keyAttempt = 0; keyAttempt < apiKeys.length; keyAttempt++) {
-            const apiKey = getNextApiKey(apiKeys);
-            try {
-                const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-
-                const result = await model.generateContent(contentParts);
-                resultText = result.response.text();
-                break;
-            } catch (apiError) {
-                const isRateLimit = apiError.message?.includes('429');
-                if (isRateLimit && keyAttempt < apiKeys.length - 1) {
-                    console.log(`[CapRole] Key ${keyAttempt + 1} rate limit, thử key tiếp...`);
-                    continue;
-                }
-                throw apiError;
-            }
-        }
-
-        if (!resultText) {
-            await waitMsg.edit('❌ Không thể phân tích. Thử lại sau!');
-            return true;
-        }
-
-        // Parse JSON từ kết quả Gemini
-        let parsed;
-        try {
-            // Xử lý trường hợp Gemini trả về có markdown wrapper
-            let cleanText = resultText.trim();
-            if (cleanText.startsWith('```')) {
-                cleanText = cleanText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-            }
-            parsed = JSON.parse(cleanText);
-        } catch (e) {
-            console.error('[CapRole] Lỗi parse JSON:', resultText);
-            await waitMsg.edit(`❌ Gemini trả về không đúng format. Thử lại sau!\n\`\`\`${resultText.substring(0, 200)}\`\`\``);
-            return true;
-        }
-
-        const { role_code, confidence, reason } = parsed;
-
-        // Nếu không match role nào
-        if (!role_code || confidence < 30) {
+        // Không có kết quả từ cả Gemini lẫn fallback
+        if (!parsed || !parsed.role_code || parsed.confidence < 30) {
             const noMatchEmbed = new EmbedBuilder()
-                .setColor(0x95A5A6) // Xám
+                .setColor(0x95A5A6)
                 .setDescription(
                     `👤 <@${message.author.id}>\n` +
                     `❓ Không xác định được role phù hợp.\n` +
-                    `📝 ${reason || 'Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.'}`
+                    `📝 ${parsed?.reason || 'Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.'}`
                 )
                 .setTimestamp();
 
@@ -210,10 +159,20 @@ Nếu không match: {"role_code": null, "confidence": 0, "reason": "Không tìm 
             return true;
         }
 
+        const { role_code, confidence, reason } = parsed;
+
         // Tìm thông tin role
         const roleEntry = mappings[role_code];
         if (!roleEntry) {
-            await waitMsg.edit(`❌ Role code \`${role_code}\` không tồn tại trong hệ thống.`);
+            const noMatchEmbed = new EmbedBuilder()
+                .setColor(0x95A5A6)
+                .setDescription(
+                    `👤 <@${message.author.id}>\n` +
+                    `❓ Không xác định được role phù hợp.\n` +
+                    `📝 Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.`
+                )
+                .setTimestamp();
+            await waitMsg.edit({ content: null, embeds: [noMatchEmbed] });
             return true;
         }
 
@@ -228,7 +187,7 @@ Nếu không match: {"role_code": null, "confidence": 0, "reason": "Không tìm 
 
         if (discordRole && member.roles.cache.has(discordRole.id)) {
             const alreadyEmbed = new EmbedBuilder()
-                .setColor(0xF39C12) // Vàng
+                .setColor(0xF39C12)
                 .setDescription(
                     `👤 <@${message.author.id}>\n` +
                     `${roleIcon} Bạn đã có role **${roleName}** rồi!`
@@ -241,7 +200,7 @@ Nếu không match: {"role_code": null, "confidence": 0, "reason": "Không tìm 
 
         // Tạo embed kết quả
         const pendingEmbed = new EmbedBuilder()
-            .setColor(0x3498DB) // Xanh dương
+            .setColor(0x3498DB)
             .setDescription(
                 `👤 <@${message.author.id}>\n` +
                 `${roleIcon} **${roleName}** (${confidence}%)\n` +
@@ -271,13 +230,17 @@ Nếu không match: {"role_code": null, "confidence": 0, "reason": "Không tìm 
         return true;
 
     } catch (error) {
-        console.error('[CapRole] Error:', error.message);
-
-        let errorMsg = `❌ Lỗi phân tích: \`${error.message}\``;
-        if (error.message?.includes('429')) {
-            errorMsg = '❌ Tất cả API key đang bị rate limit. Thử lại sau 1-2 phút!';
-        }
-        await waitMsg.edit(errorMsg);
+        console.error('[CapRole] Error xử lý kết quả:', error.message);
+        // Vẫn không báo lỗi model, chỉ báo chung
+        const errorEmbed = new EmbedBuilder()
+            .setColor(0x95A5A6)
+            .setDescription(
+                `👤 <@${message.author.id}>\n` +
+                `❓ Không xác định được role phù hợp.\n` +
+                `📝 Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.`
+            )
+            .setTimestamp();
+        await waitMsg.edit({ content: null, embeds: [errorEmbed] });
         return true;
     }
 }

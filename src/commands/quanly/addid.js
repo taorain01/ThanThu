@@ -58,6 +58,7 @@ async function execute(message, args) {
                 '**💡 Lưu ý:**',
                 '• Lưu UID + tên game vào danh sách chờ',
                 '• **Nhập lại = cập nhật đè** (có xác nhận)',
+                '• **UID đã rời guild?** → Hiện bảng xác nhận để reset trạng thái',
                 '• Dùng `?addmem` để link với Discord user sau'
             ].join('\n'))
             .setFooter({ text: 'Bulk add game data trước, link Discord sau' });
@@ -132,6 +133,70 @@ async function execute(message, args) {
     const activeUser = db.db.prepare('SELECT * FROM users WHERE game_uid = ? AND left_at IS NULL').get(gameUid);
     if (activeUser) {
         return message.channel.send(`❌ UID \`${gameUid}\` đã tồn tại trong database và đang hoạt động!\nUser: <@${activeUser.discord_id}> - ${activeUser.game_username}`);
+    }
+
+    // Check if UID belongs to a user who was marked as LEFT guild
+    const leftUser = db.db.prepare('SELECT * FROM users WHERE game_uid = ? AND left_at IS NOT NULL').get(gameUid);
+    if (leftUser) {
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+        const leftDate = new Date(leftUser.left_at);
+        const joinedDate = leftUser.joined_at ? new Date(leftUser.joined_at) : null;
+
+        const confirmEmbed = new EmbedBuilder()
+            .setColor(0xE67E22)
+            .setTitle('⚠️ Thành viên đã bị đánh dấu rời guild!')
+            .setDescription([
+                `UID \`${gameUid}\` thuộc về thành viên đã bị đánh dấu **rời guild**.`,
+                '',
+                `👤 **Tên game:** ${leftUser.game_username}`,
+                `🆔 **UID:** ${gameUid}`,
+                `📅 **Ngày vào cũ:** ${joinedDate ? `<t:${Math.floor(joinedDate.getTime() / 1000)}:D>` : 'N/A'}`,
+                `📤 **Ngày rời:** <t:${Math.floor(leftDate.getTime() / 1000)}:D>`,
+                leftUser.discord_id && !leftUser.discord_id.startsWith('pending_')
+                    ? `💬 **Discord cũ:** <@${leftUser.discord_id}>`
+                    : '',
+                '',
+                '**Chọn hành động:**',
+                '✅ **Chưa rời** — Họ chưa rời in-game, giữ ngày vào cũ',
+                `🔄 **Vào lại** — Họ đã rời thật, nay quay lại (reset ngày vào)`,
+            ].filter(Boolean).join('\n'));
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`addid_reset_${gameUid}_${message.author.id}`)
+                    .setLabel('✅ Chưa rời')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`addid_rejoin_${gameUid}_${message.author.id}`)
+                    .setLabel('🔄 Vào lại guild')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`addid_resetcancel_${gameUid}_${message.author.id}`)
+                    .setLabel('❌ Hủy')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+        const confirmMsg = await message.channel.send({ embeds: [confirmEmbed], components: [row] });
+
+        // Lưu data tạm cho confirmation handler
+        global.pendingAddidConfirmations = global.pendingAddidConfirmations || new Map();
+        global.pendingAddidConfirmations.set(`reset_${gameUid}_${message.author.id}`, {
+            gameUid,
+            gameName,
+            joinDate,
+            leftUser,
+            confirmMsg,
+            type: 'reset'
+        });
+
+        // Auto-cancel sau 30 giây
+        setTimeout(() => {
+            global.pendingAddidConfirmations?.delete(`reset_${gameUid}_${message.author.id}`);
+        }, 30000);
+
+        return;
     }
 
     // Check if UID already in pending - need confirmation to overwrite
@@ -212,15 +277,153 @@ async function execute(message, args) {
 }
 
 /**
- * Handle confirmation button for overwrite
+ * Handle confirmation button for overwrite and reset
  */
 async function handleConfirmation(interaction) {
-    const [, action, gameUid, authorId] = interaction.customId.split('_');
+    const customId = interaction.customId;
+
+    // Parse customId - có 2 dạng:
+    // addid_confirm_<uid>_<authorId> / addid_cancel_<uid>_<authorId>
+    // addid_reset_<uid>_<authorId> / addid_resetcancel_<uid>_<authorId>
+    const parts = customId.split('_');
+    // parts[0] = "addid", parts[1] = action, ...
+
+    const action = parts[1]; // "confirm", "cancel", "reset", "resetcancel"
+
+    // Xác định authorId và gameUid dựa trên action
+    let gameUid, authorId;
+    if (action === 'resetcancel') {
+        // addid_resetcancel_<uid>_<authorId>
+        gameUid = parts[2];
+        authorId = parts[3];
+    } else {
+        // addid_confirm/cancel/reset_<uid>_<authorId>
+        gameUid = parts[2];
+        authorId = parts[3];
+    }
 
     if (interaction.user.id !== authorId) {
         return interaction.reply({ content: '❌ Chỉ người sử dụng lệnh mới được xác nhận!', ephemeral: true });
     }
 
+    // ============== RESET: Chưa rời guild (giữ ngày vào cũ) ==============
+    if (action === 'reset') {
+        const key = `reset_${gameUid}_${authorId}`;
+        const data = global.pendingAddidConfirmations?.get(key);
+
+        if (!data) {
+            return interaction.update({ content: '❌ Phiên xác nhận đã hết hạn!', embeds: [], components: [] });
+        }
+
+        try {
+            // Giữ ngày vào cũ từ record gốc
+            const keepJoinDate = data.leftUser.joined_at || new Date().toISOString();
+
+            // 1. Xóa khỏi bảng users
+            db.db.prepare('DELETE FROM users WHERE game_uid = ? AND left_at IS NOT NULL').run(gameUid);
+
+            // 2. Xóa pending cũ nếu có
+            try {
+                db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ?').run(gameUid);
+            } catch (e) { /* ignore */ }
+
+            // 3. Thêm vào pending_ids với ngày vào CŨ (giữ nguyên)
+            db.db.prepare(`
+                INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
+                VALUES (?, ?, ?, ?)
+            `).run(gameUid, data.gameName, authorId, keepJoinDate);
+
+            const joinDateObj = new Date(keepJoinDate);
+            const embed = new EmbedBuilder()
+                .setColor(0x00D166)
+                .setTitle('✅ Đánh dấu chưa rời guild!')
+                .setDescription([
+                    `Thành viên **${data.gameName}** được xác nhận **chưa rời guild**.`,
+                    '',
+                    '**Đã thực hiện:**',
+                    '• Xóa đánh dấu rời guild',
+                    '• Giữ nguyên ngày vào cũ',
+                    '• Đưa về danh sách chờ link Discord',
+                ].join('\n'))
+                .addFields(
+                    { name: '🆔 UID', value: gameUid, inline: true },
+                    { name: '🎮 Tên Game', value: data.gameName, inline: true },
+                    { name: '📅 Ngày vào (giữ cũ)', value: `<t:${Math.floor(joinDateObj.getTime() / 1000)}:D>`, inline: true },
+                    { name: '📝 Người thực hiện', value: `<@${authorId}>`, inline: true }
+                )
+                .setFooter({ text: '💡 Dùng ?addmem để link với Discord user mới' })
+                .setTimestamp();
+
+            await interaction.update({ embeds: [embed], components: [] });
+            global.pendingAddidConfirmations.delete(key);
+        } catch (error) {
+            console.error('Error resetting user status:', error);
+            await interaction.update({ content: '❌ Có lỗi xảy ra khi reset trạng thái!', embeds: [], components: [] });
+        }
+        return;
+    }
+
+    // ============== REJOIN: Vào lại guild (reset ngày vào mới) ==============
+    if (action === 'rejoin') {
+        const key = `reset_${gameUid}_${authorId}`;
+        const data = global.pendingAddidConfirmations?.get(key);
+
+        if (!data) {
+            return interaction.update({ content: '❌ Phiên xác nhận đã hết hạn!', embeds: [], components: [] });
+        }
+
+        try {
+            // 1. Xóa khỏi bảng users
+            db.db.prepare('DELETE FROM users WHERE game_uid = ? AND left_at IS NOT NULL').run(gameUid);
+
+            // 2. Xóa pending cũ nếu có
+            try {
+                db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ?').run(gameUid);
+            } catch (e) { /* ignore */ }
+
+            // 3. Thêm vào pending_ids với ngày vào MỚI (hôm nay hoặc Xnt)
+            db.db.prepare(`
+                INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
+                VALUES (?, ?, ?, ?)
+            `).run(gameUid, data.gameName, authorId, data.joinDate.toISOString());
+
+            const embed = new EmbedBuilder()
+                .setColor(0x3498DB)
+                .setTitle('🔄 Thành viên vào lại guild!')
+                .setDescription([
+                    `Thành viên **${data.gameName}** đã vào lại guild.`,
+                    '',
+                    '**Đã thực hiện:**',
+                    '• Xóa record cũ (đã rời)',
+                    '• Reset ngày vào = hôm nay',
+                    '• Đưa về danh sách chờ link Discord',
+                ].join('\n'))
+                .addFields(
+                    { name: '🆔 UID', value: gameUid, inline: true },
+                    { name: '🎮 Tên Game', value: data.gameName, inline: true },
+                    { name: '📅 Ngày vào (mới)', value: `<t:${Math.floor(data.joinDate.getTime() / 1000)}:D>`, inline: true },
+                    { name: '📝 Người thực hiện', value: `<@${authorId}>`, inline: true }
+                )
+                .setFooter({ text: '💡 Dùng ?addmem để link với Discord user mới' })
+                .setTimestamp();
+
+            await interaction.update({ embeds: [embed], components: [] });
+            global.pendingAddidConfirmations.delete(key);
+        } catch (error) {
+            console.error('Error rejoin user:', error);
+            await interaction.update({ content: '❌ Có lỗi xảy ra khi xử lý vào lại guild!', embeds: [], components: [] });
+        }
+        return;
+    }
+
+    // ============== RESET CANCEL ==============
+    if (action === 'resetcancel') {
+        const key = `reset_${gameUid}_${authorId}`;
+        global.pendingAddidConfirmations?.delete(key);
+        return interaction.update({ content: '❌ Đã hủy reset trạng thái.', embeds: [], components: [] });
+    }
+
+    // ============== OVERWRITE PENDING (logic cũ) ==============
     const key = `${gameUid}_${authorId}`;
     const data = global.pendingAddidConfirmations?.get(key);
 

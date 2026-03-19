@@ -234,9 +234,9 @@ async function createRankCard(user, member, info, totalUsers) {
 
     // Stat boxes
     const stats = [
-        { icon: '💬', label: 'Text', value: formatNumber(info.textExp), sub: `${formatNumber(info.totalMessages)} tin nhắn` },
-        { icon: '🔊', label: 'Voice', value: formatNumber(info.voiceExp), sub: formatVoiceTime(info.totalVoiceMinutes) },
-        { icon: '✨', label: 'Tổng', value: formatNumber(info.totalExp), sub: '' },
+        { label: 'Text', value: formatNumber(info.textExp), sub: `${formatNumber(info.totalMessages)} tin nhắn`, color: '#667eea' },
+        { label: 'Voice', value: formatNumber(info.voiceExp), sub: formatVoiceTime(info.totalVoiceMinutes), color: '#f093fb' },
+        { label: 'Tổng', value: formatNumber(info.totalExp), sub: '', color: '#c4b5fd' },
     ];
 
     const statWidth = (textMaxWidth - 20) / 3;
@@ -249,10 +249,16 @@ async function createRankCard(user, member, info, totalUsers) {
         roundRect(ctx, sx, statsY, statWidth - 5, 55, 8);
         ctx.fill();
 
-        // Icon + Label
+        // Icon dot nhỏ bằng canvas
+        ctx.fillStyle = stat.color;
+        ctx.beginPath();
+        ctx.arc(sx + 14, statsY + 15, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = '13px sans-serif';
-        ctx.fillText(`${stat.icon} ${stat.label}`, sx + 10, statsY + 10);
+        ctx.fillText(stat.label, sx + 23, statsY + 10);
 
         // Giá trị
         ctx.fillStyle = '#e0e7ff';
@@ -380,10 +386,10 @@ function formatVoiceTime(minutes) {
  * Lấy tier title theo level
  */
 function getLevelTier(level) {
-    if (level >= 50) return '👑 Vô Song';
-    if (level >= 30) return '🛡️ Đại Hiệp';
-    if (level >= 20) return '🗡️ Kiếm Khách';
-    if (level >= 10) return '⚔️ Lữ Khách';
-    if (level >= 5) return '🌱 Tân Thủ';
-    return '🌀 Luyện Tập Sinh';
+    if (level >= 50) return '~ Vo Song';
+    if (level >= 30) return '~ Dai Hiep';
+    if (level >= 20) return '~ Kiem Khach';
+    if (level >= 10) return '~ Lu Khach';
+    if (level >= 5) return '~ Tan Thu';
+    return '~ Luyen Tap Sinh';
 }

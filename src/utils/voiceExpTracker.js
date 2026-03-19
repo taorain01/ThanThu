@@ -4,6 +4,7 @@
  */
 
 const { addVoiceExp, getLevelReward, addHat } = require('../database/economy');
+const { EmbedBuilder } = require('discord.js');
 
 // Map lưu thời gian join voice: { odiscordId: { channelId, joinedAt } }
 const voiceUsers = new Map();
@@ -64,7 +65,7 @@ async function processVoiceExp() {
 }
 
 /**
- * Xử lý thông báo level up
+ * Xử lý thông báo level up - gửi vào kênh đã set, embed đẹp, không tag user
  */
 async function handleLevelUp(discordId, result, channel) {
     try {
@@ -94,20 +95,47 @@ async function handleLevelUp(discordId, result, channel) {
             }
         }
 
-        // Gửi thông báo level up trong voice text channel hoặc system channel
-        const textChannel = channel.isVoiceBased() ? channel : guild.systemChannel;
-        if (!textChannel) return;
+        // Gửi thông báo vào kênh đã set (nếu có)
+        const db = require('../database/db');
+        const levelUpChannelId = db.getLevelUpChannelId();
+        if (!levelUpChannelId) return; // Chưa set kênh → bỏ qua
 
-        const levelEmojis = ['🌱', '⚔️', '🗡️', '🛡️', '👑', '🌟', '💎', '🔥'];
-        const emoji = levelEmojis[Math.min(Math.floor(result.newLevel / 10), levelEmojis.length - 1)];
+        try {
+            const levelUpChannel = await clientRef.channels.fetch(levelUpChannelId);
+            if (!levelUpChannel) return;
 
-        let msg = `${emoji} **Lên cấp!** <@${discordId}> đã đạt **Level ${result.newLevel}**! 🎉`;
+            const levelEmojis = ['🌱', '⚔️', '🗡️', '🛡️', '👑', '🌟', '💎', '🔥'];
+            const emoji = levelEmojis[Math.min(Math.floor(result.newLevel / 10), levelEmojis.length - 1)];
+            const displayName = member.displayName || member.user.username;
 
-        if (reward) {
-            msg += `\n🎁 Phần thưởng: **+${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`;
+            const embed = new EmbedBuilder()
+                .setColor(0x9C27B0)
+                .setAuthor({
+                    name: displayName,
+                    iconURL: member.user.displayAvatarURL({ size: 64 })
+                })
+                .setTitle(`${emoji} Lên Cấp!`)
+                .setDescription(`**${displayName}** đã đạt **Level ${result.newLevel}**! 🎉`)
+                .addFields(
+                    { name: '📊 Level', value: `${result.oldLevel} → **${result.newLevel}**`, inline: true },
+                    { name: '🏷️ Loại', value: '🎤 Voice', inline: true }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'Lang Gia Các • Hệ thống EXP' });
+
+            if (reward) {
+                embed.addFields({
+                    name: '🎁 Phần thưởng',
+                    value: `+**${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`,
+                    inline: false
+                });
+                embed.setColor(0xFFD700); // Vàng cho milestone
+            }
+
+            await levelUpChannel.send({ embeds: [embed] });
+        } catch (e) {
+            console.error('[voiceExpTracker] Lỗi gửi thông báo level up:', e.message);
         }
-
-        await textChannel.send(msg).catch(() => { });
     } catch (e) {
         console.error('[voiceExpTracker] Lỗi handleLevelUp:', e.message);
     }

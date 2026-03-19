@@ -2016,7 +2016,10 @@ module.exports = {
     getBoosterRoomMembers,
     isBoosterRoomMember,
     getBoostCategoryId,
-    setBoostCategoryId
+    setBoostCategoryId,
+    // Level Up Channel
+    setLevelUpChannelId,
+    getLevelUpChannelId
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2318,4 +2321,25 @@ function getBoostCategoryId(guildId) {
 
 function setBoostCategoryId(guildId, categoryId) {
     return setConfig(`boost_category_${guildId}`, categoryId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEVEL UP CHANNEL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Lưu channel ID cho thông báo level up
+ * @param {string} channelId
+ * @returns {Object} Result
+ */
+function setLevelUpChannelId(channelId) {
+    return setConfig('levelup_channel_id', channelId);
+}
+
+/**
+ * Lấy channel ID cho thông báo level up
+ * @returns {string|null}
+ */
+function getLevelUpChannelId() {
+    return getConfig('levelup_channel_id');
 }

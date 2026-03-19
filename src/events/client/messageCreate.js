@@ -668,21 +668,15 @@ module.exports = {
         if (message.content.length >= 3 && !message.content.startsWith(prefix)) {
             try {
                 const { addTextExp, getLevelReward, addHat } = require('../../database/economy');
+                const { EmbedBuilder } = require('discord.js');
                 const expResult = addTextExp(message.author.id);
 
                 if (expResult.success && expResult.levelUp) {
-                    // Thông báo level up
                     const reward = getLevelReward(expResult.newLevel);
-                    const levelEmojis = ['🌱', '⚔️', '🗡️', '🛡️', '👑', '🌟', '💎', '🔥'];
-                    const emoji = levelEmojis[Math.min(Math.floor(expResult.newLevel / 10), levelEmojis.length - 1)];
 
-                    let msg = `${emoji} **Lên cấp!** <@${message.author.id}> đã đạt **Level ${expResult.newLevel}**! 🎉`;
-
+                    // Gán role thưởng nếu có
                     if (reward) {
                         addHat(message.author.id, reward.hat);
-                        msg += `\n🎁 Phần thưởng: **+${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`;
-
-                        // Tự động gán role thưởng
                         try {
                             let role = message.guild.roles.cache.find(r => r.name === reward.roleName);
                             if (!role) {
@@ -697,7 +691,46 @@ module.exports = {
                         }
                     }
 
-                    message.channel.send(msg).catch(() => { });
+                    // Gửi thông báo vào kênh đã set (nếu có)
+                    const levelUpChannelId = db.getLevelUpChannelId();
+                    if (levelUpChannelId) {
+                        try {
+                            const levelUpChannel = await client.channels.fetch(levelUpChannelId);
+                            if (levelUpChannel) {
+                                const levelEmojis = ['🌱', '⚔️', '🗡️', '🛡️', '👑', '🌟', '💎', '🔥'];
+                                const emoji = levelEmojis[Math.min(Math.floor(expResult.newLevel / 10), levelEmojis.length - 1)];
+                                const displayName = message.member?.displayName || message.author.username;
+
+                                const embed = new EmbedBuilder()
+                                    .setColor(0x00E5FF)
+                                    .setAuthor({
+                                        name: displayName,
+                                        iconURL: message.author.displayAvatarURL({ size: 64 })
+                                    })
+                                    .setTitle(`${emoji} Lên Cấp!`)
+                                    .setDescription(`**${displayName}** đã đạt **Level ${expResult.newLevel}**! 🎉`)
+                                    .addFields(
+                                        { name: '📊 Level', value: `${expResult.oldLevel} → **${expResult.newLevel}**`, inline: true },
+                                        { name: '🏷️ Loại', value: '💬 Chat', inline: true }
+                                    )
+                                    .setTimestamp()
+                                    .setFooter({ text: 'Lang Gia Các • Hệ thống EXP' });
+
+                                if (reward) {
+                                    embed.addFields({
+                                        name: '🎁 Phần thưởng',
+                                        value: `+**${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`,
+                                        inline: false
+                                    });
+                                    embed.setColor(0xFFD700); // Vàng cho milestone
+                                }
+
+                                await levelUpChannel.send({ embeds: [embed] });
+                            }
+                        } catch (e) {
+                            console.error('[EXP] Lỗi gửi thông báo level up:', e.message);
+                        }
+                    }
                 }
             } catch (e) {
                 // Không log lỗi EXP để tránh spam console
@@ -1173,6 +1206,12 @@ module.exports = {
         if (['setchannelanh', 'setchannelphonganh', 'phonganh'].includes(commandName)) {
             const setchannelanhCommand = require('../../commands/admin/setchannelanh');
             return setchannelanhCommand.execute(message, args);
+        }
+
+        // ?setlevelup - Set kênh nhận thông báo Level Up (Quản Lý only)
+        if (['setlevelup', 'setlvup', 'setlvl'].includes(commandName)) {
+            const setlevelupCommand = require('../../commands/admin/setlevelup');
+            return setlevelupCommand.execute(message, args);
         }
 
         // ?album - Xem album ảnh của bạn

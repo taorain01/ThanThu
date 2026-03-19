@@ -118,8 +118,7 @@ async function handleCaproleMessage(message, client) {
     const now = Date.now();
     const lastUsed = cooldowns.get(message.author.id);
     if (lastUsed && now - lastUsed < COOLDOWN_MS) {
-        const remaining = Math.ceil((COOLDOWN_MS - (now - lastUsed)) / 1000);
-        await message.reply(`⏳ Đợi thêm **${remaining} giây** nữa nhé!`);
+        try { await message.react('⏳'); } catch (e) { }
         return true;
     }
 
@@ -131,8 +130,7 @@ async function handleCaproleMessage(message, client) {
     // Set cooldown
     cooldowns.set(message.author.id, Date.now());
 
-    // Gửi tin nhắn đang xử lý
-    const waitMsg = await message.reply('🔍 Đang phân tích yêu cầu...');
+
 
     // So khớp text để tìm role phù hợp
     let parsed = null;
@@ -146,16 +144,7 @@ async function handleCaproleMessage(message, client) {
     try {
         // Không có kết quả từ cả Gemini lẫn fallback
         if (!parsed || !parsed.role_code || parsed.confidence < 30) {
-            const noMatchEmbed = new EmbedBuilder()
-                .setColor(0x95A5A6)
-                .setDescription(
-                    `👤 <@${message.author.id}>\n` +
-                    `❓ Không xác định được role phù hợp.\n` +
-                    `📝 ${parsed?.reason || 'Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.'}`
-                )
-                .setTimestamp();
-
-            await waitMsg.edit({ content: null, embeds: [noMatchEmbed] });
+            try { await message.react('❌'); } catch (e) { }
             return true;
         }
 
@@ -164,15 +153,7 @@ async function handleCaproleMessage(message, client) {
         // Tìm thông tin role
         const roleEntry = mappings[role_code];
         if (!roleEntry) {
-            const noMatchEmbed = new EmbedBuilder()
-                .setColor(0x95A5A6)
-                .setDescription(
-                    `👤 <@${message.author.id}>\n` +
-                    `❓ Không xác định được role phù hợp.\n` +
-                    `📝 Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.`
-                )
-                .setTimestamp();
-            await waitMsg.edit({ content: null, embeds: [noMatchEmbed] });
+            try { await message.react('❌'); } catch (e) { }
             return true;
         }
 
@@ -194,7 +175,7 @@ async function handleCaproleMessage(message, client) {
                 )
                 .setTimestamp();
 
-            await waitMsg.edit({ content: null, embeds: [alreadyEmbed] });
+            await message.reply({ embeds: [alreadyEmbed] });
             return true;
         }
 
@@ -214,7 +195,7 @@ async function handleCaproleMessage(message, client) {
             pendingEmbed.setThumbnail(images[0].url);
         }
 
-        const replyMsg = await waitMsg.edit({ content: null, embeds: [pendingEmbed] });
+        const replyMsg = await message.reply({ content: `<@${OWNER_ID}>`, embeds: [pendingEmbed] });
 
         // Lưu vào pending map (key = tin nhắn gốc của user)
         pendingRequests.set(message.id, {
@@ -231,16 +212,7 @@ async function handleCaproleMessage(message, client) {
 
     } catch (error) {
         console.error('[CapRole] Error xử lý kết quả:', error.message);
-        // Vẫn không báo lỗi model, chỉ báo chung
-        const errorEmbed = new EmbedBuilder()
-            .setColor(0x95A5A6)
-            .setDescription(
-                `👤 <@${message.author.id}>\n` +
-                `❓ Không xác định được role phù hợp.\n` +
-                `📝 Vui lòng ghi rõ tên role hoặc gửi ảnh rõ hơn.`
-            )
-            .setTimestamp();
-        await waitMsg.edit({ content: null, embeds: [errorEmbed] });
+        try { await message.react('❌'); } catch (e) { }
         return true;
     }
 }

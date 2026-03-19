@@ -1,6 +1,6 @@
 /**
  * Lệnh ?top - Bảng xếp hạng EXP
- * Tạo leaderboard card đẹp bằng Canvas
+ * Tạo leaderboard card đẹp bằng Canvas (scale lớn hơn)
  */
 
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
@@ -51,12 +51,12 @@ module.exports = {
                 const member = message.guild.members.cache.get(entry.discord_id);
                 if (member) {
                     displayName = member.displayName;
-                    avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 64 });
+                    avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 128 });
                 } else {
                     const user = await message.client.users.fetch(entry.discord_id).catch(() => null);
                     if (user) {
                         displayName = user.username;
-                        avatarUrl = user.displayAvatarURL({ extension: 'png', size: 64 });
+                        avatarUrl = user.displayAvatarURL({ extension: 'png', size: 128 });
                     }
                 }
             } catch (e) {
@@ -108,15 +108,15 @@ module.exports = {
 };
 
 /**
- * Tạo leaderboard card đẹp bằng Canvas
+ * Tạo leaderboard card đẹp bằng Canvas (scale lớn hơn)
  */
 async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, totalUsers, author) {
-    const width = 700;
-    const rowHeight = 52;
-    const headerHeight = 70;
-    const footerHeight = 50;
-    const topPadding = 20;
-    const bottomPadding = 15;
+    const width = 900;
+    const rowHeight = 66;
+    const headerHeight = 90;
+    const footerHeight = 60;
+    const topPadding = 24;
+    const bottomPadding = 18;
     const height = headerHeight + topPadding + entries.length * rowHeight + bottomPadding + footerHeight;
 
     const canvas = createCanvas(width, height);
@@ -128,7 +128,7 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     bgGrad.addColorStop(0.4, '#1a1545');
     bgGrad.addColorStop(1, '#0d0b1e');
     ctx.fillStyle = bgGrad;
-    roundRect(ctx, 0, 0, width, height, 16);
+    roundRect(ctx, 0, 0, width, height, 20);
     ctx.fill();
 
     // Viền phát sáng
@@ -137,18 +137,18 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     borderGlow.addColorStop(0.5, theme.secondary);
     borderGlow.addColorStop(1, theme.accent);
     ctx.strokeStyle = borderGlow;
-    ctx.lineWidth = 2;
-    roundRect(ctx, 1, 1, width - 2, height - 2, 16);
+    ctx.lineWidth = 3;
+    roundRect(ctx, 1, 1, width - 2, height - 2, 20);
     ctx.stroke();
 
     // ═══ HIỆU ỨNG NỀN ═══
     ctx.globalAlpha = 0.03;
     ctx.fillStyle = theme.primary;
     ctx.beginPath();
-    ctx.arc(width - 80, 60, 100, 0, Math.PI * 2);
+    ctx.arc(width - 100, 75, 130, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(60, height - 40, 70, 0, Math.PI * 2);
+    ctx.arc(80, height - 50, 90, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
 
@@ -157,7 +157,7 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     headerGrad.addColorStop(0, 'rgba(255,255,255,0.03)');
     headerGrad.addColorStop(1, 'rgba(255,255,255,0.01)');
     ctx.fillStyle = headerGrad;
-    roundRect(ctx, 0, 0, width, headerHeight, { tl: 16, tr: 16, bl: 0, br: 0 });
+    roundRect(ctx, 0, 0, width, headerHeight, { tl: 20, tr: 20, bl: 0, br: 0 });
     ctx.fill();
 
     // Đường kẻ dưới header
@@ -176,23 +176,23 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
 
     // Title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px sans-serif';
+    ctx.font = 'bold 32px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('BANG XEP HANG', 30, headerHeight / 2 - 5);
+    ctx.fillText('BANG XEP HANG', 36, headerHeight / 2 - 8);
 
     // Type badge
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = 'bold 16px sans-serif';
     const badgeText = typeLabel;
-    const badgeWidth = ctx.measureText(badgeText).width + 20;
-    const badgeX = 30;
-    const badgeY = headerHeight / 2 + 14;
+    const badgeWidth = ctx.measureText(badgeText).width + 26;
+    const badgeX = 36;
+    const badgeY = headerHeight / 2 + 18;
 
-    const badgeGrad = ctx.createLinearGradient(badgeX, badgeY - 10, badgeX + badgeWidth, badgeY + 10);
+    const badgeGrad = ctx.createLinearGradient(badgeX, badgeY - 12, badgeX + badgeWidth, badgeY + 12);
     badgeGrad.addColorStop(0, theme.primary);
     badgeGrad.addColorStop(1, theme.secondary);
     ctx.fillStyle = badgeGrad;
-    roundRect(ctx, badgeX, badgeY - 10, badgeWidth, 20, 10);
+    roundRect(ctx, badgeX, badgeY - 12, badgeWidth, 24, 12);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
@@ -201,10 +201,10 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
 
     // Tổng người chơi (góc phải header)
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '13px sans-serif';
+    ctx.font = '16px sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${totalUsers} nguoi choi`, width - 30, headerHeight / 2);
+    ctx.fillText(`${totalUsers} nguoi choi`, width - 36, headerHeight / 2);
 
     // ═══ DANH SÁCH TOP ═══
     const startY = headerHeight + topPadding;
@@ -212,29 +212,29 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         const y = startY + i * rowHeight;
-        const rowPadX = 20;
+        const rowPadX = 24;
         const rowWidth = width - rowPadX * 2;
 
         // Nền row cho top 3 hoặc highlight bản thân
         if (entry.rank <= 3) {
             const rowAlpha = entry.rank === 1 ? 0.08 : entry.rank === 2 ? 0.05 : 0.03;
             ctx.fillStyle = `rgba(255,255,255,${rowAlpha})`;
-            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 4, 8);
+            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 5, 10);
             ctx.fill();
         }
 
         if (entry.isMe) {
             ctx.strokeStyle = theme.primary + '50';
             ctx.lineWidth = 1;
-            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 4, 8);
+            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 5, 10);
             ctx.stroke();
         }
 
         // ── Rank number ──
-        const rankX = rowPadX + 20;
+        const rankX = rowPadX + 26;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const centerY = y + (rowHeight - 4) / 2;
+        const centerY = y + (rowHeight - 5) / 2;
 
         if (entry.rank <= 3) {
             // Vẽ huy chương cho top 3
@@ -248,28 +248,28 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
             // Hình tròn huy chương
             ctx.fillStyle = medal.bg;
             ctx.beginPath();
-            ctx.arc(rankX, centerY, 14, 0, Math.PI * 2);
+            ctx.arc(rankX, centerY, 18, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.strokeStyle = medal.border;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(rankX, centerY, 14, 0, Math.PI * 2);
+            ctx.arc(rankX, centerY, 18, 0, Math.PI * 2);
             ctx.stroke();
 
             ctx.fillStyle = medal.text;
-            ctx.font = 'bold 14px sans-serif';
+            ctx.font = 'bold 18px sans-serif';
             ctx.fillText(entry.rank.toString(), rankX, centerY);
         } else {
             // Số thứ tự thường
             ctx.fillStyle = 'rgba(255,255,255,0.35)';
-            ctx.font = 'bold 14px sans-serif';
+            ctx.font = 'bold 18px sans-serif';
             ctx.fillText(`${entry.rank}`, rankX, centerY);
         }
 
         // ── Avatar ──
-        const avSize = 34;
-        const avX = rankX + 30;
+        const avSize = 44;
+        const avX = rankX + 36;
         const avY = centerY - avSize / 2;
 
         // Clip tròn để vẽ avatar
@@ -295,7 +295,7 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
             ctx.fillRect(avX, avY, avSize, avSize);
 
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 16px sans-serif';
+            ctx.font = 'bold 20px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(entry.displayName[0].toUpperCase(), avX + avSize / 2, avY + avSize / 2);
@@ -313,25 +313,25 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
         }
 
         // ── Tên + Level ──
-        const nameX = avX + avSize + 12;
+        const nameX = avX + avSize + 16;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
 
         // Tên
         ctx.fillStyle = entry.isMe ? theme.accent : '#ffffff';
-        ctx.font = 'bold 15px sans-serif';
-        ctx.fillText(entry.displayName, nameX, centerY - 8);
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(entry.displayName, nameX, centerY - 10);
 
         // Level badge nhỏ
         const lvText = `Lv ${entry.level}`;
-        ctx.font = '11px sans-serif';
+        ctx.font = '14px sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.fillText(lvText, nameX, centerY + 10);
+        ctx.fillText(lvText, nameX, centerY + 12);
 
         // ── EXP bar + số ──
-        const barMaxWidth = 180;
-        const barHeight = 10;
-        const barX = width - 30 - barMaxWidth;
+        const barMaxWidth = 230;
+        const barHeight = 14;
+        const barX = width - 36 - barMaxWidth;
         const barY = centerY - barHeight / 2;
 
         // Nền bar
@@ -359,10 +359,10 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
 
         // Số EXP bên phải bar
         ctx.fillStyle = theme.accent;
-        ctx.font = 'bold 13px sans-serif';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText(formatNumber(entry.expValue), barX - 8, centerY);
+        ctx.fillText(formatNumber(entry.expValue), barX - 10, centerY);
     }
 
     // ═══ FOOTER - Thông tin bản thân ═══
@@ -383,14 +383,14 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
 
     // Thông tin cá nhân
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '13px sans-serif';
+    ctx.font = '16px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const footerCenterY = footerY + footerHeight / 2;
-    ctx.fillText(`Hang cua ban: #${myInfo.rank}/${totalUsers}`, 30, footerCenterY);
+    ctx.fillText(`Hang cua ban: #${myInfo.rank}/${totalUsers}`, 36, footerCenterY);
 
     ctx.textAlign = 'right';
-    ctx.fillText(`Level ${myInfo.level}  |  ${formatNumber(myInfo.totalExp)} EXP`, width - 30, footerCenterY);
+    ctx.fillText(`Level ${myInfo.level}  |  ${formatNumber(myInfo.totalExp)} EXP`, width - 36, footerCenterY);
 
     return canvas.toBuffer('image/png');
 }

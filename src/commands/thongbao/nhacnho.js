@@ -83,7 +83,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0x5865F2)
                 .setTitle('🔔 Đăng ký nhắc nhở Event Guild')
-                .setDescription('Chọn event bạn muốn nhận thông báo nhắc nhở từ menu bên dưới.\n\n**Cách dùng nhanh:**\n`?nhacnho yt` - Nhận nhắc Yến Tiệc\n`?nhacnho bs` - Nhận nhắc Boss Solo\n`?nhacnho ps` - Nhận nhắc PvP Solo\n`?nhacnho all` - Nhận tất cả\n`?nhacnho remove` - Hủy tất cả')
+                .setDescription('Chọn event bạn muốn nhận thông báo nhắc nhở từ menu bên dưới.')
                 .setFooter({ text: 'Menu này sẽ hết hạn sau 60 giây' })
                 .setTimestamp();
 

@@ -27,13 +27,6 @@ const players = new Map();
 function getPlayer(guildId) {
     if (!players.has(guildId)) {
         const player = createAudioPlayer();
-        // Bắt lỗi player để không bị swallow
-        player.on('error', error => {
-            console.error(`[TTS] AudioPlayer error (guild ${guildId}):`, error.message);
-        });
-        player.on(AudioPlayerStatus.Playing, () => {
-            console.log(`[TTS] Player đang phát audio (guild ${guildId})`);
-        });
         players.set(guildId, player);
     }
     return players.get(guildId);
@@ -55,12 +48,6 @@ function isConnected(guildId) {
  * @returns {VoiceConnection}
  */
 async function joinChannel(voiceChannel) {
-    // Hủy connection cũ nếu có (tránh trùng lặp)
-    const existingConnection = getVoiceConnection(voiceChannel.guild.id);
-    if (existingConnection) {
-        try { existingConnection.destroy(); } catch (_) {}
-    }
-
     const connection = joinVoiceChannel({
         channelId: voiceChannel.id,
         guildId: voiceChannel.guild.id,
@@ -70,8 +57,7 @@ async function joinChannel(voiceChannel) {
     });
 
     try {
-        // Timeout 20s - đủ cho hầu hết trường hợp
-        await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
         console.log(`[TTS] Joined voice channel: ${voiceChannel.name}`);
 
         // Lưu voice state để restore khi restart
@@ -81,15 +67,9 @@ async function joinChannel(voiceChannel) {
         const player = getPlayer(voiceChannel.guild.id);
         connection.subscribe(player);
 
-        // Cleanup khi connection bị destroy
-        connection.on(VoiceConnectionStatus.Destroyed, () => {
-            players.delete(voiceChannel.guild.id);
-        });
-
         return connection;
     } catch (error) {
-        // Cleanup
-        try { connection.destroy(); } catch (_) {}
+        connection.destroy();
         throw error;
     }
 }
@@ -126,17 +106,8 @@ function stop(guildId) {
  * @param {string} text - Text to speak
  */
 async function speak(guildId, text) {
-    const connection = getVoiceConnection(guildId);
-    if (!connection) {
-        console.log('[TTS] Không có connection');
-        return false;
-    }
-    
-    // Log trạng thái connection để debug
-    console.log(`[TTS] Connection status: ${connection.state.status}`);
-    
-    if (connection.state.status !== VoiceConnectionStatus.Ready) {
-        console.log(`[TTS] Connection chưa Ready (${connection.state.status}), bỏ qua`);
+    if (!isConnected(guildId)) {
+        console.log('[TTS] Not connected to voice channel');
         return false;
     }
 
@@ -155,7 +126,6 @@ async function speak(guildId, text) {
             slow: false,
             host: 'https://translate.google.com'
         });
-        console.log(`[TTS] Audio URL: ${audioUrl.substring(0, 80)}...`);
 
         // Fetch audio stream
         const response = await fetch(audioUrl);
@@ -165,13 +135,6 @@ async function speak(guildId, text) {
 
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        console.log(`[TTS] Audio buffer size: ${buffer.length} bytes`);
-        
-        if (buffer.length === 0) {
-            console.error('[TTS] Audio buffer rỗng!');
-            return false;
-        }
-
         const stream = Readable.from(buffer);
 
         // Create and play audio resource
@@ -180,13 +143,9 @@ async function speak(guildId, text) {
         });
 
         const player = getPlayer(guildId);
-        
-        // Đảm bảo connection subscribe player
-        connection.subscribe(player);
-        
         player.play(resource);
 
-        console.log(`[TTS] Speaking: "${textToSpeak.substring(0, 50)}..." | Player status: ${player.state.status}`);
+        console.log(`[TTS] Speaking: "${textToSpeak.substring(0, 50)}..."`);
         return true;
     } catch (error) {
         console.error('[TTS] Error speaking:', error.message);

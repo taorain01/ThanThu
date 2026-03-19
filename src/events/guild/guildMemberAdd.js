@@ -17,6 +17,9 @@ module.exports = {
 
     async execute(member, client) {
         try {
+            // Chỉ gửi DM chào mừng khi join server GG(LangGia)
+            if (member.guild.id !== '450633680000385036') return;
+
             console.log(`[Welcome] New member: ${member.user.username} joined ${member.guild.name}`);
 
             // Tạo ảnh welcome

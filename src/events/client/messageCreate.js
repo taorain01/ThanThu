@@ -1312,6 +1312,12 @@ module.exports = {
             return rteamCommand.execute(message, args);
         }
 
+        // ?rrteam, ?rrt - Random lại kết quả chia đội trước đó
+        if (['rrteam', 'rrt'].includes(commandName)) {
+            const rteamCommand = require('../../commands/apps/rteam');
+            return rteamCommand.reroll(message);
+        }
+
         // ?chon <options> - Random select from options
         if (commandName === 'chon') {
             return chonCommand.execute(message, args);
@@ -1410,6 +1416,12 @@ module.exports = {
             }
         }
 
+
+        // ?vote, ?poll, ?binhchon - Bình chọn tùy chỉnh
+        if (['vote', 'poll', 'binhchon'].includes(commandName)) {
+            const voteCommand = require('../../commands/apps/vote');
+            return voteCommand.execute(message, args);
+        }
 
         // ?voteevent, ?votesukien - Bình chọn lịch sự kiện Guild (legacy)
         if (['voteevent', 'votesukien', 'votelich'].includes(commandName)) {

@@ -230,6 +230,12 @@ module.exports = {
           return;
         }
 
+        if (customId === 'votecustom_select') {
+          const voteCommand = require('../../commands/apps/vote');
+          await voteCommand.handleVote(interaction);
+          return;
+        }
+
         if (customId.startsWith('votebosssolo_') || customId.startsWith('votepvpsolo_')) {
           // These are handled by their respective command files via collectors
           return;

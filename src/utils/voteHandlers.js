@@ -24,6 +24,7 @@ const getVotebossCommand = () => require('../commands/apps/votebosssolo');
 const getVotepvpCommand = () => require('../commands/apps/votepvpsolo');
 const getVotegioeventCommand = () => require('../commands/apps/votegioevent');
 const getVotengayeventCommand = () => require('../commands/apps/votengayevent');
+const getVoteCustomCommand = () => require('../commands/apps/vote');
 
 /**
  * Xử lý tất cả button interactions liên quan đến vote
@@ -73,6 +74,14 @@ async function handleButton(interaction, client) {
         // ═══════════════════════════════════════════════════════════════
         if (customId === 'votegio_result' || customId === 'votegio_end') {
             await getVotegioeventCommand().handleButton(interaction);
+            return true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Xử lý vote custom buttons (result, end)
+        // ═══════════════════════════════════════════════════════════════
+        if (customId === 'votecustom_result' || customId === 'votecustom_end') {
+            await getVoteCustomCommand().handleButton(interaction);
             return true;
         }
 

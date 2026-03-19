@@ -43,94 +43,48 @@ function isConnected(guildId) {
 }
 
 /**
- * Join a voice channel (có retry logic)
+ * Join a voice channel
  * @param {VoiceChannel} voiceChannel 
- * @param {object} options - { maxRetries: số lần thử, isRestore: có phải restore không }
  * @returns {VoiceConnection}
  */
-async function joinChannel(voiceChannel, options = {}) {
-    const maxRetries = options.maxRetries || 3;
-    const isRestore = options.isRestore || false;
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            // Hủy connection cũ nếu có (tránh trùng lặp)
-            const existingConnection = getVoiceConnection(voiceChannel.guild.id);
-            if (existingConnection) {
-                try { existingConnection.destroy(); } catch (_) {}
-            }
-
-            const connection = joinVoiceChannel({
-                channelId: voiceChannel.id,
-                guildId: voiceChannel.guild.id,
-                adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-                selfDeaf: false,
-                selfMute: false
-            });
-
-            // Timeout 15s thay vì 30s, vì 30s quá lâu mà thường nếu ok sẽ join trong vài giây
-            await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
-            console.log(`[TTS] Joined voice channel: ${voiceChannel.name}${attempt > 1 ? ` (lần thử ${attempt})` : ''}`);
-
-            // Lưu voice state để restore khi restart
-            storage.saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
-
-            // Subscribe player to connection
-            const player = getPlayer(voiceChannel.guild.id);
-            connection.subscribe(player);
-
-            // Xử lý khi connection bị ngắt bất ngờ
-            connection.on(VoiceConnectionStatus.Disconnected, async () => {
-                try {
-                    // Chờ xem có tự reconnect không (5s)
-                    await Promise.race([
-                        entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-                        entersState(connection, VoiceConnectionStatus.Connecting, 5_000)
-                    ]);
-                    // Đang tự reconnect, chờ tiếp
-                    await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
-                    console.log(`[TTS] Reconnected to voice channel: ${voiceChannel.name}`);
-                } catch (_) {
-                    // Không thể reconnect → cleanup
-                    console.log(`[TTS] Connection lost, cleaning up: ${voiceChannel.name}`);
-                    try { connection.destroy(); } catch (_) {}
-                    storage.removeVoiceState(voiceChannel.guild.id);
-                    players.delete(voiceChannel.guild.id);
-                }
-            });
-
-            connection.on(VoiceConnectionStatus.Destroyed, () => {
-                // Cleanup khi connection bị destroy
-                players.delete(voiceChannel.guild.id);
-            });
-
-            return connection;
-        } catch (error) {
-            lastError = error;
-            const isAbortError = error.code === 'ABORT_ERR' || error.message?.includes('aborted');
-
-            if (isAbortError && attempt < maxRetries) {
-                console.log(`[TTS] Join timeout (lần ${attempt}/${maxRetries}), thử lại sau ${attempt * 2}s...`);
-                await new Promise(r => setTimeout(r, attempt * 2000));
-            } else if (!isAbortError) {
-                // Lỗi khác (không phải timeout) → không retry
-                break;
-            }
-        }
+async function joinChannel(voiceChannel) {
+    // Hủy connection cũ nếu có (tránh trùng lặp)
+    const existingConnection = getVoiceConnection(voiceChannel.guild.id);
+    if (existingConnection) {
+        try { existingConnection.destroy(); } catch (_) {}
     }
 
-    // Tất cả retry đều thất bại
-    const logPrefix = isRestore ? '[TTS] Restore failed' : '[TTS] Join failed';
-    console.error(`${logPrefix} sau ${maxRetries} lần thử:`, lastError?.message || lastError);
+    const connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: voiceChannel.guild.id,
+        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+        selfDeaf: false,
+        selfMute: false
+    });
 
-    // Cleanup connection nếu còn sót
-    const leftover = getVoiceConnection(voiceChannel.guild.id);
-    if (leftover) {
-        try { leftover.destroy(); } catch (_) {}
+    try {
+        // Timeout 20s - đủ cho hầu hết trường hợp
+        await entersState(connection, VoiceConnectionStatus.Ready, 20_000);
+        console.log(`[TTS] Joined voice channel: ${voiceChannel.name}`);
+
+        // Lưu voice state để restore khi restart
+        storage.saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
+
+        // Subscribe player to connection
+        const player = getPlayer(voiceChannel.guild.id);
+        connection.subscribe(player);
+
+        // Cleanup khi connection bị destroy
+        connection.on(VoiceConnectionStatus.Destroyed, () => {
+            players.delete(voiceChannel.guild.id);
+        });
+
+        return connection;
+    } catch (error) {
+        // Cleanup
+        try { connection.destroy(); } catch (_) {}
+        throw error;
     }
-
-    throw lastError;
 }
 
 /**

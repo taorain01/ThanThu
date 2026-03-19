@@ -168,8 +168,8 @@ client.once("ready", async () => {
                 continue;
               }
 
-              // Chỉ thử 1 lần khi restore, tránh spam retry
-              await ttsService.joinChannel(channel, { isRestore: true, maxRetries: 1 });
+              // Chỉ thử 1 lần khi restore
+              await ttsService.joinChannel(channel);
               console.log(`  ✅ Đã kết nối lại voice: ${channel.name}`);
             } catch (e) {
               // Log ngắn gọn, không spam stack trace

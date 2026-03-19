@@ -167,7 +167,7 @@ client.once("ready", async () => {
                 continue;
               }
 
-              await ttsService.joinChannel(channel);
+              await ttsService.joinChannel(channel, { isRestore: true });
               console.log(`  ✅ Đã kết nối lại voice: ${channel.name} (guild: ${guildId})`);
             } catch (e) {
               console.log(`  ❌ Lỗi restore voice ${guildId}:`, e.message);

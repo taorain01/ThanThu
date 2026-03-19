@@ -27,6 +27,13 @@ const players = new Map();
 function getPlayer(guildId) {
     if (!players.has(guildId)) {
         const player = createAudioPlayer();
+        // Bắt lỗi player để không bị swallow
+        player.on('error', error => {
+            console.error(`[TTS] AudioPlayer error (guild ${guildId}):`, error.message);
+        });
+        player.on(AudioPlayerStatus.Playing, () => {
+            console.log(`[TTS] Player đang phát audio (guild ${guildId})`);
+        });
         players.set(guildId, player);
     }
     return players.get(guildId);
@@ -119,8 +126,17 @@ function stop(guildId) {
  * @param {string} text - Text to speak
  */
 async function speak(guildId, text) {
-    if (!isConnected(guildId)) {
-        console.log('[TTS] Not connected to voice channel');
+    const connection = getVoiceConnection(guildId);
+    if (!connection) {
+        console.log('[TTS] Không có connection');
+        return false;
+    }
+    
+    // Log trạng thái connection để debug
+    console.log(`[TTS] Connection status: ${connection.state.status}`);
+    
+    if (connection.state.status !== VoiceConnectionStatus.Ready) {
+        console.log(`[TTS] Connection chưa Ready (${connection.state.status}), bỏ qua`);
         return false;
     }
 
@@ -139,6 +155,7 @@ async function speak(guildId, text) {
             slow: false,
             host: 'https://translate.google.com'
         });
+        console.log(`[TTS] Audio URL: ${audioUrl.substring(0, 80)}...`);
 
         // Fetch audio stream
         const response = await fetch(audioUrl);
@@ -148,6 +165,13 @@ async function speak(guildId, text) {
 
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        console.log(`[TTS] Audio buffer size: ${buffer.length} bytes`);
+        
+        if (buffer.length === 0) {
+            console.error('[TTS] Audio buffer rỗng!');
+            return false;
+        }
+
         const stream = Readable.from(buffer);
 
         // Create and play audio resource
@@ -156,9 +180,13 @@ async function speak(guildId, text) {
         });
 
         const player = getPlayer(guildId);
+        
+        // Đảm bảo connection subscribe player
+        connection.subscribe(player);
+        
         player.play(resource);
 
-        console.log(`[TTS] Speaking: "${textToSpeak.substring(0, 50)}..."`);
+        console.log(`[TTS] Speaking: "${textToSpeak.substring(0, 50)}..." | Player status: ${player.state.status}`);
         return true;
     } catch (error) {
         console.error('[TTS] Error speaking:', error.message);

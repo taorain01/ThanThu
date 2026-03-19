@@ -148,36 +148,20 @@ client.once("ready", async () => {
         console.error('❌ Schedule messages restore error:', scheduleError);
       }
 
-      // === RESTORE VOICE STATE ===
-      // Kết nối lại voice channel nếu bot đang trong voice trước khi restart
+      // === RESTORE VOICE STATE (TẮT) ===
+      // Đã tắt auto-restore voice vì hosting không hỗ trợ tốt → gây spam AbortError
+      // User cần gõ ?join thủ công sau khi bot restart
+      // Xóa voice state cũ để tránh dữ liệu rác
       try {
-        const ttsService = require('./utils/ttsService');
         const savedVoiceState = storage.loadVoiceState();
         const entries = Object.entries(savedVoiceState);
-
         if (entries.length > 0) {
-          console.log(`🎤 Đang restore ${entries.length} voice connection(s)...`);
-
-          for (const [guildId, data] of entries) {
-            try {
-              const channel = await client.channels.fetch(data.channelId).catch(() => null);
-              if (!channel) {
-                console.log(`  ⚠️ Không tìm thấy voice channel ${data.channelId}, bỏ qua`);
-                storage.removeVoiceState(guildId);
-                continue;
-              }
-
-              await ttsService.joinChannel(channel, { isRestore: true });
-              console.log(`  ✅ Đã kết nối lại voice: ${channel.name} (guild: ${guildId})`);
-            } catch (e) {
-              console.log(`  ❌ Lỗi restore voice ${guildId}:`, e.message);
-              storage.removeVoiceState(guildId);
-            }
+          console.log(`🎤 Bỏ qua restore ${entries.length} voice state(s) (đã tắt auto-restore)`);
+          for (const [guildId] of entries) {
+            storage.removeVoiceState(guildId);
           }
         }
-      } catch (voiceError) {
-        console.error('❌ Voice state restore error:', voiceError);
-      }
+      } catch (_) {}
 
     } catch (error) {
       console.error('❌ Migration error:', error);

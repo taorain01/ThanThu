@@ -40,8 +40,15 @@ async function handleJoin(message) {
         await ttsService.joinChannel(voiceChannel);
         await message.reply(`🎤 Đã vào **${voiceChannel.name}**! Gõ \`.nội dung\` để bot đọc.`);
     } catch (error) {
-        console.error('[TTS] Join error:', error);
-        await message.reply('❌ Không thể vào voice channel!');
+        // Chỉ log message, không log full stack trace để tránh spam
+        const isTimeout = error.code === 'ABORT_ERR' || error.message?.includes('aborted');
+        if (isTimeout) {
+            console.log('[TTS] Join error: Voice connection timeout (hosting có thể không hỗ trợ voice)');
+            await message.reply('❌ Không thể kết nối voice! Bot timeout khi cố join channel.\n> *Nguyên nhân có thể: hosting không hỗ trợ kết nối voice (UDP bị chặn).*');
+        } else {
+            console.error('[TTS] Join error:', error.message);
+            await message.reply('❌ Không thể vào voice channel!');
+        }
     }
 }
 

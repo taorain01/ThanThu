@@ -1695,11 +1695,13 @@ function getExpUserCount() {
 
 // Phần thưởng theo level
 const LEVEL_REWARDS = {
-    5:  { hat: 500,   roleName: 'Tân Thủ',    emoji: '🌱' },
-    10: { hat: 1000,  roleName: 'Lữ Khách',   emoji: '⚔️' },
-    20: { hat: 2500,  roleName: 'Kiếm Khách', emoji: '🗡️' },
-    30: { hat: 5000,  roleName: 'Đại Hiệp',   emoji: '🛡️' },
-    50: { hat: 10000, roleName: 'Vô Song',    emoji: '👑' }
+    5:  { hat: 500,    roleName: 'lv5',    emoji: '🌱' },
+    10: { hat: 1000,   roleName: 'lv10',   emoji: '⚔️' },
+    20: { hat: 2500,   roleName: 'lv20',   emoji: '🗡️' },
+    30: { hat: 5000,   roleName: 'lv30',   emoji: '🛡️' },
+    50: { hat: 10000,  roleName: 'lv50',   emoji: '👑' },
+    70: { hat: 20000,  roleName: 'lv70',   emoji: '🌟' },
+    100:{ hat: 50000,  roleName: 'lv100',  emoji: '💎' }
 };
 
 /**

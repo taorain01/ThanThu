@@ -678,6 +678,7 @@ module.exports = {
                     if (reward) {
                         addHat(message.author.id, reward.hat);
                         try {
+                            const { LEVEL_REWARDS } = require('../../database/economy');
                             let role = message.guild.roles.cache.find(r => r.name === reward.roleName);
                             if (!role) {
                                 role = await message.guild.roles.create({
@@ -686,6 +687,17 @@ module.exports = {
                                 });
                             }
                             await message.member.roles.add(role);
+
+                            // Xóa role level cũ (thấp hơn)
+                            const levelKeys = Object.keys(LEVEL_REWARDS).map(Number).sort((a, b) => a - b);
+                            for (const lv of levelKeys) {
+                                if (lv < expResult.newLevel && LEVEL_REWARDS[lv]) {
+                                    const oldRole = message.guild.roles.cache.find(r => r.name === LEVEL_REWARDS[lv].roleName);
+                                    if (oldRole && message.member.roles.cache.has(oldRole.id)) {
+                                        await message.member.roles.remove(oldRole);
+                                    }
+                                }
+                            }
                         } catch (e) {
                             console.error('[EXP] Lỗi gán role:', e.message);
                         }

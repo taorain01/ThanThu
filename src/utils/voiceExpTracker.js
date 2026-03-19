@@ -79,8 +79,9 @@ async function handleLevelUp(discordId, result, channel) {
         if (reward) {
             addHat(discordId, reward.hat);
 
-            // Tự động gán role thưởng
+            // Tự động gán role thưởng + xóa role level cũ
             try {
+                const { LEVEL_REWARDS } = require('../database/economy');
                 let role = guild.roles.cache.find(r => r.name === reward.roleName);
                 if (!role) {
                     // Tạo role nếu chưa có
@@ -90,6 +91,17 @@ async function handleLevelUp(discordId, result, channel) {
                     });
                 }
                 await member.roles.add(role);
+
+                // Xóa role level cũ (thấp hơn)
+                const levelKeys = Object.keys(LEVEL_REWARDS).map(Number).sort((a, b) => a - b);
+                for (const lv of levelKeys) {
+                    if (lv < result.newLevel && LEVEL_REWARDS[lv]) {
+                        const oldRole = guild.roles.cache.find(r => r.name === LEVEL_REWARDS[lv].roleName);
+                        if (oldRole && member.roles.cache.has(oldRole.id)) {
+                            await member.roles.remove(oldRole);
+                        }
+                    }
+                }
             } catch (e) {
                 console.error(`[voiceExpTracker] Lỗi gán role:`, e.message);
             }

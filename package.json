@@ -13,6 +13,7 @@
     "@discordjs/opus": "^0.10.0",
     "@discordjs/rest": "^2.6.0",
     "@discordjs/voice": "^0.18.0",
+    "@snazzah/davey": "^1.0.0",
     "@distube/spotify": "^2.0.2",
     "@distube/youtube": "^1.0.4",
     "@distube/yt-dlp": "^2.0.1",

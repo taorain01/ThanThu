@@ -12,7 +12,7 @@
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/rest": "^2.6.0",
-    "@discordjs/voice": "^0.18.0",
+    "@discordjs/voice": "^0.19.2",
     "@snazzah/davey": "^0.1.10",
     "@distube/spotify": "^2.0.2",
     "@distube/youtube": "^1.0.4",

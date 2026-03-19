@@ -102,6 +102,11 @@ module.exports = {
         // ============== TTS AUTO-READ (tin nhắn bắt đầu bằng .) ==============
         if (message.content.startsWith('.') && message.content.length > 1) {
             const ttsService = require('../../utils/ttsService');
+            const { getVoiceConnection } = require('@discordjs/voice');
+
+            // DEBUG: Log trạng thái TTS
+            const conn = getVoiceConnection(guildId);
+            console.log(`[TTS-DEBUG] Tin nhắn ".": guildId=${guildId}, hasConnection=${!!conn}, connStatus=${conn?.state?.status}, isConnected=${ttsService.isConnected(guildId)}`);
 
             if (guildId && ttsService.isConnected(guildId)) {
                 // Kiểm tra xem có đang chơi loto trong kênh này không

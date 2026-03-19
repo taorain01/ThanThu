@@ -46,6 +46,18 @@ async function handleJoin(message) {
         return message.reply('❌ Bạn cần vào voice channel trước!');
     }
 
+    // Chỉ chặn bot TTS, KHÔNG bao gồm bot nhạc (Bakabot, v.v.)
+    const TTS_BOTS = [
+        '1484078950312316968', // Tiểu Ngỗng
+        '513423712582762502'   // TTS Bot
+    ];
+    
+    const botsInChannel = voiceChannel.members.filter(m => TTS_BOTS.includes(m.id));
+    if (botsInChannel.size > 0) {
+        const botNames = botsInChannel.map(m => m.displayName).join(', ');
+        return message.reply(`🚫 Phòng đã có **${botNames}** rồi! Mỗi bot 1 phòng thôi nha~`);
+    }
+
     // Check bot permissions
     const permissions = voiceChannel.permissionsFor(message.client.user);
     if (!permissions.has('Connect') || !permissions.has('Speak')) {
@@ -66,7 +78,7 @@ async function handleJoin(message) {
  */
 async function handleLeave(message) {
     if (!ttsService.isConnected(message.guild.id)) {
-        return message.reply('❌ Bot không ở trong voice channel nào!');
+        return; // Im lặng nếu bot không ở trong voice
     }
 
     ttsService.leaveChannel(message.guild.id);

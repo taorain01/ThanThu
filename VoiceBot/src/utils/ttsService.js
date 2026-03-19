@@ -14,15 +14,27 @@ const {
 } = require('@discordjs/voice');
 const googleTTS = require('google-tts-api');
 const { Readable } = require('stream');
-const storage = require('./storage');
+
+// === KIỂM TRA THƯ VIỆN ENCRYPTION KHI KHỞI ĐỘNG ===
+console.log('[TTS-DEBUG] Kiểm tra thư viện encryption...');
+try {
+    require('@snazzah/davey');
+    console.log('[TTS-DEBUG] ✅ @snazzah/davey - OK');
+} catch (e) {
+    console.log('[TTS-DEBUG] ❌ @snazzah/davey - KHÔNG TÌM THẤY:', e.message);
+}
+try {
+    require('sodium-native');
+    console.log('[TTS-DEBUG] ✅ sodium-native - OK');
+} catch (e) {
+    console.log('[TTS-DEBUG] ❌ sodium-native - KHÔNG TÌM THẤY:', e.message);
+}
 
 // Store audio players per guild
 const players = new Map();
 
 /**
  * Get or create audio player for a guild
- * @param {string} guildId 
- * @returns {AudioPlayer}
  */
 function getPlayer(guildId) {
     if (!players.has(guildId)) {
@@ -34,8 +46,6 @@ function getPlayer(guildId) {
 
 /**
  * Check if bot is connected to voice in a guild
- * @param {string} guildId 
- * @returns {boolean}
  */
 function isConnected(guildId) {
     const connection = getVoiceConnection(guildId);
@@ -43,11 +53,13 @@ function isConnected(guildId) {
 }
 
 /**
- * Join a voice channel
- * @param {VoiceChannel} voiceChannel 
- * @returns {VoiceConnection}
+ * Join a voice channel - có debug log chi tiết
  */
 async function joinChannel(voiceChannel) {
+    console.log(`[TTS-DEBUG] === BẮT ĐẦU JOIN VOICE ===`);
+    console.log(`[TTS-DEBUG] Channel: ${voiceChannel.name} (${voiceChannel.id})`);
+    console.log(`[TTS-DEBUG] Guild: ${voiceChannel.guild.name} (${voiceChannel.guild.id})`);
+
     const connection = joinVoiceChannel({
         channelId: voiceChannel.id,
         guildId: voiceChannel.guild.id,
@@ -55,23 +67,29 @@ async function joinChannel(voiceChannel) {
         selfDeaf: false,
         selfMute: false
     });
+
+    // Log mọi thay đổi trạng thái connection
     // Nếu bị disconnect (kick), hủy connection luôn để không tự rejoin
     connection.on('stateChange', (oldState, newState) => {
-        console.log(`[TTS] Connection state: ${oldState.status} → ${newState.status}`);
+        console.log(`[TTS-DEBUG] Connection state: ${oldState.status} → ${newState.status}`);
         if (newState.status === VoiceConnectionStatus.Disconnected) {
-            console.log(`[TTS] ⚠️ Bị disconnect! Hủy connection, không tự rejoin.`);
-            storage.removeVoiceState(voiceChannel.guild.id);
+            console.log(`[TTS-DEBUG] ⚠️ Bị disconnect! Reason:`, newState.reason || 'không rõ');
+            // Hủy connection, ngăn thư viện tự động reconnect
             connection.destroy();
             players.delete(voiceChannel.guild.id);
+            console.log(`[TTS-DEBUG] 🛑 Đã hủy connection, không tự rejoin.`);
         }
     });
 
-    try {
-        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-        console.log(`[TTS] Joined voice channel: ${voiceChannel.name}`);
+    connection.on('error', (error) => {
+        console.error(`[TTS-DEBUG] ❌ Connection error:`, error.message);
+        console.error(`[TTS-DEBUG] Error stack:`, error.stack);
+    });
 
-        // Lưu voice state để restore khi restart
-        storage.saveVoiceState(voiceChannel.guild.id, voiceChannel.id);
+    try {
+        console.log(`[TTS-DEBUG] Đang chờ Ready state (timeout 30s)...`);
+        await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+        console.log(`[TTS-DEBUG] ✅ Joined thành công: ${voiceChannel.name}`);
 
         // Subscribe player to connection
         const player = getPlayer(voiceChannel.guild.id);
@@ -79,6 +97,11 @@ async function joinChannel(voiceChannel) {
 
         return connection;
     } catch (error) {
+        console.error(`[TTS-DEBUG] ❌ Join THẤT BẠI sau 30s!`);
+        console.error(`[TTS-DEBUG] Error name: ${error.name}`);
+        console.error(`[TTS-DEBUG] Error message: ${error.message}`);
+        console.error(`[TTS-DEBUG] Connection state cuối: ${connection.state.status}`);
+        console.error(`[TTS-DEBUG] Full error:`, error);
         connection.destroy();
         throw error;
     }
@@ -86,13 +109,10 @@ async function joinChannel(voiceChannel) {
 
 /**
  * Leave voice channel
- * @param {string} guildId 
  */
 function leaveChannel(guildId) {
     const connection = getVoiceConnection(guildId);
     if (connection) {
-        // Xóa voice state khi rời channel
-        storage.removeVoiceState(guildId);
         connection.destroy();
         players.delete(guildId);
         console.log(`[TTS] Left voice channel in guild: ${guildId}`);
@@ -101,7 +121,6 @@ function leaveChannel(guildId) {
 
 /**
  * Stop current playback
- * @param {string} guildId 
  */
 function stop(guildId) {
     const player = players.get(guildId);
@@ -112,12 +131,9 @@ function stop(guildId) {
 
 /**
  * Speak text in Vietnamese
- * @param {string} guildId 
- * @param {string} text - Text to speak
  */
 async function speak(guildId, text) {
     if (!isConnected(guildId)) {
-        console.log('[TTS] Not connected to voice channel');
         return false;
     }
 
@@ -165,8 +181,6 @@ async function speak(guildId, text) {
 
 /**
  * Get voice connection for a guild
- * @param {string} guildId 
- * @returns {VoiceConnection|undefined}
  */
 function getConnection(guildId) {
     return getVoiceConnection(guildId);

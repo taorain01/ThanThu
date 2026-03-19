@@ -5,6 +5,22 @@
 
 const ttsService = require('../../utils/ttsService');
 
+// Các câu joke khi bot không join được voice
+const JOIN_FAIL_JOKES = [
+    '🤧 Đại Ngỗng bị ho, có vẻ không mở mồm được..',
+    '😵‍💫 Đại Ngỗng say quá, lết vào phòng không nổi...',
+    '💀 Đại Ngỗng đang nằm viện, hẹn lúc khác nhé...',
+    '🦆 Đại Ngỗng bị mất giọng rồi, cạp cạp không ra tiếng...',
+    '😴 Đại Ngỗng ngủ quên, gọi hoài không dậy...',
+    '🏃 Đại Ngỗng chạy lạc đường vào phòng rồi...',
+    '🫠 Đại Ngỗng đang tan chảy, thử lại sau nhé...',
+    '🤐 Đại Ngỗng bị dán băng keo miệng, không nói được...',
+];
+
+function getRandomJoke() {
+    return JOIN_FAIL_JOKES[Math.floor(Math.random() * JOIN_FAIL_JOKES.length)];
+}
+
 async function execute(message, args) {
     const command = message.content.slice(1).split(/\s+/)[0].toLowerCase();
 
@@ -41,7 +57,7 @@ async function handleJoin(message) {
         await message.reply(`🎤 Đã vào **${voiceChannel.name}**! Gõ \`.nội dung\` để bot đọc.`);
     } catch (error) {
         console.error('[TTS] Join error:', error.message);
-        await message.reply('❌ Không thể vào voice channel!');
+        await message.reply(getRandomJoke());
     }
 }
 

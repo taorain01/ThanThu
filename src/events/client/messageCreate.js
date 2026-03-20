@@ -2060,7 +2060,7 @@ module.exports = {
                         '🟢 **Healer** - Hỗ trợ và hồi máu\n' +
                         '🟠 **Tanker** - Chịu đòn và bảo vệ đồng đội\n\n' +
                         '**🔵 DPS - Sát thương chính:**\n' +
-                        '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm**\n\n' +
+                        '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi**\n\n' +
                         'ℹ️ *Chọn lại role khác sẽ tự động thay đổi role hiện tại*')
                     .setTimestamp()
                     .setFooter({ text: 'Chọn role trong game của bạn!' });
@@ -2088,6 +2088,11 @@ module.exports = {
                             .setCustomId(`pickrole_dps_cuukiem_${userId}`)
                             .setLabel('Cửu Kiếm')
                             .setEmoji('🔱')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId(`pickrole_dps_duroi_${userId}`)
+                            .setLabel('Dù Roi')
+                            .setEmoji('🌂')
                             .setStyle(ButtonStyle.Primary)
                     );
 
@@ -2212,7 +2217,7 @@ module.exports = {
             if (!validRoles.includes(roleArg)) {
                 const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  • **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
                 return message.reply({
-                    content: `❌ Role không hợp lệ! Chọn: \`dps\`, \`healer\`, hoặc \`tanker\`.\n\n**Hoặc dùng lệnh tắt:**\n\`${prefix}pickrole qd\` - DPS Quạt Dù\n\`${prefix}pickrole vd\` - DPS Vô Danh\n\`${prefix}pickrole sd\` - DPS Song Đao\n\`${prefix}pickrole 9k\` - DPS Cửu Kiếm`
+                    content: `❌ Role không hợp lệ! Chọn: \`dps\`, \`healer\`, hoặc \`tanker\`.\n\n**Hoặc dùng lệnh tắt:**\n\`${prefix}pickrole qd\` - DPS Quạt Dù\n\`${prefix}pickrole vd\` - DPS Vô Danh\n\`${prefix}pickrole sd\` - DPS Song Đao\n\`${prefix}pickrole 9k\` - DPS Cửu Kiếm\n\`${prefix}pickrole dr\` - DPS Dù Roi`
                 });
             }
 
@@ -2357,6 +2362,11 @@ module.exports = {
                                 .setCustomId(`pickrole_dps_cuukiem_${userId}`)
                                 .setLabel('Cửu Kiếm')
                                 .setEmoji('🔱')
+                                .setStyle(ButtonStyle.Primary),
+                            new ButtonBuilder()
+                                .setCustomId(`pickrole_dps_duroi_${userId}`)
+                                .setLabel('Dù Roi')
+                                .setEmoji('🌂')
                                 .setStyle(ButtonStyle.Primary)
                         );
 

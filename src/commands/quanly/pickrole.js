@@ -5,7 +5,8 @@ const dpsSubTypes = {
     'quatdu': { name: 'Quạt Dù', color: 0x9B59B6, emoji: '🪭', aliases: ['quat', 'quatdu', 'du', 'qd'] },
     'vodanh': { name: 'Vô Danh', color: 0x3498DB, emoji: '🗡️', aliases: ['vodanh', 'vo danh', 'vd'] },
     'songdao': { name: 'Song Đao', color: 0xE74C3C, emoji: '⚔️', aliases: ['sd', 'song dao', 'songdao'] },
-    'cuukiem': { name: 'Cửu Kiếm', color: 0xF39C12, emoji: '🔱', aliases: ['9k', 'cuukiem', 'ck', 'cuu kiem'] }
+    'cuukiem': { name: 'Cửu Kiếm', color: 0xF39C12, emoji: '🔱', aliases: ['9k', 'cuukiem', 'ck', 'cuu kiem'] },
+    'duroi': { name: 'Dù Roi', color: 0xE91E63, emoji: '🌂', aliases: ['dr', 'du roi', 'duroi'] }
 };
 
 // Helper function: Tìm DPS sub-type từ input
@@ -291,7 +292,8 @@ module.exports = {
                     { name: '🪭 Quạt Dù', value: 'quatdu' },
                     { name: '🗡️ Vô Danh', value: 'vodanh' },
                     { name: '⚔️ Song Đao', value: 'songdao' },
-                    { name: '🔱 Cửu Kiếm', value: 'cuukiem' }
+                    { name: '🔱 Cửu Kiếm', value: 'cuukiem' },
+                    { name: '🌂 Dù Roi', value: 'duroi' }
                 )
         ),
 
@@ -313,7 +315,7 @@ module.exports = {
                 '🟢 **Healer** - Hỗ trợ và hồi máu\n' +
                 '🟠 **Tanker** - Chịu đòn và bảo vệ đồng đội\n\n' +
                 '**🔵 DPS - Sát thương chính:**\n' +
-                '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm**\n\n' +
+                '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi**\n\n' +
                 'ℹ️ *Chọn lại role khác sẽ tự động thay đổi role hiện tại*')
             .setTimestamp()
             .setFooter({ text: 'Chọn role trong game của bạn!' });
@@ -340,6 +342,11 @@ module.exports = {
                     .setCustomId('pickrole_dps_cuukiem')
                     .setLabel('Cửu Kiếm')
                     .setEmoji('🔱')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('pickrole_dps_duroi')
+                    .setLabel('Dù Roi')
+                    .setEmoji('🌂')
                     .setStyle(ButtonStyle.Primary)
             );
 

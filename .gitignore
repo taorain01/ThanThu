@@ -27,8 +27,7 @@ Test gemini/
 .venv/
 kehoach/
 DuyetLaiMem/
-VoiceBot/node_modules/
-VoiceBot/.env
+VoiceBot/
 
 # === File nén ===
 *.zip

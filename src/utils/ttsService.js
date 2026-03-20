@@ -109,15 +109,89 @@ function stop(guildId) {
         player.stop();
     }
 }
+// Hàng đợi TTS per guild - đọc xong câu này mới tới câu tiếp
+const queues = new Map();
 
 /**
- * Speak text in Vietnamese
+ * Xử lý hàng đợi - đọc từng câu một
+ */
+async function processQueue(guildId) {
+    const queue = queues.get(guildId);
+    if (!queue || queue.processing || queue.items.length === 0) return;
+
+    queue.processing = true;
+
+    while (queue.items.length > 0) {
+        if (!isConnected(guildId)) {
+            queue.items = [];
+            break;
+        }
+
+        const text = queue.items.shift();
+        try {
+            await playText(guildId, text);
+        } catch (error) {
+            console.error('[TTS] Queue error:', error.message);
+        }
+    }
+
+    queue.processing = false;
+}
+
+/**
+ * Phát 1 câu và chờ đọc xong
+ */
+function playText(guildId, text) {
+    return new Promise(async (resolve) => {
+        try {
+            const audioUrl = googleTTS.getAudioUrl(text, {
+                lang: 'vi',
+                slow: false,
+                host: 'https://translate.google.com'
+            });
+
+            const response = await fetch(audioUrl);
+            if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
+
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const stream = Readable.from(buffer);
+
+            const resource = createAudioResource(stream, { inputType: 'arbitrary' });
+            const player = getPlayer(guildId);
+
+            // Lắng nghe khi đọc xong → resolve
+            const onIdle = () => {
+                player.removeListener(AudioPlayerStatus.Idle, onIdle);
+                player.removeListener('error', onError);
+                resolve();
+            };
+            const onError = (err) => {
+                console.error('[TTS] Player error:', err.message);
+                player.removeListener(AudioPlayerStatus.Idle, onIdle);
+                player.removeListener('error', onError);
+                resolve();
+            };
+
+            player.on(AudioPlayerStatus.Idle, onIdle);
+            player.on('error', onError);
+            player.play(resource);
+
+            console.log(`[TTS] Speaking: "${text.substring(0, 50)}..."`);
+        } catch (error) {
+            console.error('[TTS] PlayText error:', error.message);
+            resolve();
+        }
+    });
+}
+
+/**
+ * Speak text in Vietnamese (có hàng đợi)
  * @param {string} guildId 
  * @param {string} text - Text to speak
  */
 async function speak(guildId, text) {
     if (!isConnected(guildId)) {
-        console.log('[TTS] Not connected to voice channel');
         return false;
     }
 
@@ -125,42 +199,18 @@ async function speak(guildId, text) {
         return false;
     }
 
-    // Limit text length (Google TTS limit)
     const maxLength = 200;
     const textToSpeak = text.length > maxLength ? text.substring(0, maxLength) : text;
 
-    try {
-        // Get audio URL from Google TTS
-        const audioUrl = googleTTS.getAudioUrl(textToSpeak, {
-            lang: 'vi',
-            slow: false,
-            host: 'https://translate.google.com'
-        });
-
-        // Fetch audio stream
-        const response = await fetch(audioUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch audio: ${response.status}`);
-        }
-
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const stream = Readable.from(buffer);
-
-        // Create and play audio resource
-        const resource = createAudioResource(stream, {
-            inputType: 'arbitrary'
-        });
-
-        const player = getPlayer(guildId);
-        player.play(resource);
-
-        console.log(`[TTS] Speaking: "${textToSpeak.substring(0, 50)}..."`);
-        return true;
-    } catch (error) {
-        console.error('[TTS] Error speaking:', error.message);
-        return false;
+    // Thêm vào hàng đợi
+    if (!queues.has(guildId)) {
+        queues.set(guildId, { items: [], processing: false });
     }
+    queues.get(guildId).items.push(textToSpeak);
+
+    // Bắt đầu xử lý nếu chưa đang xử lý
+    processQueue(guildId);
+    return true;
 }
 
 /**

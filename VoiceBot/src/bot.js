@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 
 const token = process.env.TOKEN;
-const prefix = process.env.PREFIX || '?';
+const prefix = process.env.PREFIX || '!';
 
 const client = new Client({
     intents: [
@@ -17,14 +17,14 @@ const ttsService = require('./utils/ttsService');
 
 // Các câu joke khi bot không join được voice
 const JOIN_FAIL_JOKES = [
-    '🤧 Đại Ngỗng bị ho, có vẻ không mở mồm được..',
-    '😵‍💫 Đại Ngỗng say quá, lết vào phòng không nổi...',
-    '💀 Đại Ngỗng đang nằm viện, hẹn lúc khác nhé...',
-    '🦆 Đại Ngỗng bị mất giọng rồi, cạp cạp không ra tiếng...',
-    '😴 Đại Ngỗng ngủ quên, gọi hoài không dậy...',
-    '🏃 Đại Ngỗng chạy lạc đường vào phòng rồi...',
-    '🫠 Đại Ngỗng đang tan chảy, thử lại sau nhé...',
-    '🤐 Đại Ngỗng bị dán băng keo miệng, không nói được...',
+    '🤧 Tiểu Ngỗng bị ho, có vẻ không mở mồm được..',
+    '😵‍💫 Tiểu Ngỗng say quá, lết vào phòng không nổi...',
+    '💀 Tiểu Ngỗng đang nằm viện, hẹn lúc khác nhé...',
+    '🦆 Tiểu Ngỗng bị mất giọng rồi, cạp cạp không ra tiếng...',
+    '😴 Tiểu Ngỗng ngủ quên, gọi hoài không dậy...',
+    '🏃 Tiểu Ngỗng chạy lạc đường vào phòng rồi...',
+    '🫠 Tiểu Ngỗng đang tan chảy, thử lại sau nhé...',
+    '🤐 Tiểu Ngỗng bị dán băng keo miệng, không nói được...',
 ];
 
 function getRandomJoke() {
@@ -65,8 +65,8 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(prefix.length).trim().split(/\s+/);
     const command = args.shift().toLowerCase();
 
-    // ?join - Vào voice channel (cần bot ưu tiên có trước)
-    // ?jointieungong / ?join tieungong - Bắt buộc vào, bỏ qua kiểm tra
+    // !join - Vào voice channel (cần bot ưu tiên có trước)
+    // !jointieungong / !join tieungong - Bắt buộc vào, bỏ qua kiểm tra
     const isJoinCmd = command === 'join' || command === 'jointieungong';
     const forceJoin = command === 'jointieungong' || (command === 'join' && args[0]?.toLowerCase() === 'tieungong');
     
@@ -75,6 +75,17 @@ client.on('messageCreate', async (message) => {
 
         if (!voiceChannel) {
             return message.reply('❌ Bạn cần vào voice channel trước!');
+        }
+
+        // Kiểm tra bot đang ở voice channel khác → im lặng
+        const currentConnection = ttsService.getConnection(guildId);
+        if (currentConnection) {
+            const currentChannelId = currentConnection.joinConfig.channelId;
+            if (currentChannelId !== voiceChannel.id) {
+                return; // Im lặng, không phản hồi
+            }
+            // Đã ở cùng phòng
+            return message.reply(`🎤 Tiểu Ngỗng đã ở **${voiceChannel.name}** rồi! Gõ \`.nội dung\` để bot đọc.`);
         }
 
         // Chỉ chặn bot TTS, KHÔNG bao gồm bot nhạc (Bakabot, v.v.)
@@ -105,7 +116,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // ?leave / ?leavetieungong - Rời voice channel
+    // !leave / !leavetieungong - Rời voice channel
     if (command === 'leave' || command === 'leavetieungong') {
         if (!ttsService.isConnected(guildId)) {
             return; // Im lặng nếu bot không ở trong voice
@@ -115,7 +126,7 @@ client.on('messageCreate', async (message) => {
         await message.reply('👋 Tiểu Ngỗng rời phòng!');
     }
 
-    // ?stop / ?stoptieungong - Dừng đọc
+    // !stop / !stoptieungong - Dừng đọc
     if (command === 'stop' || command === 'stoptieungong') {
         if (!ttsService.isConnected(guildId)) {
             return message.reply('❌ Bot không ở trong voice channel nào!');

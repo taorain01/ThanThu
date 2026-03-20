@@ -1,4 +1,15 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+
+// Helper: Tạo ActionRow chứa nút English cho embed lịch tuần
+function createEnglishButtonRow() {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('schedule_english')
+            .setLabel('English')
+            .setEmoji('🇬🇧')
+            .setStyle(ButtonStyle.Secondary)
+    );
+}
 const storage = require('../../utils/storage');
 const { sendNotificationWithMenu } = require('../../utils/menuManager');
 const { createEventRoleMenu } = require('../../utils/eventRoleMenu');
@@ -64,6 +75,25 @@ const dayOfWeekNames = {
     6: 'Thứ 7'
 };
 
+// Mapping tiếng Anh
+const dayOfWeekNamesEN = {
+    0: 'SUNDAY',
+    1: 'MONDAY',
+    2: 'TUESDAY',
+    3: 'WEDNESDAY',
+    4: 'THURSDAY',
+    5: 'FRIDAY',
+    6: 'SATURDAY'
+};
+
+// Tên sự kiện tiếng Anh
+const eventNameEN = {
+    'Boss Solo': 'Boss Solo',
+    'PvP Solo': 'PvP Solo',
+    'Yến Tiệc': 'Guild Party',
+    'Bang Chiến': 'Guild War'
+};
+
 // Hàm format ngày giờ theo giờ VN (có thứ và kiểm tra tuần sau)
 function formatVNDateTime(date) {
     const vnOffset = 7 * 60;
@@ -99,7 +129,8 @@ function isNextWeek(date) {
 // Hàm lấy lịch sự kiện guild trong tuần (format Thời Gian Biểu theo ngày)
 // UPDATED: Fixed 7-day display (Mon-Sun), highlight current day
 // includeBangchien: nếu true thì hiển thị BC sessions từ DB
-function getWeeklySchedule(guildId, includeBangchien = false) {
+// lang: 'vi' (mặc định) hoặc 'en' (tiếng Anh)
+function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
     const db = require('../../database/db');
 
     const vnOffset = 7 * 60;
@@ -122,10 +153,11 @@ function getWeeklySchedule(guildId, includeBangchien = false) {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
         const dayOfWeek = d.getDay(); // 0=CN, 1=T2, ...
+        const nameMap = lang === 'en' ? dayOfWeekNamesEN : dayOfWeekNames;
         weekDays.push({
             dayOfWeek,
             date: d,
-            dayName: dayOfWeekNames[dayOfWeek],
+            dayName: nameMap[dayOfWeek],
             day: d.getDate().toString().padStart(2, '0'),
             month: (d.getMonth() + 1).toString().padStart(2, '0'),
             isToday: d.getDate() === vnNow.getDate() && d.getMonth() === vnNow.getMonth(),
@@ -158,7 +190,7 @@ function getWeeklySchedule(guildId, includeBangchien = false) {
             const timeStr = `${notif.hours.toString().padStart(2, '0')}:${notif.minutes.toString().padStart(2, '0')}`;
             weekDay.events.push({
                 emoji: template.emoji,
-                name: template.eventName,
+                name: lang === 'en' ? (eventNameEN[template.eventName] || template.eventName) : template.eventName,
                 time: timeStr
             });
         }
@@ -183,7 +215,7 @@ function getWeeklySchedule(guildId, includeBangchien = false) {
             if (satDay) {
                 satDay.events.push({
                     emoji: '🏰',
-                    name: 'Bang Chiến',
+                    name: lang === 'en' ? 'Guild War' : 'Bang Chiến',
                     time: '19:30'
                 });
             }
@@ -194,7 +226,7 @@ function getWeeklySchedule(guildId, includeBangchien = false) {
             if (sunDay) {
                 sunDay.events.push({
                     emoji: '🏰',
-                    name: 'Bang Chiến',
+                    name: lang === 'en' ? 'Guild War' : 'Bang Chiến',
                     time: '19:30'
                 });
             }
@@ -223,13 +255,23 @@ function getWeeklySchedule(guildId, includeBangchien = false) {
     // Thêm Yến Tiệc
     if (hasYenTiec) {
         output += '─────────────────────────────\n';
-        output += `🎉 **Yến Tiệc**: MỖI NGÀY\n`;
-        output += `   T2-T6: **21h00**\n`;
-        output += `   T7-CN: **19h30** (nếu không có BC)\n`;
+        if (lang === 'en') {
+            output += `🎉 **Guild Party**: EVERY DAY\n`;
+            output += `   Mon-Fri: **21h00**\n`;
+            output += `   Sat-Sun: **19h30** (if no Guild War)\n`;
+        } else {
+            output += `🎉 **Yến Tiệc**: MỖI NGÀY\n`;
+            output += `   T2-T6: **21h00**\n`;
+            output += `   T7-CN: **19h30** (nếu không có BC)\n`;
+        }
     }
 
     // Thêm hint
-    output += `\n💡 \`?nhacnho\` để đăng ký nhắc sự kiện`;
+    if (lang === 'en') {
+        output += `\n💡 \`?nhacnho\` to register event reminders`;
+    } else {
+        output += `\n💡 \`?nhacnho\` để đăng ký nhắc sự kiện`;
+    }
 
     return output.trim();
 }
@@ -293,7 +335,7 @@ async function refreshScheduleEmbed(client, guildId, channelId = null, mode = 'r
         // MODE: EDIT - Cố gắng edit message hiện có
         if (mode === 'edit' && existingMsg) {
             try {
-                await existingMsg.edit({ embeds: [scheduleEmbed] });
+                await existingMsg.edit({ embeds: [scheduleEmbed], components: [createEnglishButtonRow()] });
                 console.log('[refreshScheduleEmbed] Edited existing schedule for guild:', guildId);
                 return true;
             } catch (e) {
@@ -315,7 +357,7 @@ async function refreshScheduleEmbed(client, guildId, channelId = null, mode = 'r
         }
 
         // Gửi embed mới
-        const newScheduleMsg = await channel.send({ embeds: [scheduleEmbed] });
+        const newScheduleMsg = await channel.send({ embeds: [scheduleEmbed], components: [createEnglishButtonRow()] });
         scheduleMessages.set(channelKey, newScheduleMsg);
         storage.saveScheduleMessages(scheduleMessages);
         console.log('[refreshScheduleEmbed] Sent new schedule for guild:', guildId);
@@ -775,7 +817,7 @@ async function createGuildNotification(interaction, missionType, hours, minutes,
                                 .setDescription(weeklySchedule)
                                 .setTimestamp()
                                 .setFooter({ text: FOOTER_TEXT });
-                            const newScheduleMsg = await channel.send({ embeds: [scheduleEmbed] });
+                            const newScheduleMsg = await channel.send({ embeds: [scheduleEmbed], components: [createEnglishButtonRow()] });
                             // Lưu message để xoá lần sau
                             scheduleMessages.set(channelKey, newScheduleMsg);
                             storage.saveScheduleMessages(scheduleMessages);

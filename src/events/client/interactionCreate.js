@@ -192,6 +192,23 @@ module.exports = {
           if (handled) return;
         }
 
+        // ROUTE 16: Schedule English button - Reply ephemeral bản tiếng Anh lịch sự kiện
+        if (customId === 'schedule_english') {
+          const { EmbedBuilder } = require('discord.js');
+          const { getWeeklySchedule } = require('../../commands/thongbao/thongbaoguild');
+          const guildId = interaction.guild.id;
+          const weeklyScheduleEN = getWeeklySchedule(guildId, true, 'en');
+          if (!weeklyScheduleEN) {
+            return interaction.reply({ content: '📭 No guild events scheduled!', flags: MessageFlags.Ephemeral });
+          }
+          const embed = new EmbedBuilder()
+            .setColor(0x3498DB)
+            .setTitle('📅 WEEKLY EVENT SCHEDULE')
+            .setDescription(weeklyScheduleEN)
+            .setTimestamp()
+            .setFooter({ text: 'Lang Gia Các' });
+          return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
 
       } catch (error) {
         console.error('Lỗi khi xử lý button:', error);

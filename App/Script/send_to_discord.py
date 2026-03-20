@@ -1,21 +1,3 @@
----
-description: Gửi file HTML (hoặc bất kỳ file nào) lên Discord qua Webhook để xem nhanh trên điện thoại
----
-
-# Workflow: Gửi file lên Discord (GuiDiscord)
-
-## Thông tin
-- **Webhook URL**: `https://discord.com/api/webhooks/1483188114213306439/gRQCcD-DbpB0Li4ZpBjq5WvQ6mT-mV3rqIS3kOcXK-AO3Zb3xtM9fp7QZykofHRjR7CD`
-- **Webhook URL (script)**: Dùng URL trên cho cả workflow lẫn script
-- **Giới hạn file**: 25MB
-- **Script path**: `App/Script/send_to_discord.py` (hoặc tạo mới từ code bên dưới)
-
-## Các bước thực hiện
-
-### 1. Đảm bảo script tồn tại
-Nếu chưa có file `send_to_discord.py`, tạo file mới tại `App/Script/send_to_discord.py` với nội dung sau:
-
-```python
 """
 Script gửi file/tin nhắn lên Discord qua Webhook.
 Dùng urllib (built-in), có SSL bypass cho mạng bị chặn.
@@ -118,35 +100,3 @@ if __name__ == "__main__":
         gui_tin_nhan(" ".join(sys.argv[2:]))
     else:
         gui_file(sys.argv[1], " ".join(sys.argv[2:]) if len(sys.argv) > 2 else "")
-```
-
-### 2. Gửi file HTML (hoặc bất kỳ file nào)
-// turbo
-```
-python "App/Script/send_to_discord.py" "<đường_dẫn_tuyệt_đối_file>"
-```
-
-### 3. Gửi file với tin nhắn kèm theo
-// turbo
-```
-python "App/Script/send_to_discord.py" "<đường_dẫn_file>" "📊 Mô tả nội dung file"
-```
-
-### 4. Gửi chỉ tin nhắn text (không file)
-// turbo
-```
-python "App/Script/send_to_discord.py" --text "nội dung tin nhắn"
-```
-
-## Khi tạo HTML mới cho báo cáo
-File HTML gửi qua Discord nên có định dạng **mobile-friendly**:
-- Viewport: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`
-- Font size tối thiểu 16px, padding/margin hợp lý
-- Nên dùng dark mode để dễ đọc trên điện thoại
-- User sẽ tải file về và mở trong trình duyệt điện thoại
-
-## Xử lý lỗi kết nối
-Nếu POST bị treo/timeout:
-1. Kiểm tra firewall/antivirus có chặn outgoing POST
-2. Thử tắt proxy/VPN
-3. Chạy test từ PowerShell bình thường (ngoài VS Code)

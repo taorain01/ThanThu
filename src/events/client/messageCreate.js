@@ -1673,7 +1673,7 @@ module.exports = {
 
         // ?listthongbao, ?lichguild, ?tgb - Xem lịch sự kiện guild dạng thời gian biểu
         if (['listthongbao', 'lichguild', 'tgb', 'lichsk'].includes(commandName)) {
-            const { EmbedBuilder } = require('discord.js');
+            const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
             const { getWeeklySchedule } = require('../../commands/thongbao/thongbaoguild');
 
             const guildId = message.guild.id;
@@ -1690,7 +1690,15 @@ module.exports = {
                 .setTimestamp()
                 .setFooter({ text: 'Lang Gia Các' });
 
-            return message.reply({ embeds: [embed] });
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('schedule_english')
+                    .setLabel('English')
+                    .setEmoji('🇬🇧')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+            return message.reply({ embeds: [embed], components: [row] });
         }
 
         // ============== MINIGAME COMMANDS ==============

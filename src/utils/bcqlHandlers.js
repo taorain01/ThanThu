@@ -280,7 +280,7 @@ async function handleBcqlButton(interaction) {
 
         // Role BC đã được cấp ngay khi bấm Tham gia, không cần cấp lại ở đây
 
-        await interaction.editReply({ content: `✅ Đã chốt danh sách! (${allParticipants.length} người)` });
+        await interaction.editReply({ content: `✅ Đã chốt danh sách! (${total} người)` });
         return true;
     }
 

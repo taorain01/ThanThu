@@ -99,19 +99,20 @@ module.exports = {
             .setFooter({ text: 'Dùng ?listbc để xem chi tiết | ?lenhbc để xem lệnh' })
             .setTimestamp();
 
-        // Tạo buttons quản lý (2 rows)
+        // Tạo buttons quản lý (2 rows) — truyền day vào customId giống ?listbc
+        const dayParam = sessionDay || 'sat';
         const row1 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`bcql_kick_${partyKey}`)
+                    .setCustomId(`bcql_kick_${partyKey}_${dayParam}`)
                     .setLabel('❌ Loại bỏ')
                     .setStyle(ButtonStyle.Danger),
                 new ButtonBuilder()
-                    .setCustomId(`bcql_finalize_${partyKey}`)
+                    .setCustomId(`bcql_finalize_${partyKey}_${dayParam}`)
                     .setLabel('📋 Chốt DS')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId(`bcql_resize_${partyKey}`)
+                    .setCustomId(`bcql_resize_${partyKey}_${dayParam}`)
                     .setLabel('📏 Resize')
                     .setStyle(ButtonStyle.Secondary)
             );
@@ -119,15 +120,15 @@ module.exports = {
         const row2 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`bcql_swap_${partyKey}`)
+                    .setCustomId(`bcql_swap_${partyKey}_${dayParam}`)
                     .setLabel('🔄 Đổi chỗ')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
-                    .setCustomId(`bcql_add_${partyKey}`)
+                    .setCustomId(`bcql_add_${partyKey}_${dayParam}`)
                     .setLabel('➕ Thêm người')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
-                    .setCustomId(`bcql_setleader_${partyKey}`)
+                    .setCustomId(`bcql_setleader_${partyKey}_${dayParam}`)
                     .setLabel('👑 Set Leader')
                     .setStyle(ButtonStyle.Secondary)
             );

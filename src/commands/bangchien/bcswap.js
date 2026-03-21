@@ -31,8 +31,13 @@ module.exports = {
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
 
-        // Parse day từ args (MULTI-DAY)
+        // Parse day từ args (MULTI-DAY) và filter bỏ day arg khỏi args
         const day = parseDayArg(args);
+        if (day) {
+            // Lọc bỏ day arg (t7, cn...) khỏi args để chỉ còn số
+            const { DAY_ALIASES } = require('../../utils/bangchienState');
+            args = args.filter(a => !DAY_ALIASES[a?.toLowerCase()]);
+        }
 
         // Lấy session
         let session, isActiveSession = false;

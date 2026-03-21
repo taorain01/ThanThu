@@ -530,8 +530,8 @@ function getAllTeamSizes() {
     return {
         attack1: getTeamSize('attack1') || 10,
         attack2: getTeamSize('attack2') || 10,
-        defense: getTeamSize('defense') || 5,
-        forest: getTeamSize('forest') || 5
+        defense: getTeamSize('defense') ?? 5,
+        forest: getTeamSize('forest') ?? 5
     };
 }
 
@@ -911,8 +911,8 @@ function addBangchienParticipant(partyKey, participant, guildId = null) {
     // Team sizes (all dynamic from DB)
     const TEAM_ATTACK1_SIZE = getTeamSize('attack1') || 10;
     const TEAM_ATTACK2_SIZE = getTeamSize('attack2') || 10;
-    const TEAM_DEFENSE_SIZE = getTeamSize('defense') || 5;
-    const TEAM_FOREST_SIZE = getTeamSize('forest') || 5;
+    const TEAM_DEFENSE_SIZE = getTeamSize('defense') ?? 5;
+    const TEAM_FOREST_SIZE = getTeamSize('forest') ?? 5;
 
     const newParticipant = { ...participant, joinedAt: Date.now(), isLeader: false };
     let team = '';

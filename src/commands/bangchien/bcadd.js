@@ -25,8 +25,8 @@ function getTeamSizes(db) {
     return {
         attack1: db.getTeamSize('attack1') || 10,
         attack2: db.getTeamSize('attack2') || 10,
-        defense: db.getTeamSize('defense') || 5,
-        forest: db.getTeamSize('forest') || 5
+        defense: db.getTeamSize('defense') ?? 5,
+        forest: db.getTeamSize('forest') ?? 5
     };
 }
 

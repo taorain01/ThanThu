@@ -82,8 +82,8 @@ module.exports = {
         // DYNAMIC SLOT NUMBERING - Đồng bộ với ?bcsize settings
         const SIZE_ATTACK1 = db.getTeamSize('attack1') || 10;
         const SIZE_ATTACK2 = db.getTeamSize('attack2') || 10;
-        const SIZE_DEFENSE = db.getTeamSize('defense') || 5;
-        const SIZE_FOREST = db.getTeamSize('forest') || 5;
+        const SIZE_DEFENSE = db.getTeamSize('defense') ?? 5;
+        const SIZE_FOREST = db.getTeamSize('forest') ?? 5;
 
         // Tính slot bắt đầu của từng team
         const SLOT_ATTACK1_START = 1;

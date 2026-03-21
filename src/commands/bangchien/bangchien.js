@@ -28,8 +28,8 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     // DYNAMIC TEAM SIZES - Đồng bộ với ?bcsize
     const TEAM_ATTACK1_SIZE = db.getTeamSize('attack1') || 10;
     const TEAM_ATTACK2_SIZE = db.getTeamSize('attack2') || 10;
-    const TEAM_DEFENSE_SIZE = db.getTeamSize('defense') || 5;
-    const TEAM_FOREST_SIZE = db.getTeamSize('forest') || 5;
+    const TEAM_DEFENSE_SIZE = db.getTeamSize('defense') ?? 5;
+    const TEAM_FOREST_SIZE = db.getTeamSize('forest') ?? 5;
 
     // Lấy data từ DB
     let teamAttack1 = [];
@@ -191,11 +191,20 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     // Team Công 2: 11-20
     currentNum += addTeamField(embed, 'TEAM CÔNG 2', '🗡️', teamAttack2, TEAM_ATTACK2_SIZE, currentNum);
 
-    // Team Thủ: 21-25
-    currentNum += addTeamField(embed, 'TEAM THỦ', '🛡️', teamDefense, TEAM_DEFENSE_SIZE, currentNum);
+    // Team Thủ: chỉ hiện nếu size > 0
+    if (TEAM_DEFENSE_SIZE > 0) {
+        currentNum += addTeamField(embed, 'TEAM THỦ', '🛡️', teamDefense, TEAM_DEFENSE_SIZE, currentNum);
+    } else {
+        // Vẫn cộng maxSize để giữ số thứ tự liên tục
+        currentNum += TEAM_DEFENSE_SIZE;
+    }
 
-    // Team Rừng: 26-30
-    currentNum += addTeamField(embed, 'TEAM RỪNG', '🌲', teamForest, TEAM_FOREST_SIZE, currentNum);
+    // Team Rừng: chỉ hiện nếu size > 0
+    if (TEAM_FOREST_SIZE > 0) {
+        currentNum += addTeamField(embed, 'TEAM RỮNG', '🌲', teamForest, TEAM_FOREST_SIZE, currentNum);
+    } else {
+        currentNum += TEAM_FOREST_SIZE;
+    }
 
     // Danh sách chờ
     if (waitingList.length > 0) {
@@ -321,7 +330,13 @@ function createOverviewEmbed(guildId) {
     const satStats = getSessionStats(satSession);
     const satDateStr = getDayNameWithDate('sat').toUpperCase();
     const satStatus = satSession
-        ? `📅 **${satDateStr}** (${satStats.total}/30)\n⚔️ Công: ${satStats.attack} | 🛡️ Thủ: ${satStats.defense} | 🌲 Rừng: ${satStats.forest}\n🟢${satStats.healer} 🟠${satStats.tanker} 🔵${satStats.dps}`
+        ? (() => {
+            let line = `📅 **${satDateStr}** (${satStats.total}/30)\n⚔️ Công: ${satStats.attack}`;
+            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ Thủ: ${satStats.defense}`;
+            if (db.getTeamSize('forest') > 0) line += ` | 🌲 Rừng: ${satStats.forest}`;
+            line += `\n🟢${satStats.healer} 🟠${satStats.tanker} 🔵${satStats.dps}`;
+            return line;
+        })()
         : `📅 **${satDateStr}** - _Chưa mở_\n💡 Dùng \`?bc t7\` để mở`;
 
     embed.addFields({ name: '\u200b', value: satStatus, inline: false });
@@ -330,7 +345,13 @@ function createOverviewEmbed(guildId) {
     const sunStats = getSessionStats(sunSession);
     const sunDateStr = getDayNameWithDate('sun').toUpperCase();
     const sunStatus = sunSession
-        ? `📅 **${sunDateStr}** (${sunStats.total}/30)\n⚔️ Công: ${sunStats.attack} | 🛡️ Thủ: ${sunStats.defense} | 🌲 Rừng: ${sunStats.forest}\n🟢${sunStats.healer} 🟠${sunStats.tanker} 🔵${sunStats.dps}`
+        ? (() => {
+            let line = `📅 **${sunDateStr}** (${sunStats.total}/30)\n⚔️ Công: ${sunStats.attack}`;
+            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ Thủ: ${sunStats.defense}`;
+            if (db.getTeamSize('forest') > 0) line += ` | 🌲 Rừng: ${sunStats.forest}`;
+            line += `\n🟢${sunStats.healer} 🟠${sunStats.tanker} 🔵${sunStats.dps}`;
+            return line;
+        })()
         : `📅 **${sunDateStr}** - _Chưa mở_\n💡 Dùng \`?bc cn\` để mở`;
 
     embed.addFields({ name: '\u200b', value: sunStatus, inline: false });

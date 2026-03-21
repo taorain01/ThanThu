@@ -29,7 +29,7 @@ function createWeekendReminderEmbed(guildId, previousPref) {
     return new EmbedBuilder()
         .setColor(0xFF9900)
         .setTitle('⚙️ NHẮC ĐỔI GIỜ YẾN TIỆC CUỐI TUẦN!')
-        .setDescription(`📢 Vui lòng **chọn giờ Yến Tiệc** cho **Thứ 7** và **Thứ 2** tuần này!\n\n🎯 **Giờ tuần trước:** ${defaultTime}\n\n⬇️ Bấm nút bên dưới để chọn giờ và xác nhận.`)
+        .setDescription(`📢 Vui lòng **chọn giờ Yến Tiệc** cho **Thứ 7** và **Chủ nhật** tuần này!\n\n🎯 **Giờ tuần trước:** ${defaultTime}\n\n⬇️ Bấm nút bên dưới để chọn giờ và xác nhận.`)
         .addFields(
             { name: '📍 Vị trí đổi trong game', value: 'Guild → Cài đặt → Yến Tiệc', inline: false }
         )
@@ -219,9 +219,9 @@ async function handleWeekendChoice(interaction, guildId, hours, minutes, skipWee
     // Cập nhật message
     let description;
     if (skipWeekday) {
-        description = `**${interaction.user.username}** đã chọn **giữ nguyên ${timeStr}** cho Thứ 7 và Thứ 2.\n\n✅ Thứ 2 sẽ **không** nhắc đổi giờ nữa.`;
+        description = `**${interaction.user.username}** đã chọn **giữ nguyên ${timeStr}** cho Thứ 7 và Chủ nhật.\n\n✅ Thứ 2 sẽ **không** nhắc đổi giờ nữa.`;
     } else {
-        description = `**${interaction.user.username}** đã chọn giờ **${timeStr}** cho Thứ 7 và Thứ 2.\n\n📝 Giờ này sẽ được lưu cho các tuần tiếp theo.`;
+        description = `**${interaction.user.username}** đã chọn giờ **${timeStr}** cho Thứ 7 và Chủ nhật.\n\n📝 Giờ này sẽ được lưu cho các tuần tiếp theo.`;
     }
 
     const confirmEmbed = new EmbedBuilder()
@@ -232,9 +232,6 @@ async function handleWeekendChoice(interaction, guildId, hours, minutes, skipWee
         .setTimestamp();
 
     await interaction.update({ embeds: [confirmEmbed], components: [] });
-
-    // Gửi lịch thông báo
-    await sendScheduleEmbed(interaction, guildId);
 
     // Kiểm tra xem đã có thông báo YenTiec chưa và có cần gửi thêm không
     // Không cần schedule thêm nếu giữ nguyên 21h (vì đã có sẵn thông báo 21h)
@@ -270,9 +267,6 @@ async function handleWeekdayConfirm(interaction, guildId) {
         .setTimestamp();
 
     await interaction.update({ embeds: [confirmEmbed], components: [] });
-
-    // Gửi lịch thông báo
-    await sendScheduleEmbed(interaction, guildId);
 
     return true;
 }

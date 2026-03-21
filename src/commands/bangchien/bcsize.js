@@ -25,8 +25,8 @@ module.exports = {
         // Get current sizes from DB
         const currentCong1 = db.getTeamSize('attack1') || 10;
         const currentCong2 = db.getTeamSize('attack2') || 10;
-        const currentThu = db.getTeamSize('defense') || 5;
-        const currentRung = db.getTeamSize('forest') || 5;
+        const currentThu = db.getTeamSize('defense') ?? 5;
+        const currentRung = db.getTeamSize('forest') ?? 5;
         const currentTotal = currentCong1 + currentCong2 + currentThu + currentRung;
 
         // No args = show current

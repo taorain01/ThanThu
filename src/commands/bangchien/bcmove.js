@@ -15,8 +15,8 @@ function getTeamConfig(db) {
     return {
         '1': { name: 'TEAM CÔNG 1', emoji: '⚔️', field: 'attack1', maxSize: db.getTeamSize('attack1') || 10 },
         '2': { name: 'TEAM CÔNG 2', emoji: '🗡️', field: 'attack2', maxSize: db.getTeamSize('attack2') || 10 },
-        'thu': { name: 'TEAM THỦ', emoji: '🛡️', field: 'defense', maxSize: db.getTeamSize('defense') || 5, preset: true },
-        'rung': { name: 'TEAM RỪNG', emoji: '🌲', field: 'forest', maxSize: db.getTeamSize('forest') || 5, preset: true }
+        'thu': { name: 'TEAM THỦ', emoji: '🛡️', field: 'defense', maxSize: db.getTeamSize('defense') ?? 5, preset: true },
+        'rung': { name: 'TEAM RỪNG', emoji: '🌲', field: 'forest', maxSize: db.getTeamSize('forest') ?? 5, preset: true }
     };
 }
 

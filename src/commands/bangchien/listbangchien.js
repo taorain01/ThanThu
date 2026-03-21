@@ -13,8 +13,8 @@ function getTeamConfig(db) {
     return {
         attack1: { name: 'TEAM CÔNG 1', emoji: '⚔️', maxSize: db.getTeamSize('attack1') || 10 },
         attack2: { name: 'TEAM CÔNG 2', emoji: '🗡️', maxSize: db.getTeamSize('attack2') || 10 },
-        defense: { name: 'TEAM THỦ', emoji: '🛡️', maxSize: db.getTeamSize('defense') || 5 },
-        forest: { name: 'TEAM RỪNG', emoji: '🌲', maxSize: db.getTeamSize('forest') || 5 }
+        defense: { name: 'TEAM THỦ', emoji: '🛡️', maxSize: db.getTeamSize('defense') ?? 5 },
+        forest: { name: 'TEAM RỪNG', emoji: '🌲', maxSize: db.getTeamSize('forest') ?? 5 }
     };
 }
 
@@ -82,14 +82,24 @@ module.exports = {
         // Thứ 7 - với ngày cụ thể
         const satDateStr = getDayNameWithDate('sat').toUpperCase();
         const satStatus = satSession
-            ? `📅 **${satDateStr}** (${satStats.total}/30) - Đang diễn ra\n⚔️ Công: ${satStats.attack} | 🛡️ Thủ: ${satStats.defense} | 🌲 Rừng: ${satStats.forest}`
+            ? (() => {
+                let line = `📅 **${satDateStr}** (${satStats.total}/30) - Đang diễn ra\n⚔️ Công: ${satStats.attack}`;
+                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ Thủ: ${satStats.defense}`;
+                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 Rừng: ${satStats.forest}`;
+                return line;
+            })()
             : `📅 **${satDateStr}** - _Chưa mở_`;
         embed.addFields({ name: '\u200b', value: satStatus, inline: false });
 
         // Chủ Nhật - với ngày cụ thể
         const sunDateStr = getDayNameWithDate('sun').toUpperCase();
         const sunStatus = sunSession
-            ? `📅 **${sunDateStr}** (${sunStats.total}/30) - Đang diễn ra\n⚔️ Công: ${sunStats.attack} | 🛡️ Thủ: ${sunStats.defense} | 🌲 Rừng: ${sunStats.forest}`
+            ? (() => {
+                let line = `📅 **${sunDateStr}** (${sunStats.total}/30) - Đang diễn ra\n⚔️ Công: ${sunStats.attack}`;
+                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ Thủ: ${sunStats.defense}`;
+                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 Rừng: ${sunStats.forest}`;
+                return line;
+            })()
             : `📅 **${sunDateStr}** - _Chưa mở_`;
         embed.addFields({ name: '\u200b', value: sunStatus, inline: false });
 
@@ -274,9 +284,14 @@ module.exports = {
                 inline: false
             });
 
-        // Add 4 teams
+        // Add teams - chỉ hiện team có maxSize > 0
         let currentNum = 1;
         for (const [teamKey, config] of Object.entries(TEAM_CONFIG)) {
+            if (config.maxSize === 0) {
+                // Skip team có size = 0, vẫn cộng maxSize để giữ số thứ tự liên tục
+                currentNum += config.maxSize;
+                continue;
+            }
             const team = teams[teamKey];
             const statsText = getTeamStats(team);
             const teamList = formatTeamList(team, currentNum, config.maxSize);

@@ -248,7 +248,10 @@ async function handleBcqlButton(interaction) {
         const attack2Size = db.getTeamSize('attack2') || 10;
         const slotstartAtt2 = 1 + attack1Size;
         const slotStartDef = slotstartAtt2 + attack2Size;
-        const slotStartFor = slotStartDef + (db.getTeamSize('defense') || 5);
+        const slotStartFor = slotStartDef + (db.getTeamSize('defense') ?? 5);
+
+        const defenseSize2 = db.getTeamSize('defense') ?? 5;
+        const forestSize2 = db.getTeamSize('forest') ?? 5;
 
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
@@ -256,10 +259,17 @@ async function handleBcqlButton(interaction) {
             .setDescription(`Leader: ${session.leader_name} | Tổng: **${total}** người`)
             .addFields(
                 { name: `⚔️ CÔNG 1 (${teamAttack1.length}/${attack1Size}) [${getStats(teamAttack1)}]`, value: formatTeam(teamAttack1, 1), inline: false },
-                { name: `🗡️ CÔNG 2 (${teamAttack2.length}/${attack2Size}) [${getStats(teamAttack2)}]`, value: formatTeam(teamAttack2, slotstartAtt2), inline: false },
-                { name: `🛡️ THỦ (${teamDefense.length}/${db.getTeamSize('defense') || 5}) [${getStats(teamDefense)}]`, value: formatTeam(teamDefense, slotStartDef), inline: false },
-                { name: `🌲 RỪNG (${teamForest.length}/${db.getTeamSize('forest') || 5}) [${getStats(teamForest)}]`, value: formatTeam(teamForest, slotStartFor), inline: false }
+                { name: `🗡️ CÔNG 2 (${teamAttack2.length}/${attack2Size}) [${getStats(teamAttack2)}]`, value: formatTeam(teamAttack2, slotstartAtt2), inline: false }
             );
+
+        // Chỉ hiện team Thủ nếu size > 0
+        if (defenseSize2 > 0) {
+            embed.addFields({ name: `🛡️ THỦ (${teamDefense.length}/${defenseSize2}) [${getStats(teamDefense)}]`, value: formatTeam(teamDefense, slotStartDef), inline: false });
+        }
+        // Chỉ hiện team Rừng nếu size > 0
+        if (forestSize2 > 0) {
+            embed.addFields({ name: `🌲 RỪNG (${teamForest.length}/${forestSize2}) [${getStats(teamForest)}]`, value: formatTeam(teamForest, slotStartFor), inline: false });
+        }
 
         if (waitingList.length > 0) {
             embed.addFields({ name: `⏳ Chờ (${waitingList.length})`, value: waitingList.map((p, i) => `${i + 1}. <@${p.id}>`).join('\n'), inline: false });
@@ -342,8 +352,8 @@ async function handleBcqlButton(interaction) {
     if (customId.startsWith('bcql_size_')) {
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
-        const defenseSize = db.getTeamSize('defense') || 5;
-        const forestSize = db.getTeamSize('forest') || 5;
+        const defenseSize = db.getTeamSize('defense') ?? 5;
+        const forestSize = db.getTeamSize('forest') ?? 5;
         const total = attack1Size + attack2Size + defenseSize + forestSize;
 
         const embed = new EmbedBuilder()
@@ -388,18 +398,18 @@ async function handleBcqlButton(interaction) {
 
         const defenseInput = new TextInputBuilder()
             .setCustomId('defense_size')
-            .setLabel('Thủ (1-10)')
+            .setLabel('Thủ (0-10, nhập 0 để ẩn team Thủ)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('5')
-            .setValue(String(db.getTeamSize('defense') || 5))
+            .setValue(String(db.getTeamSize('defense') ?? 5))
             .setRequired(true);
 
         const forestInput = new TextInputBuilder()
             .setCustomId('forest_size')
-            .setLabel('Rừng (1-10)')
+            .setLabel('Rừng (0-10, nhập 0 để ẩn team Rừng)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('5')
-            .setValue(String(db.getTeamSize('forest') || 5))
+            .setValue(String(db.getTeamSize('forest') ?? 5))
             .setRequired(true);
 
         modal.addComponents(
@@ -422,7 +432,7 @@ async function handleBcqlButton(interaction) {
 
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
-        const defenseSize = db.getTeamSize('defense') || 5;
+        const defenseSize = db.getTeamSize('defense') ?? 5;
 
         const slotStartAtt2 = 1 + attack1Size;
         const slotStartDef = slotStartAtt2 + attack2Size;
@@ -525,8 +535,8 @@ async function handleBcqlSelect(interaction) {
 
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
-        const defenseSize = db.getTeamSize('defense') || 5;
-        const forestSize = db.getTeamSize('forest') || 5;
+        const defenseSize = db.getTeamSize('defense') ?? 5;
+        const forestSize = db.getTeamSize('forest') ?? 5;
 
         for (const userId of selectedIds) {
             // Tìm người trong waiting list
@@ -622,8 +632,8 @@ async function handleBcqlModal(interaction) {
         // Dynamic slot numbers - đồng bộ với bcsize
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
-        const defenseSize = db.getTeamSize('defense') || 5;
-        const forestSize = db.getTeamSize('forest') || 5;
+        const defenseSize = db.getTeamSize('defense') ?? 5;
+        const forestSize = db.getTeamSize('forest') ?? 5;
 
         const slotStartAtt2 = 1 + attack1Size;
         const slotStartDef = slotStartAtt2 + attack2Size;
@@ -844,8 +854,8 @@ async function handleBcqlModal(interaction) {
 
         // Validate
         if (attack1Size < 1 || attack1Size > 20 || attack2Size < 1 || attack2Size > 20 ||
-            defenseSize < 1 || defenseSize > 10 || forestSize < 1 || forestSize > 10) {
-            await interaction.reply({ content: '❌ Số lượng không hợp lệ! Công: 1-20, Thủ/Rừng: 1-10', flags: MessageFlags.Ephemeral });
+            defenseSize < 0 || defenseSize > 10 || forestSize < 0 || forestSize > 10) {
+            await interaction.reply({ content: '❌ Số lượng không hợp lệ! Công: 1-20, Thủ/Rừng: 0-10', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -881,12 +891,12 @@ async function handleBcqlModal(interaction) {
         // Lấy team sizes
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
-        const defenseSize = db.getTeamSize('defense') || 5;
+        const defenseSize = db.getTeamSize('defense') ?? 5;
 
         const slotStartAtt2 = 1 + attack1Size;
         const slotStartDef = slotStartAtt2 + attack2Size;
         const slotStartFor = slotStartDef + defenseSize;
-        const slotStartWait = slotStartFor + (db.getTeamSize('forest') || 5);
+        const slotStartWait = slotStartFor + (db.getTeamSize('forest') ?? 5);
 
         // Clone teams
         const teams = {

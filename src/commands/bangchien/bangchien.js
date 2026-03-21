@@ -84,8 +84,8 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     function formatMember(r, index) {
         const userData = db.getUserByDiscordId(r.id);
         const gameName = userData?.game_username || null;
-        // LUÔN detect role từ Discord (không dùng role đã lưu vì có thể sai)
-        const role = getMemberRole(r.id) || r.role;
+        // LUÔN detect role từ Discord (không fallback sang role DB)
+        const role = getMemberRole(r.id);
         const roleDisplay = role ? roleEmojis[role] : '❓';
 
         let subTypeTag = '';
@@ -111,8 +111,8 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     function getTeamStats(team) {
         let stats = { healer: 0, tanker: 0, dps: 0, unknown: 0 };
         team.forEach(p => {
-            // LUÔN detect role từ Discord
-            const role = getMemberRole(p.id) || p.role;
+            // LUÔN detect role từ Discord (không fallback sang role DB)
+            const role = getMemberRole(p.id);
             if (role === 'Healer') stats.healer++;
             else if (role === 'Tanker') stats.tanker++;
             else if (role === 'DPS') stats.dps++;

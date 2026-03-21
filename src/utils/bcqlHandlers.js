@@ -849,8 +849,10 @@ async function handleBcqlModal(interaction) {
     if (customId.startsWith('bcql_resize_modal_')) {
         const attack1Size = parseInt(interaction.fields.getTextInputValue('attack1_size')) || 10;
         const attack2Size = parseInt(interaction.fields.getTextInputValue('attack2_size')) || 10;
-        const defenseSize = parseInt(interaction.fields.getTextInputValue('defense_size')) || 5;
-        const forestSize = parseInt(interaction.fields.getTextInputValue('forest_size')) || 5;
+        const defenseRaw = parseInt(interaction.fields.getTextInputValue('defense_size'));
+        const forestRaw = parseInt(interaction.fields.getTextInputValue('forest_size'));
+        const defenseSize = isNaN(defenseRaw) ? 5 : defenseRaw;
+        const forestSize = isNaN(forestRaw) ? 5 : forestRaw;
 
         // Validate
         if (attack1Size < 1 || attack1Size > 20 || attack2Size < 1 || attack2Size > 20 ||

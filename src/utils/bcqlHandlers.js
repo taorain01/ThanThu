@@ -325,11 +325,11 @@ async function handleBcqlButton(interaction) {
 
         const userInput = new TextInputBuilder()
             .setCustomId('user_id')
-            .setLabel('Discord User ID')
+            .setLabel('User ID, @mention, hoặc tên username')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Chuột phải user → Copy User ID')
+            .setPlaceholder('VD: 395151484179841024, @TaoRain, TaoRain')
             .setRequired(true)
-            .setMaxLength(20);
+            .setMaxLength(40);
 
         const teamInput = new TextInputBuilder()
             .setCustomId('team')
@@ -805,16 +805,44 @@ async function handleBcqlModal(interaction) {
 
     // ========== ADD MODAL ==========
     if (customId.startsWith('bcql_add_modal_')) {
-        const userId = interaction.fields.getTextInputValue('user_id').trim();
+        let userInput = interaction.fields.getTextInputValue('user_id').trim();
         const teamInput = interaction.fields.getTextInputValue('team').trim().toLowerCase();
 
-        // Validate user ID
+        // Resolve user từ nhiều định dạng: ID, @mention, username, display name
         let user;
-        try {
-            user = await interaction.client.users.fetch(userId);
-        } catch (e) {
-            await interaction.reply({ content: '❌ User ID không hợp lệ!', flags: MessageFlags.Ephemeral });
-            return true;
+        let userId;
+
+        // 1. Thử parse @mention format: <@123456> hoặc <@!123456>
+        const mentionMatch = userInput.match(/^<@!?(\d+)>$/);
+        if (mentionMatch) {
+            userInput = mentionMatch[1];
+        }
+
+        // 2. Nếu là số thuần (User ID) → fetch trực tiếp
+        if (/^\d{17,20}$/.test(userInput)) {
+            try {
+                user = await interaction.client.users.fetch(userInput);
+                userId = userInput;
+            } catch (e) {
+                await interaction.reply({ content: '❌ User ID không tồn tại!', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+        } else {
+            // 3. Tìm theo username hoặc display name trong guild
+            const searchTerm = userInput.toLowerCase().replace(/^@/, ''); // Bỏ @ đầu nếu có
+            await interaction.guild.members.fetch().catch(() => null);
+            const foundMember = interaction.guild.members.cache.find(m =>
+                m.user.username.toLowerCase() === searchTerm ||
+                m.displayName.toLowerCase() === searchTerm ||
+                m.user.tag?.toLowerCase() === searchTerm
+            );
+
+            if (!foundMember) {
+                await interaction.reply({ content: `❌ Không tìm thấy user "${userInput}" trong server!\n💡 Thử nhập User ID hoặc username chính xác.`, flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            user = foundMember.user;
+            userId = user.id;
         }
 
         // Check if already registered

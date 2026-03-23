@@ -383,11 +383,11 @@ async function handleButton(interaction) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleVote(interaction) {
-    // Acknowledge NGAY LẬP TỨC để tránh timeout
+    // Acknowledge + xóa ephemeral (đổi thành nội dung trống)
     try {
-        await interaction.deferUpdate();
+        await interaction.update({ content: '✅', components: [] });
     } catch (e) {
-        console.error('[voteevent] deferUpdate failed:', e);
+        console.error('[voteevent] update failed:', e);
         return;
     }
 

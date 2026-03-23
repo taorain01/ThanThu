@@ -411,16 +411,23 @@ async function handleVote(interaction) {
         gv[voteKey][userId] = interaction.values[0];
     }
 
-    // Xóa dropdown đã dùng, giữ lại dropdown chưa dùng
-    try {
-        const remainingRows = interaction.message.components
-            .filter(row => !row.components.some(c => c.customId === customId))
-            .map(row => ActionRowBuilder.from(row));
+    // Kiểm tra user đã vote đủ chưa cho event này
+    const event = EVENTS.find(e => e.id === eventId);
+    let allVoted = !!gv[`${eventId}_time`]?.[userId];
+    if (event?.hasDay) {
+        allVoted = allVoted && !!gv[`${eventId}_days`]?.[userId];
+    }
 
-        if (remainingRows.length > 0) {
-            await interaction.update({ components: remainingRows });
-        } else {
+    try {
+        if (allVoted) {
+            // Đã vote hết → hiện ✅
             await interaction.update({ content: '✅', components: [] });
+        } else {
+            // Chưa vote hết → xóa dropdown đã dùng, giữ lại cái chưa dùng
+            const remainingRows = interaction.message.components
+                .filter(row => !row.components.some(c => c.customId === customId))
+                .map(row => ActionRowBuilder.from(row));
+            await interaction.update({ components: remainingRows });
         }
     } catch (e) {
         console.error('[voteevent] update failed:', e);

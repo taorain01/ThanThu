@@ -1,18 +1,25 @@
 /**
- * ?voteevent command - Bình chọn lịch sự kiện Guild
- * Cho phép thành viên vote giờ cho: Yến Tiệc, Boss Solo, PvP Solo
- * Boss Solo và PvP Solo có thêm vote ngày (2 ngày mỗi loại)
+ * ?voteevent - Bình chọn lịch sự kiện Guild (Thiết kế mới)
+ * 
+ * Sử dụng button navigation để tránh giới hạn 5 action rows:
+ * - Main embed: tổng quan + kết quả live
+ * - 1 row buttons: [🍽️ Yến Tiệc] [⚔️ Boss Solo] [🏆 PvP Solo] [📊 Kết quả] [🛑 Kết thúc]
+ * - Click button → ephemeral reply với dropdown tương ứng
  * 
  * Usage:
  * - ?voteevent - Tạo bình chọn mới (24h)
  * - ?voteevent <hours>h - Tạo bình chọn với thời gian tùy chỉnh
- * - ?voteevent end - Kết thúc sớm và xem kết quả
- * - ?voteevent result - Xem kết quả hiện tại
+ * - ?voteevent end - Kết thúc sớm
+ * - ?voteevent result - Xem kết quả
  */
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-// Các khung giờ có thể chọn (18h - 23h, mỗi 30 phút)
+// ═══════════════════════════════════════════════════════════════════════════
+// CẤU HÌNH
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Khung giờ 18h-23h, mỗi 30 phút
 const TIME_OPTIONS = [
     { label: '18:00', value: '18:00', emoji: '🕕' },
     { label: '18:30', value: '18:30', emoji: '🕡' },
@@ -27,7 +34,7 @@ const TIME_OPTIONS = [
     { label: '23:00', value: '23:00', emoji: '🕚' },
 ];
 
-// Các ngày trong tuần
+// Ngày trong tuần
 const DAY_OPTIONS = [
     { label: 'Thứ 2', value: 'thu2', emoji: '📅' },
     { label: 'Thứ 3', value: 'thu3', emoji: '📅' },
@@ -38,54 +45,58 @@ const DAY_OPTIONS = [
     { label: 'Chủ nhật', value: 'cn', emoji: '🌟' },
 ];
 
-// Các sự kiện cần vote
+// Sự kiện Guild
 const EVENTS = [
-    { id: 'yentiec', name: 'Yến Tiệc', emoji: '🍽️', hasDay: false },
-    { id: 'bosssolo', name: 'Boss Solo', emoji: '⚔️', hasDay: true },
-    { id: 'pvpsolo', name: 'PvP Solo', emoji: '🏆', hasDay: true },
+    { id: 'yentiec', name: 'Yến Tiệc', emoji: '🍽️', hasDay: false, defaultTime: '21:00' },
+    { id: 'boss', name: 'Boss Solo', emoji: '⚔️', hasDay: true, defaultTime: '20:00', defaultDays: ['thu4', 'cn'] },
+    { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: true, defaultTime: '20:00', defaultDays: ['thu6', 'cn'] },
 ];
 
-// Lưu trữ poll (guildId -> pollData)
-const activePolls = new Map();
+// ═══════════════════════════════════════════════════════════════════════════
+// LƯU TRỮ
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Lưu trữ votes
-const pollVotes = new Map();
+const activePolls = new Map();  // guildId -> pollData
+const pollVotes = new Map();    // guildId -> { yentiec_time: {userId: value}, boss_time: {}, boss_days: {}, ... }
 
-/**
- * Tạo progress bar
- */
-function createProgressBar(percentage, length = 10) {
-    const filled = Math.round((percentage / 100) * length);
-    const empty = length - filled;
-    return '█'.repeat(filled) + '░'.repeat(empty);
+// ═══════════════════════════════════════════════════════════════════════════
+// HÀM TIỆN ÍCH
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getDayName(v) {
+    return DAY_OPTIONS.find(d => d.value === v)?.label || v;
+}
+
+function createProgressBar(pct, len = 8) {
+    const f = Math.round((pct / 100) * len);
+    return '█'.repeat(f) + '░'.repeat(len - f);
 }
 
 /**
- * Lấy tên ngày từ value
- */
-function getDayName(value) {
-    const day = DAY_OPTIONS.find(d => d.value === value);
-    return day ? day.label : value;
-}
-
-/**
- * Tính kết quả vote
+ * Tính kết quả cho 1 key vote (ví dụ: 'yentiec_time', 'boss_days')
  */
 function calculateResults(guildId, voteKey) {
-    const guildVotes = pollVotes.get(guildId);
-    if (!guildVotes || !guildVotes[voteKey]) return { results: [], total: 0 };
+    const gv = pollVotes.get(guildId);
+    if (!gv || !gv[voteKey]) return { results: [], total: 0 };
 
-    const voteCounts = {};
-    for (const [userId, value] of Object.entries(guildVotes[voteKey])) {
-        voteCounts[value] = (voteCounts[value] || 0) + 1;
+    const counts = {};
+    for (const value of Object.values(gv[voteKey])) {
+        // Nếu là days (multi-select), tách từng ngày ra đếm riêng
+        if (voteKey.endsWith('_days')) {
+            for (const d of value.split(',')) {
+                counts[d] = (counts[d] || 0) + 1;
+            }
+        } else {
+            counts[value] = (counts[value] || 0) + 1;
+        }
     }
 
-    const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
-    const results = Object.entries(voteCounts)
+    const total = Object.keys(gv[voteKey]).length;
+    const results = Object.entries(counts)
         .map(([value, count]) => ({
             value,
             count,
-            percentage: total > 0 ? Math.round((count / total) * 100) : 0
+            pct: total > 0 ? Math.round((count / total) * 100) : 0
         }))
         .sort((a, b) => b.count - a.count);
 
@@ -93,303 +104,371 @@ function calculateResults(guildId, voteKey) {
 }
 
 /**
- * Tạo embed kết quả
+ * Đếm tổng số người tham gia vote
+ */
+function countTotalVoters(guildId) {
+    const gv = pollVotes.get(guildId);
+    if (!gv) return 0;
+    const voters = new Set();
+    for (const key of Object.keys(gv)) {
+        if (gv[key]) Object.keys(gv[key]).forEach(id => voters.add(id));
+    }
+    return voters.size;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TẠO EMBED VÀ COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Tạo embed chính (hiển thị trên channel)
+ */
+function createPollEmbed(guildId) {
+    const poll = activePolls.get(guildId);
+    if (!poll) return null;
+
+    const resultLines = [];
+    for (const event of EVENTS) {
+        const { results: timeResults } = calculateResults(guildId, `${event.id}_time`);
+        const topTime = timeResults.length > 0 ? timeResults[0].value : event.defaultTime;
+        const timeInfo = timeResults.length > 0 ? `(${timeResults[0].count} vote)` : '_(mặc định)_';
+
+        if (event.hasDay) {
+            const { results: dayResults } = calculateResults(guildId, `${event.id}_days`);
+            let dayText;
+            if (dayResults.length >= 2) {
+                dayText = `${getDayName(dayResults[0].value)} + ${getDayName(dayResults[1].value)}`;
+            } else if (dayResults.length === 1) {
+                dayText = `${getDayName(dayResults[0].value)} + ...`;
+            } else {
+                dayText = event.defaultDays.map(getDayName).join(' + ') + ' _(mặc định)_';
+            }
+            resultLines.push(`${event.emoji} **${event.name}**: **${topTime}** ${timeInfo}`);
+            resultLines.push(`　　📅 ${dayText}`);
+        } else {
+            resultLines.push(`${event.emoji} **${event.name}**: **${topTime}** ${timeInfo} _(mỗi ngày)_`);
+        }
+    }
+
+    return new EmbedBuilder()
+        .setColor(0x3498DB)
+        .setTitle('📊 BÌNH CHỌN LỊCH SỰ KIỆN GUILD')
+        .setDescription([
+            '**Kết quả hiện tại:**',
+            '',
+            ...resultLines,
+            '',
+            '━━━━━━━━━━━━━━━━━━━━━',
+            '👇 **Bấm nút bên dưới để vote cho từng sự kiện**',
+        ].join('\n'))
+        .addFields(
+            { name: '⏰ Kết thúc', value: `<t:${Math.floor(poll.endTime / 1000)}:R>`, inline: true },
+            { name: '👥 Đã vote', value: `${countTotalVoters(guildId)} người`, inline: true }
+        )
+        .setFooter({ text: `Tạo bởi ${poll.creatorName}` })
+        .setTimestamp();
+}
+
+/**
+ * Tạo 1 row buttons cho main message
+ */
+function createMainButtons() {
+    return [
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('voteevent_btn_yentiec')
+                .setLabel('Yến Tiệc')
+                .setEmoji('🍽️')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('voteevent_btn_boss')
+                .setLabel('Boss Solo')
+                .setEmoji('⚔️')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('voteevent_btn_pvp')
+                .setLabel('PvP Solo')
+                .setEmoji('🏆')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('voteevent_result')
+                .setLabel('Kết quả')
+                .setEmoji('📊')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId('voteevent_end')
+                .setLabel('Kết thúc')
+                .setEmoji('🛑')
+                .setStyle(ButtonStyle.Danger)
+        )
+    ];
+}
+
+/**
+ * Tạo embed kết quả chi tiết
  */
 function createResultEmbed(guildId) {
     const embed = new EmbedBuilder()
         .setColor(0x2ECC71)
-        .setTitle('📊 KẾT QUẢ BÌNH CHỌN LỊCH SỰ KIỆN')
+        .setTitle('📊 KẾT QUẢ CHI TIẾT BÌNH CHỌN')
         .setTimestamp();
 
-    let totalVoters = new Set();
-    const resultLines = [];
+    const lines = [];
 
     for (const event of EVENTS) {
-        const timeKey = `${event.id}_time`;
-        const { results: timeResults } = calculateResults(guildId, timeKey);
+        lines.push(`\n${event.emoji} **${event.name}**`);
 
-        if (event.hasDay) {
-            const daysKey = `${event.id}_days`;
-            const { results: daysResults } = calculateResults(guildId, daysKey);
-
-            resultLines.push(`\n${event.emoji} **${event.name}**`);
-
-            if (timeResults.length > 0) {
-                resultLines.push(`   ⏰ Giờ: **${timeResults[0].value}**`);
-            } else {
-                resultLines.push(`   ⏰ Giờ: Chưa có vote`);
-            }
-
-            if (daysResults.length >= 2) {
-                resultLines.push(`   📅 Ngày: **${getDayName(daysResults[0].value)}** và **${getDayName(daysResults[1].value)}**`);
-            } else if (daysResults.length === 1) {
-                resultLines.push(`   📅 Ngày: **${getDayName(daysResults[0].value)}** (cần thêm vote)`);
-            } else {
-                resultLines.push(`   📅 Ngày: Chưa có vote`);
-            }
+        // Giờ
+        const { results: timeResults } = calculateResults(guildId, `${event.id}_time`);
+        if (timeResults.length === 0) {
+            lines.push(`　⏰ Giờ: _chưa có vote_ (mặc định: ${event.defaultTime})`);
         } else {
-            if (timeResults.length === 0) {
-                resultLines.push(`\n${event.emoji} **${event.name}** - Chưa có vote`);
-            } else {
-                resultLines.push(`\n${event.emoji} **${event.name}** - **${timeResults[0].value}** (Mỗi ngày)`);
-                for (const r of timeResults.slice(0, 3)) {
-                    resultLines.push(`   ${r.value} ${createProgressBar(r.percentage)} ${r.count} (${r.percentage}%)`);
-                }
+            for (const r of timeResults.slice(0, 3)) {
+                const crown = r === timeResults[0] ? ' 👑' : '';
+                lines.push(`　${r.value} ${createProgressBar(r.pct)} ${r.count} (${r.pct}%)${crown}`);
             }
         }
 
-        const guildVotes = pollVotes.get(guildId);
-        if (guildVotes) {
-            [timeKey, `${event.id}_days`].forEach(key => {
-                if (guildVotes[key]) {
-                    Object.keys(guildVotes[key]).forEach(id => totalVoters.add(id));
+        // Ngày (nếu có)
+        if (event.hasDay) {
+            const { results: dayResults } = calculateResults(guildId, `${event.id}_days`);
+            if (dayResults.length === 0) {
+                lines.push(`　📅 Ngày: _chưa có vote_ (mặc định: ${event.defaultDays.map(getDayName).join(' + ')})`);
+            } else {
+                for (const r of dayResults) {
+                    const star = dayResults.indexOf(r) < 2 ? ' ⭐' : '';
+                    lines.push(`　${getDayName(r.value)} ${createProgressBar(r.pct)} ${r.count} (${r.pct}%)${star}`);
                 }
-            });
+            }
         }
     }
 
-    embed.setDescription(resultLines.join('\n'));
-    embed.setFooter({ text: `👥 Tổng: ${totalVoters.size} người tham gia` });
+    embed.setDescription(lines.join('\n'));
+    embed.setFooter({ text: `👥 ${countTotalVoters(guildId)} người tham gia` });
     return embed;
 }
 
-/**
- * Tạo embed poll chính
- */
-function createPollEmbed(guildId, endTime, creatorName) {
-    const guildVotes = pollVotes.get(guildId) || {};
-    let totalVoters = new Set();
+// ═══════════════════════════════════════════════════════════════════════════
+// BUTTON HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
 
-    for (const key of Object.keys(guildVotes)) {
-        Object.keys(guildVotes[key]).forEach(id => totalVoters.add(id));
+async function handleButton(interaction) {
+    const guildId = interaction.guild.id;
+    const customId = interaction.customId;
+
+    // ── Nút mở voting cho Yến Tiệc ──
+    if (customId === 'voteevent_btn_yentiec') {
+        if (!activePolls.has(guildId)) {
+            return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
+        }
+        const event = EVENTS.find(e => e.id === 'yentiec');
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId('voteevent_yentiec_time')
+            .setPlaceholder(`🍽️ Chọn giờ Yến Tiệc (hiện tại: ${event.defaultTime})`)
+            .addOptions(TIME_OPTIONS.map(t => ({
+                label: t.value === event.defaultTime ? `⭐ ${t.label} (hiện tại)` : t.label,
+                value: t.value,
+                emoji: t.emoji,
+            })));
+
+        return interaction.reply({
+            content: '🍽️ **Chọn giờ cho Yến Tiệc** (mỗi ngày):',
+            components: [new ActionRowBuilder().addComponents(menu)],
+            ephemeral: true
+        });
     }
 
-    const embed = new EmbedBuilder()
-        .setColor(0x3498DB)
-        .setTitle('📊 BÌNH CHỌN LỊCH SỰ KIỆN GUILD')
-        .setDescription([
-            '**Hướng dẫn:**',
-            '• Chọn **giờ** cho mỗi sự kiện từ dropdown',
-            '• Boss Solo & PvP Solo: chọn thêm **2 ngày** trong tuần',
-            '',
-            '━━━━━━━━━━━━━━━━━━━━━',
-            `🍽️ **Yến Tiệc** - Mỗi ngày`,
-            `⚔️ **Boss Solo** - 2 ngày/tuần`,
-            `🏆 **PvP Solo** - 2 ngày/tuần`,
-            '━━━━━━━━━━━━━━━━━━━━━'
-        ].join('\n'))
-        .addFields(
-            { name: '⏰ Kết thúc', value: `<t:${Math.floor(endTime / 1000)}:R>`, inline: true },
-            { name: '👥 Đã vote', value: `${totalVoters.size} người`, inline: true }
-        )
-        .setFooter({ text: `Tạo bởi ${creatorName} • Dùng các dropdown bên dưới để vote` })
-        .setTimestamp();
+    // ── Nút mở voting cho Boss Solo ──
+    if (customId === 'voteevent_btn_boss') {
+        if (!activePolls.has(guildId)) {
+            return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
+        }
+        const event = EVENTS.find(e => e.id === 'boss');
 
-    return embed;
+        const timeMenu = new StringSelectMenuBuilder()
+            .setCustomId('voteevent_boss_time')
+            .setPlaceholder(`⚔️ Chọn giờ Boss Solo (hiện tại: ${event.defaultTime})`)
+            .addOptions(TIME_OPTIONS.map(t => ({
+                label: t.value === event.defaultTime ? `⭐ ${t.label} (hiện tại)` : t.label,
+                value: t.value,
+                emoji: t.emoji,
+            })));
+
+        const dayMenu = new StringSelectMenuBuilder()
+            .setCustomId('voteevent_boss_days')
+            .setPlaceholder(`📅 Chọn 2 ngày (hiện tại: ${event.defaultDays.map(getDayName).join(' + ')})`)
+            .setMinValues(2)
+            .setMaxValues(2)
+            .addOptions(DAY_OPTIONS.map(d => ({
+                label: event.defaultDays.includes(d.value) ? `⭐ ${d.label} (hiện tại)` : d.label,
+                value: d.value,
+                emoji: d.emoji,
+            })));
+
+        return interaction.reply({
+            content: '⚔️ **Chọn giờ và 2 ngày cho Boss Solo:**',
+            components: [
+                new ActionRowBuilder().addComponents(timeMenu),
+                new ActionRowBuilder().addComponents(dayMenu),
+            ],
+            ephemeral: true
+        });
+    }
+
+    // ── Nút mở voting cho PvP Solo ──
+    if (customId === 'voteevent_btn_pvp') {
+        if (!activePolls.has(guildId)) {
+            return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
+        }
+        const event = EVENTS.find(e => e.id === 'pvp');
+
+        const timeMenu = new StringSelectMenuBuilder()
+            .setCustomId('voteevent_pvp_time')
+            .setPlaceholder(`🏆 Chọn giờ PvP Solo (hiện tại: ${event.defaultTime})`)
+            .addOptions(TIME_OPTIONS.map(t => ({
+                label: t.value === event.defaultTime ? `⭐ ${t.label} (hiện tại)` : t.label,
+                value: t.value,
+                emoji: t.emoji,
+            })));
+
+        const dayMenu = new StringSelectMenuBuilder()
+            .setCustomId('voteevent_pvp_days')
+            .setPlaceholder(`📅 Chọn 2 ngày (hiện tại: ${event.defaultDays.map(getDayName).join(' + ')})`)
+            .setMinValues(2)
+            .setMaxValues(2)
+            .addOptions(DAY_OPTIONS.map(d => ({
+                label: event.defaultDays.includes(d.value) ? `⭐ ${d.label} (hiện tại)` : d.label,
+                value: d.value,
+                emoji: d.emoji,
+            })));
+
+        return interaction.reply({
+            content: '🏆 **Chọn giờ và 2 ngày cho PvP Solo:**',
+            components: [
+                new ActionRowBuilder().addComponents(timeMenu),
+                new ActionRowBuilder().addComponents(dayMenu),
+            ],
+            ephemeral: true
+        });
+    }
+
+    // ── Nút xem kết quả ──
+    if (customId === 'voteevent_result') {
+        return interaction.reply({ embeds: [createResultEmbed(guildId)], ephemeral: true });
+    }
+
+    // ── Nút kết thúc ──
+    if (customId === 'voteevent_end') {
+        const poll = activePolls.get(guildId);
+        if (!poll) {
+            return interaction.reply({ content: '❌ Không có bình chọn!', ephemeral: true });
+        }
+        const hasPermission = interaction.member.roles.cache.some(r => r.name === 'Quản Lý') ||
+            (poll.creatorId === interaction.user.id);
+        if (!hasPermission) {
+            return interaction.reply({ content: '❌ Bạn không có quyền kết thúc!', ephemeral: true });
+        }
+        await endPoll(interaction.client, guildId, interaction.channel);
+        return interaction.reply({ content: '✅ Đã kết thúc bình chọn!', ephemeral: true });
+    }
+
+    // ── Fallback cho buttons cũ (từ message cache) ──
+    if (!interaction.replied && !interaction.deferred) {
+        return interaction.reply({ content: '❌ Bình chọn này đã hết hạn!', ephemeral: true });
+    }
 }
 
-/**
- * Tạo dropdown menus - Thiết kế mới gọn hơn
- * Row 1: Yến Tiệc (giờ)
- * Row 2: Boss Solo (giờ) 
- * Row 3: Boss Solo (2 ngày)
- * Row 4: PvP Solo (giờ + 2 ngày kết hợp)
- * Row 5: Buttons
- */
-function createSelectMenus() {
-    const rows = [];
+// ═══════════════════════════════════════════════════════════════════════════
+// SELECT MENU HANDLER (vote từ dropdown)
+// ═══════════════════════════════════════════════════════════════════════════
 
-    // Row 1: Yến Tiệc - Giờ
-    const yentiecMenu = new StringSelectMenuBuilder()
-        .setCustomId('voteevent_yentiec_time')
-        .setPlaceholder('🍽️ Yến Tiệc - Chọn giờ (mỗi ngày)')
-        .addOptions(TIME_OPTIONS.map(t => ({
-            label: `Yến Tiệc ${t.label}`,
-            value: t.value,
-            emoji: t.emoji
-        })));
-    rows.push(new ActionRowBuilder().addComponents(yentiecMenu));
-
-    // Row 2: Boss Solo - Giờ
-    const bossTimeMenu = new StringSelectMenuBuilder()
-        .setCustomId('voteevent_bosssolo_time')
-        .setPlaceholder('⚔️ Boss Solo - Chọn giờ')
-        .addOptions(TIME_OPTIONS.map(t => ({
-            label: `Boss Solo ${t.label}`,
-            value: t.value,
-            emoji: t.emoji
-        })));
-    rows.push(new ActionRowBuilder().addComponents(bossTimeMenu));
-
-    // Row 3: Boss Solo - 2 Ngày
-    const bossDayMenu = new StringSelectMenuBuilder()
-        .setCustomId('voteevent_bosssolo_days')
-        .setPlaceholder('📅 Boss Solo - Chọn 2 ngày')
-        .setMinValues(2)
-        .setMaxValues(2)
-        .addOptions(DAY_OPTIONS.map(d => ({
-            label: `Boss ${d.label}`,
-            value: d.value,
-            emoji: d.emoji
-        })));
-    rows.push(new ActionRowBuilder().addComponents(bossDayMenu));
-
-    // Row 4: PvP Solo - Giờ + Ngày kết hợp (dùng button để mở)
-    const pvpCombinedMenu = new StringSelectMenuBuilder()
-        .setCustomId('voteevent_pvpsolo_time')
-        .setPlaceholder('🏆 PvP Solo - Chọn giờ')
-        .addOptions(TIME_OPTIONS.map(t => ({
-            label: `PvP Solo ${t.label}`,
-            value: t.value,
-            emoji: t.emoji
-        })));
-    rows.push(new ActionRowBuilder().addComponents(pvpCombinedMenu));
-
-    // Row 5: Buttons
-    const buttonRow = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('voteevent_pvpdays_btn')
-                .setLabel('📅 Chọn ngày PvP')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setCustomId('voteevent_result')
-                .setLabel('📊 Kết quả')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId('voteevent_end')
-                .setLabel('🛑 Kết thúc')
-                .setStyle(ButtonStyle.Danger)
-        );
-    rows.push(buttonRow);
-
-    return rows;
-}
-
-/**
- * Xử lý vote từ select menu
- */
 async function handleVote(interaction) {
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
     const customId = interaction.customId;
 
     if (!activePolls.has(guildId)) {
-        return interaction.reply({ content: '❌ Không có bình chọn nào đang diễn ra!', ephemeral: true });
+        return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
     }
 
-    // Parse: voteevent_eventId_type
-    const parts = customId.replace('voteevent_', '').split('_');
-    const eventId = parts[0];
-    const voteType = parts[1];
+    // Parse customId: voteevent_<eventId>_<type>
+    const match = customId.match(/^voteevent_(\w+)_(time|days)$/);
+    if (!match) return;
+
+    const eventId = match[1]; // yentiec, boss, pvp
+    const voteType = match[2]; // time, days
+    const voteKey = `${eventId}_${voteType}`;
 
     if (!pollVotes.has(guildId)) pollVotes.set(guildId, {});
-    const guildVotes = pollVotes.get(guildId);
+    const gv = pollVotes.get(guildId);
+    if (!gv[voteKey]) gv[voteKey] = {};
 
-    const event = EVENTS.find(e => e.id === eventId);
-    if (!event) return interaction.reply({ content: '❌ Sự kiện không hợp lệ!', ephemeral: true });
+    let replyText;
 
-    if (voteType === 'time') {
-        const voteKey = `${eventId}_time`;
-        if (!guildVotes[voteKey]) guildVotes[voteKey] = {};
-        guildVotes[voteKey][userId] = interaction.values[0];
-    } else if (voteType === 'days') {
-        const voteKey = `${eventId}_days`;
-        if (!guildVotes[voteKey]) guildVotes[voteKey] = {};
+    if (voteType === 'days') {
         const selectedDays = interaction.values.sort();
-        guildVotes[voteKey][userId] = selectedDays.join(',');
+        const prev = gv[voteKey][userId];
+        gv[voteKey][userId] = selectedDays.join(',');
+        const dayNames = selectedDays.map(getDayName).join(' + ');
+        replyText = prev
+            ? `✅ Đã đổi ngày thành **${dayNames}**!`
+            : `✅ Đã vote ngày **${dayNames}**!`;
+    } else {
+        const prev = gv[voteKey][userId];
+        gv[voteKey][userId] = interaction.values[0];
+        replyText = prev
+            ? `✅ Đã đổi giờ thành **${interaction.values[0]}**! (trước: ${prev})`
+            : `✅ Đã vote giờ **${interaction.values[0]}**!`;
     }
 
-    // Không gửi reply - chỉ cập nhật embed và acknowledge
-    await interaction.deferUpdate();
+    await interaction.reply({ content: replyText, ephemeral: true });
 
-    // Update embed với số người vote mới
+    // Cập nhật main embed
     try {
         const poll = activePolls.get(guildId);
         if (poll?.messageId) {
             const channel = await interaction.client.channels.fetch(poll.channelId);
             const message = await channel.messages.fetch(poll.messageId);
-            await message.edit({ embeds: [createPollEmbed(guildId, poll.endTime, poll.creatorName)] });
+            await message.edit({
+                embeds: [createPollEmbed(guildId)],
+                components: createMainButtons()
+            });
         }
-    } catch (e) { }
-}
-
-/**
- * Xử lý button click
- */
-async function handleButton(interaction) {
-    const guildId = interaction.guild.id;
-    const customId = interaction.customId;
-
-    if (customId === 'voteevent_pvpdays_btn') {
-        if (!activePolls.has(guildId)) {
-            return interaction.reply({ content: '❌ Không có bình chọn nào đang diễn ra!', ephemeral: true });
-        }
-
-        const pvpDayMenu = new StringSelectMenuBuilder()
-            .setCustomId('voteevent_pvpsolo_days')
-            .setPlaceholder('📅 Chọn 2 ngày PvP Solo')
-            .setMinValues(2)
-            .setMaxValues(2)
-            .addOptions(DAY_OPTIONS.map(d => ({
-                label: `PvP ${d.label}`,
-                value: d.value,
-                emoji: d.emoji
-            })));
-
-        return interaction.reply({
-            content: '🏆 **Chọn 2 ngày cho PvP Solo:**',
-            components: [new ActionRowBuilder().addComponents(pvpDayMenu)],
-            ephemeral: true
-        });
-    }
-
-    if (customId === 'voteevent_result') {
-        if (!pollVotes.has(guildId) && !activePolls.has(guildId)) {
-            return interaction.reply({ content: '❌ Không có dữ liệu!', ephemeral: true });
-        }
-        return interaction.reply({ embeds: [createResultEmbed(guildId)], ephemeral: true });
-    }
-
-    if (customId === 'voteevent_end') {
-        const poll = activePolls.get(guildId);
-        const hasPermission = interaction.member.roles.cache.some(r => r.name === 'Quản Lý') ||
-            (poll?.creatorId === interaction.user.id);
-
-        if (!hasPermission) {
-            return interaction.reply({ content: '❌ Bạn không có quyền!', ephemeral: true });
-        }
-
-        await endPoll(interaction.client, guildId, interaction.channel);
-        return interaction.reply({ content: '✅ Đã kết thúc!', ephemeral: true });
+    } catch (e) {
+        console.error('[voteevent] Không thể cập nhật embed:', e);
     }
 }
 
-/**
- * Kết thúc poll
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// KẾT THÚC POLL
+// ═══════════════════════════════════════════════════════════════════════════
+
 async function endPoll(client, guildId, channel) {
     const poll = activePolls.get(guildId);
     if (!poll) return;
-
     if (poll.timeout) clearTimeout(poll.timeout);
 
+    // Disable message gốc
     try {
         const ch = await client.channels.fetch(poll.channelId);
         const msg = await ch.messages.fetch(poll.messageId);
         await msg.edit({
-            embeds: [new EmbedBuilder().setColor(0x95A5A6).setTitle('📊 BÌNH CHỌN ĐÃ KẾT THÚC').setTimestamp()],
+            embeds: [new EmbedBuilder().setColor(0x95A5A6).setTitle('📊 BÌNH CHỌN LỊCH SỰ KIỆN ĐÃ KẾT THÚC').setTimestamp()],
             components: []
         });
     } catch (e) { }
 
+    // Gửi kết quả
     await channel.send({ embeds: [createResultEmbed(guildId)] });
+
     activePolls.delete(guildId);
+    pollVotes.delete(guildId);
 }
 
-/**
- * Execute command
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// EXECUTE COMMAND
+// ═══════════════════════════════════════════════════════════════════════════
+
 async function execute(message, args) {
     const guildId = message.guild.id;
 
@@ -397,21 +476,24 @@ async function execute(message, args) {
         return message.reply('❌ Bạn cần role **Quản Lý** hoặc **Kỳ Cựu**!');
     }
 
+    // ?voteevent end
     if (args[0] === 'end') {
         if (!activePolls.has(guildId)) return message.reply('❌ Không có bình chọn!');
         await endPoll(message.client, guildId, message.channel);
         return;
     }
 
+    // ?voteevent result
     if (args[0] === 'result') {
-        if (!pollVotes.has(guildId)) return message.reply('❌ Không có dữ liệu!');
         return message.reply({ embeds: [createResultEmbed(guildId)] });
     }
 
+    // Kiểm tra đã có poll
     if (activePolls.has(guildId)) {
         return message.reply('❌ Đã có bình chọn đang chạy! Dùng `?voteevent end` để kết thúc.');
     }
 
+    // Parse thời gian
     let hours = 24;
     if (args[0]?.match(/^(\d+)h$/i)) {
         hours = Math.min(Math.max(parseInt(args[0]), 1), 72);
@@ -420,22 +502,33 @@ async function execute(message, args) {
     const endTime = Date.now() + hours * 3600000;
     pollVotes.set(guildId, {});
 
-    const pollMsg = await message.channel.send({
-        embeds: [createPollEmbed(guildId, endTime, message.author.username)],
-        components: createSelectMenus()
-    });
-
+    // Set activePolls trước để createPollEmbed đọc được
     activePolls.set(guildId, {
-        messageId: pollMsg.id,
+        messageId: null,
         channelId: message.channel.id,
         creatorId: message.author.id,
         creatorName: message.author.username,
         endTime,
-        timeout: setTimeout(() => endPoll(message.client, guildId, message.channel), hours * 3600000)
+        timeout: null,
     });
+
+    // Gửi message
+    const pollMsg = await message.channel.send({
+        embeds: [createPollEmbed(guildId)],
+        components: createMainButtons()
+    });
+
+    // Cập nhật messageId và timeout
+    const poll = activePolls.get(guildId);
+    poll.messageId = pollMsg.id;
+    poll.timeout = setTimeout(() => endPoll(message.client, guildId, message.channel), hours * 3600000);
 
     try { await message.delete(); } catch (e) { }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════
 
 module.exports = {
     name: 'voteevent',

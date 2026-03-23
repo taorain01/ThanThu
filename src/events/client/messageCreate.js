@@ -1665,6 +1665,18 @@ module.exports = {
             return bchotCommand.execute(message, args, client);
         }
 
+        // ?tatmic, ?bcmicoff - Tắt mic trong voice BC (giữ mic Leader/Chỉ Huy khi all)
+        if (['tatmic', 'bcmicoff', 'bcmute', 'bcnomic'].includes(commandName)) {
+            const bcmicoffCommand = require('../../commands/bangchien/bcmicoff');
+            return bcmicoffCommand.execute(message, args, client);
+        }
+
+        // ?momic, ?bcmicon - Bật mic trong voice BC
+        if (['momic', 'bcmicon', 'bcmic', 'bcspeak'].includes(commandName)) {
+            const bcmiconCommand = require('../../commands/bangchien/bcmicon');
+            return bcmiconCommand.execute(message, args, client);
+        }
+
         // ?nhacnho, ?nn, ?remind - Đăng ký nhận nhắc nhở event
         if (['nhacnho', 'nn', 'remind'].includes(commandName)) {
             const nhacnhoCommand = require('../../commands/thongbao/nhacnho');

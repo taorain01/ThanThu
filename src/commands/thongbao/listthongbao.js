@@ -50,7 +50,7 @@ module.exports = {
                 'YenTiec': '🎉 Yến Tiệc',
                 'BossSolo': '⚔️ Boss Solo',
                 'PvpSolo': '🏆 PvP Solo',
-                'BangChien': '🏰 Bang Chiến 30vs30'
+                'BangChien': '🏰 bc'
             };
 
             let addedSeparator = false;

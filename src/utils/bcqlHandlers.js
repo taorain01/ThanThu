@@ -499,7 +499,7 @@ async function handleBcqlSelect(interaction) {
         }
 
         // Xóa role BC cho các user bị kick
-        const bcRole = interaction.guild.roles.cache.find(r => r.name === 'Bang Chiến 30vs30');
+        const bcRole = interaction.guild.roles.cache.find(r => r.name === 'bc');
         if (bcRole) {
             for (const userId of selectedIds) {
                 try {

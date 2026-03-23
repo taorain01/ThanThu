@@ -145,6 +145,90 @@ function getRandomStatus() {
   return statusList[Math.floor(Math.random() * statusList.length)];
 }
 
+/**
+ * Auto-cleanup session BC hết hạn + re-schedule timer auto-end cho session còn hạn
+ * Chạy khi bot khởi động để đảm bảo setTimeout không bị mất sau restart
+ */
+async function cleanupAndRescheduleBc(client) {
+  const { autoCleanupExpiredSessions, isSessionExpired, DAY_CONFIG,
+    bangchienNotifications, bangchienRegistrations, bangchienChannels
+  } = require('../../utils/bangchienState');
+
+  console.log('[ready] Bắt đầu cleanup + re-schedule BC...');
+
+  for (const [, guild] of client.guilds.cache) {
+    const guildId = guild.id;
+
+    // 1. Cleanup session hết hạn
+    const cleaned = await autoCleanupExpiredSessions(client, guildId);
+    if (cleaned > 0) {
+      console.log(`[ready] Đã cleanup ${cleaned} session BC hết hạn (guild ${guild.name})`);
+    }
+
+    // 2. Re-schedule timer cho session còn hạn
+    const activeSessions = db.getActiveBangchienByGuild(guildId);
+    for (const session of activeSessions) {
+      if (isSessionExpired(session)) continue; // đã cleanup ở trên
+
+      const day = session.day;
+      if (!day) continue;
+
+      // Tính thời gian đến 23:00 VN ngày BC
+      const vnOffset = 7 * 60;
+      const localOffset = new Date().getTimezoneOffset();
+      const now = new Date();
+      const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
+
+      const targetDayOfWeek = day === 'sat' ? 6 : 0;
+      const todayDayOfWeek = vnNow.getDay();
+
+      let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;
+      if (daysUntilTarget < 0) daysUntilTarget += 7;
+
+      const cleanupDate = new Date(vnNow);
+      cleanupDate.setDate(cleanupDate.getDate() + daysUntilTarget);
+      cleanupDate.setHours(23, 0, 0, 0);
+
+      const cleanupUTC = new Date(cleanupDate.getTime() - (localOffset + vnOffset) * 60 * 1000);
+      const msUntilCleanup = cleanupUTC.getTime() - Date.now();
+
+      if (msUntilCleanup > 0 && msUntilCleanup < 7 * 24 * 60 * 60 * 1000) {
+        const partyKey = session.party_key;
+        const channelId = session.channel_id;
+
+        setTimeout(async () => {
+          try {
+            // Gọi lại autoCleanupExpiredSessions (vì lúc này session đã hết hạn)
+            await autoCleanupExpiredSessions(client, guildId);
+
+            // Gửi thông báo
+            const channel = await client.channels.fetch(channelId).catch(() => null);
+            if (channel) {
+              const { EmbedBuilder } = require('discord.js');
+              const dayName = DAY_CONFIG[day]?.name || day;
+              const embed = new EmbedBuilder()
+                .setColor(0x2ECC71)
+                .setTitle(`✅ BANG CHIẾN ${dayName.toUpperCase()} ĐÃ TỰ ĐỘNG KẾT THÚC!`)
+                .setDescription(`⏰ Đã 23:00 - Bang Chiến **${dayName}** tự động kết thúc.`)
+                .setTimestamp();
+              await channel.send({ embeds: [embed] });
+            }
+          } catch (e) {
+            console.error('[ready] Lỗi re-scheduled auto-end:', e.message);
+          }
+        }, msUntilCleanup);
+
+        const hoursUntil = Math.floor(msUntilCleanup / (60 * 60 * 1000));
+        const minutesUntil = Math.floor((msUntilCleanup % (60 * 60 * 1000)) / (60 * 1000));
+        console.log(`[ready] Re-schedule auto-end BC ${day} sau ${hoursUntil}h${minutesUntil}m (party: ${partyKey})`);
+      }
+    }
+  }
+
+  console.log('[ready] Cleanup + re-schedule BC hoàn tất!');
+}
+
+
 module.exports = {
   name: 'ready',
   once: true,
@@ -156,6 +240,9 @@ module.exports = {
 
     // ✅ Kiểm tra thành viên còn trong Discord không
     await checkMemberPresence(client);
+
+    // ✅ Auto-cleanup session BC hết hạn + re-schedule timer
+    await cleanupAndRescheduleBc(client);
 
     // Khởi tạo notifications từ file
     thongbao.initializeNotifications(client);

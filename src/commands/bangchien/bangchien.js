@@ -17,7 +17,9 @@ const {
     createPartyKey,
     getDayFromPartyKey,
     getDayNameWithDate,
-    refreshOverviewEmbed
+    refreshOverviewEmbed,
+    // Auto-cleanup
+    autoCleanupExpiredSessions
 } = require('../../utils/bangchienState');
 
 
@@ -461,6 +463,11 @@ module.exports = {
         const db = require('../../database/db');
 
         // ═══════════════════════════════════════════════════════════════════
+        // AUTO-CLEANUP: Dọn session BC hết hạn trước khi xử lý
+        // ═══════════════════════════════════════════════════════════════════
+        await autoCleanupExpiredSessions(client, guildId);
+
+        // ═══════════════════════════════════════════════════════════════════
         // PARSE ARGS: ?bc / ?bc t7 / ?bc cn
         // ═══════════════════════════════════════════════════════════════════
         const day = parseDayArg(args); // 'sat', 'sun', or null
@@ -681,7 +688,7 @@ module.exports = {
 
         // Cấp role Bang Chiến 30vs30 cho regular participants vừa auto-add
         if (addedUserIds.length > 0) {
-            const BC_ROLE = 'Bang Chiến 30vs30';
+            const BC_ROLE = 'bc';
             let bcRole = message.guild.roles.cache.find(r => r.name === BC_ROLE);
             if (!bcRole) {
                 try { bcRole = await message.guild.roles.create({ name: BC_ROLE, color: 0xE74C3C, reason: 'BC role' }); } catch (e) { }
@@ -737,7 +744,7 @@ module.exports = {
         // ===== ĐẶT LỊCH TAG ROLE BC VÀO 19:00 (30p trước) VÀ 19:15 (15p trước) =====
         // ===== VÀ XÓA ROLE BC VÀO 23:00 (sau khi đánh xong) =====
         try {
-            const BC_ROLE_NAME = 'Bang Chiến 30vs30';
+            const BC_ROLE_NAME = 'bc';
             const vnOffset = 7 * 60;
             const localOffset = new Date().getTimezoneOffset();
             const now = new Date();

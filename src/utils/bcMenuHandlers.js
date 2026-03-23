@@ -7,7 +7,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { DAY_CONFIG, getDayFromPartyKey, getDayNameWithDate } = require('./bangchienState');
 
-const BC_ROLE_NAME = 'Bang Chiến 30vs30';
+const BC_ROLE_NAME = 'bc';
 
 /**
  * Tạo ephemeral menu cho user

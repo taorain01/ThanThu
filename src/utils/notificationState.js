@@ -58,7 +58,7 @@ const guildTemplates = {
         emoji: '🏰',
         limit: 2,
         duration: 150,  // 2 tiếng rưỡi
-        roleName: 'Bang Chiến 30vs30'
+        roleName: 'bc'
     }
 };
 

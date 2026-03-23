@@ -15,7 +15,7 @@ const { MessageFlags } = require('discord.js');
 const { bangchienNotifications, bangchienRegistrations, refreshOverviewEmbed } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
 
-const BC_ROLE_NAME = 'Bang Chiến 30vs30';
+const BC_ROLE_NAME = 'bc';
 
 /**
  * Xử lý button interactions cho Tham gia và Hủy Bang Chiến

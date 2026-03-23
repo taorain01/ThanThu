@@ -1,16 +1,16 @@
 /**
- * ?bcmicon - Bật mic cho người dùng trong voice BC
+ * ?bcmicon / ?momic - Bật mic cho người dùng trong voice BC
  * Chỉ Kỳ Cựu và Quản Lý được sử dụng
  */
 
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 
 const BC_VOICE_CHANNEL_ID = '1451262767603519528';
 const ALLOWED_ROLES = ['Kỳ Cựu', 'Quản Lý'];
 
 module.exports = {
     name: 'bcmicon',
-    aliases: ['bcmic', 'bcspeak'],
+    aliases: ['bcmic', 'bcspeak', 'momic'],
     description: 'Bật mic cho người trong room voice BC',
 
     async execute(message, args, client) {
@@ -24,25 +24,15 @@ module.exports = {
             return message.reply('❌ Chỉ **Kỳ Cựu** và **Quản Lý** mới được sử dụng lệnh này!');
         }
 
-        // Lấy người được mention hoặc ID
-        let targetUser = message.mentions.members.first();
-        if (!targetUser && args[0]) {
-            try {
-                targetUser = await message.guild.members.fetch(args[0]);
-            } catch (e) {
-                return message.reply('❌ Không tìm thấy người dùng!');
-            }
-        }
-
         // Lấy voice channel
         const voiceChannel = message.guild.channels.cache.get(BC_VOICE_CHANNEL_ID);
         if (!voiceChannel) {
             return message.reply('❌ Không tìm thấy voice channel BC!');
         }
 
-        // Xử lý ?bcmicon all - bật mic cho role BC và LangGia
+        // Xử lý ?momic all / ?bcmicon all - bật mic cho role BC và LangGia
         if (args[0]?.toLowerCase() === 'all') {
-            const BC_ROLE_NAMES = ['Bang Chiến 30vs30', 'LangGia'];
+            const BC_ROLE_NAMES = ['bc', 'LangGia'];
             let successRoles = [];
             let failRoles = [];
 
@@ -75,8 +65,18 @@ module.exports = {
             return;
         }
 
+        // Lấy người được mention hoặc ID
+        let targetUser = message.mentions.members.first();
+        if (!targetUser && args[0]) {
+            try {
+                targetUser = await message.guild.members.fetch(args[0]);
+            } catch (e) {
+                return message.reply('❌ Không tìm thấy người dùng!');
+            }
+        }
+
         if (!targetUser) {
-            return message.reply('❌ Cách dùng:\n`?bcmicon @user` - Bật mic cho 1 người\n`?bcmicon all` - Bật mic cho role BC + LangGia');
+            return message.reply('❌ Cách dùng:\n`?momic @user` - Bật mic cho 1 người\n`?momic all` - Bật mic cho tất cả');
         }
 
         try {

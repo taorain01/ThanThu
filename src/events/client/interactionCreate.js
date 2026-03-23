@@ -240,21 +240,53 @@ module.exports = {
           if (handled) return;
         }
 
-        // Vote select menus
+        // ═══ Vote select menus ═══
+        // voteevent: voteevent_yentiec_time, voteevent_boss_time, voteevent_boss_days, ...
+        if (customId.startsWith('voteevent_')) {
+          const cmd = require('../../commands/apps/voteevent');
+          await cmd.handleVote(interaction);
+          return;
+        }
+
+        // voteyentiec: voteyentiec_time
         if (customId === 'voteyentiec_time') {
-          const voteyentiecCommand = require('../../commands/apps/voteyentiec');
-          await voteyentiecCommand.handleVote(interaction);
+          const cmd = require('../../commands/apps/voteyentiec');
+          await cmd.handleVote(interaction);
           return;
         }
 
+        // vote custom: votecustom_select
         if (customId === 'votecustom_select') {
-          const voteCommand = require('../../commands/apps/vote');
-          await voteCommand.handleVote(interaction);
+          const cmd = require('../../commands/apps/vote');
+          await cmd.handleVote(interaction);
           return;
         }
 
-        if (customId.startsWith('votebosssolo_') || customId.startsWith('votepvpsolo_')) {
-          // These are handled by their respective command files via collectors
+        // votebosssolo: voteboss_day1, voteboss_time1, voteboss_day2, voteboss_time2
+        if (customId.startsWith('voteboss_')) {
+          const cmd = require('../../commands/apps/votebosssolo');
+          await cmd.handleVote(interaction);
+          return;
+        }
+
+        // votepvpsolo: votepvp_day1, votepvp_time1, votepvp_day2, votepvp_time2
+        if (customId.startsWith('votepvp_')) {
+          const cmd = require('../../commands/apps/votepvpsolo');
+          await cmd.handleVote(interaction);
+          return;
+        }
+
+        // votegioevent: votegio_yentiec, votegio_bosssolo, votegio_pvpsolo
+        if (customId.startsWith('votegio_')) {
+          const cmd = require('../../commands/apps/votegioevent');
+          await cmd.handleVote(interaction);
+          return;
+        }
+
+        // votengayevent: votengay_bosssolo, votengay_pvpsolo
+        if (customId.startsWith('votengay_')) {
+          const cmd = require('../../commands/apps/votengayevent');
+          await cmd.handleVote(interaction);
           return;
         }
 

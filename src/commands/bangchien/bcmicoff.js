@@ -1,16 +1,17 @@
 /**
- * ?bcmicoff - Tắt mic cho người dùng trong voice BC
+ * ?bcmicoff / ?tatmic - Tắt mic cho người dùng trong voice BC
+ * Khi dùng "all": tắt mic role BC + LangGia, nhưng giữ mic cho Leader & Chỉ Huy
  * Chỉ Kỳ Cựu và Quản Lý được sử dụng
  */
 
-const { EmbedBuilder, PermissionsBitField } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 
 const BC_VOICE_CHANNEL_ID = '1451262767603519528';
 const ALLOWED_ROLES = ['Kỳ Cựu', 'Quản Lý'];
 
 module.exports = {
     name: 'bcmicoff',
-    aliases: ['bcmute', 'bcnomic'],
+    aliases: ['bcmute', 'bcnomic', 'tatmic'],
     description: 'Tắt mic cho người trong room voice BC',
 
     async execute(message, args, client) {
@@ -24,25 +25,30 @@ module.exports = {
             return message.reply('❌ Chỉ **Kỳ Cựu** và **Quản Lý** mới được sử dụng lệnh này!');
         }
 
-        // Lấy người được mention hoặc ID
-        let targetUser = message.mentions.members.first();
-        if (!targetUser && args[0]) {
-            try {
-                targetUser = await message.guild.members.fetch(args[0]);
-            } catch (e) {
-                return message.reply('❌ Không tìm thấy người dùng!');
-            }
-        }
-
         // Lấy voice channel
         const voiceChannel = message.guild.channels.cache.get(BC_VOICE_CHANNEL_ID);
         if (!voiceChannel) {
             return message.reply('❌ Không tìm thấy voice channel BC!');
         }
 
-        // Xử lý ?bcmicoff all - tắt mic cho role BC và LangGia
+        // Xử lý ?tatmic all / ?bcmicoff all - tắt mic cho role BC và LangGia, giữ mic leader/chỉ huy
         if (args[0]?.toLowerCase() === 'all') {
-            const BC_ROLE_NAMES = ['Bang Chiến 30vs30', 'LangGia'];
+            const db = require('../../database/db');
+            const guildId = message.guild.id;
+
+            // Lấy danh sách Leader và Chỉ Huy từ tất cả phiên BC đang active
+            const exemptUserIds = new Set();
+            const activeSessions = db.getActiveBangchienByGuild(guildId);
+            for (const session of activeSessions) {
+                if (session.leader_id) exemptUserIds.add(session.leader_id);
+                if (session.commander_id) exemptUserIds.add(session.commander_id);
+                if (session.team1_leader_id) exemptUserIds.add(session.team1_leader_id);
+                if (session.team2_leader_id) exemptUserIds.add(session.team2_leader_id);
+                if (session.team3_leader_id) exemptUserIds.add(session.team3_leader_id);
+                if (session.team4_leader_id) exemptUserIds.add(session.team4_leader_id);
+            }
+
+            const BC_ROLE_NAMES = ['bc', 'LangGia'];
             let successRoles = [];
             let failRoles = [];
 
@@ -62,20 +68,49 @@ module.exports = {
                 }
             }
 
+            // Cấp lại quyền Speak cho Leader & Chỉ Huy (ghi đè permission cá nhân)
+            let exemptNames = [];
+            for (const userId of exemptUserIds) {
+                try {
+                    await voiceChannel.permissionOverwrites.edit(userId, {
+                        Speak: true,
+                        Connect: true
+                    });
+                    const member = await message.guild.members.fetch(userId).catch(() => null);
+                    if (member) exemptNames.push(member.displayName);
+                } catch (e) {
+                    // Bỏ qua lỗi
+                }
+            }
+
+            const exemptText = exemptNames.length > 0
+                ? `\n🎖️ Giữ mic: ${exemptNames.join(', ')}`
+                : '';
+
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000)
                 .setTitle('🔇 ĐÃ TẮT MIC CHO TẤT CẢ')
-                .setDescription(`Đã tắt mic trong voice BC cho các role:\n✅ ${successRoles.join(', ') || 'Không có'}${failRoles.length > 0 ? `\n❌ ${failRoles.join(', ')}` : ''}`)
+                .setDescription(`Đã tắt mic trong voice BC cho các role:\n✅ ${successRoles.join(', ') || 'Không có'}${failRoles.length > 0 ? `\n❌ ${failRoles.join(', ')}` : ''}${exemptText}`)
                 .setFooter({ text: `Bởi ${message.author.username}` })
                 .setTimestamp();
 
             await message.reply({ embeds: [embed] });
-            console.log(`[bcmicoff] ${message.author.username} tắt mic cho roles: ${successRoles.join(', ')}`);
+            console.log(`[bcmicoff] ${message.author.username} tắt mic cho roles: ${successRoles.join(', ')}${exemptNames.length > 0 ? ` | Giữ mic: ${exemptNames.join(', ')}` : ''}`);
             return;
         }
 
+        // Lấy người được mention hoặc ID
+        let targetUser = message.mentions.members.first();
+        if (!targetUser && args[0]) {
+            try {
+                targetUser = await message.guild.members.fetch(args[0]);
+            } catch (e) {
+                return message.reply('❌ Không tìm thấy người dùng!');
+            }
+        }
+
         if (!targetUser) {
-            return message.reply('❌ Cách dùng:\n`?bcmicoff @user` - Tắt mic cho 1 người\n`?bcmicoff all` - Tắt mic cho role BC + LangGia');
+            return message.reply('❌ Cách dùng:\n`?tatmic @user` - Tắt mic cho 1 người\n`?tatmic all` - Tắt mic tất cả (giữ mic Leader/Chỉ Huy)');
         }
 
         try {

@@ -240,7 +240,7 @@ async function execute(message, args) {
                 await member.roles.remove(langGiaRole);
                 roleRemoved = true;
             }
-            const bcRole = message.guild.roles.cache.find(r => r.name === 'Bang Chiến 30vs30');
+            const bcRole = message.guild.roles.cache.find(r => r.name === 'bc');
             if (bcRole && member.roles.cache.has(bcRole.id)) {
                 await member.roles.remove(bcRole);
                 bcRoleRemoved = true;

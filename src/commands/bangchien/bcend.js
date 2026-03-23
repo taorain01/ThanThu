@@ -9,7 +9,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
 
-const BC_ROLE_NAME = 'Bang Chiến 30vs30';
+const BC_ROLE_NAME = 'bc';
 
 module.exports = {
     name: 'bcend',

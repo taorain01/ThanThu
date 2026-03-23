@@ -205,6 +205,162 @@ async function refreshOverviewEmbed(client, guildId) {
     }
 }
 
+/**
+ * Kiểm tra session BC đã hết hạn chưa (đã qua 23:00 VN ngày BC)
+ * @param {Object} session - Session từ DB (có created_at và day)
+ * @returns {boolean} true nếu hết hạn
+ */
+function isSessionExpired(session) {
+    if (!session || !session.created_at) return false;
+
+    const day = session.day; // 'sat' hoặc 'sun'
+    if (!day) return false;
+
+    // Tính thời điểm 23:00 VN của ngày BC gần nhất (tính từ created_at)
+    const vnOffset = 7 * 60; // phút
+    const localOffset = new Date().getTimezoneOffset();
+    const now = new Date();
+
+    // Lấy ngày tạo session
+    const createdAt = new Date(session.created_at);
+
+    // Tìm ngày T7/CN tính từ ngày tạo session
+    const targetDayOfWeek = day === 'sat' ? 6 : 0; // 6 = T7, 0 = CN
+
+    // Convert createdAt sang VN timezone
+    const vnCreated = new Date(createdAt.getTime() + (vnOffset + localOffset) * 60 * 1000);
+    const createdDayOfWeek = vnCreated.getDay();
+
+    let daysUntilTarget = targetDayOfWeek - createdDayOfWeek;
+    if (daysUntilTarget < 0) daysUntilTarget += 7;
+
+    // Ngày BC target (VN timezone)
+    const bcDate = new Date(vnCreated);
+    bcDate.setDate(vnCreated.getDate() + daysUntilTarget);
+    bcDate.setHours(23, 0, 0, 0);
+
+    // Convert thời điểm 23:00 VN sang UTC để so sánh
+    const bcDeadlineUTC = new Date(bcDate.getTime() - (vnOffset + localOffset) * 60 * 1000);
+
+    return now > bcDeadlineUTC;
+}
+
+/**
+ * Tự động dọn dẹp session BC hết hạn (logic giống ?bcend + auto-end 23:00)
+ * @param {Client} client - Discord client
+ * @param {string} guildId - Guild ID
+ * @returns {number} Số session đã cleanup
+ */
+async function autoCleanupExpiredSessions(client, guildId) {
+    const db = require('../database/db');
+
+    const activeSessions = db.getActiveBangchienByGuild(guildId);
+    if (activeSessions.length === 0) return 0;
+
+    let cleanedCount = 0;
+
+    for (const session of activeSessions) {
+        if (!isSessionExpired(session)) continue;
+
+        const partyKey = session.party_key;
+        const sessionDay = session.day || 'sat';
+
+        console.log(`[bangchien] Auto-cleanup session hết hạn: ${partyKey} (${sessionDay})`);
+
+        try {
+            const guild = client.guilds.cache.get(guildId);
+
+            // 1. AUTO-SAVE PRESET Team Thủ/Rừng
+            const teamDefense = session.team_defense || [];
+            const teamForest = session.team_forest || [];
+
+            if (teamDefense.length > 0) {
+                const currentPreset = db.getBcPreset(guildId, 'thu', sessionDay);
+                const newPreset = [...currentPreset];
+                for (const p of teamDefense) {
+                    if (!newPreset.some(m => m.id === p.id)) {
+                        newPreset.push({ id: p.id, username: p.username });
+                    }
+                }
+                db.setBcPreset(guildId, 'thu', newPreset, sessionDay);
+            }
+
+            if (teamForest.length > 0) {
+                const currentPreset = db.getBcPreset(guildId, 'rung', sessionDay);
+                const newPreset = [...currentPreset];
+                for (const p of teamForest) {
+                    if (!newPreset.some(m => m.id === p.id)) {
+                        newPreset.push({ id: p.id, username: p.username });
+                    }
+                }
+                db.setBcPreset(guildId, 'rung', newPreset, sessionDay);
+            }
+
+            // 2. XÓA ROLE BC cho participants
+            if (guild) {
+                const participants = [
+                    ...(session.team_attack1 || []),
+                    ...(session.team_attack2 || []),
+                    ...(session.team_defense || []),
+                    ...(session.team_forest || [])
+                ];
+
+                const bcRole = guild.roles.cache.find(r => r.name === 'bc');
+                if (bcRole && participants.length > 0) {
+                    for (const p of participants) {
+                        try {
+                            const member = await guild.members.fetch({ user: p.id, force: true }).catch(() => null);
+                            if (member && member.roles.cache.has(bcRole.id)) {
+                                await member.roles.remove(bcRole);
+                            }
+                        } catch (e) { }
+                    }
+                }
+            }
+
+            // 3. XÓA MEMORY DATA
+            const notifData = bangchienNotifications.get(partyKey);
+            if (notifData) {
+                if (notifData.intervalId) clearInterval(notifData.intervalId);
+                try { if (notifData.message) await notifData.message.delete(); } catch (e) { }
+            }
+            bangchienNotifications.delete(partyKey);
+            bangchienRegistrations.delete(partyKey);
+
+            // Xóa finalized parties liên quan
+            for (const [msgId, data] of bangchienFinalizedParties.entries()) {
+                if (data.guildId === guildId && data.leaderId === session.leader_id) {
+                    bangchienFinalizedParties.delete(msgId);
+                }
+            }
+
+            // 4. XÓA SESSION KHỎI DB
+            db.deleteActiveBangchien(partyKey);
+
+            cleanedCount++;
+            console.log(`[bangchien] Auto-cleanup xong: ${partyKey} (${sessionDay})`);
+
+        } catch (e) {
+            console.error(`[bangchien] Lỗi auto-cleanup ${partyKey}:`, e.message);
+        }
+    }
+
+    // Cập nhật channels nếu hết session
+    if (cleanedCount > 0) {
+        const remainingKeys = getGuildBangchienKeys(guildId);
+        if (remainingKeys.length === 0) {
+            bangchienChannels.delete(guildId);
+        }
+
+        // Cập nhật overview embed
+        await refreshOverviewEmbed(client, guildId);
+
+        console.log(`[bangchien] Auto-cleanup hoàn tất: ${cleanedCount} session hết hạn đã xóa (guild ${guildId})`);
+    }
+
+    return cleanedCount;
+}
+
 module.exports = {
     // Maps
     bangchienNotifications,
@@ -229,5 +385,8 @@ module.exports = {
     getUserBangchienParty,
     getNextDayDate,
     getDayNameWithDate,
-    refreshOverviewEmbed
+    refreshOverviewEmbed,
+    // Auto-cleanup
+    isSessionExpired,
+    autoCleanupExpiredSessions
 };

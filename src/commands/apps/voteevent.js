@@ -403,25 +403,15 @@ async function handleVote(interaction) {
     const gv = pollVotes.get(guildId);
     if (!gv[voteKey]) gv[voteKey] = {};
 
-    let replyText;
-
     if (voteType === 'days') {
         const selectedDays = interaction.values.sort();
-        const prev = gv[voteKey][userId];
         gv[voteKey][userId] = selectedDays.join(',');
-        const dayNames = selectedDays.map(getDayName).join(' + ');
-        replyText = prev
-            ? `✅ Đã đổi ngày thành **${dayNames}**!`
-            : `✅ Đã vote ngày **${dayNames}**!`;
     } else {
-        const prev = gv[voteKey][userId];
         gv[voteKey][userId] = interaction.values[0];
-        replyText = prev
-            ? `✅ Đã đổi giờ thành **${interaction.values[0]}**! (trước: ${prev})`
-            : `✅ Đã vote giờ **${interaction.values[0]}**!`;
     }
 
-    await interaction.reply({ content: replyText, ephemeral: true });
+    // Im lặng acknowledge, không hiện tin nhắn xác nhận
+    await interaction.deferUpdate();
 
     // Cập nhật main embed
     try {

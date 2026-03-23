@@ -212,9 +212,11 @@ module.exports = {
 
       } catch (error) {
         console.error('Lỗi khi xử lý button:', error);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'Đã xảy ra lỗi!', flags: MessageFlags.Ephemeral });
-        }
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: 'Đã xảy ra lỗi!', flags: MessageFlags.Ephemeral });
+          }
+        } catch (e) { }
       }
     }
 
@@ -327,9 +329,11 @@ module.exports = {
 
       } catch (error) {
         console.error('Lỗi khi xử lý select menu:', error);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'Đã xảy ra lỗi!', flags: MessageFlags.Ephemeral });
-        }
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: 'Đã xảy ra lỗi!', flags: MessageFlags.Ephemeral });
+          }
+        } catch (e) { }
       }
     }
 
@@ -366,9 +370,11 @@ module.exports = {
 
       } catch (error) {
         console.error('Lỗi khi xử lý modal:', error);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'Đã xảy ra lỗi!', flags: MessageFlags.Ephemeral });
-        }
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: 'Đã xảy ra lỗi!', flags: MessageFlags.Ephemeral });
+          }
+        } catch (e) { }
       }
     }
   }

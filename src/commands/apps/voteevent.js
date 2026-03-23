@@ -383,13 +383,19 @@ async function handleButton(interaction) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleVote(interaction) {
+    // Acknowledge NGAY LẬP TỨC để tránh timeout
+    try {
+        await interaction.deferUpdate();
+    } catch (e) {
+        console.error('[voteevent] deferUpdate failed:', e);
+        return;
+    }
+
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
     const customId = interaction.customId;
 
-    if (!activePolls.has(guildId)) {
-        return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
-    }
+    if (!activePolls.has(guildId)) return;
 
     // Parse customId: voteevent_<eventId>_<type>
     const match = customId.match(/^voteevent_(\w+)_(time|days)$/);
@@ -409,9 +415,6 @@ async function handleVote(interaction) {
     } else {
         gv[voteKey][userId] = interaction.values[0];
     }
-
-    // Im lặng acknowledge, không hiện tin nhắn xác nhận
-    await interaction.deferUpdate();
 
     // Cập nhật main embed
     try {

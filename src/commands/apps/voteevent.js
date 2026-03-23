@@ -383,26 +383,21 @@ async function handleButton(interaction) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleVote(interaction) {
-    // Acknowledge + xóa ephemeral (đổi thành nội dung trống)
-    try {
-        await interaction.update({ content: '✅', components: [] });
-    } catch (e) {
-        console.error('[voteevent] update failed:', e);
-        return;
-    }
-
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
     const customId = interaction.customId;
 
-    if (!activePolls.has(guildId)) return;
+    // Lưu vote trước khi acknowledge
+    if (!activePolls.has(guildId)) {
+        try { await interaction.update({ content: '❌ Bình chọn đã kết thúc!', components: [] }); } catch (e) { }
+        return;
+    }
 
-    // Parse customId: voteevent_<eventId>_<type>
     const match = customId.match(/^voteevent_(\w+)_(time|days)$/);
     if (!match) return;
 
-    const eventId = match[1]; // yentiec, boss, pvp
-    const voteType = match[2]; // time, days
+    const eventId = match[1];
+    const voteType = match[2];
     const voteKey = `${eventId}_${voteType}`;
 
     if (!pollVotes.has(guildId)) pollVotes.set(guildId, {});
@@ -414,6 +409,22 @@ async function handleVote(interaction) {
         gv[voteKey][userId] = selectedDays.join(',');
     } else {
         gv[voteKey][userId] = interaction.values[0];
+    }
+
+    // Xóa dropdown đã dùng, giữ lại dropdown chưa dùng
+    try {
+        const remainingRows = interaction.message.components
+            .filter(row => !row.components.some(c => c.customId === customId))
+            .map(row => ActionRowBuilder.from(row));
+
+        if (remainingRows.length > 0) {
+            await interaction.update({ components: remainingRows });
+        } else {
+            await interaction.update({ content: '✅', components: [] });
+        }
+    } catch (e) {
+        console.error('[voteevent] update failed:', e);
+        return;
     }
 
     // Cập nhật main embed

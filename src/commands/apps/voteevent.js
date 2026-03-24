@@ -49,7 +49,7 @@ const DAY_OPTIONS = [
 // Sự kiện Guild (chỉ vote giờ Yến Tiệc + PvP Solo)
 const EVENTS = [
     { id: 'yentiec', name: 'Yến Tiệc', emoji: '🍽️', hasDay: false, defaultTime: '21:00' },
-    { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: false, defaultTime: '20:00' },
+    { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: false, defaultTime: '20:00', fixedDays: 'Thứ 3 + Thứ 5' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -164,7 +164,8 @@ function createPollEmbed(guildId) {
             resultLines.push(`${event.emoji} **${event.name}**: **${topTime}** ${timeInfo}`);
             resultLines.push(`　　📅 ${dayText}`);
         } else {
-            resultLines.push(`${event.emoji} **${event.name}**: **${topTime}** ${timeInfo} _(mỗi ngày)_`);
+            const dayLabel = event.fixedDays ? ` _(${event.fixedDays})_` : ' _(mỗi ngày)_';
+            resultLines.push(`${event.emoji} **${event.name}**: **${topTime}** ${timeInfo}${dayLabel}`);
         }
     }
 

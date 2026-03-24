@@ -208,12 +208,7 @@ function createMainButtons() {
                 .setCustomId('voteevent_result')
                 .setLabel('Kết quả')
                 .setEmoji('📊')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId('voteevent_end')
-                .setLabel('Kết thúc')
-                .setEmoji('🛑')
-                .setStyle(ButtonStyle.Danger)
+                .setStyle(ButtonStyle.Secondary)
         )
     ];
 }
@@ -318,21 +313,6 @@ async function handleButton(interaction) {
     // ── Nút xem kết quả ──
     if (customId === 'voteevent_result') {
         return interaction.reply({ embeds: [createResultEmbed(guildId)], ephemeral: true });
-    }
-
-    // ── Nút kết thúc ──
-    if (customId === 'voteevent_end') {
-        const poll = activePolls.get(guildId);
-        if (!poll) {
-            return interaction.reply({ content: '❌ Không có bình chọn!', ephemeral: true });
-        }
-        const hasPermission = interaction.member.roles.cache.some(r => r.name === 'Quản Lý') ||
-            (poll.creatorId === interaction.user.id);
-        if (!hasPermission) {
-            return interaction.reply({ content: '❌ Bạn không có quyền kết thúc!', ephemeral: true });
-        }
-        await endPoll(interaction.client, guildId, interaction.channel);
-        return interaction.reply({ content: '✅ Đã kết thúc bình chọn!', ephemeral: true });
     }
 
     // ── Fallback cho buttons cũ (từ message cache) ──
@@ -456,8 +436,11 @@ async function execute(message, args) {
         return message.reply('❌ Bạn cần role **Quản Lý** hoặc **Kỳ Cựu**!');
     }
 
-    // ?voteevent end
+    // ?voteevent end - chỉ cho owner
     if (args[0] === 'end') {
+        if (message.author.id !== '395151484179841024') {
+            return message.reply('❌ Chỉ Bang chủ mới có quyền kết thúc bình chọn!');
+        }
         if (!activePolls.has(guildId)) return message.reply('❌ Không có bình chọn!');
         await endPoll(message.client, guildId, message.channel);
         return;

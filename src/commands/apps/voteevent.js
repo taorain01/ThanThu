@@ -45,9 +45,8 @@ const DAY_OPTIONS = [
     { label: 'Chủ nhật', value: 'cn', emoji: '🌟' },
 ];
 
-// Sự kiện Guild
+// Sự kiện Guild (chỉ vote giờ PvP và Boss Solo)
 const EVENTS = [
-    { id: 'yentiec', name: 'Yến Tiệc', emoji: '🍽️', hasDay: false, defaultTime: '21:00' },
     { id: 'boss', name: 'Boss Solo', emoji: '⚔️', hasDay: true, defaultTime: '20:00', defaultDays: ['thu4', 'cn'] },
     { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: true, defaultTime: '20:00', defaultDays: ['thu6', 'cn'] },
 ];
@@ -176,11 +175,6 @@ function createMainButtons() {
     return [
         new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('voteevent_btn_yentiec')
-                .setLabel('Yến Tiệc')
-                .setEmoji('🍽️')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
                 .setCustomId('voteevent_btn_boss')
                 .setLabel('Boss Solo')
                 .setEmoji('⚔️')
@@ -256,27 +250,7 @@ async function handleButton(interaction) {
     const guildId = interaction.guild.id;
     const customId = interaction.customId;
 
-    // ── Nút mở voting cho Yến Tiệc ──
-    if (customId === 'voteevent_btn_yentiec') {
-        if (!activePolls.has(guildId)) {
-            return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
-        }
-        const event = EVENTS.find(e => e.id === 'yentiec');
-        const menu = new StringSelectMenuBuilder()
-            .setCustomId('voteevent_yentiec_time')
-            .setPlaceholder(`🍽️ Chọn giờ Yến Tiệc (hiện tại: ${event.defaultTime})`)
-            .addOptions(TIME_OPTIONS.map(t => ({
-                label: t.value === event.defaultTime ? `⭐ ${t.label} (hiện tại)` : t.label,
-                value: t.value,
-                emoji: t.emoji,
-            })));
 
-        return interaction.reply({
-            content: '🍽️ **Chọn giờ cho Yến Tiệc** (mỗi ngày):',
-            components: [new ActionRowBuilder().addComponents(menu)],
-            ephemeral: true
-        });
-    }
 
     // ── Nút mở voting cho Boss Solo ──
     if (customId === 'voteevent_btn_boss') {

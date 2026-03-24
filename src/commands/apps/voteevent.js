@@ -48,8 +48,8 @@ const DAY_OPTIONS = [
 // Sự kiện Guild
 const EVENTS = [
     { id: 'yentiec', name: 'Yến Tiệc', emoji: '🍽️', hasDay: false, defaultTime: '21:00' },
-    { id: 'boss', name: 'Boss Solo', emoji: '⚔️', hasDay: true, defaultTime: '20:00', defaultDays: ['thu4', 'cn'] },
-    { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: true, defaultTime: '20:00', defaultDays: ['thu6', 'cn'] },
+    { id: 'boss', name: 'Boss Solo', emoji: '⚔️', hasDay: false, defaultTime: '20:00' },
+    { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: false, defaultTime: '20:00' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -294,23 +294,9 @@ async function handleButton(interaction) {
                 emoji: t.emoji,
             })));
 
-        const dayMenu = new StringSelectMenuBuilder()
-            .setCustomId('voteevent_boss_days')
-            .setPlaceholder(`📅 Chọn 2 ngày (hiện tại: ${event.defaultDays.map(getDayName).join(' + ')})`)
-            .setMinValues(2)
-            .setMaxValues(2)
-            .addOptions(DAY_OPTIONS.map(d => ({
-                label: event.defaultDays.includes(d.value) ? `⭐ ${d.label} (hiện tại)` : d.label,
-                value: d.value,
-                emoji: d.emoji,
-            })));
-
         return interaction.reply({
-            content: '⚔️ **Chọn giờ và 2 ngày cho Boss Solo:**',
-            components: [
-                new ActionRowBuilder().addComponents(timeMenu),
-                new ActionRowBuilder().addComponents(dayMenu),
-            ],
+            content: '⚔️ **Chọn giờ cho Boss Solo:**',
+            components: [new ActionRowBuilder().addComponents(timeMenu)],
             ephemeral: true
         });
     }
@@ -331,23 +317,9 @@ async function handleButton(interaction) {
                 emoji: t.emoji,
             })));
 
-        const dayMenu = new StringSelectMenuBuilder()
-            .setCustomId('voteevent_pvp_days')
-            .setPlaceholder(`📅 Chọn 2 ngày (hiện tại: ${event.defaultDays.map(getDayName).join(' + ')})`)
-            .setMinValues(2)
-            .setMaxValues(2)
-            .addOptions(DAY_OPTIONS.map(d => ({
-                label: event.defaultDays.includes(d.value) ? `⭐ ${d.label} (hiện tại)` : d.label,
-                value: d.value,
-                emoji: d.emoji,
-            })));
-
         return interaction.reply({
-            content: '🏆 **Chọn giờ và 2 ngày cho PvP Solo:**',
-            components: [
-                new ActionRowBuilder().addComponents(timeMenu),
-                new ActionRowBuilder().addComponents(dayMenu),
-            ],
+            content: '🏆 **Chọn giờ cho PvP Solo:**',
+            components: [new ActionRowBuilder().addComponents(timeMenu)],
             ephemeral: true
         });
     }

@@ -144,21 +144,38 @@ async function processQueue(guildId) {
 function playText(guildId, text) {
     return new Promise(async (resolve) => {
         try {
+            const player = getPlayer(guildId);
+            console.log(`[TTS] Player state trước khi play: ${player.state.status}`);
+
             const audioUrl = googleTTS.getAudioUrl(text, {
                 lang: 'vi',
                 slow: false,
                 host: 'https://translate.google.com'
             });
 
+            console.log(`[TTS] Fetching audio cho: "${text.substring(0, 30)}"`);
             const response = await fetch(audioUrl);
             if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
 
             const arrayBuffer = await response.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
+            console.log(`[TTS] Audio buffer size: ${buffer.length} bytes`);
             const stream = Readable.from(buffer);
 
             const resource = createAudioResource(stream, { inputType: 'arbitrary' });
-            const player = getPlayer(guildId);
+
+            // Kiểm tra connection còn subscribe player không
+            const connection = getVoiceConnection(guildId);
+            if (connection) {
+                console.log(`[TTS] Connection state: ${connection.state.status}, subscription: ${connection.state.subscription ? 'có' : 'KHÔNG CÓ'}`);
+                // Re-subscribe nếu mất subscription
+                if (!connection.state.subscription) {
+                    console.log(`[TTS] ⚠️ Mất subscription! Re-subscribe...`);
+                    connection.subscribe(player);
+                }
+            } else {
+                console.log(`[TTS] ❌ Không có connection!`);
+            }
 
             // Lắng nghe khi đọc xong → resolve
             const onIdle = () => {
@@ -191,11 +208,14 @@ function playText(guildId, text) {
  * @param {string} text - Text to speak
  */
 async function speak(guildId, text) {
+    console.log(`[TTS] speak() được gọi, guildId: ${guildId}, connected: ${isConnected(guildId)}`);
     if (!isConnected(guildId)) {
+        console.log(`[TTS] ❌ Không connected → bỏ qua`);
         return false;
     }
 
     if (!text || text.trim().length === 0) {
+        console.log(`[TTS] ❌ Text rỗng → bỏ qua`);
         return false;
     }
 
@@ -206,7 +226,9 @@ async function speak(guildId, text) {
     if (!queues.has(guildId)) {
         queues.set(guildId, { items: [], processing: false });
     }
-    queues.get(guildId).items.push(textToSpeak);
+    const queue = queues.get(guildId);
+    queue.items.push(textToSpeak);
+    console.log(`[TTS] Đã thêm vào queue, queue size: ${queue.items.length}, processing: ${queue.processing}`);
 
     // Bắt đầu xử lý nếu chưa đang xử lý
     processQueue(guildId);

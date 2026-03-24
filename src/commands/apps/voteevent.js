@@ -46,10 +46,9 @@ const DAY_OPTIONS = [
     { label: 'Chủ nhật', value: 'cn', emoji: '🌟' },
 ];
 
-// Sự kiện Guild
+// Sự kiện Guild (chỉ vote giờ Yến Tiệc + PvP Solo)
 const EVENTS = [
     { id: 'yentiec', name: 'Yến Tiệc', emoji: '🍽️', hasDay: false, defaultTime: '21:00' },
-    { id: 'boss', name: 'Boss Solo', emoji: '⚔️', hasDay: false, defaultTime: '20:00' },
     { id: 'pvp', name: 'PvP Solo', emoji: '🏆', hasDay: false, defaultTime: '20:00' },
 ];
 
@@ -200,11 +199,6 @@ function createMainButtons() {
                 .setEmoji('🍽️')
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
-                .setCustomId('voteevent_btn_boss')
-                .setLabel('Boss Solo')
-                .setEmoji('⚔️')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
                 .setCustomId('voteevent_btn_pvp')
                 .setLabel('PvP Solo')
                 .setEmoji('🏆')
@@ -293,29 +287,6 @@ async function handleButton(interaction) {
         return interaction.reply({
             content: '🍽️ **Chọn giờ cho Yến Tiệc** (mỗi ngày):',
             components: [new ActionRowBuilder().addComponents(menu)],
-            ephemeral: true
-        });
-    }
-
-    // ── Nút mở voting cho Boss Solo ──
-    if (customId === 'voteevent_btn_boss') {
-        if (!activePolls.has(guildId)) {
-            return interaction.reply({ content: '❌ Bình chọn đã kết thúc!', ephemeral: true });
-        }
-        const event = EVENTS.find(e => e.id === 'boss');
-
-        const timeMenu = new StringSelectMenuBuilder()
-            .setCustomId('voteevent_boss_time')
-            .setPlaceholder(`⚔️ Chọn giờ Boss Solo (hiện tại: ${event.defaultTime})`)
-            .addOptions(TIME_OPTIONS.map(t => ({
-                label: t.value === event.defaultTime ? `⭐ ${t.label} (hiện tại)` : t.label,
-                value: t.value,
-                emoji: t.emoji,
-            })));
-
-        return interaction.reply({
-            content: '⚔️ **Chọn giờ cho Boss Solo:**',
-            components: [new ActionRowBuilder().addComponents(timeMenu)],
             ephemeral: true
         });
     }

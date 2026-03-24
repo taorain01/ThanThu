@@ -182,6 +182,14 @@ client.once("ready", async () => {
         console.log('⚠️ Voice state restore error:', voiceError.message);
       }
 
+      // === RESTORE VOTE POLL ===
+      try {
+        const { restorePoll } = require('./commands/apps/voteevent');
+        await restorePoll(client);
+      } catch (votePollError) {
+        console.error('⚠️ Vote poll restore error:', votePollError.message);
+      }
+
     } catch (error) {
       console.error('❌ Migration error:', error);
     }

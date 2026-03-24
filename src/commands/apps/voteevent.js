@@ -14,6 +14,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const storage = require('../../utils/storage');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CẤU HÌNH
@@ -57,7 +58,25 @@ const EVENTS = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 const activePolls = new Map();  // guildId -> pollData
-const pollVotes = new Map();    // guildId -> { yentiec_time: {userId: value}, boss_time: {}, boss_days: {}, ... }
+const pollVotes = new Map();    // guildId -> { yentiec_time: {userId: value}, boss_time: {}, ... }
+
+/**
+ * Lưu trạng thái poll hiện tại vào JSON
+ */
+function persistPoll(guildId) {
+    const poll = activePolls.get(guildId);
+    if (!poll) return;
+    // Không lưu timeout (không serialize được)
+    const pollData = {
+        messageId: poll.messageId,
+        channelId: poll.channelId,
+        creatorId: poll.creatorId,
+        creatorName: poll.creatorName,
+        endTime: poll.endTime,
+    };
+    const votesData = pollVotes.get(guildId) || {};
+    storage.saveVotePoll(guildId, pollData, votesData);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HÀM TIỆN ÍCH
@@ -420,6 +439,9 @@ async function handleVote(interaction) {
     } catch (e) {
         console.error('[voteevent] Không thể cập nhật embed:', e);
     }
+
+    // Lưu vào JSON sau mỗi lần vote
+    persistPoll(guildId);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -446,6 +468,9 @@ async function endPoll(client, guildId, channel) {
 
     activePolls.delete(guildId);
     pollVotes.delete(guildId);
+
+    // Xóa JSON khi kết thúc
+    storage.removeVotePoll(guildId);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -506,12 +531,62 @@ async function execute(message, args) {
     poll.messageId = pollMsg.id;
     poll.timeout = setTimeout(() => endPoll(message.client, guildId, message.channel), hours * 3600000);
 
+    // Lưu vào JSON
+    persistPoll(guildId);
+
     try { await message.delete(); } catch (e) { }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Restore poll từ JSON khi bot restart
+ * Gọi từ bot.js trong event ready
+ */
+async function restorePoll(client) {
+    const savedData = storage.loadVotePoll();
+    for (const [guildId, data] of Object.entries(savedData)) {
+        const { poll, votes } = data;
+
+        // Kiểm tra còn thời gian không
+        const remaining = poll.endTime - Date.now();
+        if (remaining <= 0) {
+            console.log(`[voteevent] Poll guild ${guildId} đã hết hạn, xóa`);
+            storage.removeVotePoll(guildId);
+            continue;
+        }
+
+        // Restore vào memory
+        activePolls.set(guildId, {
+            messageId: poll.messageId,
+            channelId: poll.channelId,
+            creatorId: poll.creatorId,
+            creatorName: poll.creatorName,
+            endTime: poll.endTime,
+            timeout: null,
+        });
+        pollVotes.set(guildId, votes || {});
+
+        // Đặt lại timeout
+        try {
+            const channel = await client.channels.fetch(poll.channelId).catch(() => null);
+            if (channel) {
+                const p = activePolls.get(guildId);
+                p.timeout = setTimeout(() => endPoll(client, guildId, channel), remaining);
+                console.log(`[voteevent] ✅ Restore poll guild ${guildId}, còn ${Math.round(remaining / 60000)} phút`);
+            } else {
+                console.log(`[voteevent] ⚠️ Không tìm thấy channel ${poll.channelId}, xóa poll`);
+                activePolls.delete(guildId);
+                pollVotes.delete(guildId);
+                storage.removeVotePoll(guildId);
+            }
+        } catch (e) {
+            console.error(`[voteevent] Lỗi restore poll guild ${guildId}:`, e.message);
+        }
+    }
+}
 
 module.exports = {
     name: 'voteevent',
@@ -520,6 +595,7 @@ module.exports = {
     execute,
     handleVote,
     handleButton,
+    restorePoll,
     activePolls,
     EVENTS
 };

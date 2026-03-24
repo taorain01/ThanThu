@@ -7,6 +7,7 @@ const WEEKEND_PREF_FILE = path.join(DATA_DIR, 'weekend_yentiec_preference.json')
 const SCHEDULE_MESSAGES_FILE = path.join(DATA_DIR, 'schedule_messages.json');
 const ACTIVE_EVENTS_FILE = path.join(DATA_DIR, 'active_event_messages.json');
 const VOICE_STATE_FILE = path.join(DATA_DIR, 'voice_state.json');
+const VOTE_POLL_FILE = path.join(DATA_DIR, 'vote_poll.json');
 
 // Đảm bảo thư mục data tồn tại
 function ensureDataDir() {
@@ -231,6 +232,57 @@ function loadVoiceState() {
     }
 }
 
+// === VOTE POLL PERSISTENCE ===
+// Lưu dữ liệu vote poll để không mất khi restart
+function saveVotePoll(guildId, pollData, votesData) {
+    try {
+        ensureDataDir();
+        let data = {};
+        if (fs.existsSync(VOTE_POLL_FILE)) {
+            data = JSON.parse(fs.readFileSync(VOTE_POLL_FILE, 'utf8'));
+        }
+        data[guildId] = {
+            poll: pollData,
+            votes: votesData,
+            savedAt: Date.now()
+        };
+        fs.writeFileSync(VOTE_POLL_FILE, JSON.stringify(data, null, 2), 'utf8');
+        return true;
+    } catch (error) {
+        console.error('[storage] Lỗi lưu vote poll:', error);
+        return false;
+    }
+}
+
+function loadVotePoll() {
+    try {
+        if (!fs.existsSync(VOTE_POLL_FILE)) return {};
+        return JSON.parse(fs.readFileSync(VOTE_POLL_FILE, 'utf8'));
+    } catch (error) {
+        console.error('[storage] Lỗi load vote poll:', error);
+        return {};
+    }
+}
+
+function removeVotePoll(guildId) {
+    try {
+        if (!fs.existsSync(VOTE_POLL_FILE)) return false;
+        const data = JSON.parse(fs.readFileSync(VOTE_POLL_FILE, 'utf8'));
+        delete data[guildId];
+        // Nếu hết data thì xóa luôn file
+        if (Object.keys(data).length === 0) {
+            fs.unlinkSync(VOTE_POLL_FILE);
+        } else {
+            fs.writeFileSync(VOTE_POLL_FILE, JSON.stringify(data, null, 2), 'utf8');
+        }
+        console.log(`[storage] Đã xóa vote poll: guild=${guildId}`);
+        return true;
+    } catch (error) {
+        console.error('[storage] Lỗi xóa vote poll:', error);
+        return false;
+    }
+}
+
 module.exports = {
     saveNotifications,
     loadNotifications,
@@ -246,7 +298,10 @@ module.exports = {
     loadActiveEventMessages,
     saveVoiceState,
     removeVoiceState,
-    loadVoiceState
+    loadVoiceState,
+    saveVotePoll,
+    loadVotePoll,
+    removeVotePoll
 };
 
 // === CONFIRMATION DATE TRACKING ===

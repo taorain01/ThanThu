@@ -248,6 +248,14 @@ async function handleBcMenuButton(interaction) {
 
     // bc_viewdetail_{guildId} → Hiện menu chọn ngày để xem danh sách
     if (customId.startsWith('bc_viewdetail_')) {
+        // Nếu bấm từ ephemeral message (nút "Quay lại") → deferUpdate, nếu lần đầu → deferReply
+        const isEphemeralMsg = interaction.message?.flags?.has(64);
+        if (isEphemeralMsg) {
+            await interaction.deferUpdate();
+        } else {
+            await interaction.deferReply({ ephemeral: true });
+        }
+
         const satSession = db.getActiveBangchienByDay(guildId, 'sat');
         const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
 
@@ -288,23 +296,20 @@ async function handleBcMenuButton(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-        // Nếu bấm từ ephemeral message (nút "Quay lại") → update, nếu lần đầu → reply
-        if (interaction.message?.flags?.has(64)) {
-            // Message đã là ephemeral → update thay vì gửi tin mới
-            await interaction.update({ embeds: [embed], components: [row] });
-        } else {
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
-        }
+        await interaction.editReply({ embeds: [embed], components: [row] });
         return true;
     }
 
     // bc_viewlist_sat_{guildId} / bc_viewlist_sun_{guildId} → Hiện danh sách chi tiết
     if (customId.startsWith('bc_viewlist_')) {
+        // Defer ngay để tránh Unknown interaction (3s timeout)
+        await interaction.deferUpdate();
+
         const day = customId.includes('_sat_') ? 'sat' : 'sun';
         const session = db.getActiveBangchienByDay(guildId, day);
 
         if (!session) {
-            await interaction.update({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
+            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
             return true;
         }
 
@@ -327,14 +332,16 @@ async function handleBcMenuButton(interaction) {
                     .setStyle(ButtonStyle.Danger)
             );
 
-        await interaction.update({ embeds: [embed], components: [backRow] });
+        await interaction.editReply({ embeds: [embed], components: [backRow] });
         return true;
     }
 
     // bc_menu_{guildId} → Mở menu
     if (customId.startsWith('bc_menu_')) {
+        // Defer ngay để tránh Unknown interaction (3s timeout)
+        await interaction.deferReply({ ephemeral: true });
         const { embed, components } = createBcMenu(guildId, userId);
-        await interaction.reply({ embeds: [embed], components, ephemeral: true });
+        await interaction.editReply({ embeds: [embed], components });
         return true;
     }
 

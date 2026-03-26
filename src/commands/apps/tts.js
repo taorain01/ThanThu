@@ -49,14 +49,27 @@ async function handleJoin(message) {
     // Kiểm tra bot đang ở voice channel khác
     const currentConnection = ttsService.getConnection(message.guild.id);
     if (currentConnection) {
-        const currentChannelId = currentConnection.joinConfig.channelId;
-        if (currentChannelId !== voiceChannel.id) {
-            const currentChannel = message.guild.channels.cache.get(currentChannelId);
-            const channelName = currentChannel?.name || 'một phòng khác';
-            return message.reply(`🦆 Đại Ngỗng đang ở **${channelName}** rồi! Gõ \`?leave\` ở phòng đó trước hoặc chờ Đại Ngỗng rời đi nhé~`);
+        // Kiểm tra connection có thực sự hoạt động không
+        const { VoiceConnectionStatus } = require('@discordjs/voice');
+        const isAlive = currentConnection.state.status === VoiceConnectionStatus.Ready 
+                     || currentConnection.state.status === VoiceConnectionStatus.Signalling
+                     || currentConnection.state.status === VoiceConnectionStatus.Connecting;
+        
+        if (!isAlive) {
+            // Connection "chết" (Disconnected/Destroyed) → dọn dẹp và cho join lại
+            console.log(`[TTS] Connection cũ status: ${currentConnection.state.status} → destroy và join lại`);
+            try { currentConnection.destroy(); } catch (e) { }
+            // Tiếp tục xuống phần join bình thường
+        } else {
+            const currentChannelId = currentConnection.joinConfig.channelId;
+            if (currentChannelId !== voiceChannel.id) {
+                const currentChannel = message.guild.channels.cache.get(currentChannelId);
+                const channelName = currentChannel?.name || 'một phòng khác';
+                return message.reply(`🦆 Đại Ngỗng đang ở **${channelName}** rồi! Gõ \`?leave\` ở phòng đó trước hoặc chờ Đại Ngỗng rời đi nhé~`);
+            }
+            // Nếu đã ở cùng phòng → thông báo
+            return message.reply(`🎤 Đại Ngỗng đã ở **${voiceChannel.name}** rồi! Gõ \`.nội dung\` để bot đọc.`);
         }
-        // Nếu đã ở cùng phòng → thông báo
-        return message.reply(`🎤 Đại Ngỗng đã ở **${voiceChannel.name}** rồi! Gõ \`.nội dung\` để bot đọc.`);
     }
 
     // Chỉ chặn bot TTS, KHÔNG bao gồm bot nhạc (Bakabot, v.v.)

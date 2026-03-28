@@ -86,7 +86,8 @@ function getDayNameWithDate(day) {
 // Aliases cho ngày (để parse từ args)
 const DAY_ALIASES = {
     't7': 'sat', 'sat': 'sat', 'saturday': 'sat', 'thu7': 'sat', 'thứ7': 'sat',
-    'cn': 'sun', 'sun': 'sun', 'sunday': 'sun', 'chunhat': 'sun', 'chủnhật': 'sun'
+    'cn': 'sun', 'sun': 'sun', 'sunday': 'sun', 'chunhat': 'sun', 'chủnhật': 'sun',
+    'cus': 'custom', 'custom': 'custom', 'tudo': 'custom', 'td': 'custom'
 };
 
 // Helper: Parse day từ args

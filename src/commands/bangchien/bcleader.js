@@ -41,7 +41,7 @@ module.exports = {
         const day = parseDayArg(args);
 
         // Bỏ qua arg t7/cn nếu có để lấy đúng team number
-        let filteredArgs = args.filter(a => !['t7', 'cn', 'sat', 'sun', 'saturday', 'sunday'].includes(a.toLowerCase()));
+        let filteredArgs = args.filter(a => !['t7', 'cn', 'sat', 'sun', 'saturday', 'sunday', 'cus', 'custom', 'tudo', 'td'].includes(a.toLowerCase()));
 
         // Lấy session
         let session, isActiveSession = false;

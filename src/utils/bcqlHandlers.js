@@ -14,7 +14,7 @@ const { createBangchienEmbed, createBangchienButtons } = require('../commands/ba
 function parseDayFromCustomId(customId) {
     const parts = customId.split('_');
     const lastPart = parts[parts.length - 1];
-    if (lastPart === 'sat' || lastPart === 'sun') {
+    if (lastPart === 'sat' || lastPart === 'sun' || lastPart === 'custom') {
         return lastPart;
     }
     return null;

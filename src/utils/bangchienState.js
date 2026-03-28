@@ -22,7 +22,8 @@ const BANGCHIEN_MAX_PARTIES = 2;
 // Cấu hình các ngày BC (tên cơ bản, dùng getDayNameWithDate để lấy tên kèm ngày)
 const DAY_CONFIG = {
     sat: { name: 'Thứ 7', color: 0x00CED1, emoji: '📅' },   // Xanh nước biển
-    sun: { name: 'Chủ Nhật', color: 0x87CEEB, emoji: '📅' } // Xanh da trời
+    sun: { name: 'Chủ Nhật', color: 0x87CEEB, emoji: '📅' }, // Xanh da trời
+    custom: { name: 'BC Tự Do', color: 0xFF6B35, emoji: '🎯' } // Cam — BC Custom
 };
 
 /**
@@ -71,6 +72,8 @@ function getNextDayDate(day) {
  */
 function getDayNameWithDate(day) {
     if (!day || !DAY_CONFIG[day]) return '';
+    // Custom không có ngày cụ thể
+    if (day === 'custom') return DAY_CONFIG[day].name;
 
     const targetDate = getNextDayDate(day);
     const dd = String(targetDate.getDate()).padStart(2, '0');
@@ -105,7 +108,7 @@ function getDayFromPartyKey(partyKey) {
     if (parts.length >= 3) {
         // Format mới: guildId_day_leaderId
         const day = parts[1];
-        if (day === 'sat' || day === 'sun') return day;
+        if (day === 'sat' || day === 'sun' || day === 'custom') return day;
     }
     // Format cũ hoặc không có day
     return null;
@@ -213,10 +216,18 @@ async function refreshOverviewEmbed(client, guildId) {
 function isSessionExpired(session) {
     if (!session || !session.created_at) return false;
 
-    const day = session.day; // 'sat' hoặc 'sun'
+    const day = session.day; // 'sat', 'sun', hoặc 'custom'
     if (!day) return false;
 
-    // Tính thời điểm 23:00 VN của ngày BC gần nhất (tính từ created_at)
+    // ═══ CUSTOM: hết hạn sau 24 giờ kể từ khi tạo ═══
+    if (day === 'custom') {
+        const createdAt = new Date(session.created_at);
+        const now = new Date();
+        const hoursSinceCreated = (now - createdAt) / (60 * 60 * 1000);
+        return hoursSinceCreated >= 24;
+    }
+
+    // ═══ T7/CN: tính theo 23:00 VN ngày BC ═══
     const vnOffset = 7 * 60; // phút
     const localOffset = new Date().getTimezoneOffset();
     const now = new Date();

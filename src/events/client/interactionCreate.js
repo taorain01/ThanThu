@@ -155,7 +155,14 @@ module.exports = {
           if (handled) return;
         }
 
-        // ROUTE 10: Album handlers
+        // ROUTE 10: BC Custom handlers (bccus_join, bccus_leave)
+        if (customId.startsWith('bccus_')) {
+          const bccusHandlers = require('../../utils/bccusHandlers');
+          const handled = await bccusHandlers.handleButton(interaction, client);
+          if (handled) return;
+        }
+
+        // ROUTE 11: Album handlers
         if (customId.startsWith('album_')) {
           const handled = await albumHandlers.handleAlbumButton(interaction);
           if (handled) return;

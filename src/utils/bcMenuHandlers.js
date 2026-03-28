@@ -169,6 +169,35 @@ async function handleBcMenuButton(interaction) {
     const customId = interaction.customId;
     if (!customId.startsWith('bcmenu_') && !customId.startsWith('bc_menu_') && !customId.startsWith('bc_regular_') && !customId.startsWith('bc_viewdetail_') && !customId.startsWith('bc_viewlist_')) return false;
 
+    // ═══ DEFER NGAY LẬP TỨC để tránh Unknown interaction (3s timeout) ═══
+    // Khi nhiều button nhấn cùng lúc, Node.js single-thread sẽ queue lại
+    // nên phải defer ngay trước mọi logic xử lý
+    try {
+        if (customId.startsWith('bc_menu_')) {
+            // Mở menu mới → deferReply ephemeral
+            await interaction.deferReply({ ephemeral: true });
+        } else if (customId.startsWith('bc_viewdetail_')) {
+            // Có thể từ overview (lần đầu) hoặc ephemeral (quay lại)
+            const isEphemeralMsg = interaction.message?.flags?.has(64);
+            if (isEphemeralMsg) {
+                await interaction.deferUpdate();
+            } else {
+                await interaction.deferReply({ ephemeral: true });
+            }
+        } else if (customId.startsWith('bc_regular_sat_') || customId.startsWith('bc_regular_sun_')) {
+            // Regular toggle từ overview → deferReply ephemeral
+            await interaction.deferReply({ ephemeral: true });
+        } else {
+            // Tất cả các button còn lại (join/leave/close/viewlist/regular menu)
+            // đều update trên message hiện tại → deferUpdate
+            await interaction.deferUpdate();
+        }
+    } catch (e) {
+        // Nếu defer thất bại (interaction đã hết hạn) → bỏ qua, không crash
+        console.error(`[bcMenu] Defer failed cho ${customId}:`, e.message);
+        return true; // Trả true để không gây lỗi ở caller
+    }
+
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
     const username = interaction.user.username;
@@ -200,9 +229,8 @@ async function handleBcMenuButton(interaction) {
 
         if (isRegular) {
             db.removeBcRegular(guildId, userId, day);
-            await interaction.reply({
-                content: `✅ Đã tắt "Luôn tham gia" ${DAY_CONFIG[day].name}.`,
-                ephemeral: true
+            await interaction.editReply({
+                content: `✅ Đã tắt "Luôn tham gia" ${DAY_CONFIG[day].name}.`
             });
         } else {
             db.addBcRegular(guildId, userId, username, day);
@@ -233,9 +261,8 @@ async function handleBcMenuButton(interaction) {
                 }
             }
 
-            await interaction.reply({
-                content: `✅ Đã bật "Luôn tham gia" ${DAY_CONFIG[day].name}.${autoJoinMsg}`,
-                ephemeral: true
+            await interaction.editReply({
+                content: `✅ Đã bật "Luôn tham gia" ${DAY_CONFIG[day].name}.${autoJoinMsg}`
             });
         }
 
@@ -248,14 +275,7 @@ async function handleBcMenuButton(interaction) {
 
     // bc_viewdetail_{guildId} → Hiện menu chọn ngày để xem danh sách
     if (customId.startsWith('bc_viewdetail_')) {
-        // Nếu bấm từ ephemeral message (nút "Quay lại") → deferUpdate, nếu lần đầu → deferReply
-        const isEphemeralMsg = interaction.message?.flags?.has(64);
-        if (isEphemeralMsg) {
-            await interaction.deferUpdate();
-        } else {
-            await interaction.deferReply({ ephemeral: true });
-        }
-
+        // Đã defer ở đầu hàm rồi, chỉ cần xử lý logic
         const satSession = db.getActiveBangchienByDay(guildId, 'sat');
         const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
 
@@ -302,8 +322,7 @@ async function handleBcMenuButton(interaction) {
 
     // bc_viewlist_sat_{guildId} / bc_viewlist_sun_{guildId} → Hiện danh sách chi tiết
     if (customId.startsWith('bc_viewlist_')) {
-        // Defer ngay để tránh Unknown interaction (3s timeout)
-        await interaction.deferUpdate();
+        // Đã defer ở đầu hàm rồi
 
         const day = customId.includes('_sat_') ? 'sat' : 'sun';
         const session = db.getActiveBangchienByDay(guildId, day);
@@ -338,8 +357,7 @@ async function handleBcMenuButton(interaction) {
 
     // bc_menu_{guildId} → Mở menu
     if (customId.startsWith('bc_menu_')) {
-        // Defer ngay để tránh Unknown interaction (3s timeout)
-        await interaction.deferReply({ ephemeral: true });
+        // Đã defer ở đầu hàm rồi
         const { embed, components } = createBcMenu(guildId, userId);
         await interaction.editReply({ embeds: [embed], components });
         return true;
@@ -347,7 +365,8 @@ async function handleBcMenuButton(interaction) {
 
     // bcmenu_close
     if (customId.startsWith('bcmenu_close_')) {
-        await interaction.update({ content: '✅ Đã đóng menu.', embeds: [], components: [] });
+        // Đã deferUpdate ở đầu hàm → dùng editReply
+        await interaction.editReply({ content: '✅ Đã đóng menu.', embeds: [], components: [] });
         return true;
     }
 
@@ -357,14 +376,14 @@ async function handleBcMenuButton(interaction) {
         const session = db.getActiveBangchienByDay(guildId, day);
 
         if (!session) {
-            await interaction.update({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
+            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
             return true;
         }
 
         // Kiểm tra đã đăng ký chưa
         if (isUserInSession(session, userId)) {
             const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.update({ content: `⚠️ Bạn đã đăng ký ${DAY_CONFIG[day].name} rồi!`, embeds: [embed], components });
+            await interaction.editReply({ content: `⚠️ Bạn đã đăng ký ${DAY_CONFIG[day].name} rồi!`, embeds: [embed], components });
             return true;
         }
 
@@ -390,14 +409,14 @@ async function handleBcMenuButton(interaction) {
             } catch (e) { console.error('[bcMenu] Lỗi cấp role BC:', e.message); }
 
             const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.update({
+            await interaction.editReply({
                 content: `✅ Đã đăng ký ${DAY_CONFIG[day].name}! (${result.team})`,
                 embeds: [embed],
                 components
             });
             await refreshOverview(); // Cập nhật overview ngay lập tức
         } else {
-            await interaction.update({ content: `❌ Lỗi: ${result.error}`, embeds: [], components: [] });
+            await interaction.editReply({ content: `❌ Lỗi: ${result.error}`, embeds: [], components: [] });
         }
         return true;
     }
@@ -408,7 +427,7 @@ async function handleBcMenuButton(interaction) {
         const session = db.getActiveBangchienByDay(guildId, day);
 
         if (!session) {
-            await interaction.update({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
+            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
             return true;
         }
 
@@ -428,14 +447,14 @@ async function handleBcMenuButton(interaction) {
             } catch (e) { console.error('[bcMenu] Lỗi xóa role BC:', e.message); }
 
             const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.update({
+            await interaction.editReply({
                 content: `✅ Đã hủy đăng ký ${DAY_CONFIG[day].name}!`,
                 embeds: [embed],
                 components
             });
             await refreshOverview(); // Cập nhật overview ngay lập tức
         } else {
-            await interaction.update({ content: `❌ Lỗi: ${result.error || 'Không tìm thấy'}`, embeds: [], components: [] });
+            await interaction.editReply({ content: `❌ Lỗi: ${result.error || 'Không tìm thấy'}`, embeds: [], components: [] });
         }
         return true;
     }
@@ -449,7 +468,7 @@ async function handleBcMenuButton(interaction) {
             // TẮT "Luôn tham gia" - chỉ xóa regular, KHÔNG xóa khỏi session hiện tại
             db.removeBcRegular(guildId, userId, day);
             const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.update({
+            await interaction.editReply({
                 content: `✅ Đã tắt "Luôn tham gia" cho ${DAY_CONFIG[day].name}. Đăng ký tuần này vẫn giữ nguyên.`,
                 embeds: [embed],
                 components
@@ -487,7 +506,7 @@ async function handleBcMenuButton(interaction) {
             }
 
             const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.update({
+            await interaction.editReply({
                 content: `✅ Đã bật "Luôn tham gia" cho ${DAY_CONFIG[day].name}.${autoJoinMessage}`,
                 embeds: [embed],
                 components

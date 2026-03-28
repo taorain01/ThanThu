@@ -1677,6 +1677,48 @@ module.exports = {
             return bcmiconCommand.execute(message, args, client);
         }
 
+        // ?bcmicreset - Reset mic permissions trong voice BC
+        if (['bcmicreset', 'resetmic'].includes(commandName)) {
+            const bcmicresetCommand = require('../../commands/bangchien/bcmicreset');
+            return bcmicresetCommand.execute(message, args, client);
+        }
+
+        // ?bcmove, ?bcdoi - Di chuyển người giữa các team
+        if (['bcmove', 'bcdoi', 'dichuyen'].includes(commandName)) {
+            const bcmoveCommand = require('../../commands/bangchien/bcmove');
+            return bcmoveCommand.execute(message, args, client);
+        }
+
+        // ?bccus, ?bangchiencustom - BC Tự Do
+        if (['bccus', 'bangchiencustom'].includes(commandName)) {
+            const bccusCommand = require('../../commands/bangchien/bccus');
+            return bccusCommand.execute(message, args, client);
+        }
+
+        // ?listbccus, ?lbcc - Xem danh sách BC Tự Do
+        if (['listbccus', 'lbcc'].includes(commandName)) {
+            const listbccusCommand = require('../../commands/bangchien/listbccus');
+            return listbccusCommand.execute(message, args, client);
+        }
+
+        // ?bccusadd - Thêm người vào whitelist BC Tự Do
+        if (['bccusadd'].includes(commandName)) {
+            const bccuspermCommand = require('../../commands/bangchien/bccusperm');
+            return bccuspermCommand.execute(message, ['add', ...args], client);
+        }
+
+        // ?bccusremove, ?bccusxoa - Xóa người khỏi whitelist BC Tự Do
+        if (['bccusremove', 'bccusxoa'].includes(commandName)) {
+            const bccuspermCommand = require('../../commands/bangchien/bccusperm');
+            return bccuspermCommand.execute(message, ['remove', ...args], client);
+        }
+
+        // ?bccuslist, ?bccusds - Xem whitelist BC Tự Do
+        if (['bccuslist', 'bccusds'].includes(commandName)) {
+            const bccuspermCommand = require('../../commands/bangchien/bccusperm');
+            return bccuspermCommand.execute(message, ['list', ...args], client);
+        }
+
         // ?nhacnho, ?nn, ?remind - Đăng ký nhận nhắc nhở event
         if (['nhacnho', 'nn', 'remind'].includes(commandName)) {
             const nhacnhoCommand = require('../../commands/thongbao/nhacnho');

@@ -119,7 +119,7 @@ module.exports = {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CASE 2: Tạo session mới (CHỈ Kỳ Cựu/Quản Lý)
+        // CASE 2: Tạo session mới (Kỳ Cựu/Quản Lý/Whitelist)
         // ═══════════════════════════════════════════════════════════════════
 
         // Kiểm tra quyền
@@ -131,9 +131,13 @@ module.exports = {
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
         const isOwner = message.author.id === OWNER_ID;
 
-        if (!isKyCuu && !isQuanLy && !isOwner) {
+        // Kiểm tra whitelist từ bccusperm
+        const bccuspermCommand = require('./bccusperm');
+        const isWhitelisted = bccuspermCommand.isWhitelisted(db, leaderId);
+
+        if (!isKyCuu && !isQuanLy && !isOwner && !isWhitelisted) {
             return message.reply({
-                content: '❌ Chỉ **Kỳ Cựu** hoặc **Quản Lý** mới được mở BC Tự Do!',
+                content: '❌ Bạn không có quyền mở BC Tự Do!\nLiên hệ **Quản Lý** để được thêm vào danh sách.',
                 allowedMentions: { repliedUser: false }
             });
         }

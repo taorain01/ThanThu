@@ -32,7 +32,15 @@ module.exports = {
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
         const isLeaderBc = leaderBcRole && message.member.roles.cache.has(leaderBcRole.id);
-        const hasPermission = isKyCuu || isQuanLy || isLeaderBc;
+
+        // Kiểm tra whitelist từ bccusperm
+        const bccuspermCommand = require('./bccusperm');
+        const isWhitelisted = bccuspermCommand.isWhitelisted(db, message.author.id);
+
+        // Leader của session cũng có quyền quản lý
+        const isSessionLeader = session.leader_id === message.author.id;
+
+        const hasPermission = isKyCuu || isQuanLy || isLeaderBc || isWhitelisted || isSessionLeader;
 
         // Tái sử dụng showDetailedSession từ listbangchien.js
         const listbangchienCommand = require('./listbangchien');

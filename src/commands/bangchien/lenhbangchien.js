@@ -37,6 +37,11 @@ module.exports = {
                     inline: false
                 },
                 {
+                    name: '🎯 BC TỰ DO',
+                    value: '`?bccus` Tạo session BC tự do\n`?lbcc` Xem/Quản lý session\n`?bccusadd @user` Thêm quyền\n`?bccusremove @user` Xóa quyền\n`?bccuslist` Xem DS quyền',
+                    inline: false
+                },
+                {
                     name: '🏁 KẾT THÚC',
                     value: '`?bcchot` Add role BC\n`?bcend` Kết thúc hoàn toàn',
                     inline: false

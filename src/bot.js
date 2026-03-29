@@ -148,39 +148,6 @@ client.once("ready", async () => {
         console.error('❌ Schedule messages restore error:', scheduleError);
       }
 
-      // === RESTORE VOICE STATE ===
-      // Kết nối lại voice channel nếu bot đang trong voice trước khi restart
-      // Chỉ thử 1 lần, không retry nhiều để tránh spam log
-      try {
-        const ttsService = require('./utils/ttsService');
-        const savedVoiceState = storage.loadVoiceState();
-        const entries = Object.entries(savedVoiceState);
-
-        if (entries.length > 0) {
-          console.log(`🎤 Đang restore ${entries.length} voice connection(s)...`);
-
-          for (const [guildId, data] of entries) {
-            try {
-              const channel = await client.channels.fetch(data.channelId).catch(() => null);
-              if (!channel) {
-                console.log(`  ⚠️ Không tìm thấy voice channel ${data.channelId}, bỏ qua`);
-                storage.removeVoiceState(guildId);
-                continue;
-              }
-
-              // Chỉ thử 1 lần khi restore
-              await ttsService.joinChannel(channel);
-              console.log(`  ✅ Đã kết nối lại voice: ${channel.name}`);
-            } catch (e) {
-              // Log ngắn gọn, không spam stack trace
-              console.log(`  ⚠️ Không thể restore voice ${guildId}, bỏ qua`);
-              storage.removeVoiceState(guildId);
-            }
-          }
-        }
-      } catch (voiceError) {
-        console.log('⚠️ Voice state restore error:', voiceError.message);
-      }
 
       // === RESTORE VOTE POLL ===
       try {

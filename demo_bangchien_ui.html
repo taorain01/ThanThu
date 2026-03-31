@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lang Gia - Bang Chiến 30vs30</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green-300:#86efac;--green-400:#4ade80;--green-500:#22c55e;--green-600:#16a34a;--green-700:#15803d;--green-800:#166534;--green-900:#14532d;
+  --gold:#fbbf24;--gold-deep:#f59e0b;--gold-dark:#d97706;--gold-glow:#fde68a;
+  --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.88);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --dps:#60a5fa;--healer:#4ade80;--tanker:#fb923c;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh}
+
+/* ═══ HEADER ═══ */
+.header{display:flex;align-items:center;padding:10px 24px;gap:20px;
+  background:linear-gradient(90deg,var(--green-900),var(--bg) 50%,var(--green-900));
+  border-bottom:2px solid rgba(34,197,94,.2);flex-shrink:0;position:relative}
+.header::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--green-400),var(--gold),transparent);animation:gp 3s ease-in-out infinite}
+@keyframes gp{0%,100%{opacity:.6}50%{opacity:1}}
+.guild-emblem{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--gold-deep),var(--gold));
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:0 0 20px rgba(251,191,36,.4);flex-shrink:0}
+.guild-name{font-family:'Cinzel Decorative',serif;font-size:32px;font-weight:900;
+  background:linear-gradient(180deg,#fff7c2,#fbbf24 30%,#f59e0b 50%,#fbbf24 70%,#d97706);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 15px rgba(251,191,36,.5));letter-spacing:4px}
+.header-info{margin-left:auto;display:flex;gap:20px;align-items:center}
+.h-stat{text-align:center}
+.h-stat .val{font-size:18px;font-weight:800;color:var(--gold)}
+.h-stat .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.status-live{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:16px;
+  background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);font-size:12px;font-weight:600;color:var(--green-300)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green-400);animation:blink 1.5s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ═══ DAY TABS ═══ */
+.day-bar{display:flex;align-items:center;padding:8px 24px;gap:12px;border-bottom:1px solid rgba(34,197,94,.1);flex-shrink:0;
+  background:linear-gradient(90deg,transparent,rgba(34,197,94,.05),transparent)}
+.day-tab{padding:8px 28px;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;transition:all .3s;
+  border:1.5px solid transparent;background:var(--bg-card);color:var(--text2)}
+.day-tab:hover{border-color:var(--green-500);color:var(--text)}
+.day-tab.active{background:linear-gradient(135deg,var(--green-700),var(--green-600));color:#fff;
+  border-color:var(--green-400);box-shadow:0 3px 15px rgba(34,197,94,.3)}
+.day-tab .badge{display:inline;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:12px;font-size:11px;margin-left:6px}
+.progress-mini{flex:1;display:flex;align-items:center;gap:10px;margin-left:20px}
+.progress-mini .bar{flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden}
+.progress-mini .fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--green-600),var(--green-400),var(--gold));
+  position:relative;transition:width 1s}
+.progress-mini .fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:sh 2s infinite}
+@keyframes sh{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.progress-mini .num{font-size:14px;font-weight:700;color:var(--gold);white-space:nowrap}
+
+/* ═══ MAIN LAYOUT ═══ */
+.main{flex:1;display:grid;grid-template-columns:420px 1fr;overflow:hidden;min-height:0}
+
+/* ═══ LEFT PANEL ═══ */
+.left{overflow-y:auto;border-right:1px solid rgba(34,197,94,.1);padding:12px}
+.left::-webkit-scrollbar{width:5px}
+.left::-webkit-scrollbar-thumb{background:rgba(34,197,94,.3);border-radius:3px}
+
+.team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(34,197,94,.1);margin-bottom:12px;overflow:hidden;
+  backdrop-filter:blur(10px);transition:border-color .3s}
+.team-card:hover{border-color:rgba(34,197,94,.25)}
+.t-hdr{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.04)}
+.t-hdr.a1{background:linear-gradient(90deg,rgba(239,68,68,.18),transparent)}
+.t-hdr.a2{background:linear-gradient(90deg,rgba(249,115,22,.18),transparent)}
+.t-hdr.df{background:linear-gradient(90deg,rgba(59,130,246,.18),transparent)}
+.t-hdr.fr{background:linear-gradient(90deg,rgba(34,197,94,.18),transparent)}
+.t-hdr.wt{background:linear-gradient(90deg,rgba(251,191,36,.12),transparent)}
+.t-info{display:flex;align-items:center;gap:8px}
+.t-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.t-icon.a1{background:rgba(239,68,68,.2)}.t-icon.a2{background:rgba(249,115,22,.2)}
+.t-icon.df{background:rgba(59,130,246,.2)}.t-icon.fr{background:rgba(34,197,94,.2)}
+.t-icon.wt{background:rgba(251,191,36,.2)}
+.t-title{font-weight:700;font-size:14px}.t-cnt{font-size:11px;color:var(--text3)}
+.t-roles{display:flex;gap:6px}
+.rb{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:14px;font-size:11px;font-weight:600}
+.rb.d{background:rgba(96,165,250,.12);color:var(--dps)}
+.rb.h{background:rgba(74,222,128,.12);color:var(--healer)}
+.rb.t{background:rgba(251,146,60,.12);color:var(--tanker)}
+.rd{width:5px;height:5px;border-radius:50%}
+.rd.d{background:var(--dps)}.rd.h{background:var(--healer)}.rd.t{background:var(--tanker)}
+
+.t-list{padding:4px 8px}
+.m-row{display:flex;align-items:center;padding:6px 8px;border-radius:8px;gap:8px;transition:background .2s}
+.m-row:hover{background:rgba(34,197,94,.05)}
+.m-num{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;background:rgba(255,255,255,.04);color:var(--text3);flex-shrink:0}
+.m-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--green-600),var(--green-400));
+  display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:2px solid transparent}
+.m-av.ld{border-color:var(--gold);box-shadow:0 0 8px rgba(251,191,36,.4)}
+.m-det{flex:1;min-width:0}
+.m-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-gn{font-size:11px;color:var(--text3)}
+.m-tag{padding:2px 8px;border-radius:14px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.m-tag.d{background:rgba(96,165,250,.12);color:var(--dps)}
+.m-tag.h{background:rgba(74,222,128,.12);color:var(--healer)}
+.m-tag.t{background:rgba(251,146,60,.12);color:var(--tanker)}
+.slot-e{padding:6px 8px;color:var(--text3);font-style:italic;font-size:12px;opacity:.4;display:flex;align-items:center;gap:8px}
+.slot-e .m-num{border:1px dashed rgba(255,255,255,.08);background:none}
+
+/* ═══ RIGHT PANEL ═══ */
+.right{display:flex;flex-direction:column;overflow:hidden}
+.r-tabs{display:flex;padding:12px 16px 0;gap:8px;flex-shrink:0}
+.r-tab{padding:8px 20px;border-radius:10px 10px 0 0;font-weight:600;font-size:13px;cursor:pointer;
+  transition:all .3s;background:rgba(255,255,255,.03);color:var(--text2);border:1px solid transparent;border-bottom:none}
+.r-tab:hover{color:var(--text);background:rgba(34,197,94,.08)}
+.r-tab.active{background:var(--bg-card);color:var(--gold);border-color:rgba(34,197,94,.2)}
+.r-content{flex:1;overflow:hidden}
+.r-pane{display:none;height:100%;padding:16px;overflow-y:auto}
+.r-pane.active{display:flex;flex-direction:column;gap:16px}
+
+/* Pane: Map */
+.map-box{position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(34,197,94,.15);flex:1;min-height:300px}
+.map-box img{width:100%;height:100%;object-fit:cover;display:block}
+.map-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,26,15,.3),transparent 30%,transparent 70%,rgba(10,26,15,.4));pointer-events:none}
+.map-top{position:absolute;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;
+  background:linear-gradient(180deg,rgba(10,26,15,.7),transparent)}
+.map-top .tt{font-weight:700;font-size:15px;color:var(--gold)}
+.map-top .pl{font-size:12px;color:var(--green-300);background:rgba(10,26,15,.5);padding:3px 12px;border-radius:16px;border:1px solid rgba(34,197,94,.2)}
+.mk{position:absolute;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;cursor:pointer;transition:transform .3s;z-index:5;border:2px solid rgba(255,255,255,.3)}
+.mk:hover{transform:scale(1.3);z-index:10}
+.mk.a1{background:rgba(239,68,68,.85);box-shadow:0 0 12px rgba(239,68,68,.5)}
+.mk.a2{background:rgba(249,115,22,.85);box-shadow:0 0 12px rgba(249,115,22,.5)}
+.mk.df{background:rgba(59,130,246,.85);box-shadow:0 0 12px rgba(59,130,246,.5)}
+.mk.fr{background:rgba(34,197,94,.85);box-shadow:0 0 12px rgba(34,197,94,.5)}
+.mk-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;
+  background:rgba(10,26,15,.92);padding:4px 10px;border-radius:6px;font-size:11px;opacity:0;pointer-events:none;
+  transition:opacity .2s;border:1px solid rgba(34,197,94,.2)}
+.mk:hover .mk-tip{opacity:1}
+
+/* Pane: Stats */
+.s-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.s-card{background:rgba(255,255,255,.03);border-radius:12px;padding:20px;border:1px solid rgba(255,255,255,.05);text-align:center}
+.s-val{font-size:36px;font-weight:800}
+.s-val.d{color:var(--dps)}.s-val.h{color:var(--healer)}.s-val.t{color:var(--tanker)}.s-val.total{color:var(--gold)}
+.s-lbl{font-size:12px;color:var(--text3);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+.chart-area{background:rgba(255,255,255,.02);border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,.05)}
+.chart-title{font-weight:700;font-size:14px;color:var(--green-300);margin-bottom:16px}
+.bar-chart{display:flex;align-items:flex-end;gap:16px;height:140px;padding:0 20px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bar-fill{width:100%;border-radius:8px 8px 0 0;transition:height 1s ease;min-height:4px}
+.bar-label{font-size:11px;color:var(--text3);font-weight:600}
+.bar-value{font-size:13px;font-weight:700}
+.team-comp{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tc-card{background:rgba(255,255,255,.02);border-radius:10px;padding:14px;text-align:center;border:1px solid rgba(255,255,255,.04)}
+.tc-name{font-size:12px;font-weight:700;margin-bottom:8px}
+.tc-bars{display:flex;gap:4px;justify-content:center}
+.tc-bar{width:8px;border-radius:4px;min-height:4px}
+
+/* Pane: Control */
+.ctrl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.c-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--text);
+  font-size:13px;font-weight:600;cursor:pointer;transition:all .3s;font-family:'Inter',sans-serif}
+.c-btn:hover{transform:translateY(-2px);box-shadow:0 4px 15px rgba(0,0,0,.3)}
+.c-btn.dg{border-color:rgba(239,68,68,.3);color:#fca5a5}.c-btn.dg:hover{background:rgba(239,68,68,.12)}
+.c-btn.sc{border-color:rgba(34,197,94,.3);color:var(--green-300)}.c-btn.sc:hover{background:rgba(34,197,94,.12)}
+.c-btn.pr{border-color:rgba(59,130,246,.3);color:#93c5fd}.c-btn.pr:hover{background:rgba(59,130,246,.12)}
+.c-btn.gd{border-color:rgba(251,191,36,.3);color:var(--gold)}.c-btn.gd:hover{background:rgba(251,191,36,.08)}
+.c-btn.sd{border-color:rgba(148,163,184,.2);color:var(--text2)}.c-btn.sd:hover{background:rgba(148,163,184,.06)}
+.log-area{background:rgba(255,255,255,.02);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.04);flex:1;overflow-y:auto}
+.log-title{font-weight:700;font-size:14px;color:var(--green-300);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.log-item{padding:8px 12px;border-radius:8px;font-size:12px;color:var(--text2);margin-bottom:6px;
+  background:rgba(255,255,255,.02);border-left:3px solid var(--green-600);display:flex;gap:8px;align-items:center}
+.log-time{color:var(--text3);font-size:11px;flex-shrink:0}
+
+/* Footer */
+.footer{text-align:center;padding:8px;color:var(--text3);font-size:11px;border-top:1px solid rgba(34,197,94,.08);flex-shrink:0}
+.footer span{color:var(--green-400)}
+</style>
+</head>
+<body>
+<!-- SVG Icon Defs -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="ico-swords" viewBox="0 0 24 24"><path fill="currentColor" d="M6.92 5H5l-3.5 7h4.23l-.94 7h2.14l3.07-8H7.77L9.5 5h-2.58zm10.16 0H19l3.5 7h-4.23l.94 7h-2.14l-3.07-8h2.23L14.5 5h2.58z"/><path fill="currentColor" d="M14.5 2l-2.5 5-2.5-5h5zm-2.5 20l-2-4h4l-2 4z" opacity=".6"/></symbol>
+  <symbol id="ico-sword" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3l-2 6-4-4 6-2zm-5.5 7.5l-8 8-1.5-1.5 8-8 1.5 1.5zM3 19l2 2 2-1-3-3-1 2z"/></symbol>
+  <symbol id="ico-dagger" viewBox="0 0 24 24"><path fill="currentColor" d="M21 2l-7 3 3 3-8.5 8.5-1.5-1.5-2 2L7 19l2-2-1.5-1.5L16 7l3 3 2-8z"/></symbol>
+  <symbol id="ico-shield" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm0 18c-3.54-1.07-6-5.02-6-9.09V6.31l6-2.25 6 2.25v4.6c0 4.07-2.46 8.02-6 9.09z"/><path fill="currentColor" d="M12 4.06L6 6.31v4.6c0 4.07 2.46 8.02 6 9.09V4.06z" opacity=".3"/></symbol>
+  <symbol id="ico-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></symbol>
+  <symbol id="ico-cross" viewBox="0 0 24 24"><path fill="currentColor" d="M10 3h4v5h5v4h-5v9h-4v-9H5V8h5V3z"/></symbol>
+  <symbol id="ico-tree" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L5 10h3l-3 6h4v6h6v-6h4l-3-6h3L12 2zm0 2.74L16.12 10H14l3 6h-2v4h-2v-4H9l3-6H9.88L12 4.74z"/><path fill="currentColor" d="M12 4.74L9.88 10H12l-3 6h4v4h2v-4h2l-3-6h2.12L12 4.74z" opacity=".3"/></symbol>
+  <symbol id="ico-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></symbol>
+  <symbol id="ico-crown" viewBox="0 0 24 24"><path fill="currentColor" d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm0 2h14v2H5v-2z"/></symbol>
+  <symbol id="ico-map" viewBox="0 0 24 24"><path fill="currentColor" d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></symbol>
+  <symbol id="ico-chart" viewBox="0 0 24 24"><path fill="currentColor" d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></symbol>
+  <symbol id="ico-gamepad" viewBox="0 0 24 24"><path fill="currentColor" d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></symbol>
+  <symbol id="ico-calendar" viewBox="0 0 24 24"><path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></symbol>
+  <symbol id="ico-users" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+</svg>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="guild-emblem"><svg width="28" height="28"><use href="#ico-swords"/></svg></div>
+  <div><div class="guild-name">LANG GIA</div></div>
+  <div class="status-live"><div class="status-dot"></div>Đang diễn ra</div>
+  <div class="header-info">
+    <div class="h-stat"><div class="val">27/30</div><div class="lbl"><svg width="12" height="12" style="vertical-align:-1px;margin-right:2px"><use href="#ico-users"/></svg>Thành viên</div></div>
+    <div class="h-stat"><div class="val" style="color:var(--dps)">16</div><div class="lbl"><svg width="12" height="12" style="vertical-align:-1px;margin-right:2px;color:var(--dps)"><use href="#ico-sword"/></svg>DPS</div></div>
+    <div class="h-stat"><div class="val" style="color:var(--healer)">6</div><div class="lbl"><svg width="12" height="12" style="vertical-align:-1px;margin-right:2px;color:var(--healer)"><use href="#ico-cross"/></svg>Healer</div></div>
+    <div class="h-stat"><div class="val" style="color:var(--tanker)">5</div><div class="lbl"><svg width="12" height="12" style="vertical-align:-1px;margin-right:2px;color:var(--tanker)"><use href="#ico-shield"/></svg>Tanker</div></div>
+  </div>
+</div>
+
+<!-- DAY TABS + PROGRESS -->
+<div class="day-bar">
+  <div class="day-tab active" onclick="switchDay(this)"><svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"><use href="#ico-calendar"/></svg>Thứ 7 <span class="badge">27/30</span></div>
+  <div class="day-tab" onclick="switchDay(this)"><svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"><use href="#ico-calendar"/></svg>Chủ Nhật <span class="badge">Chưa mở</span></div>
+  <div class="progress-mini"><div class="bar"><div class="fill" style="width:90%"></div></div><div class="num">27/30</div></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- LEFT: Teams list (scrollable) -->
+  <div class="left" id="leftPanel"></div>
+
+  <!-- RIGHT: Tabbed content (no scroll on page) -->
+  <div class="right">
+    <div class="r-tabs">
+      <div class="r-tab active" onclick="switchRTab(this,'pane-map')"><svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"><use href="#ico-map"/></svg>Bản đồ</div>
+      <div class="r-tab" onclick="switchRTab(this,'pane-stats')"><svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"><use href="#ico-chart"/></svg>Thống kê</div>
+      <div class="r-tab" onclick="switchRTab(this,'pane-ctrl')"><svg width="14" height="14" style="vertical-align:-2px;margin-right:4px"><use href="#ico-gamepad"/></svg>Quản lý</div>
+    </div>
+    <div class="r-content">
+      <!-- MAP PANE -->
+      <div class="r-pane active" id="pane-map">
+        <div class="map-box">
+          <img src="./anh/map guild 30vs30.png" alt="Battle Map">
+          <div class="map-ov"></div>
+          <div class="map-top"><span class="tt"><svg width="16" height="16" style="vertical-align:-3px;margin-right:4px"><use href="#ico-map"/></svg>Battle Map</span><span class="pl">27/30 Placed</span></div>
+          <div class="mk a1" style="top:22%;left:18%"><svg width="16" height="16"><use href="#ico-sword"/></svg><div class="mk-tip">Team Công 1 • 10 người</div></div>
+          <div class="mk a2" style="top:22%;left:76%"><svg width="16" height="16"><use href="#ico-dagger"/></svg><div class="mk-tip">Team Công 2 • 10 người</div></div>
+          <div class="mk df" style="top:48%;left:47%"><svg width="16" height="16"><use href="#ico-shield"/></svg><div class="mk-tip">Team Thủ • 5 người</div></div>
+          <div class="mk fr" style="top:70%;left:14%"><svg width="16" height="16"><use href="#ico-tree"/></svg><div class="mk-tip">Team Rừng • 2 người</div></div>
+          <div class="mk fr" style="top:70%;left:82%"><svg width="16" height="16"><use href="#ico-tree"/></svg><div class="mk-tip">Team Rừng • Trống</div></div>
+        </div>
+      </div>
+
+      <!-- STATS PANE -->
+      <div class="r-pane" id="pane-stats">
+        <div class="s-grid">
+          <div class="s-card"><div class="s-val total">27</div><div class="s-lbl">Tổng cộng</div></div>
+          <div class="s-card"><div class="s-val d">16</div><div class="s-lbl">🔵 DPS</div></div>
+          <div class="s-card"><div class="s-val h">6</div><div class="s-lbl">🟢 Healer</div></div>
+          <div class="s-card"><div class="s-val t">5</div><div class="s-lbl">🟠 Tanker</div></div>
+        </div>
+        <div class="chart-area">
+          <div class="chart-title">📊 Phân bổ theo Team</div>
+          <div class="bar-chart">
+            <div class="bar-col"><div class="bar-value" style="color:var(--dps)">6</div><div class="bar-fill" style="height:60%;background:var(--dps)"></div><div class="bar-label">C1 DPS</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--healer)">2</div><div class="bar-fill" style="height:20%;background:var(--healer)"></div><div class="bar-label">C1 Heal</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--tanker)">2</div><div class="bar-fill" style="height:20%;background:var(--tanker)"></div><div class="bar-label">C1 Tank</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--dps)">7</div><div class="bar-fill" style="height:70%;background:var(--dps)"></div><div class="bar-label">C2 DPS</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--healer)">2</div><div class="bar-fill" style="height:20%;background:var(--healer)"></div><div class="bar-label">C2 Heal</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--tanker)">1</div><div class="bar-fill" style="height:10%;background:var(--tanker)"></div><div class="bar-label">C2 Tank</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--dps)">2</div><div class="bar-fill" style="height:20%;background:#3b82f6"></div><div class="bar-label">Thủ</div></div>
+            <div class="bar-col"><div class="bar-value" style="color:var(--healer)">2</div><div class="bar-fill" style="height:20%;background:var(--green-400)"></div><div class="bar-label">Rừng</div></div>
+          </div>
+        </div>
+        <div class="chart-area">
+          <div class="chart-title">🏆 Tỷ lệ vai trò tổng thể</div>
+          <div class="team-comp">
+            <div class="tc-card"><div class="tc-name" style="color:#ef4444">⚔️ Công 1</div><div class="tc-bars"><div class="tc-bar" style="height:40px;background:var(--dps)"></div><div class="tc-bar" style="height:14px;background:var(--healer)"></div><div class="tc-bar" style="height:14px;background:var(--tanker)"></div></div><div style="font-size:11px;color:var(--text3);margin-top:6px">10/10</div></div>
+            <div class="tc-card"><div class="tc-name" style="color:#f97316">🗡️ Công 2</div><div class="tc-bars"><div class="tc-bar" style="height:46px;background:var(--dps)"></div><div class="tc-bar" style="height:14px;background:var(--healer)"></div><div class="tc-bar" style="height:8px;background:var(--tanker)"></div></div><div style="font-size:11px;color:var(--text3);margin-top:6px">10/10</div></div>
+            <div class="tc-card"><div class="tc-name" style="color:#3b82f6">🛡️ Thủ</div><div class="tc-bars"><div class="tc-bar" style="height:14px;background:var(--dps)"></div><div class="tc-bar" style="height:8px;background:var(--healer)"></div><div class="tc-bar" style="height:14px;background:var(--tanker)"></div></div><div style="font-size:11px;color:var(--text3);margin-top:6px">5/5</div></div>
+            <div class="tc-card"><div class="tc-name" style="color:var(--green-400)">🌲 Rừng</div><div class="tc-bars"><div class="tc-bar" style="height:8px;background:var(--dps)"></div><div class="tc-bar" style="height:8px;background:var(--healer)"></div></div><div style="font-size:11px;color:var(--text3);margin-top:6px">2/5</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROL PANE -->
+      <div class="r-pane" id="pane-ctrl">
+        <div class="ctrl-grid">
+          <button class="c-btn dg">❌ Loại bỏ</button>
+          <button class="c-btn sc">📋 Chốt DS</button>
+          <button class="c-btn sd">📏 Resize</button>
+          <button class="c-btn pr">🔄 Đổi chỗ</button>
+          <button class="c-btn pr">➕ Thêm người</button>
+          <button class="c-btn gd">👑 Set Leader</button>
+        </div>
+        <div class="log-area">
+          <div class="log-title">📝 Lịch sử thao tác</div>
+          <div class="log-item"><span class="log-time">16:20</span>👑 RainĐiTu được đặt làm Leader Team Công 1</div>
+          <div class="log-item"><span class="log-time">16:18</span>➕ QuietGeyser đã được thêm vào Team Rừng</div>
+          <div class="log-item"><span class="log-time">16:15</span>🔄 Bewaretherabbit đổi từ Công 1 → Công 2</div>
+          <div class="log-item"><span class="log-time">16:12</span>📏 Team Thủ resize: 6 → 5</div>
+          <div class="log-item"><span class="log-time">16:10</span>⚔️ Phiên bang chiến Thứ 7 đã được mở</div>
+          <div class="log-item"><span class="log-time">16:08</span>📋 Đã chốt danh sách 27 người</div>
+          <div class="log-item"><span class="log-time">16:05</span>❌ BongLiu bị loại khỏi Team Công 1</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer"><span>⚔️ Lang Gia</span> • Guild War Strategy • Where Winds Meet • 🟢 Active</div>
+
+<script>
+const DATA={
+  attack1:[
+    {name:'RainĐiTu',gn:'RainĐiTu',role:'DPS',sub:'QD',ld:true},
+    {name:'BongHoaDepNhat',gn:'BongHoaDepNhat',role:'DPS',sub:'VD'},
+    {name:'HaJenny',gn:'HaJenny',role:'DPS',sub:'9K'},
+    {name:'xnxx-JinYangLuu',gn:'xnxx-JinYangLuu',role:'DPS',sub:'SD'},
+    {name:'aquacess',gn:'aquacess',role:'DPS',sub:'QD'},
+    {name:'RosariaVladimir',gn:'RosariaVladimir',role:'DPS'},
+    {name:'VenZ',gn:'VenZ',role:'Healer'},
+    {name:'Paxetamor',gn:'Paxetamor',role:'Healer'},
+    {name:'Tlu',gn:'Tlu',role:'Tanker'},
+    {name:'TT-KEN',gn:'TT-KEN',role:'Tanker'}
+  ],
+  attack2:[
+    {name:'Bewaretherabbit',gn:'Bewaretherabbit',role:'DPS',sub:'QD',ld:true},
+    {name:'WanggMing',gn:'WanggMing',role:'DPS',sub:'VD'},
+    {name:'Yungkun',gn:'Yungkun',role:'DPS',sub:'9K'},
+    {name:'JohnnyCao',gn:'JohnnyCao',role:'DPS',sub:'SD'},
+    {name:'Haxinhdep',gn:'Haxinhdep',role:'DPS'},
+    {name:'Limita',gn:'Limita',role:'DPS'},
+    {name:'ITranHail',gn:'ITranHail',role:'DPS',sub:'QD'},
+    {name:'DUYNIPPON',gn:'DUYNIPPON',role:'Healer'},
+    {name:'HuyHeoHuHong',gn:'HuyHeoHuHong',role:'Healer'},
+    {name:'月の水',gn:'月の水',role:'Tanker'}
+  ],
+  defense:[
+    {name:'PhongTuCa',gn:'PhongTuCa',role:'Tanker',ld:true},
+    {name:'DLam',gn:'DLam',role:'Tanker'},
+    {name:'VuNgã',gn:'VuNgã',role:'Healer'},
+    {name:'Gurasame',gn:'Gurasame',role:'DPS',sub:'VD'},
+    {name:'Arisusagi',gn:'Arisusagi',role:'DPS',sub:'QD'}
+  ],
+  forest:[
+    {name:'SteveYip',gn:'SteveYip',role:'DPS',sub:'9K',ld:true},
+    {name:'QuietGeyser',gn:'QuietGeyser',role:'Healer'}
+  ],
+  waiting:[
+    {name:'BongLiu',gn:'BongLiu',role:'DPS'},
+    {name:'PhongTuCa',gn:'PhongTuCa',role:'Healer'},
+    {name:'Arisusagi',gn:'Arisusagi',role:'DPS',sub:'SD'}
+  ]
+};
+
+const TEAMS=[
+  {key:'attack1',cls:'a1',icon:'<svg width="16" height="16"><use href="#ico-sword"/></svg>',title:'TEAM CÔNG 1',max:10},
+  {key:'attack2',cls:'a2',icon:'<svg width="16" height="16"><use href="#ico-dagger"/></svg>',title:'TEAM CÔNG 2',max:10},
+  {key:'defense',cls:'df',icon:'<svg width="16" height="16"><use href="#ico-shield"/></svg>',title:'TEAM THỦ',max:5},
+  {key:'forest',cls:'fr',icon:'<svg width="16" height="16"><use href="#ico-tree"/></svg>',title:'TEAM RỪNG',max:5},
+  {key:'waiting',cls:'wt',icon:'<svg width="16" height="16"><use href="#ico-clock"/></svg>',title:'DANH SÁCH CHỜ',max:0}
+];
+
+function emo(r){return r==='DPS'?'<svg width="14" height="14" style="color:var(--dps)"><use href="#ico-sword"/></svg>':r==='Healer'?'<svg width="14" height="14" style="color:var(--healer)"><use href="#ico-cross"/></svg>':'<svg width="14" height="14" style="color:var(--tanker)"><use href="#ico-shield"/></svg>'}
+function rcls(r){return r==='DPS'?'d':r==='Healer'?'h':'t'}
+
+function renderLeft(){
+  const el=document.getElementById('leftPanel');
+  let html='',num=1;
+  TEAMS.forEach(t=>{
+    const players=DATA[t.key];
+    const stats={d:0,h:0,t:0};
+    players.forEach(p=>{if(p.role==='DPS')stats.d++;else if(p.role==='Healer')stats.h++;else stats.t++});
+    html+=`<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key==='waiting'?' style="color:var(--gold)"':''}>${t.title}</div><div class="t-cnt">${t.max?players.length+'/'+t.max+' thành viên':players.length+' người chờ'}</div></div></div><div class="t-roles">`;
+    if(stats.d)html+=`<div class="rb d"><div class="rd d"></div>${stats.d}</div>`;
+    if(stats.h)html+=`<div class="rb h"><div class="rd h"></div>${stats.h}</div>`;
+    if(stats.t)html+=`<div class="rb t"><div class="rd t"></div>${stats.t}</div>`;
+    html+=`</div></div><div class="t-list">`;
+    players.forEach(p=>{
+      const sub=p.sub?' ['+p.sub+']':'';
+      const ld=p.ld?' <svg width="14" height="14" style="color:var(--gold);vertical-align:-2px;margin-left:2px"><use href="#ico-crown"/></svg>':'';
+      html+=`<div class="m-row"><div class="m-num">${num}</div><div class="m-av${p.ld?' ld':''}">${emo(p.role)}</div><div class="m-det"><div class="m-name">${p.name}${ld}</div><div class="m-gn">${p.gn}</div></div><div class="m-tag ${rcls(p.role)}">${p.role}${sub}</div></div>`;
+      num++;
+    });
+    if(t.max&&players.length<t.max){
+      for(let i=players.length;i<t.max;i++){
+        html+=`<div class="slot-e"><div class="m-num">${num}</div>Trống...</div>`;num++;
+      }
+    }
+    html+=`</div></div>`;
+  });
+  el.innerHTML=html;
+}
+
+function switchDay(el){document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active')}
+function switchRTab(el,id){
+  document.querySelectorAll('.r-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  document.querySelectorAll('.r-pane').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');
+}
+
+renderLeft();
+</script>
+</body>
+</html>

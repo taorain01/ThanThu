@@ -12,6 +12,7 @@
  *   - pickrole_dps_songdao  : Song Đao
  *   - pickrole_dps_cuukicem : Cửu Kiếm
  *   - pickrole_dps_duroi    : Dù Roi
+ *   - pickrole_dps_hoanhdao : Hoành Đao/Mđ
  * 
  * Được import vào: src/events/client/interactionCreate.js
  * ═══════════════════════════════════════════════════════════════════════════

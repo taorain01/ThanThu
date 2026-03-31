@@ -6,7 +6,8 @@ const dpsSubTypes = {
     'vodanh': { name: 'Vô Danh', color: 0x3498DB, emoji: '🗡️', aliases: ['vodanh', 'vo danh', 'vd'] },
     'songdao': { name: 'Song Đao', color: 0xE74C3C, emoji: '⚔️', aliases: ['sd', 'song dao', 'songdao'] },
     'cuukiem': { name: 'Cửu Kiếm', color: 0xF39C12, emoji: '🔱', aliases: ['9k', 'cuukiem', 'ck', 'cuu kiem'] },
-    'duroi': { name: 'Dù Roi', color: 0xE91E63, emoji: '🌂', aliases: ['dr', 'du roi', 'duroi'] }
+    'duroi': { name: 'Dù Roi', color: 0xE91E63, emoji: '🌂', aliases: ['dr', 'du roi', 'duroi'] },
+    'hoanhdao': { name: 'Hoành Đao/Mđ', color: 0xD35400, emoji: '🔪', aliases: ['hd', 'hoanhdao', 'hoang dao', 'md', 'mđ', 'hoanh dao'] }
 };
 
 // Helper function: Tìm DPS sub-type từ input
@@ -293,7 +294,8 @@ module.exports = {
                     { name: '🗡️ Vô Danh', value: 'vodanh' },
                     { name: '⚔️ Song Đao', value: 'songdao' },
                     { name: '🔱 Cửu Kiếm', value: 'cuukiem' },
-                    { name: '🌂 Dù Roi', value: 'duroi' }
+                    { name: '🌂 Dù Roi', value: 'duroi' },
+                    { name: '🔪 Hoành Đao/Mđ', value: 'hoanhdao' }
                 )
         ),
 
@@ -315,13 +317,13 @@ module.exports = {
                 '🟢 **Healer** - Hỗ trợ và hồi máu\n' +
                 '🟠 **Tanker** - Chịu đòn và bảo vệ đồng đội\n\n' +
                 '**🔵 DPS - Sát thương chính:**\n' +
-                '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi**\n\n' +
+                '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi** │ 🔪 **Hoành Đao/Mđ**\n\n' +
                 'ℹ️ *Chọn lại role khác sẽ tự động thay đổi role hiện tại*')
             .setTimestamp()
             .setFooter({ text: 'Chọn role trong game của bạn!' });
 
-        // Row 1: DPS sub-types
-        const dpsRow = new ActionRowBuilder()
+        // Row 1: DPS sub-types (5 nút đầu)
+        const dpsRow1 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId('pickrole_dps_quatdu')
@@ -350,7 +352,17 @@ module.exports = {
                     .setStyle(ButtonStyle.Primary)
             );
 
-        // Row 2: Healer & Tanker
+        // Row 2: DPS sub-types tiếp theo
+        const dpsRow2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('pickrole_dps_hoanhdao')
+                    .setLabel('Hoành Đao/Mđ')
+                    .setEmoji('🔪')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        // Row 3: Healer & Tanker
         const otherRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
@@ -367,7 +379,7 @@ module.exports = {
 
         await interaction.reply({
             embeds: [embed],
-            components: [dpsRow, otherRow]
+            components: [dpsRow1, dpsRow2, otherRow]
         });
     },
 

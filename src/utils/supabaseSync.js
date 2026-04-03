@@ -730,11 +730,15 @@ function formatActiveSession(activeSession, db, guild = null) {
 async function syncAllActiveSessions(db, guildId, guild = null) {
     if (!isReady()) return;
     try {
-        // Lấy tất cả active sessions từ SQLite
-        const getAll = db.db ? db.db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ?') : null;
-        if (!getAll) return;
-
-        const localSessions = getAll.all(guildId);
+        // Lấy tất cả active sessions từ SQLite (dùng helper function, không dùng raw db.db)
+        let localSessions = [];
+        if (typeof db.getActiveBangchienByGuild === 'function') {
+            localSessions = db.getActiveBangchienByGuild(guildId) || [];
+        } else if (db.db) {
+            // Fallback: raw SQL
+            localSessions = db.db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ?').all(guildId);
+        }
+        console.log(`[Supabase] 🔍 syncAllActiveSessions: tìm thấy ${localSessions.length} sessions trong SQLite (guild=${guildId})`);
 
         // ═══ RECONCILE: Query Supabase để tìm session đã bị xoá từ web khi bot offline ═══
         const { data: remoteSessions } = await supabase
@@ -802,7 +806,9 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
         }
 
         // ═══ SYNC: Push các session còn lại lên Supabase ═══
-        const remainingSessions = getAll.all(guildId); // Query lại sau reconcile
+        const remainingSessions = typeof db.getActiveBangchienByGuild === 'function'
+            ? (db.getActiveBangchienByGuild(guildId) || [])
+            : (db.db ? db.db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ?').all(guildId) : []);
         for (const session of remainingSessions) {
             const day = session.day || 'sat';
             const data = formatActiveSession(session, db, guild);

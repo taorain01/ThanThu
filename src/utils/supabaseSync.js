@@ -809,6 +809,19 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
         const remainingSessions = typeof db.getActiveBangchienByGuild === 'function'
             ? (db.getActiveBangchienByGuild(guildId) || [])
             : (db.db ? db.db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ?').all(guildId) : []);
+
+        // Pre-fetch TẤT CẢ guild members vào cache trước khi đọc role/vũ khí
+        // Giải quyết lỗi: guild.members.cache trống khi bot vừa restart
+        // → formatActiveSession() (sync) không thể gọi fetch() nên phải dựa vào cache
+        if (guild && remainingSessions.length > 0) {
+            try {
+                await guild.members.fetch();
+                console.log(`[Supabase] ✅ Pre-fetched ${guild.members.cache.size} members vào cache`);
+            } catch (fetchErr) {
+                console.warn(`[Supabase] ⚠️ Pre-fetch members thất bại: ${fetchErr.message}`);
+            }
+        }
+
         for (const session of remainingSessions) {
             const day = session.day || 'sat';
             const data = formatActiveSession(session, db, guild);

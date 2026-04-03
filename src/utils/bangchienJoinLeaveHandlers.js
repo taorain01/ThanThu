@@ -45,35 +45,45 @@ async function handleButton(interaction, client) {
             }
 
             // Detect user role (DPS/Healer/Tanker) từ Discord roles
-            let userRole = 'DPS'; // Default
+            // Thứ tự ưu tiên: Healer > Tanker > DPS sub-type > DPS > fallback
+            // Dùng guard !userRole để mỗi bước chỉ chạy khi chưa detect được role cao hơn
+            let userRole = null;
             let subRoleName = ''; // Phái (Quạt Dù, Vô Danh,...)
             const member = interaction.member;
-            const dpsSubTypeRoles = ['Quạt Dù', 'Vô Danh', 'Song Đao', 'Cửu Kiếm'];
+            const dpsSubTypeRoles = ['Quạt Dù', 'Vô Danh', 'Song Đao', 'Cửu Kiếm', 'Dù Roi', 'Hoành Đao/Mđ'];
 
-            // Check Healer first
+            // 1. Healer - ưu tiên cao nhất
             const healerRole = interaction.guild.roles.cache.find(r => r.name === 'Healer');
             if (healerRole && member.roles.cache.has(healerRole.id)) {
                 userRole = 'Healer';
             }
-            // Check Tanker
-            const tankerRole = interaction.guild.roles.cache.find(r => r.name === 'Tanker');
-            if (tankerRole && member.roles.cache.has(tankerRole.id)) {
-                userRole = 'Tanker';
-            }
-            // Check DPS sub-types (phái)
-            for (const subTypeName of dpsSubTypeRoles) {
-                const subRole = interaction.guild.roles.cache.find(r => r.name === subTypeName);
-                if (subRole && member.roles.cache.has(subRole.id)) {
-                    userRole = 'DPS';
-                    subRoleName = subTypeName;
-                    break;
+            // 2. Tanker (chỉ check nếu chưa là Healer)
+            if (!userRole) {
+                const tankerRole = interaction.guild.roles.cache.find(r => r.name === 'Tanker');
+                if (tankerRole && member.roles.cache.has(tankerRole.id)) {
+                    userRole = 'Tanker';
                 }
             }
-            // Check DPS main role
-            const dpsRole = interaction.guild.roles.cache.find(r => r.name === 'DPS');
-            if (dpsRole && member.roles.cache.has(dpsRole.id)) {
-                userRole = 'DPS';
+            // 3. DPS sub-types (chỉ check nếu chưa detect được)
+            if (!userRole) {
+                for (const subTypeName of dpsSubTypeRoles) {
+                    const subRole = interaction.guild.roles.cache.find(r => r.name === subTypeName);
+                    if (subRole && member.roles.cache.has(subRole.id)) {
+                        userRole = 'DPS';
+                        subRoleName = subTypeName;
+                        break;
+                    }
+                }
             }
+            // 4. DPS main role (chỉ check nếu chưa detect được)
+            if (!userRole) {
+                const dpsRole = interaction.guild.roles.cache.find(r => r.name === 'DPS');
+                if (dpsRole && member.roles.cache.has(dpsRole.id)) {
+                    userRole = 'DPS';
+                }
+            }
+            // 5. Fallback nếu không có role nào
+            userRole = userRole || 'DPS';
 
             // Lấy game_username từ DB users
             const userInfo = db.getUserByDiscordId(interaction.user.id);

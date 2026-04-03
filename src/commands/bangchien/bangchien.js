@@ -573,6 +573,21 @@ module.exports = {
             // Cập nhật overview thay vì gửi embed riêng
             await refreshOverviewEmbed(client, guildId);
 
+            // Sync lên Supabase để web nhận realtime update
+            // (quan trọng sau bot restart — web cần data mới để hiển thị đúng)
+            try {
+                const supaSync = require('../../utils/supabaseSync');
+                if (supaSync.isReady()) {
+                    const formatted = supaSync.formatActiveSession(existingSession, db, message.guild);
+                    if (formatted) {
+                        await supaSync.syncBCSession(guildId, day, formatted);
+                        console.log(`[bangchien] ✅ Sync session ${day} lên Supabase (?bc existing)`);
+                    }
+                }
+            } catch (syncErr) {
+                console.log('[bangchien] Lỗi sync Supabase (existing session):', syncErr.message);
+            }
+
             // Reply ngắn cho user biết
             const reply = await message.reply({
                 content: `✅ Session **${dayConfig.name}** đang mở. Xem tại kênh ?bc overview.`,

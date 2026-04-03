@@ -521,7 +521,11 @@ module.exports = {
             console.error('[Supabase] Khong gui duoc thong bao luu chien thuat:', error.message);
           }
         });
-        await supaSync.syncAllActiveSessions(db, guild.id, guild);
+        // Sync sessions cho tất cả guilds mà bot đang join
+        // (tránh bỏ sót khi guildId env var trỏ sai guild)
+        for (const [, g] of client.guilds.cache) {
+          await supaSync.syncAllActiveSessions(db, g.id, g);
+        }
         console.log('[Supabase] Đã sync sessions khi start');
 
         // Sync tất cả users lên Supabase bc_users

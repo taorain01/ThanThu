@@ -14,33 +14,7 @@ function resolvePrimaryGuild(client) {
   return client.guilds.cache.get(preferredGuildId) || client.guilds.cache.first() || null;
 }
 
-/**
- * Khôi phục thành viên bị đánh dấu rời nhầm bởi phiên bản cũ của checkMemberPresence.
- * Hàm này chỉ chạy 1 lần khi bot khởi động, tự vô hiệu hoá sau khi hoàn thành.
- * Nguyên nhân lỗi: guild.members.fetch() trả về cache rỗng trong lần đầu deploy,
- * khiến bot tưởng toàn bộ thành viên đã rời.
- */
-async function restoreWronglyMarkedMembers() {
-  // Khôi phục tất cả user bị đánh dấu rời trong vòng 12 tiếng qua
-  const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-  try {
-    const result = db.db.prepare(`
-      UPDATE users
-      SET
-        left_at = NULL,
-        position = CASE WHEN position = 'Không có' THEN 'mem' ELSE position END,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE left_at IS NOT NULL AND left_at > ?
-    `).run(cutoff);
-    if (result.changes > 0) {
-      console.log(`[restore] ✅ Đã khôi phục ${result.changes} thành viên bị đánh dấu rời nhầm.`);
-    } else {
-      console.log('[restore] Không có thành viên nào cần khôi phục.');
-    }
-  } catch (e) {
-    console.error('[restore] Lỗi khi khôi phục thành viên:', e.message);
-  }
-}
+
 
 async function refreshUserPositionsFromDiscord(client) {
   const guild = resolvePrimaryGuild(client);
@@ -526,9 +500,8 @@ module.exports = {
     // Migrate old display roles sang tên mới
     await migrateDisplayRoles(client);
 
-    // ✅ Khôi phục thành viên bị đánh dấu rời nhầm (fix một lần)
-    await restoreWronglyMarkedMembers();
     await seedKcMembersIntoBotData(client);
+
 
     // S& Đng b" lại position từ role Discord thật -> SQLite/Supabase
     await refreshUserPositionsFromDiscord(client);

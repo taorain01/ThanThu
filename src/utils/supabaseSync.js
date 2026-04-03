@@ -744,51 +744,57 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
             .eq('status', 'active');
         const remoteDays = new Set((remoteSessions || []).map(s => s.day));
 
+        // Chỉ reconcile nếu Supabase đang có ít nhất 1 session
+        // Tránh xóa SQLite nhầm khi Supabase bị clear/reset thủ công
         let reconciledCount = 0;
-        for (const localSession of localSessions) {
-            const day = localSession.day;
-            if (day && !remoteDays.has(day)) {
-                // Session này tồn tại trong SQLite nhưng Supabase đã xoá → zombie
-                console.log(`[Supabase] 🧹 Reconcile: session ${day} đã bị xoá từ web khi bot offline → xoá SQLite`);
+        if ((remoteSessions || []).length > 0) {
+            for (const localSession of localSessions) {
+                const day = localSession.day;
+                if (day && !remoteDays.has(day)) {
+                    // Session này tồn tại trong SQLite nhưng Supabase đã xoá → zombie
+                    console.log(`[Supabase] 🧹 Reconcile: session ${day} đã bị xoá từ web khi bot offline → xoá SQLite`);
 
-                // Xoá role BC cho participants
-                if (guild) {
-                    const safeParse = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
-                    const participants = [
-                        ...safeParse(localSession.team_attack1),
-                        ...safeParse(localSession.team_attack2),
-                        ...safeParse(localSession.team_defense),
-                        ...safeParse(localSession.team_forest)
-                    ];
-                    const bcRole = guild.roles.cache.find(r => r.name === 'bc');
-                    if (bcRole && participants.length > 0) {
-                        for (const p of participants) {
-                            try {
-                                const member = await guild.members.fetch(p.id).catch(() => null);
-                                if (member && member.roles.cache.has(bcRole.id)) {
-                                    await member.roles.remove(bcRole);
-                                    console.log(`[Supabase] 🧹 Reconcile: xoá role BC cho ${member.user.username}`);
-                                }
-                            } catch (e) { }
+                    // Xoá role BC cho participants
+                    if (guild) {
+                        const safeParse = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+                        const participants = [
+                            ...safeParse(localSession.team_attack1),
+                            ...safeParse(localSession.team_attack2),
+                            ...safeParse(localSession.team_defense),
+                            ...safeParse(localSession.team_forest)
+                        ];
+                        const bcRole = guild.roles.cache.find(r => r.name === 'bc');
+                        if (bcRole && participants.length > 0) {
+                            for (const p of participants) {
+                                try {
+                                    const member = await guild.members.fetch(p.id).catch(() => null);
+                                    if (member && member.roles.cache.has(bcRole.id)) {
+                                        await member.roles.remove(bcRole);
+                                        console.log(`[Supabase] 🧹 Reconcile: xoá role BC cho ${member.user.username}`);
+                                    }
+                                } catch (e) { }
+                            }
                         }
                     }
+
+                    // Xoá khỏi SQLite
+                    const partyKey = localSession.party_key;
+                    db.deleteActiveBangchien(partyKey);
+
+                    // Dọn memory state
+                    try {
+                        const { bangchienNotifications, bangchienRegistrations } = require('./bangchienState');
+                        const notifData = bangchienNotifications.get(partyKey);
+                        if (notifData && notifData.intervalId) clearInterval(notifData.intervalId);
+                        bangchienNotifications.delete(partyKey);
+                        bangchienRegistrations.delete(partyKey);
+                    } catch (e) { }
+
+                    reconciledCount++;
                 }
-
-                // Xoá khỏi SQLite
-                const partyKey = localSession.party_key;
-                db.deleteActiveBangchien(partyKey);
-
-                // Dọn memory state
-                try {
-                    const { bangchienNotifications, bangchienRegistrations } = require('./bangchienState');
-                    const notifData = bangchienNotifications.get(partyKey);
-                    if (notifData && notifData.intervalId) clearInterval(notifData.intervalId);
-                    bangchienNotifications.delete(partyKey);
-                    bangchienRegistrations.delete(partyKey);
-                } catch (e) { }
-
-                reconciledCount++;
             }
+        } else {
+            console.log(`[Supabase] ⚠️ Supabase rỗng — bỏ qua reconcile, chỉ push SQLite lên`);
         }
 
         if (reconciledCount > 0) {

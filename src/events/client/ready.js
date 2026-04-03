@@ -9,97 +9,36 @@ const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require(
 // Dedup guard: chong gui thong bao trung lap khi bot nhan nhieu realtime event
 const _sessionNotifDedup = new Map();
 
-// Constants for member check
-const LEAVE_NOTIFICATION_CHANNEL = '1465959064575152263';
-
 function resolvePrimaryGuild(client) {
   const preferredGuildId = process.env.guildId || process.env.GUILD_ID || '1239836342456942643';
   return client.guilds.cache.get(preferredGuildId) || client.guilds.cache.first() || null;
 }
 
 /**
- * Check if active members in database are still in Discord guild
- * If not, mark them as left and send notification
+ * Khôi phục thành viên bị đánh dấu rời nhầm bởi phiên bản cũ của checkMemberPresence.
+ * Hàm này chỉ chạy 1 lần khi bot khởi động, tự vô hiệu hoá sau khi hoàn thành.
+ * Nguyên nhân lỗi: guild.members.fetch() trả về cache rỗng trong lần đầu deploy,
+ * khiến bot tưởng toàn bộ thành viên đã rời.
  */
-async function checkMemberPresence(client) {
-  console.log('[checkMemberPresence] Đang kiỒm tra thành viên...');
-
-  // Get all users and filter active ones (left_at is null and not pending)
-  const allUsers = db.getAllUsers();
-  const activeMembers = allUsers.filter(u => !u.left_at && !u.discord_id.startsWith('pending_'));
-
-  console.log(`[checkMemberPresence] Tìm thấy ${activeMembers.length} thành viên active trong database`);
-
-  let leftCount = 0;
-  const leftMembers = [];
-
-  // Get the first guild (assuming bot is in one main guild)
-  const guild = resolvePrimaryGuild(client);
-  if (!guild) {
-    console.log('[checkMemberPresence] Không tìm thấy guild nào');
-    return;
-  }
-
-  // Fetch all guild members to ensure cache is updated
+async function restoreWronglyMarkedMembers() {
+  // Khôi phục tất cả user bị đánh dấu rời trong vòng 12 tiếng qua
+  const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
   try {
-    await guild.members.fetch();
+    const result = db.db.prepare(`
+      UPDATE users
+      SET
+        left_at = NULL,
+        position = CASE WHEN position = 'Không có' THEN 'mem' ELSE position END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE left_at IS NOT NULL AND left_at > ?
+    `).run(cutoff);
+    if (result.changes > 0) {
+      console.log(`[restore] ✅ Đã khôi phục ${result.changes} thành viên bị đánh dấu rời nhầm.`);
+    } else {
+      console.log('[restore] Không có thành viên nào cần khôi phục.');
+    }
   } catch (e) {
-    console.error('[checkMemberPresence] Li fetch members:', e.message);
-  }
-
-  for (const userData of activeMembers) {
-    try {
-      // Check if member exists in guild
-      const member = guild.members.cache.get(userData.discord_id);
-
-      if (!member) {
-        // Member not in guild anymore - mark as left
-        const result = db.markUserAsLeft(userData.discord_id);
-
-        if (result.success) {
-          leftCount++;
-          leftMembers.push(userData);
-
-          // Clear display preference
-          db.clearUserDisplay(userData.discord_id);
-
-          console.log(`[checkMemberPresence] Đánh dấu rời: ${userData.game_username || userData.discord_name}`);
-        }
-      }
-    } catch (e) {
-      // Member doesn't exist
-    }
-  }
-
-  console.log(`[checkMemberPresence] Hoàn tất! ${leftCount} thành viên ã rời Discord`);
-
-  // Send batch notification if any members left
-  if (leftMembers.length > 0) {
-    try {
-      const channel = await client.channels.fetch(LEAVE_NOTIFICATION_CHANNEL);
-      if (channel) {
-
-
-        // Create member list
-        const memberList = leftMembers.map((u, i) =>
-          `**${i + 1}.** ${u.game_username || 'N/A'} (${u.discord_name}) - UID: ${u.game_uid || 'N/A'}`
-        ).join('\n');
-
-        const embed = new EmbedBuilder()
-          .setColor(0xFF4444)
-          .setTitle('a️ Phát hi!n thành viên ã rời Discord')
-          .setDescription(`Sau khi kiỒm tra, bot phát hi!n **${leftMembers.length}** thành viên trong guild list không còn trong Discord.\n\nx **Có thỒ họ ã rời guild.** Vui lòng kiỒm tra và kick trong game nếu cần.\n\n${memberList}`)
-          .setFooter({ text: 'x Đã tự "ng ánh dấu "Rời guild" và reset thông tin' })
-          .setTimestamp();
-
-        await channel.send({
-          embeds: [embed]
-        });
-
-      }
-    } catch (e) {
-      console.error('[checkMemberPresence] Li gửi thông báo:', e.message);
-    }
+    console.error('[restore] Lỗi khi khôi phục thành viên:', e.message);
   }
 }
 
@@ -205,13 +144,13 @@ async function migrateDisplayRoles(client) {
 
 // Danh sách status random
 const statusList = [
-  { name: 'Đang chill x Lang Gia Các', type: ActivityType.Watching },
+  { name: 'Đang chill ở Lang Gia Các', type: ActivityType.Watching },
   { name: 'Đang chơi Where Winds Meet', type: ActivityType.Playing },
-  { name: 'Đang thưxng trà x Tuý Hoa Lâu', type: ActivityType.Watching },
-  { name: 'Đang b9p x Cửu Lưu Môn', type: ActivityType.Playing },
-  { name: 'Đang chill x Lang Gia', type: ActivityType.Watching },
-  { name: 'Đang luy!n kiếm x Lang Gia', type: ActivityType.Playing },
-  { name: 'Đang ngắm cảnh x Lang Gia', type: ActivityType.Watching },
+  { name: 'Đang thưởng trà ở Tuý Hoa Lâu', type: ActivityType.Watching },
+  { name: 'Đang bịp ở Cửu Lưu Môn', type: ActivityType.Playing },
+  { name: 'Đang chill ở Lang Gia', type: ActivityType.Watching },
+  { name: 'Đang luyện kiếm ở Lang Gia', type: ActivityType.Playing },
+  { name: 'Đang ngắm cảnh ở Lang Gia', type: ActivityType.Watching },
 ];
 
 // Hàm lấy status ngẫu nhiên
@@ -584,11 +523,11 @@ module.exports = {
   async execute(client) {
     console.log(`Bot ${client.user.tag} ã online!`);
 
-    // Migrate old display roles sang tên m:i (S)
+    // Migrate old display roles sang tên mới
     await migrateDisplayRoles(client);
 
-    // S& KiỒm tra thành viên còn trong Discord không
-    await checkMemberPresence(client);
+    // ✅ Khôi phục thành viên bị đánh dấu rời nhầm (fix một lần)
+    await restoreWronglyMarkedMembers();
     await seedKcMembersIntoBotData(client);
 
     // S& Đng b" lại position từ role Discord thật -> SQLite/Supabase

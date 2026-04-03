@@ -175,7 +175,22 @@
     }
     .member-row.dragging{opacity:.45;transform:scale(.98)}
     .member-row.locked{cursor:default}
-    .drag-handle{color:var(--muted);font-size:16px}
+    .drag-handle{
+      color:var(--muted);
+      font-size:18px;
+      /* Touch target đủ lớn trên mobile: 44×44px theo Apple HIG */
+      min-width:44px;
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      /* Ngăn browser scroll/select khi đang giữ để kéo */
+      touch-action:none;
+      -webkit-user-select:none;
+      user-select:none;
+      cursor:grab;
+      flex-shrink:0;
+    }
     .avatar{
       width:28px;height:28px;border-radius:50%;
       display:grid;place-items:center;
@@ -247,12 +262,16 @@
 
     /* ═══ MOBILE RESPONSIVE ═══ */
     @media (max-width: 768px) {
-      /* Topbar: gom compact */
-      .topbar { flex-wrap: wrap; padding: 10px 12px; gap: 8px }
-      .back-link { padding: 8px 10px; font-size: 11px }
+      /* Topbar: Stack thành 3 cột ngang dọc trên mobile */
+      .topbar { flex-direction: column; align-items: stretch; padding: 12px 10px; gap: 10px; }
+      .topbar > div:first-child { justify-content: space-between !important; flex: unset !important; }
+      .topbar > div:nth-child(2) { flex: unset !important; margin: 4px 0; }
+      .toolbar { justify-content: center !important; flex: unset !important; gap: 8px; flex-wrap: wrap; margin-left: 0; }
+
+      .back-link { padding: 8px 12px; font-size: 12px }
+      .title-wrap { text-align: right; }
       .title-wrap .title { font-size: 16px }
       .title-wrap .sub { font-size: 11px }
-      .toolbar { flex: 1 0 100%; justify-content: center; gap: 6px }
       .toolbar .btn { font-size: 11px; padding: 8px 10px }
       .toolbar .badge { font-size: 11px; padding: 6px 10px }
 
@@ -269,9 +288,10 @@
       .member-name { font-size: 14px }
       .kick-btn, .leader-btn { min-width: 36px; min-height: 36px; font-size: 14px }
 
-      /* Split nav button: nhỏ lại */
-      .split-btn { height: 32px }
-      .split-side > span { font-size: 10px; letter-spacing: 0.3px }
+      /* Split nav button: resize để dễ bấm trên mobile */
+      .split-btn { height: 36px; width: 100%; max-width: 340px; }
+      .split-side { flex: 1; justify-content: center; }
+      .split-side > span { font-size: 11px; letter-spacing: 0.3px }
 
       /* Hàng chờ: đẩy xuống dưới */
       .right-col { order: 2 }
@@ -654,21 +674,25 @@
       body._sortable = new Sortable(body, {
         group: 'teams',           // Cho phép kéo giữa các team
         animation: 180,
-        delay: 150,               // Touch hold 150ms trước khi kéo
-        delayOnTouchOnly: true,   // Chỉ delay trên touch, mouse vẫn kéo ngay
+        delay: 100,               // Giảm delay giúp mobile kéo nhanh hơn
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,   // Phân biệt vuốt màn hình vs kéo thả
         ghostClass: 'dragging',
         chosenClass: 'drag-chosen',
         dragClass: 'drag-active',
-        handle: '.drag-handle',   // Chỉ kéo khi chạm vào handle ⠿
+        handle: '.drag-handle',   // Chỉ kéo khi chạm vào handle ⠿ (đã to hơn trên mobile)
         fallbackOnBody: true,
         swapThreshold: 0.65,
-        filter: '.empty',         // Không kéo placeholder "Chưa có thành viên"
+        filter: '.empty',         // Không kéo placeholder
         preventOnFilter: true,
+        forceFallback: false,
         onStart: function() {
           isDragging = true;
+          document.body.style.overflow = 'hidden'; // Ngăn scroll trang khi đang kéo
         },
         onEnd: function(evt) {
           isDragging = false;
+          document.body.style.overflow = ''; // Trả lại scroll trang
           const userId = evt.item.dataset.userId;
           // panel-body không có data-team, phải lên parent panel.team-card
           const fromTeam = (evt.from.dataset.team) || evt.from.closest('[data-team]')?.dataset.team

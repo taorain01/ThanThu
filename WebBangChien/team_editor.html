@@ -670,8 +670,11 @@
         onEnd: function(evt) {
           isDragging = false;
           const userId = evt.item.dataset.userId;
-          const fromTeam = evt.from.closest('[data-team]')?.dataset.team;
-          const toTeam = evt.to.closest('[data-team]')?.dataset.team;
+          // panel-body không có data-team, phải lên parent panel.team-card
+          const fromTeam = (evt.from.dataset.team) || evt.from.closest('[data-team]')?.dataset.team
+            || evt.from.parentElement?.closest('[data-team]')?.dataset.team;
+          const toTeam = (evt.to.dataset.team) || evt.to.closest('[data-team]')?.dataset.team
+            || evt.to.parentElement?.closest('[data-team]')?.dataset.team;
           if (!fromTeam || !toTeam || fromTeam === toTeam) {
             renderEditor(); // Khôi phục thứ tự DOM nếu kéo trong cùng team
             return;
@@ -935,8 +938,8 @@
         forest: Math.max(0, Math.min(10, Number(document.getElementById('sizeForest').value || 0)))
       };
       const totalSize = nextSizes.attack1 + nextSizes.attack2 + nextSizes.defense + nextSizes.forest;
-      if (totalSize !== 30) {
-        alert(`Tong so team phai dung bang 30. Hien tai la ${totalSize}.`);
+      if (totalSize < 1) {
+        alert('Tổng số thành viên phải lớn hơn 0.');
         return;
       }
 

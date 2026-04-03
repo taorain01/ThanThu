@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Handler cho cÃ¡c nÃºt bcql (Panel quáº£n lÃ½ Bang Chiáº¿n)
  * ÄÆ°á»£c import vÃ o interactionCreate.js
  */
@@ -555,7 +555,7 @@ async function handleBcqlSelect(interaction) {
         });
 
         await refreshOverviewEmbed(interaction.client, guildId);
-        await syncSessionToSupabase(guildId, partyKey);
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
         await interaction.update({ content: `Ã¢Å“â€¦ Ã„ÂÃƒÂ£ Ã„â€˜Ã†Â°a ${kicked} ngÃ†Â°Ã¡Â»Âi xuÃ¡Â»â€˜ng hÃƒÂ ng chÃ¡Â»Â!`, components: [] });
         if (day) {
             await refreshListbcEmbed(interaction, session, day);
@@ -585,7 +585,7 @@ async function handleBcqlSelect(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
-        await syncSessionToSupabase(guildId, partyKey);
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
         await interaction.update({ content: `âœ… ÄÃ£ loáº¡i ${kicked} ngÆ°á»i!`, components: [] });
 
@@ -651,7 +651,7 @@ async function handleBcqlSelect(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
-        await syncSessionToSupabase(guildId, partyKey);
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
         await interaction.update({ content: `âœ… ÄÃ£ Ä‘Æ°a ${moved} ngÆ°á»i lÃªn team!`, components: [] });
 
@@ -807,7 +807,7 @@ async function handleBcqlModal(interaction) {
 
             // Refresh overview
             await refreshOverviewEmbed(interaction.client, guildId);
-            await syncSessionToSupabase(guildId, partyKey);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
             await interaction.reply({ content: `âœ… ÄÃ£ Ä‘á»•i vá»‹ trÃ­ ${pos1} â†” ${pos2}!`, flags: MessageFlags.Ephemeral });
             if (day) await refreshListbcEmbed(interaction, session, day);
@@ -869,7 +869,7 @@ async function handleBcqlModal(interaction) {
 
             // Refresh overview
             await refreshOverviewEmbed(interaction.client, guildId);
-            await syncSessionToSupabase(guildId, partyKey);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
             await interaction.reply({ content: `âœ… ÄÃ£ di chuyá»ƒn **${movedPerson.username}** â†’ ${TEAM_EMOJI[targetTeamInfo.team]}!`, flags: MessageFlags.Ephemeral });
             if (day) await refreshListbcEmbed(interaction, session, day);
@@ -944,7 +944,7 @@ async function handleBcqlModal(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
-        await syncSessionToSupabase(guildId, partyKey);
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
         const teamEmojis = { attack1: 'âš”ï¸ CÃ´ng 1', attack2: 'ðŸ—¡ï¸ CÃ´ng 2', defense: 'ðŸ›¡ï¸ Thá»§', forest: 'ðŸŒ² Rá»«ng', waiting: 'â³ Chá»' };
         await interaction.reply({ content: `âœ… ÄÃ£ thÃªm ${user.username} vÃ o ${teamEmojis[result.team] || result.team}!`, flags: MessageFlags.Ephemeral });
@@ -973,8 +973,8 @@ async function handleBcqlModal(interaction) {
         }
 
         const total = attack1Size + attack2Size + defenseSize + forestSize;
-        if (total !== 30) {
-            await interaction.reply({ content: `Tong so thanh vien phai dung bang 30! Hien tai la ${total}.`, flags: MessageFlags.Ephemeral });
+        if (total < 1) {
+            await interaction.reply({ content: `Tổng số thành viên không hợp lì (${total}). Phải lớn hơn 0.`, flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -1072,7 +1072,7 @@ async function handleBcqlModal(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
-        await syncSessionToSupabase(guildId, partyKey);
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
         await interaction.reply({ content: `âœ… ÄÃ£ set Leader:\n${results.join('\n')}`, flags: MessageFlags.Ephemeral });
 

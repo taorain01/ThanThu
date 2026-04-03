@@ -479,14 +479,19 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .day-tab .del-x:hover{color:#fca5a5;background:rgba(239,68,68,.2)}
 
 /* ═══ NÚT ĐĂNG KÝ / HỦY COMPACT ═══ */
-.bc-signup-bar{flex-shrink:0;display:flex;gap:6px;align-items:center;margin-left:auto}
-.bc-action-btn{padding:5px 14px;border-radius:20px;font-weight:600;font-size:11px;cursor:pointer;
-  font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;gap:5px;
-  border:1.5px solid rgba(34,197,94,.3);background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(251,191,36,.08));color:var(--green-300)}
-.bc-action-btn:hover{border-color:var(--green-400);box-shadow:0 3px 12px rgba(34,197,94,.2);transform:translateY(-1px)}
+.bc-signup-bar{flex-shrink:0;display:flex;gap:8px;align-items:center;margin-left:auto}
+.bc-action-btn{padding:8px 18px;border-radius:22px;font-weight:700;font-size:13px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;gap:6px;
+  border:1.5px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(251,191,36,.08));color:var(--green-300);
+  white-space:nowrap;min-height:36px}
+.bc-action-btn:hover{border-color:var(--green-400);box-shadow:0 3px 14px rgba(34,197,94,.25);transform:translateY(-1px)}
 .bc-action-btn.leave{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#fca5a5}
 .bc-action-btn.leave:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.12)}
-.bc-action-btn svg{width:12px;height:12px}
+.bc-action-btn.regular{border-color:rgba(251,191,36,.35);background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(251,191,36,.06));color:#fcd34d}
+.bc-action-btn.regular:hover{border-color:rgba(251,191,36,.55);box-shadow:0 3px 14px rgba(251,191,36,.2)}
+.bc-action-btn.regular.active{border-color:rgba(239,68,68,.3);background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(239,68,68,.04));color:#fca5a5}
+.bc-action-btn.regular.active:hover{border-color:rgba(239,68,68,.45);box-shadow:0 3px 14px rgba(239,68,68,.15)}
+.bc-action-btn svg{width:14px;height:14px}
 /* ═══ TAB NHIỆM VỤ ═══ */
 .tasks-tab-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .tasks-tab-header .tt-title{font-size:14px;font-weight:700;color:var(--gold)}
@@ -687,7 +692,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
           <div class="h-stat"><div class="val" id="statTanker" style="color:var(--tanker); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Tanker</div></div>
         </div>
 
-        <button class="map-toggle tactics-btn" id="btnRegularSession" data-day="" disabled onclick="toggleRegularSession()" style="display:none;margin-left:16px; z-index:10; font-size:12px; padding:6px 14px; border-radius:20px; height:max-content; margin-bottom:5px; border-color:var(--green-600); background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(74,222,128,.08)); color:var(--green-300);">🔄 Luôn tham gia</button>
+        <!-- Nút Luôn tham gia đã chuyển vào signup bar -->
         <!-- Nút Split: gộp Chỉnh Sửa Đội Hình + Lập Chiến Thuật -->
         <div class="split-btn disabled" id="splitActionBtn" style="margin-bottom:5px">
           <div class="split-side left" id="btnTeamEditor" data-day="" onclick="openTeamEditor()" title="Chỉnh sửa đội hình"><span>✏️ Đội Hình</span></div>
@@ -1019,34 +1024,16 @@ function isMissingBcRegularsTableError(error) {
 }
 
 async function refreshRegularSessionButton(day = currentSessionData?.day || currentDay) {
-    const btn = document.getElementById('btnRegularSession');
-    if (!btn) return;
-
     const safeDay = day || '';
-    const sessionForButton = (currentSessionData?.day === safeDay ? currentSessionData : (_cachedSessions[safeDay] || currentSessionData));
-    btn.dataset.day = safeDay;
 
-    const shouldShow = Boolean(safeDay)
-        && PRIMARY_DAYS.includes(safeDay)
-        && Boolean(window.currentDiscordId)
-        && supportsRegularsTable
-        && !isCurrentUserSessionCreator(sessionForButton);
-    if (!shouldShow) {
-        regularButtonRequestToken += 1;
-        btn.style.display = 'none';
-        btn.disabled = true;
-        btn.dataset.active = '0';
-        btn.textContent = '🔄 Luôn tham gia';
-        btn.title = 'Chỉ hỗ trợ Thứ 7 / Chủ nhật';
+    // Không phải Thứ 7/CN hoặc chưa đăng nhập → reset status
+    if (!safeDay || !PRIMARY_DAYS.includes(safeDay) || !window.currentDiscordId || !supportsRegularsTable) {
+        _regularStatus = null;
+        updateSignupBar(currentSessionData);
         return;
     }
 
-    const label = DAY_LABELS[safeDay] || safeDay;
     const requestToken = ++regularButtonRequestToken;
-    btn.style.display = '';
-    btn.disabled = true;
-    btn.textContent = '🔄 Đang tải...';
-    btn.title = `Kiểm tra trạng thái luôn tham gia ${label}`;
 
     try {
         const { data, error } = await sb
@@ -1060,41 +1047,33 @@ async function refreshRegularSessionButton(day = currentSessionData?.day || curr
         if (requestToken !== regularButtonRequestToken) return;
         if (error) throw error;
 
-        const isRegular = Boolean(data?.id);
-        btn.dataset.active = isRegular ? '1' : '0';
-        btn.textContent = isRegular ? '🔄 Bỏ luôn tham gia' : '🔄 Luôn tham gia';
-        btn.title = isRegular
-            ? `Bỏ luôn tham gia ${label}`
-            : `Bật luôn tham gia ${label}`;
+        _regularStatus = Boolean(data?.id);
     } catch (error) {
         if (requestToken !== regularButtonRequestToken) return;
         if (isMissingBcRegularsTableError(error)) {
             supportsRegularsTable = false;
-            regularButtonRequestToken += 1;
-            btn.style.display = 'none';
-            btn.disabled = true;
-            btn.dataset.active = '0';
-            btn.textContent = '🔄 Luôn tham gia';
-            btn.title = 'Supabase chưa có bảng bc_regulars';
+            _regularStatus = null;
             console.warn('[LangGia] bc_regulars table is missing; regular button hidden.');
-            return;
+        } else {
+            console.warn('[LangGia] Load regular failed:', error);
+            _regularStatus = false;
         }
-        console.warn('[LangGia] Load regular failed:', error);
-        btn.dataset.active = '0';
-        btn.textContent = '🔄 Luôn tham gia';
-        btn.title = 'Không tải được trạng thái luôn tham gia';
-    } finally {
-        if (requestToken === regularButtonRequestToken) btn.disabled = false;
+    }
+
+    // Re-render signup bar với trạng thái mới
+    if (requestToken === regularButtonRequestToken) {
+        updateSignupBar(currentSessionData);
     }
 }
 
 async function toggleRegularSession() {
-    const btn = document.getElementById('btnRegularSession');
-    const day = btn?.dataset.day || currentSessionData?.day || currentDay;
-    const sessionForButton = (currentSessionData?.day === day ? currentSessionData : (_cachedSessions[day] || currentSessionData));
-    if (!btn || !day || !PRIMARY_DAYS.includes(day) || !window.currentDiscordId || !supportsRegularsTable || isCurrentUserSessionCreator(sessionForButton)) return;
+    const day = currentSessionData?.day || currentDay;
+    if (!day || !PRIMARY_DAYS.includes(day) || !window.currentDiscordId || !supportsRegularsTable) return;
 
-    btn.disabled = true;
+    // Disable nút trong bar
+    const btnInBar = document.getElementById('btnRegularInBar');
+    if (btnInBar) btnInBar.disabled = true;
+
     try {
         const { data, error } = await sb
             .from('bc_regulars')
@@ -1129,30 +1108,20 @@ async function toggleRegularSession() {
         console.error('[LangGia] Toggle regular failed:', error);
         alert('Lỗi cập nhật Luôn tham gia: ' + (error.message || error));
         await refreshRegularSessionButton(day);
-    } finally {
-        btn.disabled = false;
     }
 }
 
 function updateTacticsButtonTarget(day) {
     const btn = document.getElementById('btnTactics');
     const editorBtn = document.getElementById('btnTeamEditor');
-    const regularBtn = document.getElementById('btnRegularSession');
     const splitBtn = document.getElementById('splitActionBtn');
     const safeDay = day || '';
     if (btn) btn.dataset.day = safeDay;
     if (editorBtn) editorBtn.dataset.day = safeDay;
-    if (regularBtn) regularBtn.dataset.day = safeDay;
     if (!safeDay) {
         if (splitBtn) {
             splitBtn.classList.add('disabled');
             splitBtn.title = 'Chua co session';
-        }
-        if (regularBtn) {
-            regularBtn.style.display = 'none';
-            regularBtn.disabled = true;
-            regularBtn.dataset.active = '0';
-            regularBtn.textContent = '🔄 Luôn tham gia';
         }
         return;
     }
@@ -1166,13 +1135,32 @@ function updateTacticsButtonTarget(day) {
 }
 
 function updateEditorButtonVisibility() {
+    // Quyền leader dựa trên role guild (Kỳ Cựu/PBC/BC/QL), KHÔNG dựa vào session leader
+    const isElevated = hasElevatedRosterRole();
+
+    // Nút Đội Hình
     const editorSide = document.getElementById('btnTeamEditor');
-    if (!editorSide) return;
-    const canEdit = canEditTeamRoster();
-    editorSide.style.display = canEdit ? '' : 'none';
-    // Ẩn divider nếu ẩn Đội Hình
-    const divider = editorSide.parentElement?.querySelector('.split-divider');
-    if (divider) divider.style.display = canEdit ? '' : 'none';
+    if (editorSide) {
+        editorSide.style.display = isElevated ? '' : 'none';
+        // Ẩn divider nếu ẩn Đội Hình
+        const divider = editorSide.parentElement?.querySelector('.split-divider');
+        if (divider) divider.style.display = isElevated ? '' : 'none';
+    }
+
+    // Nút Chiến Thuật
+    const tacticsSide = document.getElementById('btnTactics');
+    if (tacticsSide) tacticsSide.style.display = isElevated ? '' : 'none';
+
+    // Ẩn toàn bộ split button nếu cả 2 nút đều bị ẩn
+    const splitBtn = document.getElementById('splitActionBtn');
+    if (splitBtn) {
+        const anyVisible = (editorSide?.style.display !== 'none') || (tacticsSide?.style.display !== 'none');
+        splitBtn.style.display = anyVisible ? '' : 'none';
+    }
+
+    // Nút tạo session (+)
+    const addBtn = document.getElementById('addBcBtn');
+    if (addBtn) addBtn.style.display = isElevated ? '' : 'none';
 }
 
 // Cache sessions data để dùng xuyên suốt
@@ -1189,8 +1177,17 @@ async function loadAllSessions() {
     if (error) { console.error('[LangGia] Lỗi load sessions:', error); }
     const sessions = data || [];
 
-    // Sắp xếp theo thứ tự ngày
-    sessions.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
+    // Sắp xếp theo ngày thực tế sắp tới (tính từ hôm nay)
+    const dayMap = {mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
+    const todayJs = new Date().getDay(); // 0=CN, 1=T2...
+    function getDaysFromNow(dayKey) {
+        const target = dayMap[dayKey];
+        if (target === undefined) return 99;
+        let diff = target - todayJs;
+        if (diff < 0) diff += 7;
+        return diff;
+    }
+    sessions.sort((a, b) => getDaysFromNow(a.day) - getDaysFromNow(b.day));
 
     // Cache lại tất cả sessions
     _cachedSessions = {};
@@ -1293,6 +1290,8 @@ async function loadBCData(day) {
 }
 
 // ═══ TRẠNG THÁI ĐĂNG KÝ COMPACT ═══
+let _regularStatus = null; // null = chưa tải, true = đã bật, false = chưa bật
+
 function updateSignupBar(data) {
     const bar = document.getElementById('bcSignupBar');
 
@@ -1319,17 +1318,38 @@ function updateSignupBar(data) {
         if (activeTab) activeTab.classList.add('joined');
     }
 
-    if (isJoined) {
+    const day = data.day || currentDay;
+    const isPrimaryDay = PRIMARY_DAYS.includes(day);
+    const showRegular = isPrimaryDay && supportsRegularsTable;
+
+    // Nếu đã đăng ký VÀ không phải ngày primary → ẩn bar hoàn toàn
+    if (isJoined && !showRegular) {
         bar.style.display = 'none';
         bar.innerHTML = '';
-    } else {
-        bar.style.display = 'flex';
-        bar.innerHTML = `
-            <button class="bc-action-btn" onclick="joinBC()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
-                ⚔️ Đăng ký
-            </button>`;
+        return;
     }
+
+    // Render bar
+    bar.style.display = 'flex';
+    let html = '';
+
+    // Nút Đăng ký (chỉ khi chưa đăng ký)
+    if (!isJoined) {
+        html += `<button class="bc-action-btn" onclick="joinBC()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
+            ⚔️ Đăng ký
+        </button>`;
+    }
+
+    // Nút Luôn tham gia / Hủy luôn tham gia (chỉ Thứ 7/CN)
+    if (showRegular) {
+        const isActive = _regularStatus === true;
+        const cls = isActive ? 'bc-action-btn regular active' : 'bc-action-btn regular';
+        const label = isActive ? '🔄 Hủy luôn tham gia' : '🔄 Luôn tham gia';
+        html += `<button class="${cls}" id="btnRegularInBar" onclick="toggleRegularSession()">${label}</button>`;
+    }
+
+    bar.innerHTML = html;
 }
 
 async function joinBC() {
@@ -1413,23 +1433,14 @@ async function leaveBC() {
 
     const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
 
-    // Kiểm tra leader không được hủy đăng ký (đồng bộ logic với Bot Discord)
-    // Cách 1: Check leader_ids (luôn đáng tin cậy - lưu khi tạo session)
-    try {
-        const leaderIds = typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids) : (data.leader_ids || {});
-        if (leaderIds.creator_id === window.currentDiscordId) {
-            alert('❌ Leader không thể hủy đăng ký! Hãy dùng lệnh ?bcend trên Discord.');
-            return;
-        }
-    } catch(e) {}
-
-    // Cách 2: Check isLeader trong player data (backup)
+    // Chỉ chặn team leader (flag isLeader/ld trong player data)
+    // Creator của session vẫn được phép tự hủy đăng ký
     const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
     for (const key of allTeams) {
         const players = parseTeam(data[key]);
         const me = players.find(p => p.id === window.currentDiscordId);
         if (me && (me.ld || me.isLeader)) {
-            alert('❌ Leader không thể hủy đăng ký! Hãy dùng lệnh ?bcend trên Discord.');
+            alert('❌ Trưởng nhóm không thể hủy đăng ký! Hãy nhờ Kỳ Cựu dùng lệnh ?bcend.');
             return;
         }
     }
@@ -1522,7 +1533,8 @@ function renderTeams(data) {
             } catch(e) {}
             
             const isMe = p.id === window.currentDiscordId;
-            if (isMe && !isLeader && !isCreator) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC()" title="Hủy đăng ký">× Hủy đăng ký</div>`;
+            // Chỉ chặn team leader (isLeader/ld) — creator vẫn được tự hủy đăng ký
+            if (isMe && !isLeader) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC()" title="Hủy đăng ký">× Hủy đăng ký</div>`;
             html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${sub}</div></div>`;
             num++;
         });
@@ -1718,11 +1730,13 @@ function switchRTab(el, id) {
 
 // ═══ MODAL TẠO BC ═══
 document.getElementById('addBcBtn').addEventListener('click', () => {
+    if (!hasElevatedRosterRole()) { alert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được tạo session!'); return; }
     document.getElementById('modalBc').classList.add('show');
 });
 function closeModal() { document.getElementById('modalBc').classList.remove('show'); }
 
 async function createCustomBc() {
+    if (!hasElevatedRosterRole()) { alert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được tạo session!'); return; }
     const day = document.getElementById('bcDaySelect').value;
     const time = document.getElementById('bcTimeInput').value || '19:30';
     const note = document.getElementById('bcNoteInput').value;
@@ -1934,6 +1948,7 @@ checkAuth();
 
 // ═══ MỞ TRANG CHIẾN THUẬT ═══
 function openTactics() {
+    if (!hasElevatedRosterRole()) return;
     const day = document.getElementById('btnTactics')?.dataset.day || currentSessionData?.day || currentDay;
     if (!day) return;
     try {
@@ -1962,6 +1977,7 @@ function openTactics() {
 }
 
 function openTeamEditor() {
+    if (!hasElevatedRosterRole()) return;
     const day = document.getElementById('btnTeamEditor')?.dataset.day || currentSessionData?.day || currentDay;
     if (!day) return;
     try {

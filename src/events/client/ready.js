@@ -521,10 +521,12 @@ module.exports = {
             console.error('[Supabase] Khong gui duoc thong bao luu chien thuat:', error.message);
           }
         });
-        // Sync sessions cho tất cả guilds mà bot đang join
-        // (tránh bỏ sót khi guildId env var trỏ sai guild)
+        // Sync sessions cho guilds có dữ liệu trong SQLite
         for (const [, g] of client.guilds.cache) {
-          await supaSync.syncAllActiveSessions(db, g.id, g);
+          const hasSessions = (db.getActiveBangchienByGuild ? db.getActiveBangchienByGuild(g.id) : []).length > 0;
+          if (hasSessions) {
+            await supaSync.syncAllActiveSessions(db, g.id, g);
+          }
         }
         console.log('[Supabase] Đã sync sessions khi start');
 

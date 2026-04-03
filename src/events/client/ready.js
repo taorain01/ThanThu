@@ -525,8 +525,6 @@ module.exports = {
         for (const [, g] of client.guilds.cache) {
           const hasSessions = (db.getActiveBangchienByGuild ? db.getActiveBangchienByGuild(g.id) : []).length > 0;
           if (hasSessions) {
-            // Fetch toàn bộ members vào cache để enrichPlayer detect được role (DPS, vũ khí...)
-            try { await g.members.fetch(); } catch (e) {}
             await supaSync.syncAllActiveSessions(db, g.id, g);
           }
         }

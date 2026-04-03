@@ -359,8 +359,15 @@ function initializeDatabase() {
     // Thêm column 'day' vào bc_regular
     try {
         db.prepare('ALTER TABLE bc_regular ADD COLUMN day TEXT DEFAULT "sat"').run();
-        // Migrate regular cũ → day = 'sat' (Thứ 7)
         db.prepare('UPDATE bc_regular SET day = "sat" WHERE day IS NULL').run();
+    } catch (e) { }
+
+    // Thêm column 'time' và 'note' vào bangchien_active (BC custom)
+    try {
+        db.prepare('ALTER TABLE bangchien_active ADD COLUMN time TEXT DEFAULT "19:30"').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE bangchien_active ADD COLUMN note TEXT DEFAULT ""').run();
     } catch (e) { }
 
     // Tạo lại bảng với UNIQUE constraint mới nếu cần
@@ -661,6 +668,15 @@ function getUserCount() {
 }
 
 /**
+ * Lấy tất cả users active (chưa rời bang) - dùng cho sync Supabase
+ * @returns {Array} Danh sách users
+ */
+function getAllUsers() {
+    const stmt = db.prepare('SELECT * FROM users WHERE left_at IS NULL ORDER BY discord_name ASC');
+    return stmt.all();
+}
+
+/**
  * Update user position
  * @param {string} discordId - Discord user ID
  * @param {string} position - New position
@@ -806,11 +822,14 @@ function createActiveBangchien(data) {
     } catch (e) { }
 
     const stmt = db.prepare(`
-        INSERT INTO bangchien_active (guild_id, party_key, leader_id, leader_name, channel_id, message_id, team_attack1, day)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO bangchien_active (guild_id, party_key, leader_id, leader_name, channel_id, message_id, team_attack1, day, time, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     // Leader starts in team_attack1 (4-TEAM SYSTEM)
-    const leaderData = [{ id: data.leaderId, username: data.leaderName, isLeader: true, joinedAt: Date.now() }];
+    // Lookup tên ingame từ DB users
+    const leaderUser = getUserByDiscordId(data.leaderId);
+    const leaderGameName = leaderUser?.game_username || '';
+    const leaderData = [{ id: data.leaderId, username: data.leaderName, gn: leaderGameName, name: leaderGameName || data.leaderName, isLeader: true, joinedAt: Date.now() }];
     const result = stmt.run(
         data.guildId,
         data.partyKey,
@@ -819,7 +838,9 @@ function createActiveBangchien(data) {
         data.channelId,
         data.messageId || null,
         JSON.stringify(leaderData),
-        data.day || null  // MULTI-DAY: 'sat' or 'sun'
+        data.day || null,
+        data.time || '19:30',
+        data.note || null
     );
     return { success: true, id: result.lastInsertRowid };
 }
@@ -1088,9 +1109,15 @@ function removeBangchienParticipant(partyKey, participantId) {
     const session = getActiveBangchien(partyKey);
     if (!session) return { success: false, error: 'Session not found' };
 
-    // Check if leader (leader now in team_attack1)
-    const leader = session.team_attack1.find(p => p.isLeader && p.id === participantId);
-    if (leader) return { success: false, error: 'Leader cannot leave' };
+    // Check if leader — tìm trong TẤT CẢ team (leader có thể bị move sang team khác)
+    const allMembers = [
+        ...session.team_attack1, ...session.team_attack2,
+        ...session.team_defense, ...session.team_forest,
+        ...session.waiting_list
+    ];
+    const leader = allMembers.find(p => p.isLeader && p.id === participantId);
+    // Fallback: check leader_id từ session (phòng trường hợp isLeader bị mất)
+    if (leader || session.leader_id === participantId) return { success: false, error: 'Leader cannot leave' };
 
     let removed = false;
     let fromTeam = '';

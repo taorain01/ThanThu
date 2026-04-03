@@ -33,7 +33,7 @@ module.exports = {
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
 
         // Lấy active session
         let session;

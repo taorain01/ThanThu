@@ -13,12 +13,13 @@
     "@discordjs/opus": "^0.10.0",
     "@discordjs/rest": "^2.6.0",
     "@discordjs/voice": "^0.19.2",
-    "@snazzah/davey": "^0.1.10",
     "@distube/spotify": "^2.0.2",
     "@distube/youtube": "^1.0.4",
     "@distube/yt-dlp": "^2.0.1",
     "@google/generative-ai": "^0.24.1",
     "@napi-rs/canvas": "^0.1.97",
+    "@snazzah/davey": "^0.1.10",
+    "@supabase/supabase-js": "^2.101.0",
     "better-sqlite3": "^12.8.0",
     "cloudinary": "^2.9.0",
     "discord-api-types": "^0.38.42",
@@ -30,6 +31,7 @@
     "gif-encoder-2": "^1.0.5",
     "google-translate-api-x": "^10.7.2",
     "google-tts-api": "^2.0.2",
+    "sharp": "^0.34.5",
     "sodium-native": "^5.1.0"
   }
 }

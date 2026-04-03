@@ -13,7 +13,7 @@ module.exports = {
         const commandName = message.content.split(' ')[0].slice(1).toLowerCase();
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
 
         // Xác định role cần lọc
         let targetRole = null;

@@ -16,7 +16,7 @@ from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
 # --- CẤU HÌNH ---
-WEBHOOK_URL = "https://discord.com/api/webhooks/1483188114213306439/gRQCcD-DbpB0Li4ZpBjq5WvQ6mT-mV3rqIS3kOcXK-AO3Zb3xtM9fp7QZykofHRjR7CD"
+WEBHOOK_URL = "https://discord.com/api/webhooks/1489493107564216391/LyWYs432U0YN87FQ3WllNu_6t6d3xNt6rgfcp16anzxkhArx-eG9vKXJgTnxfLPUqeLR"
 TIMEOUT = 30
 
 # SSL bypass cho mạng có proxy/firewall

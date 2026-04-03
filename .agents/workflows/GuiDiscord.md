@@ -4,138 +4,119 @@ description: Gửi file HTML (hoặc bất kỳ file nào) lên Discord qua Webh
 
 # Workflow: Gửi file lên Discord (GuiDiscord)
 
-## Thông tin
-- **Webhook URL**: `https://discord.com/api/webhooks/1483188114213306439/gRQCcD-DbpB0Li4ZpBjq5WvQ6mT-mV3rqIS3kOcXK-AO3Zb3xtM9fp7QZykofHRjR7CD`
-- **Webhook URL (script)**: Dùng URL trên cho cả workflow lẫn script
-- **Giới hạn file**: 25MB
-- **Script path**: `App/Script/send_to_discord.py` (hoặc tạo mới từ code bên dưới)
+## Thông tin cố định
+- **Webhook URL**: `https://discord.com/api/webhooks/1489493107564216391/LyWYs432U0YN87FQ3WllNu_6t6d3xNt6rgfcp16anzxkhArx-eG9vKXJgTnxfLPUqeLR`
+- **Giới hạn file Discord**: 25MB
+- **Script path**: `App/Script/send_to_discord.js` (Node.js — không dùng Python vì bị SSL timeout)
 
 ## Các bước thực hiện
 
 ### 1. Đảm bảo script tồn tại
-Nếu chưa có file `send_to_discord.py`, tạo file mới tại `App/Script/send_to_discord.py` với nội dung sau:
+Nếu chưa có file `App/Script/send_to_discord.js`, tạo file mới với nội dung sau:
 
-```python
-"""
-Script gửi file/tin nhắn lên Discord qua Webhook.
-Dùng urllib (built-in), có SSL bypass cho mạng bị chặn.
+```javascript
+/**
+ * Gửi file/tin nhắn lên Discord qua Webhook.
+ * Dùng Node.js fetch (built-in từ Node 18+).
+ * 
+ * Cách dùng:
+ *   Gửi file:  node send_to_discord.js <file> [tin_nhắn]
+ *   Gửi text:  node send_to_discord.js --text "nội dung"
+ */
 
-Cách dùng:
-    Gửi file:  python send_to_discord.py <file> [tin_nhắn]
-    Gửi text:  python send_to_discord.py --text "nội dung"
-"""
+const fs = require('fs');
+const path = require('path');
 
-import sys
-import os
-import json
-import uuid
-import ssl
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1489493107564216391/LyWYs432U0YN87FQ3WllNu_6t6d3xNt6rgfcp16anzxkhArx-eG9vKXJgTnxfLPUqeLR";
 
-# --- CẤU HÌNH ---
-WEBHOOK_URL = "https://discord.com/api/webhooks/1483188114213306439/gRQCcD-DbpB0Li4ZpBjq5WvQ6mT-mV3rqIS3kOcXK-AO3Zb3xtM9fp7QZykofHRjR7CD"
-TIMEOUT = 30
+async function guiTinNhan(noiDung) {
+    const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: noiDung })
+    });
+    if (res.ok) console.log('✅ Đã gửi tin nhắn thành công!');
+    else console.error(`❌ Lỗi ${res.status}: ${await res.text()}`);
+}
 
-# SSL bypass cho mạng có proxy/firewall
-SSL_CTX = ssl.create_default_context()
-SSL_CTX.check_hostname = False
-SSL_CTX.verify_mode = ssl.CERT_NONE
+async function guiFile(filePath, noiDung = '') {
+    if (!fs.existsSync(filePath)) {
+        console.error(`❌ Không tìm thấy file: ${filePath}`);
+        process.exit(1);
+    }
+    const stats = fs.statSync(filePath);
+    if (stats.size > 25 * 1024 * 1024) {
+        console.error(`❌ File quá lớn (${(stats.size / 1024 / 1024).toFixed(1)}MB). Giới hạn 25MB.`);
+        process.exit(1);
+    }
 
+    const tenFile = path.basename(filePath);
+    const message = noiDung || `📎 **${tenFile}** (${(stats.size / 1024).toFixed(1)} KB)`;
 
-def _tao_multipart(fields, files):
-    """Tạo multipart/form-data body."""
-    boundary = uuid.uuid4().hex
-    body = b""
-    for key, value in fields.items():
-        body += f"--{boundary}\r\n".encode()
-        body += f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode()
-        body += f"{value}\r\n".encode()
-    for key, (filename, filedata) in files.items():
-        body += f"--{boundary}\r\n".encode()
-        body += f'Content-Disposition: form-data; name="{key}"; filename="{filename}"\r\n'.encode()
-        body += b"Content-Type: application/octet-stream\r\n\r\n"
-        body += filedata
-        body += b"\r\n"
-    body += f"--{boundary}--\r\n".encode()
-    return body, f"multipart/form-data; boundary={boundary}"
+    // Tạo multipart/form-data bằng tay (không cần thư viện ngoài)
+    const boundary = '----FormBoundary' + Math.random().toString(36).slice(2);
+    const fileData = fs.readFileSync(filePath);
 
+    const parts = [];
+    // Part 1: content (tin nhắn)
+    parts.push(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="content"\r\n\r\n` +
+        `${message}\r\n`
+    );
+    // Part 2: file
+    parts.push(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="${tenFile}"\r\n` +
+        `Content-Type: application/octet-stream\r\n\r\n`
+    );
 
-def gui_tin_nhan(noi_dung):
-    """Gửi tin nhắn text lên Discord."""
-    data = json.dumps({"content": noi_dung}).encode("utf-8")
-    req = Request(WEBHOOK_URL, data=data, method="POST")
-    req.add_header("Content-Type", "application/json")
-    try:
-        urlopen(req, timeout=TIMEOUT, context=SSL_CTX)
-        print("✅ Đã gửi tin nhắn thành công!")
-        return True
-    except HTTPError as e:
-        print(f"❌ Lỗi HTTP {e.code}: {e.read().decode()}")
-    except URLError as e:
-        print(f"❌ Lỗi kết nối: {e.reason}")
-    return False
+    const head = Buffer.from(parts.join(''));
+    const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const body = Buffer.concat([head, fileData, tail]);
 
+    const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+        body: body
+    });
 
-def gui_file(file_path, noi_dung=""):
-    """Gửi file lên Discord qua webhook."""
-    if not os.path.exists(file_path):
-        print(f"❌ Không tìm thấy file: {file_path}")
-        return False
-    file_size = os.path.getsize(file_path)
-    if file_size > 25 * 1024 * 1024:
-        print(f"❌ File quá lớn ({file_size / 1024 / 1024:.1f}MB). Giới hạn 25MB.")
-        return False
+    if (res.ok) console.log(`✅ Đã gửi thành công: ${tenFile}`);
+    else console.error(`❌ Lỗi ${res.status}: ${await res.text()}`);
+}
 
-    ten_file = os.path.basename(file_path)
-    if not noi_dung:
-        noi_dung = f"📎 **{ten_file}** ({file_size / 1024:.1f} KB)"
+// Main
+const args = process.argv.slice(2);
+if (args.length === 0) {
+    console.log('Cách dùng:');
+    console.log('  Gửi file:  node send_to_discord.js <file> [tin_nhắn]');
+    console.log('  Gửi text:  node send_to_discord.js --text "nội dung"');
+    process.exit(0);
+}
 
-    try:
-        with open(file_path, "rb") as f:
-            file_data = f.read()
-        body, content_type = _tao_multipart({"content": noi_dung}, {"file": (ten_file, file_data)})
-        req = Request(WEBHOOK_URL, data=body, method="POST")
-        req.add_header("Content-Type", content_type)
-        urlopen(req, timeout=TIMEOUT, context=SSL_CTX)
-        print(f"✅ Đã gửi thành công: {ten_file}")
-        return True
-    except HTTPError as e:
-        print(f"❌ Lỗi HTTP {e.code}: {e.read().decode()}")
-    except URLError as e:
-        print(f"❌ Lỗi kết nối: {e.reason}")
-    return False
-
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Cách dùng:")
-        print("  Gửi file:  python send_to_discord.py <file> [tin_nhắn]")
-        print("  Gửi text:  python send_to_discord.py --text \"nội dung\"")
-        sys.exit(1)
-
-    if sys.argv[1] == "--text":
-        gui_tin_nhan(" ".join(sys.argv[2:]))
-    else:
-        gui_file(sys.argv[1], " ".join(sys.argv[2:]) if len(sys.argv) > 2 else "")
+if (args[0] === '--text') {
+    guiTinNhan(args.slice(1).join(' '));
+} else {
+    guiFile(args[0], args.slice(1).join(' ') || '');
+}
 ```
 
 ### 2. Gửi file HTML (hoặc bất kỳ file nào)
 // turbo
 ```
-python "App/Script/send_to_discord.py" "<đường_dẫn_tuyệt_đối_file>"
+node "App/Script/send_to_discord.js" "<đường_dẫn_tuyệt_đối_file>"
 ```
 
 ### 3. Gửi file với tin nhắn kèm theo
 // turbo
 ```
-python "App/Script/send_to_discord.py" "<đường_dẫn_file>" "📊 Mô tả nội dung file"
+node "App/Script/send_to_discord.js" "<đường_dẫn_file>" "📊 Mô tả nội dung file"
 ```
 
 ### 4. Gửi chỉ tin nhắn text (không file)
 // turbo
 ```
-python "App/Script/send_to_discord.py" --text "nội dung tin nhắn"
+node "App/Script/send_to_discord.js" --text "nội dung tin nhắn"
 ```
 
 ## Khi tạo HTML mới cho báo cáo
@@ -145,8 +126,7 @@ File HTML gửi qua Discord nên có định dạng **mobile-friendly**:
 - Nên dùng dark mode để dễ đọc trên điện thoại
 - User sẽ tải file về và mở trong trình duyệt điện thoại
 
-## Xử lý lỗi kết nối
-Nếu POST bị treo/timeout:
-1. Kiểm tra firewall/antivirus có chặn outgoing POST
-2. Thử tắt proxy/VPN
-3. Chạy test từ PowerShell bình thường (ngoài VS Code)
+## Xử lý lỗi
+- Nếu lỗi `fetch is not defined`: Node.js < 18. Chạy `node --version` kiểm tra, nếu cũ thì dùng `https` module thay thế.
+- Nếu lỗi timeout: Kiểm tra firewall/VPN.
+- Nếu lỗi 413: File quá lớn (> 25MB).

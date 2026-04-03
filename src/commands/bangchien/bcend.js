@@ -8,6 +8,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
+const { deleteBCSession, deleteAllBCSessions } = require('../../utils/supabaseSync');
 
 const BC_ROLE_NAME = 'bc';
 
@@ -38,7 +39,7 @@ module.exports = {
         }
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
 
         // ═══════════════════════════════════════════════════════════════════
         // OWNER CÓ THỂ END TẤT CẢ BC CÙNG LÚC
@@ -158,6 +159,9 @@ module.exports = {
                 sessionsEnded.push(DAY_CONFIG[sessionDay]?.name || 'Unknown');
                 console.log(`[bcend] Owner đã xóa session: ${partyKey}`);
             }
+
+            // Sync xóa TẤT CẢ trên Supabase → web realtime DELETE
+            await deleteAllBCSessions(guildId);
 
             // Xóa channels và overview
             bangchienChannels.delete(guildId);
@@ -374,6 +378,9 @@ module.exports = {
         if (targetPartyKey) {
             db.deleteActiveBangchien(targetPartyKey);
             console.log(`[bcend] Đã xóa session: ${targetPartyKey}`);
+
+            // Sync xóa trên Supabase → web realtime DELETE
+            if (sessionDay) await deleteBCSession(guildId, sessionDay);
         }
         if (session && session.id && !isActive) {
             db.deleteBangchienSession(session.id);

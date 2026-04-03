@@ -34,7 +34,7 @@ module.exports = {
         // Parse day từ args (MULTI-DAY: t7, cn, all)
         const dayArg = args[0]?.toLowerCase();
         const isAll = dayArg === 'all';
-        const day = isAll ? null : parseDayArg(args);
+        const day = isAll ? null : parseDayArg(args)?.day;
 
         // Xác định sessions cần xử lý
         let sessionsToProcess = [];

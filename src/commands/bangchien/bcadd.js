@@ -44,7 +44,7 @@ module.exports = {
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
 
         // Lấy session
         let session, isActiveSession = false;

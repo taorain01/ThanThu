@@ -6,120 +6,121 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { DAY_CONFIG, getDayFromPartyKey, getDayNameWithDate } = require('./bangchienState');
+const { syncBCSession, formatActiveSession, syncBcRegular, removeBcRegular } = require('./supabaseSync');
 
 const BC_ROLE_NAME = 'bc';
 
+// Helper: Sync session lên Supabase sau khi SQLite thay đổi
+async function syncSessionToSupabase(guildId, partyKey, guild = null) {
+    try {
+        const supaSync = require('./supabaseSync');
+        if (!supaSync.isReady()) return;
+        const db = require('../database/db');
+        const session = db.getActiveBangchien(partyKey);
+        if (!session) return;
+        const formatted = supaSync.formatActiveSession(session, db, guild);
+        if (formatted) {
+            await supaSync.syncBCSession(guildId, session.day || 'sat', formatted);
+            console.log(`[bcMenu] ✅ Đã sync session ${session.day} lên Supabase`);
+        }
+    } catch (e) {
+        console.error('[bcMenu] Lỗi sync Supabase:', e.message);
+    }
+}
+
 /**
- * Tạo ephemeral menu cho user
- * Hiển thị trạng thái đăng ký của user cho cả 2 ngày
- * @param {string} guildId - Guild ID
- * @param {string} userId - User ID
- * @returns {{ embed: EmbedBuilder, components: ActionRowBuilder[] }}
+ * Helper: Parse day từ customId dynamic
+ * VD: "bcmenu_join_mon_123456" → "mon"
+ *     "bcmenu_leave_sat_123456" → "sat"
+ */
+function parseDayFromCustomId(customId) {
+    const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    for (const d of dayKeys) {
+        if (customId.includes(`_${d}_`)) return d;
+    }
+    return null;
+}
+
+/**
+ * Tạo menu đăng ký BC (ephemeral) - DYNAMIC tất cả ngày
  */
 function createBcMenu(guildId, userId) {
     const db = require('../database/db');
+    const { PRIMARY_DAYS } = require('./bangchienState');
 
-    // Lấy sessions của 2 ngày
-    const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-    const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
+    const dayShortLabels = {
+        'mon': 'T2', 'tue': 'T3', 'wed': 'T4', 'thu': 'T5',
+        'fri': 'T6', 'sat': 'T7', 'sun': 'CN'
+    };
 
-    // Kiểm tra user đã đăng ký chưa
-    const isInSat = satSession ? isUserInSession(satSession, userId) : false;
-    const isInSun = sunSession ? isUserInSession(sunSession, userId) : false;
-
-    // Kiểm tra user có phải regular không
-    const isRegularSat = db.isBcRegular(guildId, userId, 'sat');
-    const isRegularSun = db.isBcRegular(guildId, userId, 'sun');
+    // Lấy TẤT CẢ sessions active
+    const allSessions = db.getActiveBangchienByGuild(guildId);
+    const sessionMap = {};
+    allSessions.forEach(s => { if (s.day) sessionMap[s.day] = s; });
 
     const embed = new EmbedBuilder()
         .setColor(0xFFD700)
         .setTitle('📋 ĐĂNG KÝ BANG CHIẾN')
         .setDescription('Chọn ngày bạn muốn tham gia. Bấm **Luôn tham gia** để tự động đăng ký mỗi tuần.');
 
-    // Thứ 7 - với ngày cụ thể
-    const satDateStr = getDayNameWithDate('sat');
-    let satStatus = '';
-    if (!satSession) {
-        satStatus = `📅 **${satDateStr}** - _Chưa mở_`;
-    } else {
-        const total = getSessionTotal(satSession);
-        satStatus = `📅 **${satDateStr}** (${total}/30)\n`;
-        satStatus += isInSat ? '✅ Bạn đã đăng ký' : '⭕ Bạn chưa đăng ký';
-        if (isRegularSat) satStatus += ' 🔄';
-    }
-    embed.addFields({ name: '\u200b', value: satStatus, inline: false });
+    // Danh sách ngày: PRIMARY_DAYS + ngày có session
+    const daysToShow = [...new Set([...PRIMARY_DAYS, ...Object.keys(sessionMap)])];
+    const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    daysToShow.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 
-    // Chủ Nhật - với ngày cụ thể
-    const sunDateStr = getDayNameWithDate('sun');
-    let sunStatus = '';
-    if (!sunSession) {
-        // DEBUG: List all active sessions to see what's wrong
-        const allSessions = db.getActiveBangchienByGuild(guildId);
-        const debugStr = allSessions.map(s => `[${s.day || 'null'}]`).join(', ');
-        sunStatus = `📅 **${sunDateStr}** - _Chưa mở_ (Debug: ${allSessions.length} active found: ${debugStr})`;
-    } else {
-        const total = getSessionTotal(sunSession);
-        sunStatus = `📅 **${sunDateStr}** (${total}/30)\n`;
-        sunStatus += isInSun ? '✅ Bạn đã đăng ký' : '⭕ Bạn chưa đăng ký';
-        if (isRegularSun) sunStatus += ' 🔄';
+    const actionRows = [];
+
+    for (const day of daysToShow) {
+        const session = sessionMap[day];
+        const dateStr = getDayNameWithDate(day);
+        const isInDay = session ? isUserInSession(session, userId) : false;
+        const isPrimaryDay = DAY_CONFIG[day]?.primary === true;
+        const isRegularDay = isPrimaryDay ? db.isBcRegular(guildId, userId, day) : false;
+        const shortLabel = dayShortLabels[day] || day.toUpperCase();
+
+        let status = '';
+        if (!session) {
+            status = `📅 **${dateStr}** - _Chưa mở_`;
+        } else {
+            const total = getSessionTotal(session);
+            status = `📅 **${dateStr}** (${total}/30)\n`;
+            status += isInDay ? '✅ Bạn đã đăng ký' : '⭕ Bạn chưa đăng ký';
+            if (isRegularDay) status += ' 🔄';
+        }
+        embed.addFields({ name: '\u200b', value: status, inline: false });
+
+        // Buttons cho ngày này (nếu có session, max 4 rows)
+        if (session && actionRows.length < 4) {
+            const row = new ActionRowBuilder();
+            if (isInDay) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`bcmenu_leave_${day}_${guildId}`)
+                        .setLabel(`❌ Hủy ${shortLabel}`)
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            } else {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`bcmenu_join_${day}_${guildId}`)
+                        .setLabel(`✅ Tham gia ${shortLabel}`)
+                        .setStyle(ButtonStyle.Success)
+                );
+            }
+            if (isPrimaryDay) {
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bcmenu_regular_${day}_${guildId}`)
+                    .setLabel(isRegularDay ? `🔄 Bỏ luôn ${shortLabel}` : `🔄 Luôn ${shortLabel}`)
+                    .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
+            );
+            }
+            actionRows.push(row);
+        }
     }
-    embed.addFields({ name: '\u200b', value: sunStatus, inline: false });
 
     embed.setFooter({ text: '🔄 = Luôn tham gia • Menu này chỉ bạn thấy' });
 
-    // Buttons cho Thứ 7
-    const satRow = new ActionRowBuilder();
-    if (satSession) {
-        if (isInSat) {
-            satRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_leave_sat_${guildId}`)
-                    .setLabel('❌ Hủy T7')
-                    .setStyle(ButtonStyle.Secondary)
-            );
-        } else {
-            satRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_join_sat_${guildId}`)
-                    .setLabel('✅ Tham gia T7')
-                    .setStyle(ButtonStyle.Success)
-            );
-        }
-        satRow.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`bcmenu_regular_sat_${guildId}`)
-                .setLabel(isRegularSat ? '🔄 Bỏ luôn T7' : '🔄 Luôn T7')
-                .setStyle(isRegularSat ? ButtonStyle.Secondary : ButtonStyle.Primary)
-        );
-    }
-
-    // Buttons cho Chủ Nhật
-    const sunRow = new ActionRowBuilder();
-    if (sunSession) {
-        if (isInSun) {
-            sunRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_leave_sun_${guildId}`)
-                    .setLabel('❌ Hủy CN')
-                    .setStyle(ButtonStyle.Secondary)
-            );
-        } else {
-            sunRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_join_sun_${guildId}`)
-                    .setLabel('✅ Tham gia CN')
-                    .setStyle(ButtonStyle.Success)
-            );
-        }
-        sunRow.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`bcmenu_regular_sun_${guildId}`)
-                .setLabel(isRegularSun ? '🔄 Bỏ luôn CN' : '🔄 Luôn CN')
-                .setStyle(isRegularSun ? ButtonStyle.Secondary : ButtonStyle.Primary)
-        );
-    }
-
-    // Close button
     const closeRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -128,11 +129,7 @@ function createBcMenu(guildId, userId) {
                 .setStyle(ButtonStyle.Danger)
         );
 
-    const components = [];
-    if (satRow.components.length > 0) components.push(satRow);
-    if (sunRow.components.length > 0) components.push(sunRow);
-    components.push(closeRow);
-
+    const components = [...actionRows, closeRow];
     return { embed, components };
 }
 
@@ -169,33 +166,25 @@ async function handleBcMenuButton(interaction) {
     const customId = interaction.customId;
     if (!customId.startsWith('bcmenu_') && !customId.startsWith('bc_menu_') && !customId.startsWith('bc_regular_') && !customId.startsWith('bc_viewdetail_') && !customId.startsWith('bc_viewlist_')) return false;
 
-    // ═══ DEFER NGAY LẬP TỨC để tránh Unknown interaction (3s timeout) ═══
-    // Khi nhiều button nhấn cùng lúc, Node.js single-thread sẽ queue lại
-    // nên phải defer ngay trước mọi logic xử lý
+    // ═══ DEFER NGAY LẬP TỨC ═══
     try {
         if (customId.startsWith('bc_menu_')) {
-            // Mở menu mới → deferReply ephemeral
             await interaction.deferReply({ ephemeral: true });
         } else if (customId.startsWith('bc_viewdetail_')) {
-            // Có thể từ overview (lần đầu) hoặc ephemeral (quay lại)
             const isEphemeralMsg = interaction.message?.flags?.has(64);
             if (isEphemeralMsg) {
                 await interaction.deferUpdate();
             } else {
                 await interaction.deferReply({ ephemeral: true });
             }
-        } else if (customId.startsWith('bc_regular_sat_') || customId.startsWith('bc_regular_sun_')) {
-            // Regular toggle từ overview → deferReply ephemeral
+        } else if (customId.startsWith('bc_regular_')) {
             await interaction.deferReply({ ephemeral: true });
         } else {
-            // Tất cả các button còn lại (join/leave/close/viewlist/regular menu)
-            // đều update trên message hiện tại → deferUpdate
             await interaction.deferUpdate();
         }
     } catch (e) {
-        // Nếu defer thất bại (interaction đã hết hạn) → bỏ qua, không crash
         console.error(`[bcMenu] Defer failed cho ${customId}:`, e.message);
-        return true; // Trả true để không gây lỗi ở caller
+        return true;
     }
 
     const guildId = interaction.guild.id;
@@ -211,7 +200,7 @@ async function handleBcMenuButton(interaction) {
 
         try {
             const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
-            const newEmbed = createOverviewEmbed(guildId);
+            const newEmbed = createOverviewEmbed(guildId, interaction.guild);
             const newRow = createOverviewButton(guildId);
             const editOptions = { embeds: [newEmbed] };
             if (newRow) editOptions.components = [newRow];
@@ -222,20 +211,29 @@ async function handleBcMenuButton(interaction) {
         }
     };
 
-    // bc_regular_sat_{guildId} / bc_regular_sun_{guildId} từ overview (toggle quick)
-    if (customId.startsWith('bc_regular_sat_') || customId.startsWith('bc_regular_sun_')) {
-        const day = customId.includes('_sat_') ? 'sat' : 'sun';
+    // bc_regular_{day}_{guildId} từ overview (toggle quick)
+    if (customId.startsWith('bc_regular_')) {
+        const day = parseDayFromCustomId(customId);
+        if (DAY_CONFIG[day]?.primary !== true) { await interaction.editReply({ content: 'âš ï¸ "LuÃ´n tham gia" chá»‰ Ã¡p dá»¥ng cho Thá»© 7 vÃ  Chá»§ Nháº­t.', embeds: [], components: [] }); return true; }
+        if (!day || !DAY_CONFIG[day]) return true;
+        if (DAY_CONFIG[day]?.primary !== true) {
+            await interaction.editReply({ content: 'âš ï¸ "LuÃ´n tham gia" chá»‰ Ã¡p dá»¥ng cho Thá»© 7 vÃ  Chá»§ Nháº­t.' });
+            return true;
+        }
         const isRegular = db.isBcRegular(guildId, userId, day);
 
         if (isRegular) {
             db.removeBcRegular(guildId, userId, day);
+            await removeBcRegular(guildId, userId, day);
+            await removeBcRegular(guildId, userId, day);
             await interaction.editReply({
                 content: `✅ Đã tắt "Luôn tham gia" ${DAY_CONFIG[day].name}.`
             });
         } else {
             db.addBcRegular(guildId, userId, username, day);
+            await syncBcRegular(guildId, userId, username, day);
+            await syncBcRegular(guildId, userId, username, day);
 
-            // Auto-join session hiện tại nếu có
             let autoJoinMsg = '';
             const session = db.getActiveBangchienByDay(guildId, day);
             if (session && !isUserInSession(session, userId)) {
@@ -251,7 +249,7 @@ async function handleBcMenuButton(interaction) {
                     regs.push({ id: userId, username, joinedAt: Date.now(), isLeader: false, isRegular: true });
                     bangchienRegistrations.set(session.party_key, regs);
                     autoJoinMsg = ` Đã tự động đăng ký ${DAY_CONFIG[day].name}!`;
-                    // Cấp role BC khi auto-join
+                    await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
                     try {
                         let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
                         if (!bcRole) bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
@@ -266,46 +264,48 @@ async function handleBcMenuButton(interaction) {
             });
         }
 
-        // Refresh overview
         await refreshOverview();
         return true;
     }
 
-    // Các handlers còn lại dùng biến đã khai báo ở trên
-
     // bc_viewdetail_{guildId} → Hiện menu chọn ngày để xem danh sách
     if (customId.startsWith('bc_viewdetail_')) {
-        // Đã defer ở đầu hàm rồi, chỉ cần xử lý logic
-        const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-        const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
+        const allSessions = db.getActiveBangchienByGuild(guildId);
+        const sessionMap = {};
+        allSessions.forEach(s => { if (s.day) sessionMap[s.day] = s; });
 
-        const satTotal = satSession ? getSessionTotal(satSession) : 0;
-        const sunTotal = sunSession ? getSessionTotal(sunSession) : 0;
+        const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+        const dayShortLabels = { 'mon': 'T2', 'tue': 'T3', 'wed': 'T4', 'thu': 'T5', 'fri': 'T6', 'sat': 'T7', 'sun': 'CN' };
+        const activeDays = Object.keys(sessionMap).sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 
         const embed = new EmbedBuilder()
             .setColor(0x3498DB)
             .setTitle('🔍 XEM DANH SÁCH BANG CHIẾN')
-            .setDescription('Chọn ngày để xem danh sách chi tiết:')
-            .addFields(
-                { name: `📅 ${getDayNameWithDate('sat')}`, value: satSession ? `👥 ${satTotal}/30 người` : '_Chưa mở_', inline: true },
-                { name: `📅 ${getDayNameWithDate('sun')}`, value: sunSession ? `👥 ${sunTotal}/30 người` : '_Chưa mở_', inline: true }
-            )
-            .setFooter({ text: 'Menu này chỉ bạn thấy' });
+            .setDescription('Chọn ngày để xem danh sách chi tiết:');
+
+        for (const day of activeDays) {
+            const total = getSessionTotal(sessionMap[day]);
+            embed.addFields({
+                name: `📅 ${getDayNameWithDate(day)}`,
+                value: `👥 ${total}/30 người`,
+                inline: true
+            });
+        }
+
+        if (activeDays.length === 0) {
+            embed.setDescription('Chưa có phiên Bang Chiến nào đang mở.');
+        }
+
+        embed.setFooter({ text: 'Menu này chỉ bạn thấy' });
 
         const row = new ActionRowBuilder();
-        if (satSession) {
+        for (const day of activeDays) {
+            if (row.components.length >= 4) break;
+            const total = getSessionTotal(sessionMap[day]);
             row.addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`bc_viewlist_sat_${guildId}`)
-                    .setLabel(`📋 Xem T7 (${satTotal})`)
-                    .setStyle(ButtonStyle.Primary)
-            );
-        }
-        if (sunSession) {
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bc_viewlist_sun_${guildId}`)
-                    .setLabel(`📋 Xem CN (${sunTotal})`)
+                    .setCustomId(`bc_viewlist_${day}_${guildId}`)
+                    .setLabel(`📋 Xem ${dayShortLabels[day] || day} (${total})`)
                     .setStyle(ButtonStyle.Primary)
             );
         }
@@ -320,25 +320,52 @@ async function handleBcMenuButton(interaction) {
         return true;
     }
 
-    // bc_viewlist_sat_{guildId} / bc_viewlist_sun_{guildId} → Hiện danh sách chi tiết
+    // bc_viewlist_{day}_{guildId} → Hiện danh sách chi tiết
     if (customId.startsWith('bc_viewlist_')) {
-        // Đã defer ở đầu hàm rồi
+        const day = parseDayFromCustomId(customId);
+        if (!day) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
 
-        const day = customId.includes('_sat_') ? 'sat' : 'sun';
         const session = db.getActiveBangchienByDay(guildId, day);
-
         if (!session) {
-            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
+            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day]?.name || day}.`, embeds: [], components: [] });
             return true;
         }
 
-        // Sử dụng createBangchienEmbed giống như ?bc t7
         const { createBangchienEmbed } = require('../commands/bangchien/bangchien');
         const embed = createBangchienEmbed(session.party_key, session.leader_name, interaction.guild);
-
-        // Thêm footer để biết đây là ephemeral
         embed.setFooter({ text: 'Menu này chỉ bạn thấy • Hôm nay lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) });
 
+        const shortLabel = { mon: 'T2', tue: 'T3', wed: 'T4', thu: 'T5', fri: 'T6', sat: 'T7', sun: 'CN' }[day] || day.toUpperCase();
+        const isInDay = isUserInSession(session, userId);
+        const isRegularDay = db.isBcRegular(guildId, userId, day);
+
+        // Row 1: nút đăng ký/hủy + luôn tham gia
+        const actionRow = new ActionRowBuilder();
+        if (isInDay) {
+            actionRow.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bcmenu_leave_${day}_${guildId}`)
+                    .setLabel(`❌ Hủy đăng ký ${shortLabel}`)
+                    .setStyle(ButtonStyle.Secondary)
+            );
+        } else {
+            actionRow.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bcmenu_join_${day}_${guildId}`)
+                    .setLabel(`✅ Đăng ký ${shortLabel}`)
+                    .setStyle(ButtonStyle.Success)
+            );
+        }
+        if (DAY_CONFIG[day]?.primary === true) {
+            actionRow.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bcmenu_regular_${day}_${guildId}`)
+                    .setLabel(isRegularDay ? `🔄 Bỏ luôn ${shortLabel}` : `🔄 Luôn ${shortLabel}`)
+                    .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
+            );
+        }
+
+        // Row 2: điều hướng
         const backRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
@@ -351,13 +378,13 @@ async function handleBcMenuButton(interaction) {
                     .setStyle(ButtonStyle.Danger)
             );
 
-        await interaction.editReply({ embeds: [embed], components: [backRow] });
+        await interaction.editReply({ embeds: [embed], components: [actionRow, backRow] });
         return true;
     }
 
+
     // bc_menu_{guildId} → Mở menu
     if (customId.startsWith('bc_menu_')) {
-        // Đã defer ở đầu hàm rồi
         const { embed, components } = createBcMenu(guildId, userId);
         await interaction.editReply({ embeds: [embed], components });
         return true;
@@ -365,29 +392,27 @@ async function handleBcMenuButton(interaction) {
 
     // bcmenu_close
     if (customId.startsWith('bcmenu_close_')) {
-        // Đã deferUpdate ở đầu hàm → dùng editReply
         await interaction.editReply({ content: '✅ Đã đóng menu.', embeds: [], components: [] });
         return true;
     }
 
-    // bcmenu_join_sat / bcmenu_join_sun
+    // bcmenu_join_{day}_{guildId} - DYNAMIC
     if (customId.startsWith('bcmenu_join_')) {
-        const day = customId.includes('_sat_') ? 'sat' : 'sun';
-        const session = db.getActiveBangchienByDay(guildId, day);
+        const day = parseDayFromCustomId(customId);
+        if (!day || !DAY_CONFIG[day]) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
 
+        const session = db.getActiveBangchienByDay(guildId, day);
         if (!session) {
             await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
             return true;
         }
 
-        // Kiểm tra đã đăng ký chưa
         if (isUserInSession(session, userId)) {
             const { embed, components } = createBcMenu(guildId, userId);
             await interaction.editReply({ content: `⚠️ Bạn đã đăng ký ${DAY_CONFIG[day].name} rồi!`, embeds: [embed], components });
             return true;
         }
 
-        // Thêm vào session
         const result = db.addBangchienParticipant(session.party_key, {
             id: userId,
             username: username,
@@ -396,12 +421,10 @@ async function handleBcMenuButton(interaction) {
         });
 
         if (result.success) {
-            // Cập nhật memory
             const regs = bangchienRegistrations.get(session.party_key) || [];
             regs.push({ id: userId, username, joinedAt: Date.now(), isLeader: false });
             bangchienRegistrations.set(session.party_key, regs);
 
-            // Cấp role Bang Chiến 30vs30 ngay khi tham gia
             try {
                 let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
                 if (!bcRole) bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
@@ -414,33 +437,32 @@ async function handleBcMenuButton(interaction) {
                 embeds: [embed],
                 components
             });
-            await refreshOverview(); // Cập nhật overview ngay lập tức
+            await refreshOverview();
+            await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
         } else {
             await interaction.editReply({ content: `❌ Lỗi: ${result.error}`, embeds: [], components: [] });
         }
         return true;
     }
 
-    // bcmenu_leave_sat / bcmenu_leave_sun
+    // bcmenu_leave_{day}_{guildId} - DYNAMIC
     if (customId.startsWith('bcmenu_leave_')) {
-        const day = customId.includes('_sat_') ? 'sat' : 'sun';
-        const session = db.getActiveBangchienByDay(guildId, day);
+        const day = parseDayFromCustomId(customId);
+        if (!day || !DAY_CONFIG[day]) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
 
+        const session = db.getActiveBangchienByDay(guildId, day);
         if (!session) {
             await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
             return true;
         }
 
-        // Xóa khỏi session
         const result = db.removeBangchienParticipant(session.party_key, userId);
 
         if (result.success) {
-            // Cập nhật memory
             const regs = bangchienRegistrations.get(session.party_key) || [];
             const updated = regs.filter(r => r.id !== userId);
             bangchienRegistrations.set(session.party_key, updated);
 
-            // Xóa role Bang Chiến 30vs30 khi hủy đăng ký
             try {
                 const bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
                 if (bcRole && interaction.member.roles.cache.has(bcRole.id)) await interaction.member.roles.remove(bcRole);
@@ -452,20 +474,22 @@ async function handleBcMenuButton(interaction) {
                 embeds: [embed],
                 components
             });
-            await refreshOverview(); // Cập nhật overview ngay lập tức
+            await refreshOverview();
+            await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
         } else {
             await interaction.editReply({ content: `❌ Lỗi: ${result.error || 'Không tìm thấy'}`, embeds: [], components: [] });
         }
         return true;
     }
 
-    // bcmenu_regular_sat / bcmenu_regular_sun (toggle)
+    // bcmenu_regular_{day}_{guildId} (toggle) - DYNAMIC
     if (customId.startsWith('bcmenu_regular_')) {
-        const day = customId.includes('_sat_') ? 'sat' : 'sun';
+        const day = parseDayFromCustomId(customId);
+        if (!day || !DAY_CONFIG[day]) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
+
         const isRegular = db.isBcRegular(guildId, userId, day);
 
         if (isRegular) {
-            // TẮT "Luôn tham gia" - chỉ xóa regular, KHÔNG xóa khỏi session hiện tại
             db.removeBcRegular(guildId, userId, day);
             const { embed, components } = createBcMenu(guildId, userId);
             await interaction.editReply({
@@ -473,12 +497,10 @@ async function handleBcMenuButton(interaction) {
                 embeds: [embed],
                 components
             });
-            await refreshOverview(); // Cập nhật overview
+            await refreshOverview();
         } else {
-            // BẬT "Luôn tham gia"
             db.addBcRegular(guildId, userId, username, day);
 
-            // Auto-join session hiện tại nếu có và chưa join
             let autoJoinMessage = '';
             const session = db.getActiveBangchienByDay(guildId, day);
             if (session && !isUserInSession(session, userId)) {
@@ -491,12 +513,11 @@ async function handleBcMenuButton(interaction) {
                 });
 
                 if (result.success) {
-                    // Cập nhật memory
                     const regs = bangchienRegistrations.get(session.party_key) || [];
                     regs.push({ id: userId, username, joinedAt: Date.now(), isLeader: false, isRegular: true });
                     bangchienRegistrations.set(session.party_key, regs);
                     autoJoinMessage = ` Đã tự động đăng ký ${DAY_CONFIG[day].name} tuần này!`;
-                    // Cấp role BC khi auto-join từ regular
+                    await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
                     try {
                         let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
                         if (!bcRole) bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
@@ -511,7 +532,7 @@ async function handleBcMenuButton(interaction) {
                 embeds: [embed],
                 components
             });
-            await refreshOverview(); // Cập nhật overview
+            await refreshOverview();
         }
         return true;
     }

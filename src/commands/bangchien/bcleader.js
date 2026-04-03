@@ -38,7 +38,7 @@ module.exports = {
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
 
         // Bỏ qua arg t7/cn nếu có để lấy đúng team number
         let filteredArgs = args.filter(a => !['t7', 'cn', 'sat', 'sun', 'saturday', 'sunday', 'cus', 'custom', 'tudo', 'td'].includes(a.toLowerCase()));

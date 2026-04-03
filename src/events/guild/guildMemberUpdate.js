@@ -13,6 +13,7 @@
 const db = require('../../database/db');
 const { EmbedBuilder } = require('discord.js');
 const { getRoleMappings, DISPLAY_ROLE_NAME } = require('../../commands/quanly/subrole/addrole');
+const { syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 
 // ID role Server Booster (Discord cấp tự động)
 const BOOSTER_ROLE_ID = '740457614470545408';
@@ -41,6 +42,15 @@ module.exports = {
             if (addedRoles.size === 0 && removedRoles.size === 0) return;
 
             const guildId = newMember.guild.id;
+
+            try {
+                const syncResult = await syncStoredPositionForMember(newMember, guildId);
+                if (syncResult.changed) {
+                    console.log(`[guildMemberUpdate] Synced position ${newMember.user.tag}: ${syncResult.from} -> ${syncResult.position}`);
+                }
+            } catch (e) {
+                console.error('[guildMemberUpdate] Position sync error:', e.message);
+            }
 
             // ═══════════════════════════════════════════════════════════════
             // BOOSTER ROLE GAINED — DM cảm ơn khi ai boost server

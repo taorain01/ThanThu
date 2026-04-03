@@ -3,8 +3,6 @@ const db = require('../../database/db');
 
 // Channel ID to send leave notifications
 const LEAVE_NOTIFICATION_CHANNEL = '1465959064575152263';
-// Role name to tag
-const ROLE_NAME = 'Kỳ Cựu';
 
 module.exports = {
     name: 'guildMemberRemove',
@@ -49,10 +47,7 @@ module.exports = {
                 try {
                     const channel = await client.channels.fetch(LEAVE_NOTIFICATION_CHANNEL);
                     if (channel) {
-                        // Find Kỳ Cựu role for tagging
-                        const guild = channel.guild;
-                        const kyCuuRole = guild?.roles.cache.find(r => r.name === ROLE_NAME);
-                        const roleMention = kyCuuRole ? `<@&${kyCuuRole.id}>` : `@${ROLE_NAME}`;
+
 
                         const embed = new EmbedBuilder()
                             .setColor(0xFF4444)
@@ -67,7 +62,6 @@ module.exports = {
                             .setTimestamp();
 
                         await channel.send({
-                            content: `${roleMention} ⚠️`,
                             embeds: [embed]
                         });
                     }

@@ -13,6 +13,7 @@ const {
     // Multi-day
     DAY_CONFIG,
     DAY_ALIASES,
+    PRIMARY_DAYS,
     parseDayArg,
     createPartyKey,
     getDayFromPartyKey,
@@ -229,7 +230,8 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
 }
 
 // Tạo buttons công khai (cho tất cả người dùng thấy)
-function createBangchienButtons(partyKey) {
+function createBangchienButtons(partyKey, day = null) {
+    const resolvedDay = day || getDayFromPartyKey(partyKey);
     const row = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -246,6 +248,9 @@ function createBangchienButtons(partyKey) {
                 .setStyle(ButtonStyle.Primary)
         );
 
+    if (resolvedDay !== 'sat' && resolvedDay !== 'sun') {
+        row.spliceComponents(2, 1);
+    }
     return row;
 }
 
@@ -291,17 +296,13 @@ async function fetchBcMembers(guild, participants) {
  * @param {string} guildId - Guild ID
  * @returns {EmbedBuilder} Embed với thông tin cả 2 ngày
  */
-function createOverviewEmbed(guildId) {
+function createOverviewEmbed(guildId, guild = null) {
     const db = require('../../database/db');
 
     const embed = new EmbedBuilder()
         .setColor(0xFFD700)
         .setTitle('⚔️ BANG CHIẾN LANG GIA 📅')
         .setDescription('Bấm nút bên dưới để đăng ký Bang Chiến');
-
-    // Lấy sessions của 2 ngày
-    const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-    const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
 
     // Helper: tính tổng và stats cho 1 session
     const getSessionStats = (session) => {
@@ -310,8 +311,6 @@ function createOverviewEmbed(guildId) {
         const defense = session.team_defense?.length || 0;
         const forest = session.team_forest?.length || 0;
         const total = attack + defense + forest;
-
-        // Count roles
         const allMembers = [
             ...(session.team_attack1 || []),
             ...(session.team_attack2 || []),
@@ -320,45 +319,65 @@ function createOverviewEmbed(guildId) {
         ];
         let healer = 0, tanker = 0, dps = 0;
         allMembers.forEach(m => {
-            if (m.role === 'Healer') healer++;
-            else if (m.role === 'Tanker') tanker++;
+            let role = null;
+            if (guild) {
+                try {
+                    const mem = guild.members.cache.get(m.id);
+                    if (mem) {
+                        const hR = guild.roles.cache.find(r => r.name === 'Healer');
+                        if (hR && mem.roles.cache.has(hR.id)) role = 'Healer';
+                        if (!role) { const tR = guild.roles.cache.find(r => r.name === 'Tanker'); if (tR && mem.roles.cache.has(tR.id)) role = 'Tanker'; }
+                        if (!role) { const dR = guild.roles.cache.find(r => r.name === 'DPS'); if (dR && mem.roles.cache.has(dR.id)) role = 'DPS'; }
+                    }
+                } catch (e) { }
+            }
+            if (role === 'Healer') healer++;
+            else if (role === 'Tanker') tanker++;
             else dps++;
         });
-
         return { total, attack, defense, forest, healer, tanker, dps };
     };
 
-    // Thứ 7 - với ngày cụ thể
-    const satStats = getSessionStats(satSession);
-    const satDateStr = getDayNameWithDate('sat').toUpperCase();
-    const satStatus = satSession
-        ? (() => {
-            let line = `📅 **${satDateStr}** (${satStats.total}/30)\n⚔️ Công: ${satStats.attack}`;
-            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ Thủ: ${satStats.defense}`;
-            if (db.getTeamSize('forest') > 0) line += ` | 🌲 Rừng: ${satStats.forest}`;
-            line += `\n🟢${satStats.healer} 🟠${satStats.tanker} 🔵${satStats.dps}`;
+    // Helper: render 1 ngày
+    const renderDay = (dayKey, session) => {
+        const dayConfig = DAY_CONFIG[dayKey];
+        const stats = getSessionStats(session);
+        const dateStr = getDayNameWithDate(dayKey).toUpperCase();
+        const isPrimary = dayConfig.primary;
+        const timeStr = session?.time || '19:30';
+        const noteStr = session?.note ? ` — _${session.note}_` : '';
+
+        if (session) {
+            let line = `📅 **${dateStr}** ⏰${timeStr}${noteStr} (${stats.total}/30)\n⚔️ Công: ${stats.attack}`;
+            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ Thủ: ${stats.defense}`;
+            if (db.getTeamSize('forest') > 0) line += ` | 🌲 Rừng: ${stats.forest}`;
+            line += `\n🟢${stats.healer} 🟠${stats.tanker} 🔵${stats.dps}`;
             return line;
-        })()
-        : `📅 **${satDateStr}** - _Chưa mở_\n💡 Dùng \`?bc t7\` để mở`;
+        }
+        if (isPrimary) {
+            return `📅 **${dateStr}** - _Chưa mở_\n💡 Dùng \`?bc ${dayKey === 'sat' ? 't7' : 'cn'}\` để mở`;
+        }
+        return null;
+    };
 
-    embed.addFields({ name: '\u200b', value: satStatus, inline: false });
+    // 1. Hiện T7 + CN (luôn hiện dù chưa mở)
+    for (const dayKey of PRIMARY_DAYS) {
+        const session = db.getActiveBangchienByDay(guildId, dayKey);
+        const value = renderDay(dayKey, session);
+        if (value) embed.addFields({ name: '\u200b', value, inline: false });
+    }
 
-    // Chủ Nhật - với ngày cụ thể
-    const sunStats = getSessionStats(sunSession);
-    const sunDateStr = getDayNameWithDate('sun').toUpperCase();
-    const sunStatus = sunSession
-        ? (() => {
-            let line = `📅 **${sunDateStr}** (${sunStats.total}/30)\n⚔️ Công: ${sunStats.attack}`;
-            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ Thủ: ${sunStats.defense}`;
-            if (db.getTeamSize('forest') > 0) line += ` | 🌲 Rừng: ${sunStats.forest}`;
-            line += `\n🟢${sunStats.healer} 🟠${sunStats.tanker} 🔵${sunStats.dps}`;
-            return line;
-        })()
-        : `📅 **${sunDateStr}** - _Chưa mở_\n💡 Dùng \`?bc cn\` để mở`;
+    // 2. Hiện các ngày custom có session active
+    const allSessions = db.getActiveBangchienByGuild(guildId);
+    for (const session of allSessions) {
+        if (PRIMARY_DAYS.includes(session.day)) continue;
+        const dayKey = session.day;
+        if (!DAY_CONFIG[dayKey]) continue;
+        const value = renderDay(dayKey, session);
+        if (value) embed.addFields({ name: '\u200b', value, inline: false });
+    }
 
-    embed.addFields({ name: '\u200b', value: sunStatus, inline: false });
-
-    embed.setFooter({ text: '💡 Bấm nút để xem chi tiết và đăng ký' })
+    embed.setFooter({ text: '💡 ?bc t2 21h Ghi chú — Tạo BC tùy chỉnh' })
         .setTimestamp();
 
     return embed;
@@ -372,13 +391,9 @@ function createOverviewEmbed(guildId) {
  */
 function createOverviewButton(guildId) {
     const db = require('../../database/db');
-    const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-    const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
+    const allSessions = db.getActiveBangchienByGuild(guildId);
 
-    // Nếu không có session nào thì không hiện button
-    if (!satSession && !sunSession) {
-        return null;
-    }
+    if (allSessions.length === 0) return null;
 
     const row = new ActionRowBuilder()
         .addComponents(
@@ -403,15 +418,12 @@ function createOverviewButton(guildId) {
  */
 function refreshBcOverviewDebounced(client, guildId) {
     const db = require('../../database/db');
-
-    // Kiểm tra có overview đang hiển thị không
     const overviewData = bangchienOverviews.get(guildId);
     if (!overviewData) return;
 
-    // Kiểm tra có session đang mở không
-    const sat = db.getActiveBangchienByDay(guildId, 'sat');
-    const sun = db.getActiveBangchienByDay(guildId, 'sun');
-    if (!sat && !sun) return;
+    // Kiểm tra có session đang mở không (bất kỳ ngày nào)
+    const allSessions = db.getActiveBangchienByGuild(guildId);
+    if (allSessions.length === 0) return;
 
     // Clear timer cũ
     const existingTimer = bcRefreshTimers.get(guildId);
@@ -427,7 +439,7 @@ function refreshBcOverviewDebounced(client, guildId) {
             try { if (data.message) await data.message.delete(); } catch (e) { }
 
             // Gửi embed mới
-            const newEmbed = createOverviewEmbed(guildId);
+            const newEmbed = createOverviewEmbed(guildId, client.guilds.cache.get(guildId));
             const newRow = createOverviewButton(guildId);
             const channel = await client.channels.fetch(data.channelId).catch(() => null);
             if (!channel) return;
@@ -462,18 +474,26 @@ module.exports = {
         const leaderName = message.author.username;
         const db = require('../../database/db');
 
+        // Lookup tên ingame từ DB
+        const userInfo = db.getUserByDiscordId(leaderId);
+        const gameName = userInfo?.game_username || '';
+        const displayName = gameName || leaderName; // Ưu tiên tên ingame
+
         // ═══════════════════════════════════════════════════════════════════
         // AUTO-CLEANUP: Dọn session BC hết hạn trước khi xử lý
         // ═══════════════════════════════════════════════════════════════════
         await autoCleanupExpiredSessions(client, guildId);
 
         // ═══════════════════════════════════════════════════════════════════
-        // PARSE ARGS: ?bc / ?bc t7 / ?bc cn
+        // PARSE ARGS: ?bc / ?bc t7 / ?bc t2 21h Ghi chú
         // ═══════════════════════════════════════════════════════════════════
-        const day = parseDayArg(args); // 'sat', 'sun', or null
+        const parsed = parseDayArg(args); // { day, time, note } hoặc null
+        const day = parsed?.day || null;
+        const bcTime = parsed?.time || null;
+        const bcNote = parsed?.note || null;
 
         // ═══════════════════════════════════════════════════════════════════
-        // CASE 1: ?bc (không có args) → Hiển thị Overview 2 ngày
+        // CASE 1: ?bc (không có args) → Hiển thị Overview tất cả ngày
         // ═══════════════════════════════════════════════════════════════════
         if (!day) {
             // Xóa overview cũ nếu có
@@ -485,7 +505,7 @@ module.exports = {
                 try { if (existingOverview.message) await existingOverview.message.delete(); } catch (e) { }
             }
 
-            const overviewEmbed = createOverviewEmbed(guildId);
+            const overviewEmbed = createOverviewEmbed(guildId, message.guild);
             const overviewButton = createOverviewButton(guildId);
 
             // Xóa tin nhắn lệnh
@@ -510,7 +530,7 @@ module.exports = {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CASE 2: ?bc t7 / ?bc cn → Tạo hoặc hiển thị session cho ngày đó
+        // CASE 2: ?bc t7 / ?bc t2 21h ... → Tạo hoặc hiển thị session
         // ═══════════════════════════════════════════════════════════════════
         const dayConfig = DAY_CONFIG[day];
 
@@ -632,11 +652,13 @@ module.exports = {
         bangchienRegistrations.set(partyKey, [{
             id: leaderId,
             username: leaderName,
+            name: displayName,
+            gn: gameName,
             joinedAt: Date.now(),
             isLeader: true
         }]);
 
-        // Lưu vào DB với day
+        // Lưu vào DB với day, time, note
         db.createActiveBangchien({
             guildId,
             partyKey,
@@ -644,7 +666,9 @@ module.exports = {
             leaderName,
             channelId: message.channel.id,
             messageId: null,
-            day: day  // MULTI-DAY: Lưu ngày
+            day: day,
+            time: bcTime || (DAY_CONFIG[day]?.primary ? '19:30' : null),
+            note: bcNote || null
         });
 
         // Auto-add regular participants (CHỈ của ngày đó)
@@ -663,9 +687,12 @@ module.exports = {
                 continue;
             }
 
+            const regGameName = userData?.game_username || '';
             const result = db.addBangchienParticipant(partyKey, {
                 id: reg.discord_id,
                 username: reg.username,
+                gn: regGameName,
+                name: regGameName || reg.username,
                 joinedAt: Date.now(),
                 isLeader: false,
                 isRegular: true
@@ -678,6 +705,8 @@ module.exports = {
                 regs.push({
                     id: reg.discord_id,
                     username: reg.username,
+                    gn: regGameName,
+                    name: regGameName || reg.username,
                     joinedAt: Date.now(),
                     isLeader: false,
                     isRegular: true
@@ -729,6 +758,28 @@ module.exports = {
 
         // Đăng ký kênh
         bangchienChannels.set(guildId, message.channel.id);
+
+        // Sync lên Supabase để web cập nhật realtime
+        try {
+            const supaSync = require('../../utils/supabaseSync');
+            const db = require('../../database/db');
+            if (supaSync.isReady()) {
+                const activeSession = db.getActiveBangchien(partyKey);
+                if (activeSession) {
+                    const formatted = supaSync.formatActiveSession(activeSession, db, message.guild);
+                    if (formatted) {
+                        formatted.time = bcTime || '19:30';
+                        formatted.note = bcNote || '';
+                        await supaSync.syncBCSession(guildId, day, formatted);
+                        console.log(`[bangchien] ✅ Đã sync session ${day} lên Supabase`);
+                    } else {
+                        console.log(`[bangchien] ⚠️ formatActiveSession trả về null cho ${day}`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.log('[bangchien] Supabase sync error:', e.message);
+        }
 
         console.log(`[bangchien] ${leaderName} tạo party ${dayConfig.name} tại ${message.guild.name}`);
 
@@ -900,6 +951,14 @@ module.exports = {
 
                         // 4. XÓA SESSION KHỎI DB
                         dbCleanup.deleteActiveBangchien(autoEndPartyKey);
+
+                        // 4.5. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
+                        try {
+                            const { deleteBCSession } = require('../../utils/supabaseSync');
+                            await deleteBCSession(guildId, day);
+                        } catch (e) {
+                            console.log('[bangchien] Auto-end: Lỗi xóa Supabase:', e.message);
+                        }
 
                         // 5. CẬP NHẬT OVERVIEW EMBED
                         await refreshOverviewEmbed(client, guildId);

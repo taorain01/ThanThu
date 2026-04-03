@@ -1653,6 +1653,12 @@ module.exports = {
             return bcsizeCommand.execute(message, args, client);
         }
 
+        // ?setbc, ?setbangchien, ?bcchannel - Set kênh BC mặc định
+        if (['setbc', 'setbangchien', 'bcchannel'].includes(commandName)) {
+            const setbcCommand = require('../../commands/bangchien/setbc');
+            return setbcCommand.execute(message, args, client);
+        }
+
         // ?bcrole, ?bctanker, ?bcdps, ?bchealer - Xem thành viên theo role
         if (['bcrole', 'bctanker', 'bcdps', 'bchealer'].includes(commandName)) {
             const bcroleCommand = require('../../commands/bangchien/bcrole');
@@ -1687,36 +1693,6 @@ module.exports = {
         if (['bcmove', 'bcdoi', 'dichuyen'].includes(commandName)) {
             const bcmoveCommand = require('../../commands/bangchien/bcmove');
             return bcmoveCommand.execute(message, args, client);
-        }
-
-        // ?bccus, ?bangchiencustom - BC Tự Do
-        if (['bccus', 'bangchiencustom'].includes(commandName)) {
-            const bccusCommand = require('../../commands/bangchien/bccus');
-            return bccusCommand.execute(message, args, client);
-        }
-
-        // ?listbccus, ?lbcc - Xem danh sách BC Tự Do
-        if (['listbccus', 'lbcc'].includes(commandName)) {
-            const listbccusCommand = require('../../commands/bangchien/listbccus');
-            return listbccusCommand.execute(message, args, client);
-        }
-
-        // ?bccusadd - Thêm người vào whitelist BC Tự Do
-        if (['bccusadd'].includes(commandName)) {
-            const bccuspermCommand = require('../../commands/bangchien/bccusperm');
-            return bccuspermCommand.execute(message, ['add', ...args], client);
-        }
-
-        // ?bccusremove, ?bccusxoa - Xóa người khỏi whitelist BC Tự Do
-        if (['bccusremove', 'bccusxoa'].includes(commandName)) {
-            const bccuspermCommand = require('../../commands/bangchien/bccusperm');
-            return bccuspermCommand.execute(message, ['remove', ...args], client);
-        }
-
-        // ?bccuslist, ?bccusds - Xem whitelist BC Tự Do
-        if (['bccuslist', 'bccusds'].includes(commandName)) {
-            const bccuspermCommand = require('../../commands/bangchien/bccusperm');
-            return bccuspermCommand.execute(message, ['list', ...args], client);
         }
 
         // ?nhacnho, ?nn, ?remind - Đăng ký nhận nhắc nhở event
@@ -2114,7 +2090,8 @@ module.exports = {
                         '🟢 **Healer** - Hỗ trợ và hồi máu\n' +
                         '🟠 **Tanker** - Chịu đòn và bảo vệ đồng đội\n\n' +
                         '**🔵 DPS - Sát thương chính:**\n' +
-                        '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi**\n\n' +
+                        '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi**\n' +
+                        '🔪 **Hoành Đao/Mđ**\n\n' +
                         'ℹ️ *Chọn lại role khác sẽ tự động thay đổi role hiện tại*')
                     .setTimestamp()
                     .setFooter({ text: 'Chọn role trong game của bạn!' });
@@ -2150,7 +2127,17 @@ module.exports = {
                             .setStyle(ButtonStyle.Primary)
                     );
 
-                // Row 2: Healer & Tanker
+                // Row 2: DPS sub-types tiếp (Hoành Đao/Mđ)
+                const dpsRow2 = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`pickrole_dps_hoanhdao_${userId}`)
+                            .setLabel('Hoành Đao/Mđ')
+                            .setEmoji('🔪')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+
+                // Row 3: Healer & Tanker
                 const otherRow = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
@@ -2165,7 +2152,7 @@ module.exports = {
                             .setStyle(ButtonStyle.Secondary)
                     );
 
-                return message.reply({ embeds: [embed], components: [dpsRow, otherRow] });
+                return message.reply({ embeds: [embed], components: [dpsRow, dpsRow2, otherRow] });
             }
 
             // Kiểm tra nếu roleArg là alias của DPS sub-type (ví dụ: ?pickrole sd)
@@ -2228,32 +2215,39 @@ module.exports = {
 
                     await message.reply({ embeds: [successEmbed] });
 
-                    // Auto-refresh bangchien embed nếu user đang trong party
+                    // Auto-refresh bangchien + overview + Supabase sync
                     try {
-                        const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys } = require('../../utils/bangchienState');
-                        const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
+                        const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey, bangchienOverviews } = require('../../utils/bangchienState');
+                        const { createBangchienEmbed, createBangchienButtons, createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
+                        const supaSync = require('../../utils/supabaseSync');
+                        const db = require('../../database/db');
                         const guildId = message.guild.id;
                         const odUserId = message.author.id;
                         const partyKeys = getGuildBangchienKeys(guildId);
+                        await message.guild.members.fetch(odUserId).catch(() => null);
                         for (const partyKey of partyKeys) {
                             const registrations = bangchienRegistrations.get(partyKey) || [];
-                            const isInParty = registrations.some(r => r.id === odUserId);
-                            if (isInParty) {
+                            if (registrations.some(r => r.id === odUserId)) {
                                 const notifData = bangchienNotifications.get(partyKey);
                                 if (notifData && notifData.message) {
                                     try { await notifData.message.delete(); } catch (e) { }
                                     const channel = await message.guild.channels.fetch(notifData.channelId).catch(() => null);
                                     if (channel) {
-                                        const newEmbed = createBangchienEmbed(partyKey, notifData.leaderName, message.guild);
-                                        const newRow = createBangchienButtons(partyKey);
-                                        const newMessage = await channel.send({ embeds: [newEmbed], components: [newRow] });
-                                        notifData.message = newMessage;
-                                        notifData.messageId = newMessage.id;
+                                        const ne = createBangchienEmbed(partyKey, notifData.leaderName, message.guild);
+                                        const nr = createBangchienButtons(partyKey);
+                                        const nm = await channel.send({ embeds: [ne], components: [nr] });
+                                        notifData.message = nm; notifData.messageId = nm.id;
                                     }
                                 }
-                                break;
+                                if (supaSync.isReady()) {
+                                    const day = getDayFromPartyKey(partyKey);
+                                    const session = db.getActiveBangchien(partyKey);
+                                    if (session) { const f = supaSync.formatActiveSession(session, db, message.guild); if (f) await supaSync.syncBCSession(guildId, day || session.day, f); }
+                                }
                             }
                         }
+                        const ovd = bangchienOverviews.get(guildId);
+                        if (ovd && ovd.message) { try { await ovd.message.edit({ embeds: [createOverviewEmbed(guildId, message.guild)], components: [createOverviewButton(guildId)].filter(Boolean) }); } catch(e){} }
                     } catch (e) {
                         console.error('[pickrole alias] Lỗi khi refresh bangchien:', e);
                     }
@@ -2271,7 +2265,7 @@ module.exports = {
             if (!validRoles.includes(roleArg)) {
                 const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  • **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
                 return message.reply({
-                    content: `❌ Role không hợp lệ! Chọn: \`dps\`, \`healer\`, hoặc \`tanker\`.\n\n**Hoặc dùng lệnh tắt:**\n\`${prefix}pickrole qd\` - DPS Quạt Dù\n\`${prefix}pickrole vd\` - DPS Vô Danh\n\`${prefix}pickrole sd\` - DPS Song Đao\n\`${prefix}pickrole 9k\` - DPS Cửu Kiếm\n\`${prefix}pickrole dr\` - DPS Dù Roi`
+                    content: `❌ Role không hợp lệ! Chọn: \`dps\`, \`healer\`, hoặc \`tanker\`.\n\n**Hoặc dùng lệnh tắt:**\n\`${prefix}pickrole qd\` - DPS Quạt Dù\n\`${prefix}pickrole vd\` - DPS Vô Danh\n\`${prefix}pickrole sd\` - DPS Song Đao\n\`${prefix}pickrole 9k\` - DPS Cửu Kiếm\n\`${prefix}pickrole dr\` - DPS Dù Roi\n\`${prefix}pickrole hd\` - DPS Hoành Đao/Mđ`
                 });
             }
 
@@ -2348,32 +2342,39 @@ module.exports = {
 
                         await message.reply({ embeds: [successEmbed] });
 
-                        // Auto-refresh bangchien
+                        // Auto-refresh bangchien + overview + Supabase sync
                         try {
-                            const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys } = require('../../utils/bangchienState');
-                            const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
+                            const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey, bangchienOverviews } = require('../../utils/bangchienState');
+                            const { createBangchienEmbed, createBangchienButtons, createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
+                            const supaSync = require('../../utils/supabaseSync');
+                            const db = require('../../database/db');
                             const guildId = message.guild.id;
                             const odUserId = message.author.id;
                             const partyKeys = getGuildBangchienKeys(guildId);
+                            await message.guild.members.fetch(odUserId).catch(() => null);
                             for (const partyKey of partyKeys) {
                                 const registrations = bangchienRegistrations.get(partyKey) || [];
-                                const isInParty = registrations.some(r => r.id === odUserId);
-                                if (isInParty) {
+                                if (registrations.some(r => r.id === odUserId)) {
                                     const notifData = bangchienNotifications.get(partyKey);
                                     if (notifData && notifData.message) {
                                         try { await notifData.message.delete(); } catch (e) { }
                                         const channel = await message.guild.channels.fetch(notifData.channelId).catch(() => null);
                                         if (channel) {
-                                            const newEmbed = createBangchienEmbed(partyKey, notifData.leaderName, message.guild);
-                                            const newRow = createBangchienButtons(partyKey);
-                                            const newMessage = await channel.send({ embeds: [newEmbed], components: [newRow] });
-                                            notifData.message = newMessage;
-                                            notifData.messageId = newMessage.id;
+                                            const ne = createBangchienEmbed(partyKey, notifData.leaderName, message.guild);
+                                            const nr = createBangchienButtons(partyKey);
+                                            const nm = await channel.send({ embeds: [ne], components: [nr] });
+                                            notifData.message = nm; notifData.messageId = nm.id;
                                         }
                                     }
-                                    break;
+                                    if (supaSync.isReady()) {
+                                        const day = getDayFromPartyKey(partyKey);
+                                        const session = db.getActiveBangchien(partyKey);
+                                        if (session) { const f = supaSync.formatActiveSession(session, db, message.guild); if (f) await supaSync.syncBCSession(guildId, day || session.day, f); }
+                                    }
                                 }
                             }
+                            const ovd = bangchienOverviews.get(guildId);
+                            if (ovd && ovd.message) { try { await ovd.message.edit({ embeds: [createOverviewEmbed(guildId, message.guild)], components: [createOverviewButton(guildId)].filter(Boolean) }); } catch(e){} }
                         } catch (e) {
                             console.error('[pickrole prefix DPS] Lỗi khi refresh bangchien:', e);
                         }
@@ -2477,37 +2478,69 @@ module.exports = {
 
                 await message.reply({ embeds: [successEmbed] });
 
-                // Auto-refresh bangchien embed nếu user đang trong party
+                // Auto-refresh bangchien + overview + Supabase sync
                 try {
-                    const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys } = require('../../utils/bangchienState');
-                    const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
-
+                    const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey, bangchienOverviews } = require('../../utils/bangchienState');
+                    const { createBangchienEmbed, createBangchienButtons, createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
+                    const supaSync = require('../../utils/supabaseSync');
+                    const db = require('../../database/db');
                     const guildId = message.guild.id;
                     const odUserId = message.author.id;
+
+                    // Force-fetch member mới từ Discord API
+                    await message.guild.members.fetch(odUserId).catch(() => null);
+
+                    // Thử từ runtime Map trước
                     const partyKeys = getGuildBangchienKeys(guildId);
+                    let synced = false;
 
                     for (const partyKey of partyKeys) {
                         const registrations = bangchienRegistrations.get(partyKey) || [];
-                        const isInParty = registrations.some(r => r.id === odUserId);
-
-                        if (isInParty) {
+                        if (registrations.some(r => r.id === odUserId)) {
+                            // Refresh embed từng ngày
                             const notifData = bangchienNotifications.get(partyKey);
                             if (notifData && notifData.message) {
                                 try { await notifData.message.delete(); } catch (e) { }
-
-                                // Lấy channel gốc từ notifData, không dùng message.channel
                                 const channel = await message.guild.channels.fetch(notifData.channelId).catch(() => null);
                                 if (channel) {
-                                    const newEmbed = createBangchienEmbed(partyKey, notifData.leaderName, message.guild);
-                                    const newRow = createBangchienButtons(partyKey);
-                                    const newMessage = await channel.send({ embeds: [newEmbed], components: [newRow] });
-
-                                    notifData.message = newMessage;
-                                    notifData.messageId = newMessage.id;
+                                    const ne = createBangchienEmbed(partyKey, notifData.leaderName, message.guild);
+                                    const nr = createBangchienButtons(partyKey);
+                                    const nm = await channel.send({ embeds: [ne], components: [nr] });
+                                    notifData.message = nm; notifData.messageId = nm.id;
                                 }
                             }
-                            break;
+                            // Sync Supabase
+                            if (supaSync.isReady()) {
+                                const day = getDayFromPartyKey(partyKey);
+                                const session = db.getActiveBangchien(partyKey);
+                                if (session) {
+                                    const f = supaSync.formatActiveSession(session, db, message.guild);
+                                    if (f) { await supaSync.syncBCSession(guildId, day || session.day, f); synced = true; }
+                                }
+                            }
                         }
+                    }
+
+                    // DB FALLBACK: nếu runtime Map rỗng (sau bot restart), query DB trực tiếp
+                    if (!synced && supaSync.isReady()) {
+                        const allSessions = db.getActiveBangchienByGuild(guildId);
+                        for (const session of allSessions) {
+                            // Kiểm tra user có trong session này không
+                            const allTeams = [...(session.team_attack1||[]), ...(session.team_attack2||[]), ...(session.team_defense||[]), ...(session.team_forest||[])];
+                            if (allTeams.some(m => m.id === odUserId)) {
+                                const f = supaSync.formatActiveSession(session, db, message.guild);
+                                if (f) { await supaSync.syncBCSession(guildId, session.day, f); synced = true; }
+                            }
+                        }
+                        if (synced) console.log(`[pickrole text] ✅ DB fallback: synced Supabase`);
+                    }
+
+                    // Refresh overview embed
+                    const ovd = bangchienOverviews.get(guildId);
+                    if (ovd && ovd.message) {
+                        try {
+                            await ovd.message.edit({ embeds: [createOverviewEmbed(guildId, message.guild)], components: [createOverviewButton(guildId)].filter(Boolean) });
+                        } catch(e) { }
                     }
                 } catch (e) {
                     console.error('[pickrole prefix] Lỗi khi refresh bangchien:', e);

@@ -23,7 +23,7 @@ module.exports = {
                 },
                 {
                     name: '⚙️ CÀI ĐẶT',
-                    value: '`?bcsize` Số lượng team\n`?bcrole` Xem thống kê role',
+                    value: '`?bcsize` Số lượng team\n`?bcrole` Xem thống kê role\n`?setbc` Set kênh BC',
                     inline: true
                 },
                 {

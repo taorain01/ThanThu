@@ -12,6 +12,7 @@
 const db = require('../database/db');
 const { lastScheduleEmbed, bossChannels } = require('./bossState');
 const { lastPhongAnhMessage, lastGieoQueGuideWeekly } = require('./weeklyState');
+const { sendTacticsStorageReport } = require('./tacticsStorageReport');
 
 const WEEKLY_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 ngày
 
@@ -187,6 +188,7 @@ function initWeeklyScheduler(client) {
         sendBossScheduleEmbed(client);
         sendPhongAnhHelp(client);
         sendGieoQueGuide(client);
+        sendTacticsStorageReport();
 
         // Sau đó lặp lại mỗi 7 ngày
         setInterval(() => {
@@ -194,6 +196,7 @@ function initWeeklyScheduler(client) {
             sendBossScheduleEmbed(client);
             sendPhongAnhHelp(client);
             sendGieoQueGuide(client);
+            sendTacticsStorageReport();
         }, WEEKLY_INTERVAL);
     }, delayMs);
 

@@ -197,37 +197,33 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
     }
 
     // Check BC sessions từ DB và thêm vào lịch (chỉ khi được yêu cầu)
-    // Chỉ hiện BC nếu session được tạo TRONG TUẦN NÀY (sau monday 00:00)
+    // Hiện TẤT CẢ ngày có session active trong tuần này
     if (includeBangchien) {
-        const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-        const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
+        const allSessions = db.getActiveBangchienByGuild(guildId);
+
+        // Map dayKey → dayOfWeek (0=CN, 1=T2, ...)
+        const dayKeyToWeekDay = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0 };
 
         // Helper: kiểm tra session có thuộc tuần này không
         const isThisWeek = (session) => {
             if (!session || !session.created_at) return false;
             const createdDate = new Date(session.created_at);
-            // So sánh với monday đầu tuần (đã tính ở trên)
             return createdDate >= monday;
         };
 
-        if (satSession && isThisWeek(satSession)) {
-            const satDay = weekDays.find(wd => wd.dayOfWeek === 6); // Thứ 7
-            if (satDay) {
-                satDay.events.push({
-                    emoji: '🏰',
-                    name: lang === 'en' ? 'Guild War' : 'Bang Chiến',
-                    time: '19:30'
-                });
-            }
-        }
+        for (const session of allSessions) {
+            if (!isThisWeek(session)) continue;
+            const dayOfWeek = dayKeyToWeekDay[session.day];
+            if (dayOfWeek === undefined) continue;
 
-        if (sunSession && isThisWeek(sunSession)) {
-            const sunDay = weekDays.find(wd => wd.dayOfWeek === 0); // Chủ nhật
-            if (sunDay) {
-                sunDay.events.push({
+            const targetDay = weekDays.find(wd => wd.dayOfWeek === dayOfWeek);
+            if (targetDay) {
+                const timeStr = session.time || '19:30';
+                const notePart = session.note ? ` (${session.note})` : '';
+                targetDay.events.push({
                     emoji: '🏰',
-                    name: lang === 'en' ? 'Guild War' : 'Bang Chiến',
-                    time: '19:30'
+                    name: lang === 'en' ? `Guild War${notePart}` : `Bang Chiến${notePart}`,
+                    time: timeStr
                 });
             }
         }

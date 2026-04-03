@@ -30,7 +30,7 @@ module.exports = {
         const userId = message.author.id;
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
 
         // Kiểm tra quyền Kỳ Cựu cho ?listbc t7/cn
         const kyCuuRole = message.guild.roles.cache.find(r => r.name === 'Kỳ Cựu');
@@ -60,8 +60,9 @@ module.exports = {
         // ═══════════════════════════════════════════════════════════════════
         // CASE 2: ?listbc → Tóm tắt 2 ngày + buttons T7/CN
         // ═══════════════════════════════════════════════════════════════════
-        const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-        const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
+        const allSessions = db.getActiveBangchienByGuild(guildId) || [];
+        const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+        allSessions.sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
 
         // Helper: tính stats cho 1 session
         const getStats = (s) => {
@@ -72,8 +73,43 @@ module.exports = {
             return { total: attack + defense + forest, attack, defense, forest };
         };
 
-        const satStats = getStats(satSession);
-        const sunStats = getStats(sunSession);
+        const overviewEmbed = new EmbedBuilder()
+            .setColor(0xFFD700)
+            .setTitle('ðŸ“‹ BANG CHIáº¾N TUáº¦N NÃ€Y');
+
+        if (allSessions.length === 0) {
+            overviewEmbed.setDescription('ðŸ“… ChÆ°a cÃ³ phiÃªn Bang Chiáº¿n nÃ o Ä‘ang má»Ÿ.');
+        } else {
+            for (const sessionItem of allSessions) {
+                const stats = getStats(sessionItem);
+                const dateStr = getDayNameWithDate(sessionItem.day).toUpperCase();
+                let line = `ðŸ“… **${dateStr}** (${stats.total}/30) - Äang diá»…n ra\nâš”ï¸ CÃ´ng: ${stats.attack}`;
+                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | ðŸ›¡ï¸ Thá»§: ${stats.defense}`;
+                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | ðŸŒ² Rá»«ng: ${stats.forest}`;
+                overviewEmbed.addFields({ name: '\u200b', value: line, inline: false });
+            }
+        }
+
+        overviewEmbed
+            .setFooter({ text: hasPermission ? 'ðŸ’¡ Báº¥m nÃºt Ä‘á»ƒ xem chi tiáº¿t vÃ  quáº£n lÃ½' : 'ðŸ’¡ Chá»‰ Ká»³ Cá»±u má»›i xem chi tiáº¿t' })
+            .setTimestamp();
+
+        const overviewComponents = [];
+        if (hasPermission && allSessions.length > 0) {
+            const shortLabels = { mon: 'T2', tue: 'T3', wed: 'T4', thu: 'T5', fri: 'T6', sat: 'T7', sun: 'CN' };
+            const row = new ActionRowBuilder();
+            for (const sessionItem of allSessions.slice(0, 5)) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`listbc_view_${sessionItem.day}_${guildId}`)
+                        .setLabel(`ðŸ“‹ ${shortLabels[sessionItem.day] || sessionItem.day}`)
+                        .setStyle(ButtonStyle.Primary)
+                );
+            }
+            overviewComponents.push(row);
+        }
+
+        return await message.reply({ embeds: [overviewEmbed], components: overviewComponents });
 
         const embed = new EmbedBuilder()
             .setColor(0xFFD700)
@@ -343,7 +379,7 @@ module.exports = {
                     new ButtonBuilder()
                         .setCustomId(`bcql_resize_${partyKey}_${dayParam}`)
                         .setLabel('📏 Resize')
-                        .setStyle(ButtonStyle.Secondary)
+                        .setStyle(ButtonStyle.Primary)
                 );
 
             const row2 = new ActionRowBuilder()

@@ -185,34 +185,46 @@ async function handleButton(interaction, client) {
             components: []  // Xóa buttons sau khi pick xong
         });
 
-        // Auto-refresh bangchien embed nếu user đang trong party
+        // Auto-refresh bangchien embed + overview + sync Supabase
         try {
             const guildId = interaction.guild.id;
             const userId = interaction.user.id;
             const partyKeys = getGuildBangchienKeys(guildId);
             const db = require('../database/db');
-            const { listbcDetailMessages, getDayFromPartyKey } = require('./bangchienState');
+            const { listbcDetailMessages, getDayFromPartyKey, bangchienOverviews } = require('./bangchienState');
+            const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
+            const supaSync = require('./supabaseSync');
             const listbcCommand = require('../commands/bangchien/listbangchien');
+
+            // Force-fetch member mới từ Discord API để cache có role mới
+            await interaction.guild.members.fetch(userId).catch(() => null);
 
             for (const partyKey of partyKeys) {
                 const registrations = bangchienRegistrations.get(partyKey) || [];
                 const isInParty = registrations.some(r => r.id === userId);
 
                 if (isInParty) {
-                    // Refresh ?bc embed
+                    // Refresh ?bc embed (từng ngày)
                     const notifData = bangchienNotifications.get(partyKey);
                     if (notifData && notifData.message) {
                         try { await notifData.message.delete(); } catch (e) { }
-
-                        // Lấy channel gốc từ notifData, không dùng interaction.channel
                         const channel = await interaction.guild.channels.fetch(notifData.channelId).catch(() => null);
                         if (channel) {
                             const newEmbed = createBangchienEmbed(partyKey, notifData.leaderName, interaction.guild);
                             const newRow = createBangchienButtons(partyKey);
                             const newMessage = await channel.send({ embeds: [newEmbed], components: [newRow] });
-
                             notifData.message = newMessage;
                             notifData.messageId = newMessage.id;
+                        }
+                    }
+
+                    // Sync lên Supabase → web nhận realtime update
+                    if (supaSync.isReady()) {
+                        const day = getDayFromPartyKey(partyKey);
+                        const session = db.getActiveBangchien(partyKey);
+                        if (session) {
+                            const formatted = supaSync.formatActiveSession(session, db, interaction.guild);
+                            if (formatted) await supaSync.syncBCSession(guildId, day || session.day, formatted);
                         }
                     }
 
@@ -221,13 +233,11 @@ async function handleButton(interaction, client) {
                     if (day) {
                         const listbcKey = `${guildId}_${day}`;
                         const storedData = listbcDetailMessages.get(listbcKey);
-
                         if (storedData && storedData.message) {
                             const freshSession = db.getActiveBangchienByDay(guildId, day);
                             if (freshSession) {
                                 let newEmbed = null;
                                 let newComponents = [];
-
                                 const fakeMessage = {
                                     guild: interaction.guild,
                                     channel: interaction.channel,
@@ -236,13 +246,10 @@ async function handleButton(interaction, client) {
                                         newComponents = options.components || [];
                                     }
                                 };
-
                                 await listbcCommand.showDetailedSession(fakeMessage, freshSession, true, day, true);
-
                                 if (newEmbed) {
                                     try {
                                         await storedData.message.edit({ embeds: [newEmbed], components: newComponents });
-                                        console.log(`[pickroleHandlers] Refreshed listbc embed for ${listbcKey}`);
                                     } catch (e) {
                                         listbcDetailMessages.delete(listbcKey);
                                     }
@@ -250,7 +257,37 @@ async function handleButton(interaction, client) {
                             }
                         }
                     }
-                    break;
+                    // Không break — duyệt tất cả partyKeys
+                }
+            }
+
+            // DB FALLBACK: nếu runtime Map rỗng (sau bot restart), query DB trực tiếp
+            if (supaSync.isReady()) {
+                let synced = false;
+                const allSessions = db.getActiveBangchienByGuild(guildId);
+                for (const session of allSessions) {
+                    const allTeams = [...(session.team_attack1||[]), ...(session.team_attack2||[]), ...(session.team_defense||[]), ...(session.team_forest||[])];
+                    if (allTeams.some(m => m.id === userId)) {
+                        const formatted = supaSync.formatActiveSession(session, db, interaction.guild);
+                        if (formatted) { await supaSync.syncBCSession(guildId, session.day, formatted); synced = true; }
+                    }
+                }
+                if (synced) console.log(`[pickroleHandlers] ✅ DB fallback synced Supabase`);
+            }
+
+            // Refresh overview embed (tổng hợp ?bc)
+            const overviewData = bangchienOverviews.get(guildId);
+            if (overviewData && overviewData.message) {
+                try {
+                    const newEmbed = createOverviewEmbed(guildId, interaction.guild);
+                    const newRow = createOverviewButton(guildId);
+                    const editOptions = { embeds: [newEmbed] };
+                    if (newRow) editOptions.components = [newRow];
+                    else editOptions.components = [];
+                    await overviewData.message.edit(editOptions);
+                    console.log(`[pickroleHandlers] ✅ Refreshed overview + synced Supabase`);
+                } catch (e) {
+                    console.error('[pickroleHandlers] Lỗi refresh overview:', e.message);
                 }
             }
         } catch (e) {

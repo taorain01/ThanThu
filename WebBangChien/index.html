@@ -1,0 +1,2533 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lang Gia - Bang Chiến</title>
+<meta name="description" content="Hệ thống quản lý bang chiến Guild Lang Gia - Where Winds Meet">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0a1a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="./anh/langgia_icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green-300:#86efac;--green-400:#4ade80;--green-500:#22c55e;--green-600:#16a34a;--green-700:#15803d;--green-800:#166534;--green-900:#14532d;
+  --gold:#fbbf24;--gold-deep:#f59e0b;--gold-dark:#d97706;--gold-glow:#fde68a;
+  --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.88);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --dps:#60a5fa;--healer:#4ade80;--tanker:#fb923c;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;
+  -webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+
+/* ═══ LANDING PAGE ═══ */
+.landing{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at center,#0a2a12 0%,#050d08 70%,#000 100%);
+  transition:opacity .8s,visibility .8s}
+.landing.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+.landing-bg{position:absolute;inset:0;overflow:hidden}
+.landing-bg .fog{position:absolute;width:200%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(34,197,94,.03),transparent,rgba(251,191,36,.02),transparent);
+  animation:fogMove 20s linear infinite}
+@keyframes fogMove{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
+
+.particles{position:absolute;inset:0;overflow:hidden}
+.particle{position:absolute;width:2px;height:2px;background:var(--gold-glow);border-radius:50%;opacity:0;animation:float 6s ease-in-out infinite}
+@keyframes float{0%{opacity:0;transform:translateY(100vh)}50%{opacity:.8}100%{opacity:0;transform:translateY(-20px)}}
+
+.landing-content{position:relative;z-index:2;text-align:center;max-width:600px;padding:40px}
+
+.landing-emblem{width:160px;height:160px;margin:0 auto 24px;border-radius:50%;overflow:hidden;
+  border:3px solid rgba(200,162,44,.6);background:#1a1205;
+  filter:drop-shadow(0 0 30px rgba(200,162,44,.5)) drop-shadow(0 0 60px rgba(200,162,44,.2));
+  animation:emblemGlow 3s ease-in-out infinite}
+.landing-emblem img{width:100%;height:100%;object-fit:cover}
+@keyframes emblemGlow{0%,100%{filter:drop-shadow(0 0 30px rgba(200,162,44,.4)) drop-shadow(0 0 60px rgba(200,162,44,.15))}50%{filter:drop-shadow(0 0 40px rgba(200,162,44,.6)) drop-shadow(0 0 80px rgba(200,162,44,.25))}}
+
+.landing-title{font-family:'Cinzel Decorative',serif;font-size:64px;font-weight:900;
+  background:linear-gradient(180deg,#f0d867,#c8a22c 30%,#8b6914 50%,#c8a22c 70%,#6b4f0a);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 30px rgba(200,162,44,.6));letter-spacing:8px;
+  margin-bottom:16px;line-height:1.2}
+
+.landing-sub{font-size:18px;color:var(--green-300);font-weight:300;letter-spacing:2px;
+  margin-bottom:40px;opacity:.8;text-transform:uppercase}
+
+.landing-divider{width:200px;height:2px;margin:0 auto 32px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--green-400),var(--gold),transparent);
+  animation:divPulse 3s ease-in-out infinite}
+@keyframes divPulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+.landing-welcome{font-size:20px;color:var(--text);margin-bottom:8px;font-weight:500}
+.landing-flavor{font-size:15px;color:var(--gold-glow);font-style:italic;margin-bottom:40px;opacity:.7;line-height:1.6}
+
+.login-btn{display:inline-flex;align-items:center;gap:12px;padding:16px 40px;
+  border-radius:14px;border:2px solid var(--gold-dark);
+  background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(34,197,94,.08));
+  color:var(--gold);font-size:16px;font-weight:700;cursor:pointer;
+  transition:all .4s;font-family:'Inter',sans-serif;letter-spacing:1px}
+.login-btn:hover{background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(34,197,94,.15));
+  transform:translateY(-3px);box-shadow:0 8px 30px rgba(251,191,36,.2);border-color:var(--gold)}
+.login-btn svg{width:24;height:24}
+
+.landing-map{position:absolute;inset:0;z-index:0;opacity:.15;
+  background:url('./anh/LangGiaGuild.jpg') center/cover no-repeat}
+
+.landing-footer{position:absolute;bottom:30px;left:0;right:0;text-align:center;z-index:2;
+  font-size:12px;color:var(--text3);letter-spacing:1px}
+.landing-footer span{color:var(--green-400)}
+
+/* ═══ LOADING STATE ═══ */
+.loading-screen{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;
+  background:var(--bg);transition:opacity .5s}
+.loading-screen.hidden{opacity:0;pointer-events:none}
+.spinner{width:40px;height:40px;border:3px solid rgba(34,197,94,.2);border-top-color:var(--green-400);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--text2);font-size:14px}
+
+/* ═══ NOT MEMBER ═══ */
+.not-member{position:fixed;inset:0;z-index:998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:20px;
+  background:var(--bg);text-align:center;padding:40px}
+.not-member.active{display:flex}
+.not-member .nm-icon{font-size:60px;opacity:.5}
+.not-member .nm-title{font-size:24px;font-weight:700;color:var(--gold)}
+.not-member .nm-text{font-size:15px;color:var(--text2);max-width:400px;line-height:1.6}
+.not-member .nm-btn{padding:12px 30px;border-radius:10px;border:1px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.03);color:var(--text2);font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .3s}
+.not-member .nm-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+
+/* ═══ USER BADGE (góc phải header khi đã login) ═══ */
+.user-badge{display:flex;align-items:center;gap:8px;padding:5px 14px;border-radius:20px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);cursor:pointer;transition:all .3s}
+.user-badge:hover{background:rgba(34,197,94,.15)}
+.user-badge img{width:24px;height:24px;border-radius:50%}
+.user-badge .uname{font-size:12px;font-weight:600;color:var(--green-300)}
+.user-badge .logout-btn{font-size:10px;color:var(--text3);margin-left:4px;cursor:pointer}
+.user-badge .logout-btn:hover{color:#fca5a5}
+
+/* ═══ FIRE PARTICLES ═══ */
+.fire-container{position:fixed;inset:0;pointer-events:none;z-index:10;overflow:hidden}
+.fire-particle{position:absolute;bottom:-10px;border-radius:50%;opacity:0;pointer-events:none;
+  background:radial-gradient(circle,#fbbf24,#f59e0b 40%,#ea580c 70%,transparent);
+  filter:blur(1px);animation:fireFloat linear infinite}
+.fire-particle:nth-child(odd){background:radial-gradient(circle,#fde68a,#fbbf24 40%,#dc2626 80%,transparent)}
+.fire-particle.ember{width:3px;height:3px;background:#fbbf24;filter:blur(0.5px);box-shadow:0 0 4px #f59e0b}
+@keyframes fireFloat{
+  0%{opacity:0;transform:translateY(0) translateX(0) scale(1)}
+  10%{opacity:.7}
+  50%{opacity:.5;transform:translateY(-45vh) translateX(30px) scale(.7)}
+  80%{opacity:.2}
+  100%{opacity:0;transform:translateY(-100vh) translateX(-20px) scale(.3)}
+}
+
+/* ═══ HEADER ═══ */
+.header{display:flex;align-items:center;padding:12px 28px;gap:20px;
+  background:url('./anh/header_bg.png') center/cover no-repeat;
+  flex-shrink:0;position:relative}
+.header::before{content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(15,20,17,.9),rgba(20,30,22,.65) 30%,rgba(15,20,17,.85) 75%);
+  pointer-events:none}
+.header-fx{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.header-fx::before{content:'';position:absolute;top:50%;left:90px;width:350px;height:120px;
+  background:radial-gradient(ellipse at center, rgba(217,160,54,0.2) 0%, transparent 60%);
+  transform:translateY(-50%);animation:auraPulse 4s ease-in-out infinite alternate}
+.header-fx::after{content:'';position:absolute;width:2px;height:2px;border-radius:50%;background:transparent;
+  bottom:-10px;left:130px;
+  box-shadow: 10px -20px 1px rgba(251,191,36,0.8), 40px -60px 1px rgba(255,253,242,0.6),
+  80px -15px 2px rgba(251,191,36,0.9), 130px -40px 1.5px rgba(251,191,36,0.5),
+  170px -80px 1px rgba(217,160,54,0.7), 210px -25px 2px rgba(251,191,36,0.8),
+  250px -65px 1px rgba(255,253,242,0.5), 290px -10px 1.5px rgba(251,191,36,0.9);
+  animation:emberFloat 7s linear infinite;opacity:0.8}
+@keyframes auraPulse{ 0%{opacity:0.3;transform:translateY(-50%) scale(0.9)} 100%{opacity:1;transform:translateY(-50%) scale(1.1)} }
+@keyframes emberFloat{ 0%{transform:translateY(0) translateX(0);opacity:0}
+  15%{opacity:1} 75%{opacity:1} 100%{transform:translateY(-100px) translateX(25px);opacity:0} }
+.header>*{position:relative;z-index:1}
+
+.guild-emblem{width:56px;height:56px;flex-shrink:0;border-radius:50%;
+  border:2px solid rgba(251,191,36,.4);
+  background:radial-gradient(circle at center, rgba(30,30,30,.8) 0%, rgba(10,10,10,1) 100%);
+  box-shadow:inset 0 0 10px rgba(0,0,0,.5), 0 0 15px rgba(251,191,36,.15);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  animation:emblemGlow 3s ease-in-out infinite}
+@keyframes emblemGlow{0%,100%{box-shadow:inset 0 0 10px rgba(0,0,0,.8), 0 0 12px rgba(251,191,36,.1)}50%{box-shadow:inset 0 0 10px rgba(0,0,0,.5), 0 0 20px rgba(251,191,36,.3)}}
+.guild-emblem img{width:90%;height:90%;object-fit:contain;filter:drop-shadow(2px 2px 2px rgba(0,0,0,.8))}
+
+.guild-name-wrapper{filter:drop-shadow(0 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 10px rgba(251,191,36,.2));display:inline-block;margin-top:8px;animation:nameShine 5s linear infinite;position:relative}
+.guild-name{font-family:'Playfair Display',serif;font-size:42px;font-weight:900;
+  background:linear-gradient(to bottom, #fffdf2 0%, #fde68a 25%, #d9a036 50%, #f5c451 75%, #fffdf2 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:6px;text-transform:uppercase;line-height:1.2;padding-bottom:4px;position:relative}
+.guild-name::after{content:attr(data-text);position:absolute;left:0;top:0;width:100%;height:100%;
+  background:linear-gradient(110deg, transparent 15%, rgba(255,255,255,0) 40%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 60%, transparent 85%);
+  background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shineSweep 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events:none;z-index:2;}
+@keyframes shineSweep{
+  0%{background-position:-200% center}
+  100%{background-position:200% center}
+}
+@keyframes nameShine{
+  0%,100%{filter:drop-shadow(0 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 10px rgba(251,191,36,.2));}
+  50%{filter:drop-shadow(0 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 18px rgba(251,191,36,.4));}
+}
+
+.header-info{margin-left:auto;display:flex;gap:24px;align-items:center}
+.h-stat{text-align:center;padding:0 10px;border-right:1px solid rgba(255,255,255,.05)}
+.h-stat:last-child{border-right:none}
+.h-stat .val{font-size:18px;font-weight:800;color:var(--gold);text-shadow:0 2px 4px rgba(0,0,0,.8)}
+.h-stat .lbl{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+.status-live{display:flex;align-items:center;gap:8px;padding:6px 16px;border-radius:20px;
+  background:linear-gradient(135deg,rgba(20,20,20,.6),rgba(40,40,40,.8));
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(251,191,36,.3);font-size:11px;font-weight:700;color:#fbbf24;
+  letter-spacing:1px;text-transform:uppercase;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 4px 6px rgba(0,0,0,.4)}
+.status-dot{position:relative;width:8px;height:8px;border-radius:50%;background:#fbbf24;
+  box-shadow:0 0 8px rgba(251,191,36,.8)}
+.status-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:1px solid #fbbf24;
+  animation:ripple 1.5s cubic-bezier(.24,0,.38,1) infinite}
+@keyframes ripple{0%{transform:scale(.8);opacity:1}100%{transform:scale(2.5);opacity:0}}
+
+/* ═══ APP CONTENT (ẩn khi chưa login) ═══ */
+.app{display:none;flex-direction:column;height:100vh}
+.app.active{display:flex}
+
+.day-bar{display:flex;align-items:center;padding:12px 20px;gap:12px;border-bottom:1px solid rgba(251,191,36,.1);flex-shrink:0;
+  background:linear-gradient(180deg,rgba(10,12,10,0.8),rgba(15,20,15,0.9));flex-wrap:wrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6); position: relative; z-index:10}
+.day-tab{padding:8px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;transition:all .3s ease;
+  border:1px solid rgba(255,255,255,0.06);background:linear-gradient(135deg,rgba(40,45,40,.6),rgba(20,25,20,.8));
+  color:rgba(255,255,255,0.6);display:inline-flex;align-items:center;gap:8px;white-space:nowrap;position:relative;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 4px rgba(0,0,0,0.4); text-transform:uppercase; letter-spacing:0.5px}
+.day-tab svg{width:16px;height:16px;flex-shrink:0}
+.day-tab .day-date{font-size:11px;color:rgba(255,255,255,0.4);font-weight:500;text-transform:none;letter-spacing:0}
+.day-tab:hover{border-color:rgba(251,191,36,.4);color:var(--gold);background:linear-gradient(135deg,rgba(60,50,30,.8),rgba(30,25,15,.9));
+  box-shadow:0 0 15px rgba(251,191,36,.15), inset 0 0 10px rgba(251,191,36,.05)}
+.day-tab.active{background:linear-gradient(135deg,rgba(50,40,15,1),rgba(25,20,5,1));color:var(--gold);
+  border:1px solid rgba(251,191,36,.6);box-shadow:0 0 20px rgba(251,191,36,.25),inset 0 0 15px rgba(251,191,36,.1)}
+.day-tab.active::after{content:'';position:absolute;bottom:-1px;left:15%;right:15%;height:2px;background:var(--gold);
+  box-shadow:0 -2px 10px var(--gold)}
+.day-tab.active .day-date{color:rgba(251,191,36,.7)}
+.day-tab.highlight{border-color:rgba(234,88,12,.3)}
+.day-tab.highlight.active{border-color:rgba(234,88,12,.8);box-shadow:0 0 20px rgba(234,88,12,.3),inset 0 0 15px rgba(234,88,12,.15);
+  background:linear-gradient(135deg,rgba(60,25,10,1),rgba(30,10,5,1));color:#fdba74}
+.day-tab.highlight.active::after{background:#ea580c;box-shadow:0 -2px 10px #ea580c}
+.day-tab .time-badge{font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);font-weight:800}
+.day-tab.active .time-badge{background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.3);color:var(--gold)}
+.day-tab.highlight.active .time-badge{background:rgba(234,88,12,0.15);border-color:rgba(234,88,12,0.3);color:#fdba74}
+.day-tab .joined-check{font-size:12px;margin-left:2px;color:var(--green-400);display:flex;align-items:center; filter:drop-shadow(0 0 4px var(--green-400))}
+.day-tab .joined-check svg{width:14px;height:14px}
+.day-tab.joined{border-color:var(--green-500)}
+.day-tab.joined::before{content:'';position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--green-400);border:2px solid #111;box-shadow:0 0 8px var(--green-400)}
+.day-add{padding:8px 24px;border-radius:6px;font-weight:800;font-size:16px;cursor:pointer;transition:all .3s ease;
+  border:1px dashed rgba(255,255,255,.2);background:rgba(0,0,0,0.2);color:rgba(255,255,255,0.5);display:flex;align-items:center;gap:6px}
+.day-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,.05);box-shadow:0 0 15px rgba(251,191,36,.1)}
+.day-add svg{width:18px;height:18px}
+.day-sep{width:1px;height:26px;background:rgba(255,255,255,.1);margin:0 6px}
+.progress-chip{display:flex;align-items:center;gap:6px;margin-left:auto;padding:4px 10px;border-radius:16px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(34,197,94,.1)}
+.progress-chip .bar{width:60px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.progress-chip .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green-600),var(--gold));transition:width 1s}
+.progress-chip .num{font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap}
+
+.main{flex:1;display:grid;grid-template-columns:420px 1fr;overflow:hidden;min-height:0;position:relative}
+.main::before{content:'';position:absolute;top:0;left:420px;width:2px;height:100%;z-index:5;
+  background:linear-gradient(180deg,rgba(234,88,12,.5),rgba(251,191,36,.3) 30%,rgba(234,88,12,.2) 70%,transparent);
+  box-shadow:0 0 10px rgba(234,88,12,.3),0 0 20px rgba(251,191,36,.1)}
+
+/* ═══ LEFT PANEL ═══ */
+.left{overflow-y:auto;border-right:none;padding:12px;
+  background:linear-gradient(180deg,rgba(26,10,4,.3),transparent 30%,transparent 70%,rgba(26,10,4,.2))}
+.left::-webkit-scrollbar{width:5px}
+.left::-webkit-scrollbar-thumb{background:rgba(234,88,12,.3);border-radius:3px}
+
+.team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(234,88,12,.12);margin-bottom:12px;overflow:hidden;
+  backdrop-filter:blur(10px);transition:all .3s;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.team-card:hover{border-color:rgba(234,88,12,.3);box-shadow:0 4px 20px rgba(234,88,12,.1)}
+.t-hdr{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.04)}
+.t-hdr.a1{background:linear-gradient(90deg,rgba(239,68,68,.18),transparent)}
+.t-hdr.a2{background:linear-gradient(90deg,rgba(249,115,22,.18),transparent)}
+.t-hdr.df{background:linear-gradient(90deg,rgba(59,130,246,.18),transparent)}
+.t-hdr.fr{background:linear-gradient(90deg,rgba(34,197,94,.18),transparent)}
+.t-hdr.wt{background:linear-gradient(90deg,rgba(251,191,36,.12),transparent)}
+.t-info{display:flex;align-items:center;gap:8px}
+.t-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.t-icon.a1{background:rgba(239,68,68,.2)}.t-icon.a2{background:rgba(249,115,22,.2)}
+.t-icon.df{background:rgba(59,130,246,.2)}.t-icon.fr{background:rgba(34,197,94,.2)}
+.t-icon.wt{background:rgba(251,191,36,.2)}
+.t-title{font-weight:700;font-size:14px}.t-cnt{font-size:11px;color:var(--text3)}
+.t-roles{display:flex;gap:6px}
+.rb{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:14px;font-size:11px;font-weight:600}
+.rb.d{background:rgba(96,165,250,.12);color:var(--dps)}
+.rb.h{background:rgba(74,222,128,.12);color:var(--healer)}
+.rb.t{background:rgba(251,146,60,.12);color:var(--tanker)}
+.rd{width:5px;height:5px;border-radius:50%}
+.rd.d{background:var(--dps)}.rd.h{background:var(--healer)}.rd.t{background:var(--tanker)}
+
+.t-list{padding:4px 8px}
+.m-row{display:flex;align-items:center;padding:6px 8px;border-radius:8px;gap:8px;transition:all .2s;border-left:3px solid transparent}
+.m-row:hover{background:rgba(34,197,94,.05)}
+.m-row.is-me{background:linear-gradient(90deg, rgba(34,197,94,.15), transparent); border-left-color: var(--green-400); padding-left: 5px}
+.m-row.is-me .m-name{color: var(--green-300); text-shadow: 0 0 10px rgba(34,197,94,.3)}
+.m-num{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;background:rgba(255,255,255,.04);color:var(--text3);flex-shrink:0}
+.m-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#60a5fa);
+  display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:2px solid transparent;overflow:hidden;position:relative}
+.m-av.role-h{background:linear-gradient(135deg,var(--green-600),var(--green-400))}
+.m-av.role-t{background:linear-gradient(135deg,#f97316,#fb923c)}
+.m-av.role-d{background:linear-gradient(135deg,#3b82f6,#60a5fa)}
+.m-av svg{width:16px;height:16px;border-radius:50%}
+.m-av.ld{border-color:var(--gold);box-shadow:0 0 8px rgba(251,191,36,.4)}
+.m-det{flex:1;min-width:0}
+.m-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-gn{font-size:11px;color:var(--text3)}
+.m-tag{padding:2px 8px;border-radius:14px;font-size:10px;font-weight:700;letter-spacing:.3px}
+.m-tag.d{background:rgba(96,165,250,.12);color:var(--dps)}
+.m-tag.h{background:rgba(74,222,128,.12);color:var(--healer)}
+.m-tag.t{background:rgba(251,146,60,.12);color:var(--tanker)}
+.slot-e{padding:6px 8px;color:var(--text3);font-style:italic;font-size:12px;opacity:.4;display:flex;align-items:center;gap:8px}
+.slot-e .m-num{border:1px dashed rgba(255,255,255,.08);background:none}
+
+.bc-leave-inline{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:14px;
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;
+  font-size:11px;font-weight:700;cursor:pointer;transition:all .3s}
+.bc-leave-inline:hover{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5);color:#fca5a5}
+
+/* ═══ RIGHT PANEL ═══ */
+.right{display:flex;flex-direction:column;overflow:hidden;
+  background:linear-gradient(180deg,rgba(26,10,4,.2),transparent 20%,transparent 80%,rgba(26,10,4,.15))}
+.r-tabs{display:flex;padding:12px 16px 0;gap:8px;flex-shrink:0}
+.r-tab{padding:8px 20px;border-radius:10px 10px 0 0;font-weight:600;font-size:13px;cursor:pointer;
+  transition:all .3s;background:rgba(255,255,255,.03);color:var(--text2);border:1px solid transparent;border-bottom:none}
+.r-tab:hover{color:var(--text);background:rgba(34,197,94,.08)}
+.r-tab.active{background:var(--bg-card);color:var(--gold);border-color:rgba(34,197,94,.2)}
+.r-content{flex:1;overflow:hidden}
+.r-pane{display:none;height:100%;padding:16px;overflow-y:auto}
+.r-pane.active{display:flex;flex-direction:column;gap:16px}
+
+.map-box{position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);flex:1;min-height:300px;
+  box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);background:#0a0a0a}
+.map-box>.map-bg{width:100%;height:100%;object-fit:cover;display:block}
+.map-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(26,10,4,.2),transparent 20%,transparent 80%,rgba(26,10,4,.3));pointer-events:none;z-index:2}
+.map-top{position:absolute;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;
+  background:linear-gradient(180deg,rgba(10,26,15,.7),transparent);z-index:3}
+.map-top .tt{font-weight:700;font-size:15px;color:var(--gold)}
+.map-top .pl{font-size:12px;color:var(--green-300);background:rgba(10,26,15,.5);padding:3px 12px;border-radius:16px;border:1px solid rgba(34,197,94,.2)}
+
+/* Nút toggle map mode */
+.map-toggle{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .3s;border:1px solid rgba(251,191,36,.3);background:rgba(0,0,0,.4);color:var(--gold);
+  backdrop-filter:blur(4px);font-family:'Inter',sans-serif}
+.map-toggle:hover{background:rgba(251,191,36,.15);border-color:var(--gold)}
+.map-toggle svg{width:14px;height:14px}
+.map-toggle.active{background:rgba(34,197,94,.15);border-color:var(--green-400);color:var(--green-300)}
+.map-toggle.tactics-btn{border-color:var(--gold-dark);background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(234,88,12,.1));color:var(--gold);
+  font-weight:700;letter-spacing:.5px;animation:tacticsPulse 2s ease-in-out infinite}
+.map-toggle.tactics-btn:hover{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(234,88,12,.18));border-color:var(--gold);
+  box-shadow:0 0 16px rgba(251,191,36,.3);transform:translateY(-1px)}
+@keyframes tacticsPulse{0%,100%{box-shadow:0 0 4px rgba(251,191,36,.1)}50%{box-shadow:0 0 12px rgba(251,191,36,.25)}}
+
+/* ═══ NÚT SPLIT — Game RPG Diagonal Style ═══ */
+.split-btn{position:relative;display:inline-flex;align-items:stretch;border-radius:8px;
+  border:2px solid rgba(100,110,100,.45);background:rgba(8,16,10,.95);
+  z-index:10;margin-left:8px;height:44px;overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.04);
+  transition:all .35s ease}
+.split-btn::before{content:'';position:absolute;inset:2px;border-radius:5px;
+  border:1px solid rgba(255,255,255,.05);pointer-events:none;z-index:5}
+.split-btn.disabled{opacity:.35;pointer-events:none;filter:saturate(.4) brightness(.7)}
+
+.split-side{position:relative;display:flex;align-items:center;justify-content:center;
+  padding:0 28px;cursor:pointer;z-index:2;user-select:none;
+  transition:all .3s cubic-bezier(.25,.46,.45,.94);
+  transform:skewX(-12deg)}
+.split-side>span{display:flex;align-items:center;gap:7px;transform:skewX(12deg);
+  font-size:13px;font-weight:800;letter-spacing:.8px;white-space:nowrap;
+  font-family:'Inter',sans-serif;text-transform:uppercase;transition:all .3s}
+
+/* —— Bên trái: Đội Hình (xanh lá) —— */
+.split-side.left{margin-left:-6px;padding-left:32px;
+  background:linear-gradient(135deg,rgba(20,60,30,.6),rgba(10,30,15,.85))}
+.split-side.left>span{color:rgba(134,239,172,.8)}
+.split-side.left:hover{background:linear-gradient(135deg,rgba(22,80,38,.75),rgba(12,45,20,.9))}
+.split-side.left:hover>span{color:#bbf7d0;
+  text-shadow:0 0 8px rgba(74,222,128,.7),0 0 20px rgba(34,197,94,.35),0 0 40px rgba(34,197,94,.12)}
+
+/* —— Bên phải: Chiến Thuật (vàng gold) —— */
+.split-side.right{margin-right:-6px;padding-right:32px;
+  background:linear-gradient(135deg,rgba(40,30,8,.8),rgba(60,42,10,.6))}
+.split-side.right>span{color:rgba(251,191,36,.8)}
+.split-side.right:hover{background:linear-gradient(135deg,rgba(55,40,10,.9),rgba(75,55,14,.7))}
+.split-side.right:hover>span{color:#fde68a;
+  text-shadow:0 0 8px rgba(251,191,36,.7),0 0 20px rgba(251,191,36,.35),0 0 40px rgba(251,191,36,.12)}
+
+/* —— Đường chéo phát sáng giữa —— */
+.split-divider{position:relative;width:3px;flex-shrink:0;z-index:4;
+  transform:skewX(-12deg);
+  background:linear-gradient(180deg,rgba(180,220,160,.15),rgba(220,252,231,.5),rgba(180,220,160,.15));
+  box-shadow:0 0 8px rgba(134,239,172,.3),0 0 16px rgba(74,222,128,.12);
+  transition:all .3s}
+
+/* —— Hover: viền + glow toàn nút —— */
+.split-btn:has(.split-side.left:hover){border-color:rgba(74,222,128,.4);
+  box-shadow:0 0 24px rgba(74,222,128,.12),0 0 48px rgba(34,197,94,.06),0 4px 20px rgba(0,0,0,.5)}
+.split-btn:has(.split-side.left:hover) .split-side.right{opacity:.4;filter:brightness(.75)}
+.split-btn:has(.split-side.left:hover) .split-divider{
+  background:linear-gradient(180deg,rgba(74,222,128,.2),rgba(134,239,172,.8),rgba(74,222,128,.2));
+  box-shadow:0 0 14px rgba(74,222,128,.5),0 0 28px rgba(34,197,94,.25)}
+
+.split-btn:has(.split-side.right:hover){border-color:rgba(251,191,36,.4);
+  box-shadow:0 0 24px rgba(251,191,36,.12),0 0 48px rgba(251,191,36,.06),0 4px 20px rgba(0,0,0,.5)}
+.split-btn:has(.split-side.right:hover) .split-side.left{opacity:.4;filter:brightness(.75)}
+.split-btn:has(.split-side.right:hover) .split-divider{
+  background:linear-gradient(180deg,rgba(251,191,36,.2),rgba(253,224,71,.8),rgba(251,191,36,.2));
+  box-shadow:0 0 14px rgba(251,191,36,.5),0 0 28px rgba(251,191,36,.25)}
+
+/* Font phóng to khi hover */
+.split-side:hover>span{font-size:13.8px;letter-spacing:1px}
+
+/* Nhịp thở nhẹ */
+.split-btn:not(.disabled){animation:splitIdle 4s ease-in-out infinite}
+@keyframes splitIdle{0%,100%{box-shadow:0 4px 20px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.04)}
+  50%{box-shadow:0 4px 20px rgba(0,0,0,.45),0 0 6px rgba(200,230,200,.04),inset 0 0 0 1px rgba(255,255,255,.06)}}
+
+/* Page transition overlay */
+.page-transition{position:fixed;inset:0;z-index:9999;pointer-events:none;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at center,rgba(10,18,12,.0),rgba(10,18,12,.0));transition:background .5s ease}
+.page-transition.active{pointer-events:all;background:radial-gradient(ellipse at center,rgba(10,18,12,.95),rgba(5,10,6,1))}
+.page-transition .pt-content{opacity:0;transform:scale(.85);transition:all .4s ease .15s;text-align:center;color:var(--gold)}
+.page-transition.active .pt-content{opacity:1;transform:scale(1)}
+.page-transition .pt-icon{font-size:48px;margin-bottom:12px;display:block}
+.page-transition .pt-text{font-size:16px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+  text-shadow:0 0 20px rgba(251,191,36,.5)}
+
+/* Map giấy (ẩn mặc định) - vị trí/kích thước do JS tính */
+.map-bg-giay{position:absolute;display:none;z-index:0;overflow:hidden;
+  background:url('./anh/MapGiay.png') no-repeat;
+  background-size:108.5% 132.5%;background-position:48% 50%}
+.map-bg-giay.show{display:block}
+.map-box>.map-bg.hidden-map{display:none}
+
+/* ═══ MAP ICONS INTERACTIVE ═══ */
+.map-icons{position:absolute;z-index:1}
+.map-icon{position:absolute;cursor:pointer;transition:transform .25s ease, filter .25s ease;
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
+.map-icon:hover{transform:translate(-50%,-50%) scale(1.4);
+  filter:drop-shadow(0 0 2px rgba(255,255,255,1)) drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(4px 5px 12px rgba(0,0,0,.85)) brightness(1.15)}
+.map-icon.tower{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.56)}
+.map-icon.tower[data-type="tower_red"]{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.09)}
+.map-icon.goose{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.63)}
+.map-icon.goose[data-type="goose_red"]{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.14)}
+.map-icon.boss{width:calc(60px * var(--map-scale,1));height:calc(60px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
+.map-icon.dot{width:calc(52px * var(--map-scale,1));height:calc(55px * var(--map-scale,1));filter:drop-shadow(0 0 1.3px rgba(255,255,255,.9)) drop-shadow(0 0 0.8px rgba(255,255,255,.8)) drop-shadow(3px 4px 1px rgba(0,0,0,.8)) brightness(1.97) saturate(1.1) hue-rotate(54deg)}
+.map-icon.tree{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.58)}
+.map-icon.tree[data-type="tree_red"]{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.11)}
+.map-icon-tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:4px 10px;
+  background:rgba(0,0,0,.85);color:#fff;font-size:11px;font-weight:600;border-radius:6px;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .2s;border:1px solid rgba(251,191,36,.3)}
+.map-icon:hover .map-icon-tooltip{opacity:1}
+
+.footer{text-align:center;padding:8px;color:var(--text3);font-size:11px;
+  border-top:1px solid rgba(234,88,12,.15);flex-shrink:0;
+  background:linear-gradient(90deg,transparent,rgba(234,88,12,.04),transparent)}
+.footer span{color:#fbbf24}
+
+/* ═══ MODAL TẠO BC ═══ */
+.modal-ov{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center}
+.modal-ov.show{display:flex}
+.modal{background:var(--bg);border:1px solid rgba(34,197,94,.2);border-radius:16px;padding:24px;width:340px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);animation:modalIn .25s ease-out}
+@keyframes modalIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h3{font-size:16px;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.modal h3 svg{width:18px;height:18px}
+.modal label{display:block;font-size:12px;color:var(--text2);margin-bottom:4px;font-weight:600}
+.modal select,.modal input{width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(34,197,94,.2);
+  background:#1a2e1f;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;margin-bottom:12px}
+.modal select{appearance:none;-webkit-appearance:none;-moz-appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.modal select:focus,.modal input:focus{outline:none;border-color:var(--green-400)}
+.modal select option{background:#1a2e1f;color:var(--text);padding:8px 12px}
+.modal select option:hover,.modal select option:checked{background:#16a34a;color:#fff}
+/* Style toàn cục cho tất cả select/option trên trang */
+select{appearance:none;-webkit-appearance:none;-moz-appearance:none;cursor:pointer;
+  background-color:#1a2e1f;color:var(--text);border:1px solid rgba(34,197,94,.2);border-radius:8px;
+  padding:8px 32px 8px 12px;font-family:'Inter',sans-serif;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center}
+select:focus{outline:none;border-color:var(--green-400)}
+select option{background:#1a2e1f;color:var(--text);padding:8px 12px}
+select option:hover,select option:checked{background:var(--green-700);color:#fff}
+.modal-btns{display:flex;gap:8px;margin-top:4px}
+.modal-btns button{flex:1;padding:8px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s}
+.mbtn-ok{background:linear-gradient(135deg,var(--green-700),var(--green-600));color:#fff;border:1px solid var(--green-400)}
+.mbtn-ok:hover{box-shadow:0 4px 15px rgba(34,197,94,.3)}
+.mbtn-cc{background:rgba(255,255,255,.04);color:var(--text2);border:1px solid rgba(255,255,255,.1)}
+.mbtn-cc:hover{background:rgba(255,255,255,.08)}
+.day-tab .del-x{display:none;margin-left:4px;width:18px;height:18px;border-radius:50%;font-size:11px;line-height:18px;text-align:center;
+  cursor:pointer;color:var(--text3);transition:all .2s;background:rgba(255,255,255,.06);flex-shrink:0}
+.day-tab:hover .del-x{display:inline-flex;align-items:center;justify-content:center}
+.day-tab .del-x:hover{color:#fca5a5;background:rgba(239,68,68,.2)}
+
+/* ═══ NÚT ĐĂNG KÝ / HỦY COMPACT ═══ */
+.bc-signup-bar{flex-shrink:0;display:flex;gap:6px;align-items:center;margin-left:auto}
+.bc-action-btn{padding:5px 14px;border-radius:20px;font-weight:600;font-size:11px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;gap:5px;
+  border:1.5px solid rgba(34,197,94,.3);background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(251,191,36,.08));color:var(--green-300)}
+.bc-action-btn:hover{border-color:var(--green-400);box-shadow:0 3px 12px rgba(34,197,94,.2);transform:translateY(-1px)}
+.bc-action-btn.leave{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#fca5a5}
+.bc-action-btn.leave:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.12)}
+.bc-action-btn svg{width:12px;height:12px}
+/* ═══ TAB NHIỆM VỤ ═══ */
+.tasks-tab-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.tasks-tab-header .tt-title{font-size:14px;font-weight:700;color:var(--gold)}
+.tasks-tab-header .tt-badge{font-size:10px;padding:2px 8px;border-radius:10px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--green-300)}
+.task-search{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:4px 12px;margin-left:auto;transition:border-color .3s}
+.task-search:focus-within{border-color:var(--gold)}
+.task-search input{background:none;border:none;color:var(--text);font-size:12px;outline:none;width:160px;font-family:'Inter',sans-serif}
+.task-search input::placeholder{color:rgba(255,255,255,.3)}
+.task-search svg{width:14px;height:14px;color:rgba(255,255,255,.4)}
+.tasks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start}
+.task-player-card{background:var(--bg-card);border-radius:10px;border:1px solid rgba(255,255,255,.06);
+  overflow:hidden;transition:border-color .2s;text-align:left}
+.task-player-card:hover{border-color:rgba(251,191,36,.2)}
+.task-player-hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer}
+.task-player-hdr .tp-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.task-player-hdr .tp-avatar.role-h{background:linear-gradient(135deg,var(--green-600),var(--green-400));color:#fff}
+.task-player-hdr .tp-avatar.role-t{background:linear-gradient(135deg,#f97316,#fb923c);color:#fff}
+.task-player-hdr .tp-avatar.role-d{background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff}
+.task-player-hdr .tp-name{font-weight:600;font-size:12px;flex:1}
+.task-player-hdr .tp-count{font-size:10px;color:var(--gold);font-weight:700}
+.task-player-body{padding:6px 10px}
+.task-line{display:flex;align-items:flex-start;gap:8px;padding:6px 0;font-size:12px;
+  border-bottom:1px solid rgba(255,255,255,.02);line-height:1.4}
+.task-line:last-child{border-bottom:none}
+.task-line .tl-time{flex:0 0 40px;color:var(--gold);font-weight:700;font-size:11px;text-align:right;margin-top:2px}
+.task-line .tl-scope{flex:0 0 auto;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap;margin-top:1px}
+.task-line .tl-scope.s-all{color:#a5f3fc;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.12)}
+.task-line .tl-scope.s-team{color:#fbbf24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.12)}
+.task-line .tl-scope.s-role{color:#a78bfa;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.12)}
+.task-line .tl-scope.s-weapon{color:#f472b6;background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.12)}
+.task-line .tl-scope.s-personal{color:#34d399;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.12)}
+.task-line .tl-text{flex:1;color:var(--text)}
+.task-empty{text-align:center;padding:20px;color:var(--text3);font-size:12px}
+
+/* ═══ MOBILE RESPONSIVE ═══ */
+.mobile-nav { display: none }
+
+@media (max-width: 768px) {
+  /* Ẩn footer desktop, thay bằng bottom nav */
+  .footer { display: none }
+  .mobile-nav { display: flex !important }
+
+  /* Header gọn */
+  .header { padding: 8px 12px; gap: 8px }
+  .guild-name { font-size: 22px; letter-spacing: 2px }
+  .header-info { display: none !important }
+  .guild-emblem { width: 36px; height: 36px }
+  .guild-emblem img { width: 32px; height: 32px }
+
+  /* Landing responsive */
+  .landing-title { font-size: 36px; letter-spacing: 4px }
+  .landing-emblem { width: 100px; height: 100px }
+  .landing-sub { font-size: 14px }
+
+  /* Day bar: scroll ngang */
+  .day-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px }
+  .day-tab { white-space: nowrap; font-size: 12px; padding: 6px 14px }
+  .day-sep, .day-add { flex-shrink: 0 }
+  .bc-signup-bar { display: none !important } /* Ẩn trên mobile, dùng bottom nav */
+  .progress-chip { display: none }
+
+  /* Main layout: 1 cột */
+  html, body { overflow: auto; height: auto }
+  .app { height: auto; min-height: 100vh; padding-bottom: 60px }
+  .main { grid-template-columns: 1fr; overflow-y: auto; min-height: auto }
+  .main::before { display: none }
+  .left { display: none; padding: 8px; border-right: none }
+  .right { display: none }
+
+  /* Active mobile tab views */
+  .left.mob-active { display: block }
+  .right.mob-active { display: flex }
+
+  /* Map full width */
+  .map-box { min-height: 50vh; border-radius: 0 }
+
+  /* Mobile bottom nav */
+  .mobile-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(10,18,12,.96); border-top: 1px solid rgba(34,197,94,.15);
+    backdrop-filter: blur(12px); padding: 6px 0;
+    padding-bottom: env(safe-area-inset-bottom, 6px);
+  }
+  .mob-tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 0; font-size: 18px; color: var(--text3); cursor: pointer;
+    transition: color 0.2s;
+  }
+  .mob-tab span { font-size: 9px; font-weight: 600 }
+  .mob-tab.active { color: var(--gold) }
+
+  /* Split button nhỏ lại */
+  .split-btn { height: 34px }
+  .split-side > span { font-size: 10px }
+
+  /* Tabs header: gọn */
+  .r-tabs { padding: 8px 10px 0; gap: 4px; flex-wrap: wrap }
+  .r-tab { padding: 6px 12px; font-size: 11px }
+
+  /* User badge gọn */
+  .user-badge .uname { display: none }
+
+  /* Modal responsive */
+  .modal { width: 90vw }
+}
+</style>
+</head>
+<body oncontextmenu="return false;">
+
+<!-- Hiệu ứng lửa bay toàn trang -->
+<div class="fire-container" id="fireContainer"></div>
+
+<!-- ═══ LANDING PAGE (chưa đăng nhập) ═══ -->
+<div class="landing" id="landingPage">
+  <div class="landing-bg">
+    <div class="landing-map"></div>
+    <div class="fog"></div>
+    <div class="particles" id="particles"></div>
+  </div>
+  <div class="landing-content">
+    <div class="landing-emblem">
+      <img src="./anh/langgia_icon.png" alt="Lang Gia">
+    </div>
+    <div class="landing-sub">Where Winds Meet</div>
+    <div class="landing-divider"></div>
+    <div class="landing-welcome">Chào mừng bạn đến với Lang Gia</div>
+    <div class="landing-flavor">「 Vui lòng xuất trình giấy tờ nhà họ Lang 」</div>
+    <button class="login-btn" id="loginBtn" onclick="loginDiscord()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+      Đăng nhập Discord
+    </button>
+  </div>
+  <div class="landing-footer">
+    <span>⚔️ Lang Gia</span> • Guild War Strategy • Where Winds Meet
+  </div>
+</div>
+
+<!-- ═══ LOADING ═══ -->
+<div class="loading-screen hidden" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">Đang xác minh giấy tờ nhà họ Lang...</div>
+</div>
+
+<!-- ═══ NOT MEMBER ═══ -->
+<div class="not-member" id="notMemberScreen">
+  <div class="nm-icon">🏯</div>
+  <div class="nm-title">Bạn chưa phải thành viên nhà họ Lang</div>
+  <div class="nm-text">Hãy gia nhập guild Lang Gia trên Discord trước, sau đó quay lại đây để xem chiến thuật bang chiến.</div>
+  <button class="nm-btn" onclick="logout()">← Quay lại</button>
+</div>
+
+<!-- ═══ APP (sau khi đăng nhập) ═══ -->
+<div class="app" id="mainApp">
+  <div class="header">
+    <div class="header-fx"></div>
+    <div class="guild-emblem" style="margin-right: -10px;">
+      <img src="./anh/langgia_icon.png" alt="Lang Gia" style="height: 50px; width: 50px;">
+    </div>
+    <div class="guild-name-wrapper"><div class="guild-name" data-text="LANG GIA">LANG GIA</div></div>
+    
+    <!-- User Badge ở góc phải -->
+    <div class="user-badge" id="userBadge" style="margin-left: auto;">
+      <img id="userAvatar" src="" alt="">
+      <span class="uname" id="userName"></span>
+      <span class="logout-btn" onclick="logout()">✕</span>
+    </div>
+  </div>
+
+  <div class="day-bar" id="dayBar">
+    <!-- Tabs sẽ được JS tạo động từ Supabase -->
+    <div class="day-sep"></div>
+    <div class="day-add" id="addBcBtn" title="Tạo BC tùy chỉnh (Kỳ Cựu)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+    <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
+  </div>
+
+
+  <div class="main">
+    <div class="left" id="leftPanel">
+      <div style="padding:40px;text-align:center;color:var(--text3)">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        Đang tải dữ liệu bang chiến...
+      </div>
+    </div>
+    <div class="right">
+      <div class="r-tabs" style="align-items: center;">
+        <div class="r-tab active" onclick="switchRTab(this,'pane-map')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Bản đồ</div>
+        <div class="r-tab" onclick="switchRTab(this,'pane-tasks')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Nhiệm vụ</div>
+        
+        <div class="header-info" style="margin-left:auto; gap:16px;">
+          <div class="h-stat" style="padding-right: 16px; border-right: 1px solid rgba(255,255,255,0.05); text-align: right;"><div class="val" id="statTotal" style="font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Thành viên</div></div>
+          <div class="h-stat" style="padding-right: 16px; border-right: 1px solid rgba(255,255,255,0.05);"><div class="val" id="statDPS" style="color:var(--dps); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">DPS</div></div>
+          <div class="h-stat" style="padding-right: 16px; border-right: 1px solid rgba(255,255,255,0.05);"><div class="val" id="statHealer" style="color:var(--healer); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Healer</div></div>
+          <div class="h-stat"><div class="val" id="statTanker" style="color:var(--tanker); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Tanker</div></div>
+        </div>
+
+        <button class="map-toggle tactics-btn" id="btnRegularSession" data-day="" disabled onclick="toggleRegularSession()" style="display:none;margin-left:16px; z-index:10; font-size:12px; padding:6px 14px; border-radius:20px; height:max-content; margin-bottom:5px; border-color:var(--green-600); background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(74,222,128,.08)); color:var(--green-300);">🔄 Luôn tham gia</button>
+        <!-- Nút Split: gộp Chỉnh Sửa Đội Hình + Lập Chiến Thuật -->
+        <div class="split-btn disabled" id="splitActionBtn" style="margin-bottom:5px">
+          <div class="split-side left" id="btnTeamEditor" data-day="" onclick="openTeamEditor()" title="Chỉnh sửa đội hình"><span>✏️ Đội Hình</span></div>
+          <div class="split-divider"></div>
+          <div class="split-side right" id="btnTactics" data-day="" onclick="openTactics()" title="Lập chiến thuật"><span>⚔️ Chiến Thuật</span></div>
+        </div>
+      </div>
+      <div class="r-content">
+        <div class="r-pane active" id="pane-map">
+          <div class="map-box" id="mapBox">
+            <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map">
+            <div class="map-icons" id="mapIcons">
+              <!-- tower_blue -->
+              <div class="map-icon tower" style="left:36%;top:15%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>
+              <div class="map-icon tower" style="left:36%;top:50.5%" data-type="tower_blue" data-name="Tháp Xanh Trung"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Trung</span></div>
+              <div class="map-icon tower" style="left:36%;top:84.5%" data-type="tower_blue" data-name="Tháp Xanh Nam"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Nam</span></div>
+              <!-- tower_red -->
+              <div class="map-icon tower" style="left:62.5%;top:15%" data-type="tower_red" data-name="Tháp Đỏ Bắc"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Bắc</span></div>
+              <div class="map-icon tower" style="left:62.5%;top:50.5%" data-type="tower_red" data-name="Tháp Đỏ Trung"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Trung</span></div>
+              <div class="map-icon tower" style="left:62.5%;top:84.5%" data-type="tower_red" data-name="Tháp Đỏ Nam"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Nam</span></div>
+              <!-- boss -->
+              <div class="map-icon boss" style="left:50%;top:30.5%" data-type="boss" data-name="Boss Bắc"><img src="./anh/icons/sun_boss.png" width="100%"><span class="map-icon-tooltip">☀ Boss Bắc</span></div>
+              <div class="map-icon boss" style="left:50%;top:70.5%" data-type="boss" data-name="Boss Nam"><img src="./anh/icons/sun_boss.png" width="100%"><span class="map-icon-tooltip">☀ Boss Nam</span></div>
+              <!-- goose_blue -->
+              <div class="map-icon goose" style="left:8.5%;top:51.5%" data-type="goose_blue" data-name="Ngỗng Xanh"><img src="./anh/icons/goose_blue.png" width="100%"><span class="map-icon-tooltip">🦆 Ngỗng Xanh</span></div>
+              <!-- goose_red -->
+              <div class="map-icon goose" style="left:90.5%;top:50%" data-type="goose_red" data-name="Ngỗng Đỏ"><img src="./anh/icons/goose_red.png" width="100%"><span class="map-icon-tooltip">🦆 Ngỗng Đỏ</span></div>
+              <!-- tree_blue -->
+              <div class="map-icon tree" style="left:4%;top:51%" data-type="tree_blue" data-name="Cây Xanh"><img src="./anh/icons/tree_blue.png" width="100%"><span class="map-icon-tooltip">🌳 Cây Xanh</span></div>
+              <!-- tree_red -->
+              <div class="map-icon tree" style="left:95.5%;top:50%" data-type="tree_red" data-name="Cây Đỏ"><img src="./anh/icons/tree_red.png" width="100%"><span class="map-icon-tooltip">🌳 Cây Đỏ</span></div>
+              <!-- dot -->
+              <div class="map-icon dot" style="left:29.5%;top:37.5%" data-type="dot" data-name="Điểm B1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B1</span></div>
+              <div class="map-icon dot" style="left:40.5%;top:37%" data-type="dot" data-name="Điểm B2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B2</span></div>
+              <div class="map-icon dot" style="left:57.5%;top:27.5%" data-type="dot" data-name="Điểm B4"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B4</span></div>
+              <div class="map-icon dot" style="left:69%;top:37.5%" data-type="dot" data-name="Điểm C3"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C3</span></div>
+              <div class="map-icon dot" style="left:29%;top:64.5%" data-type="dot" data-name="Điểm C1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C1</span></div>
+              <div class="map-icon dot" style="left:69.5%;top:65%" data-type="dot" data-name="Điểm C2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C2</span></div>
+              <div class="map-icon dot" style="left:40.5%;top:74%" data-type="dot" data-name="Điểm D1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm D1</span></div>
+              <div class="map-icon dot" style="left:58.5%;top:65.5%" data-type="dot" data-name="Điểm D2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm D2</span></div>
+            </div>
+            <!-- Map giấy (background-image, chỉ đổi ảnh nền, icon giữ nguyên) -->
+            <div class="map-bg-giay" id="mapBgGiay"></div>
+            <div class="map-ov"></div>
+            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
+          </div>
+        </div>
+        <div class="r-pane" id="pane-tasks">
+          <div id="tasksTabContent" style="color:var(--text3);font-size:12px;padding:20px;text-align:center">
+            <div style="font-size:36px;opacity:.3;margin-bottom:12px">📋</div>
+            Chọn 1 phiên bang chiến để xem nhiệm vụ
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green-400)" stroke-width="2" style="vertical-align:-2px"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg> Lang Gia</span> • Guild War Strategy • Where Winds Meet • <span style="color:var(--green-400)">● Active</span></div>
+
+  <!-- Mobile Bottom Nav -->
+  <div class="mobile-nav" id="mobileNav">
+    <div class="mob-tab active" data-target="mob-teams" onclick="switchMobileTab(this)">👥<span>Đội hình</span></div>
+    <div class="mob-tab" data-target="mob-map" onclick="switchMobileTab(this)">🗺️<span>Bản đồ</span></div>
+    <div class="mob-tab" data-target="mob-tasks" onclick="switchMobileTab(this)">📋<span>Nhiệm vụ</span></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL TẠO BC TÙY CHỈNH ═══ -->
+<div class="modal-ov" id="modalBc" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Tạo Bang Chiến mới
+    </h3>
+    <label>Chọn ngày</label>
+    <select id="bcDaySelect">
+      <option value="mon">Thứ 2</option>
+      <option value="tue">Thứ 3</option>
+      <option value="wed">Thứ 4</option>
+      <option value="thu">Thứ 5</option>
+      <option value="fri">Thứ 6</option>
+      <option value="sat">Thứ 7</option>
+      <option value="sun">Chủ Nhật</option>
+    </select>
+    <label>Thời gian</label>
+    <input type="time" id="bcTimeInput" value="19:30">
+    <label>Ghi chú (tùy chọn)</label>
+    <input type="text" id="bcNoteInput" placeholder="VD: BC Liên Server, BC Tập luyện...">
+    <div class="modal-btns">
+      <button class="mbtn-cc" onclick="closeModal()">Hủy</button>
+      <button class="mbtn-ok" onclick="createCustomBc()">Tạo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ SUPABASE CONFIG ═══
+const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
+const GUILD_ID = '1239836342456942643';
+
+let sb = null;
+try {
+    // CDN v2 export: window.supabase hoặc window.supabase.createClient
+    const createFn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
+    if (createFn) {
+        sb = createFn(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('[LangGia] ✅ Supabase client khởi tạo thành công');
+    } else {
+        console.error('[LangGia] ❌ Supabase CDN chưa load - window.supabase =', window.supabase);
+    }
+} catch(e) {
+    console.error('[LangGia] ❌ Lỗi khởi tạo Supabase:', e);
+}
+
+// ═══ FIRE PARTICLES (hiệu ứng lửa bay nhẹ) ═══
+function createFireParticles() {
+    const fc = document.getElementById('fireContainer');
+    function spawnFire() {
+        const p = document.createElement('div');
+        const isEmber = Math.random() > 0.6;
+        p.className = isEmber ? 'fire-particle ember' : 'fire-particle';
+        const size = isEmber ? 3 : (4 + Math.random() * 6);
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+        p.style.left = Math.random() * 100 + '%';
+        const dur = 5 + Math.random() * 8;
+        p.style.animationDuration = dur + 's';
+        p.style.animationDelay = '0s';
+        fc.appendChild(p);
+        setTimeout(() => p.remove(), dur * 1000);
+    }
+    // Tạo ban đầu
+    for (let i = 0; i < 8; i++) setTimeout(() => spawnFire(), Math.random() * 3000);
+    // Liên tục spawn mới
+    setInterval(spawnFire, 800 + Math.random() * 500);
+}
+createFireParticles();
+
+// ═══ LANDING PARTICLES ═══
+function createParticles() {
+    const c = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDelay = Math.random() * 6 + 's';
+        p.style.animationDuration = (4 + Math.random() * 4) + 's';
+        c.appendChild(p);
+    }
+}
+createParticles();
+
+// ═══ AUTH ═══
+async function loginDiscord() {
+    if (!sb) { alert('Hệ thống chưa sẵn sàng, vui lòng refresh trang.'); return; }
+    const { error } = await sb.auth.signInWithOAuth({
+        provider: 'discord',
+        options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) alert('Lỗi đăng nhập: ' + error.message);
+}
+
+async function logout() {
+    await sb.auth.signOut();
+    document.getElementById('landingPage').classList.remove('hidden');
+    document.getElementById('mainApp').classList.remove('active');
+    document.getElementById('notMemberScreen').classList.remove('active');
+}
+
+// ═══ CHECK AUTH ON LOAD ═══
+async function checkAuth() {
+    if (!sb) { document.getElementById('landingPage').classList.remove('hidden'); return; }
+    const { data: { session } } = await sb.auth.getSession();
+
+    if (!session) {
+        // Chưa đăng nhập → hiện landing
+        document.getElementById('landingPage').classList.remove('hidden');
+        return;
+    }
+
+    // Đã đăng nhập → ẩn landing, hiện loading
+    document.getElementById('landingPage').classList.add('hidden');
+    document.getElementById('loadingScreen').classList.remove('hidden');
+
+    const user = session.user;
+    const meta = user.user_metadata;
+    const avatarUrl = `https://cdn.discordapp.com/avatars/${meta.provider_id}/${meta.avatar_url?.split('/').pop() || meta.avatar}`;
+    const userName = meta.full_name || meta.name || 'User';
+
+    // Gửi thông báo đăng nhập qua Discord Webhook (1 lần mỗi session)
+    if (!sessionStorage.getItem('logged_in_notified_' + meta.provider_id)) {
+        sessionStorage.setItem('logged_in_notified_' + meta.provider_id, '1');
+        fetch('https://discord.com/api/webhooks/1489354724011544788/nsjGQKyxB3DkbYRNG7KJBzAsYooIt75kC3OxOGEilWv4f-5iIwFDzRyk44nG6L4FZASF', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                embeds: [{
+                    author: { name: userName, icon_url: avatarUrl },
+                    description: `**${userName}** vừa đăng nhập vào web Bang Chiến!`,
+                    color: 3447003,
+                    fields: [
+                        { name: 'Username', value: meta.name || 'N/A', inline: true },
+                        { name: 'Discord ID', value: meta.provider_id || 'N/A', inline: true }
+                    ],
+                    thumbnail: { url: avatarUrl }
+                }]
+            })
+        }).catch(()=>{});
+    }
+
+    // Hiện thông tin user
+    document.getElementById('userAvatar').src = avatarUrl;
+    document.getElementById('userName').textContent = userName;
+
+    // Lưu discord provider_id để dùng cho đăng ký
+    window.currentDiscordId = meta.provider_id;
+    window.currentUserName = meta.full_name || meta.name || 'User';
+
+    // Fetch position từ bc_users để kiểm tra quyền (Kỳ Cựu/Quản Lý)
+    window.currentUserPosition = 'mem'; // mặc định
+    try {
+        const { data: uData } = await sb
+            .from('bc_users')
+            .select('position')
+            .eq('discord_id', meta.provider_id)
+            .single();
+        if (uData?.position) window.currentUserPosition = uData.position;
+    } catch(e) {}
+    
+    // Bypass quyền nếu có ?admin=1 trên URL
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === '1') {
+        window.currentUserPosition = 'bc';
+        console.log('[LangGia] ⚡ ADMIN MODE ACTIVATED VIA URL');
+    }
+
+    console.log('[LangGia] User position:', window.currentUserPosition);
+    updateEditorButtonVisibility();
+
+    // TODO: Kiểm tra user có trong guild không (cần thêm logic)
+    // Hiện tại cho vào luôn
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.add('active');
+
+    // Tải tất cả sessions từ Supabase và tạo tabs động
+    await loadAllSessions();
+
+    // ═══ REALTIME: Tự động cập nhật khi bot/web thay đổi session ═══
+    setupRealtimeSubscription();
+}
+
+// ═══ LOAD BC DATA ═══
+let currentDay = null;
+let currentSessionData = null;
+let regularButtonRequestToken = 0;
+let supportsRegularsTable = true;
+const DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
+const PRIMARY_DAYS = ['sat','sun'];
+const DAY_LABELS = {
+    mon: 'Thứ 2', tue: 'Thứ 3', wed: 'Thứ 4', thu: 'Thứ 5',
+    fri: 'Thứ 6', sat: 'Thứ 7', sun: 'Chủ Nhật'
+};
+const calSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+
+function parseSessionTeam(value) {
+    try {
+        return typeof value === 'string' ? JSON.parse(value) : (value || []);
+    } catch (error) {
+        return [];
+    }
+}
+
+function hasElevatedRosterRole() {
+    const normalized = String(window.currentUserPosition || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    return ['bc', 'pbc', 'kc', 'ql', 'quan ly', 'ky cuu'].includes(normalized);
+}
+
+function isCurrentUserSessionLeader(session) {
+    if (!session || !window.currentDiscordId) return false;
+
+    try {
+        const leaderIds = typeof session.leader_ids === 'string' ? JSON.parse(session.leader_ids || '{}') : (session.leader_ids || {});
+        const directLeaderIds = [
+            leaderIds.creator_id,
+            leaderIds.commander,
+            leaderIds.team1,
+            leaderIds.team2,
+            leaderIds.team3,
+            leaderIds.team4
+        ].filter(Boolean);
+        if (directLeaderIds.includes(window.currentDiscordId)) return true;
+    } catch (error) {}
+
+    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
+    return allTeams.some((key) => parseSessionTeam(session[key]).some((player) =>
+        player?.id === window.currentDiscordId && (player.isLeader || player.ld || player.isTeamLeader)
+    ));
+}
+
+function canEditTeamRoster(session = currentSessionData) {
+    return hasElevatedRosterRole() || isCurrentUserSessionLeader(session);
+}
+
+function parseSessionLeaderIds(session) {
+    if (!session) return {};
+    try {
+        return typeof session.leader_ids === 'string'
+            ? JSON.parse(session.leader_ids || '{}')
+            : (session.leader_ids || {});
+    } catch (error) {
+        return {};
+    }
+}
+
+function isCurrentUserSessionCreator(session = currentSessionData) {
+    if (!session || !window.currentDiscordId) return false;
+    const leaderIds = parseSessionLeaderIds(session);
+    return Boolean(leaderIds.creator_id) && String(leaderIds.creator_id) === String(window.currentDiscordId);
+}
+
+function isMissingBcRegularsTableError(error) {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('bc_regulars') && (message.includes('could not find the table') || message.includes('schema cache') || message.includes('does not exist'));
+}
+
+async function refreshRegularSessionButton(day = currentSessionData?.day || currentDay) {
+    const btn = document.getElementById('btnRegularSession');
+    if (!btn) return;
+
+    const safeDay = day || '';
+    const sessionForButton = (currentSessionData?.day === safeDay ? currentSessionData : (_cachedSessions[safeDay] || currentSessionData));
+    btn.dataset.day = safeDay;
+
+    const shouldShow = Boolean(safeDay)
+        && PRIMARY_DAYS.includes(safeDay)
+        && Boolean(window.currentDiscordId)
+        && supportsRegularsTable
+        && !isCurrentUserSessionCreator(sessionForButton);
+    if (!shouldShow) {
+        regularButtonRequestToken += 1;
+        btn.style.display = 'none';
+        btn.disabled = true;
+        btn.dataset.active = '0';
+        btn.textContent = '🔄 Luôn tham gia';
+        btn.title = 'Chỉ hỗ trợ Thứ 7 / Chủ nhật';
+        return;
+    }
+
+    const label = DAY_LABELS[safeDay] || safeDay;
+    const requestToken = ++regularButtonRequestToken;
+    btn.style.display = '';
+    btn.disabled = true;
+    btn.textContent = '🔄 Đang tải...';
+    btn.title = `Kiểm tra trạng thái luôn tham gia ${label}`;
+
+    try {
+        const { data, error } = await sb
+            .from('bc_regulars')
+            .select('id')
+            .eq('guild_id', GUILD_ID)
+            .eq('discord_id', window.currentDiscordId)
+            .eq('day', safeDay)
+            .maybeSingle();
+
+        if (requestToken !== regularButtonRequestToken) return;
+        if (error) throw error;
+
+        const isRegular = Boolean(data?.id);
+        btn.dataset.active = isRegular ? '1' : '0';
+        btn.textContent = isRegular ? '🔄 Bỏ luôn tham gia' : '🔄 Luôn tham gia';
+        btn.title = isRegular
+            ? `Bỏ luôn tham gia ${label}`
+            : `Bật luôn tham gia ${label}`;
+    } catch (error) {
+        if (requestToken !== regularButtonRequestToken) return;
+        if (isMissingBcRegularsTableError(error)) {
+            supportsRegularsTable = false;
+            regularButtonRequestToken += 1;
+            btn.style.display = 'none';
+            btn.disabled = true;
+            btn.dataset.active = '0';
+            btn.textContent = '🔄 Luôn tham gia';
+            btn.title = 'Supabase chưa có bảng bc_regulars';
+            console.warn('[LangGia] bc_regulars table is missing; regular button hidden.');
+            return;
+        }
+        console.warn('[LangGia] Load regular failed:', error);
+        btn.dataset.active = '0';
+        btn.textContent = '🔄 Luôn tham gia';
+        btn.title = 'Không tải được trạng thái luôn tham gia';
+    } finally {
+        if (requestToken === regularButtonRequestToken) btn.disabled = false;
+    }
+}
+
+async function toggleRegularSession() {
+    const btn = document.getElementById('btnRegularSession');
+    const day = btn?.dataset.day || currentSessionData?.day || currentDay;
+    const sessionForButton = (currentSessionData?.day === day ? currentSessionData : (_cachedSessions[day] || currentSessionData));
+    if (!btn || !day || !PRIMARY_DAYS.includes(day) || !window.currentDiscordId || !supportsRegularsTable || isCurrentUserSessionCreator(sessionForButton)) return;
+
+    btn.disabled = true;
+    try {
+        const { data, error } = await sb
+            .from('bc_regulars')
+            .select('id')
+            .eq('guild_id', GUILD_ID)
+            .eq('discord_id', window.currentDiscordId)
+            .eq('day', day)
+            .maybeSingle();
+
+        if (error) throw error;
+
+        if (data?.id) {
+            const { error: deleteError } = await sb
+                .from('bc_regulars')
+                .delete()
+                .eq('id', data.id);
+            if (deleteError) throw deleteError;
+        } else {
+            const { error: upsertError } = await sb
+                .from('bc_regulars')
+                .upsert({
+                    guild_id: GUILD_ID,
+                    discord_id: window.currentDiscordId,
+                    username: window.currentUserName || 'User',
+                    day
+                }, { onConflict: 'guild_id,discord_id,day' });
+            if (upsertError) throw upsertError;
+        }
+
+        await refreshRegularSessionButton(day);
+    } catch (error) {
+        console.error('[LangGia] Toggle regular failed:', error);
+        alert('Lỗi cập nhật Luôn tham gia: ' + (error.message || error));
+        await refreshRegularSessionButton(day);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function updateTacticsButtonTarget(day) {
+    const btn = document.getElementById('btnTactics');
+    const editorBtn = document.getElementById('btnTeamEditor');
+    const regularBtn = document.getElementById('btnRegularSession');
+    const splitBtn = document.getElementById('splitActionBtn');
+    const safeDay = day || '';
+    if (btn) btn.dataset.day = safeDay;
+    if (editorBtn) editorBtn.dataset.day = safeDay;
+    if (regularBtn) regularBtn.dataset.day = safeDay;
+    if (!safeDay) {
+        if (splitBtn) {
+            splitBtn.classList.add('disabled');
+            splitBtn.title = 'Chua co session';
+        }
+        if (regularBtn) {
+            regularBtn.style.display = 'none';
+            regularBtn.disabled = true;
+            regularBtn.dataset.active = '0';
+            regularBtn.textContent = '🔄 Luôn tham gia';
+        }
+        return;
+    }
+    const label = DAY_LABELS[safeDay] || safeDay;
+    if (splitBtn) {
+        splitBtn.classList.remove('disabled');
+        splitBtn.title = '';
+    }
+    if (btn) btn.title = `Vao chien thuat ${label}`;
+    if (editorBtn) editorBtn.title = `Mo chinh sua doi hinh ${label}`;
+}
+
+function updateEditorButtonVisibility() {
+    const editorSide = document.getElementById('btnTeamEditor');
+    if (!editorSide) return;
+    const canEdit = canEditTeamRoster();
+    editorSide.style.display = canEdit ? '' : 'none';
+    // Ẩn divider nếu ẩn Đội Hình
+    const divider = editorSide.parentElement?.querySelector('.split-divider');
+    if (divider) divider.style.display = canEdit ? '' : 'none';
+}
+
+// Cache sessions data để dùng xuyên suốt
+let _cachedSessions = {};
+
+// Tải tất cả sessions từ Supabase và tạo tabs động
+async function loadAllSessions() {
+    const { data, error } = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('status', 'active');
+
+    if (error) { console.error('[LangGia] Lỗi load sessions:', error); }
+    const sessions = data || [];
+
+    // Sắp xếp theo thứ tự ngày
+    sessions.sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
+
+    // Cache lại tất cả sessions
+    _cachedSessions = {};
+    sessions.forEach(s => { _cachedSessions[s.day] = s; });
+
+    // Ghi nhớ tab đang xem trước khi rebuild
+    const previousDay = currentDay;
+
+    // Tạo tabs
+    const dayBar = document.getElementById('dayBar');
+    const sep = dayBar.querySelector('.day-sep');
+
+    // Xóa tabs cũ (giữ lại sep, addBtn, progress)
+    dayBar.querySelectorAll('.day-tab').forEach(t => t.remove());
+
+    if (sessions.length === 0) {
+        currentDay = null;
+        currentSessionData = null;
+        updateTacticsButtonTarget(null);
+        document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chưa có phiên bang chiến nào.<br><br>Sử dụng lệnh <b>?bc</b> trên Discord để bắt đầu.</div>';
+        updateStats(null);
+        updateSignupBar(null);
+        refreshRegularSessionButton(null);
+        return;
+    }
+
+    // Tính ngày cụ thể cho mỗi tab (tuần hiện tại)
+    function getDateForDay(dayKey) {
+        const dayMap = {mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
+        const target = dayMap[dayKey];
+        if (target === undefined) return '';
+        const now = new Date();
+        const current = now.getDay(); // 0=CN
+        let diff = target - current;
+        if (diff < -1) diff += 7;
+        const date = new Date(now);
+        date.setDate(now.getDate() + diff);
+        return date.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric'});
+    }
+
+    // Xác định tab nào sẽ được active: ưu tiên tab cũ, nếu không còn → tab đầu
+    const targetDay = (previousDay && sessions.some(s => s.day === previousDay)) ? previousDay : sessions[0].day;
+
+    sessions.forEach((s) => {
+        const tab = document.createElement('div');
+        const isActive = s.day === targetDay;
+        tab.className = 'day-tab' + (PRIMARY_DAYS.includes(s.day) ? ' highlight' : '') + (isActive ? ' active' : '');
+        tab.dataset.day = s.day;
+        const label = DAY_LABELS[s.day] || s.day;
+        const time = s.time || '19:30';
+        const note = s.note ? ` <span style="font-size:10px;opacity:.6">${s.note}</span>` : '';
+        const dateStr = getDateForDay(s.day);
+        // Chỉ Kỳ Cựu (kc), Phó Bang Chủ (pbc), Bang Chủ (bc), Quản Lý mới thấy nút xoá session
+        const canDelete = ['kc','pbc','bc','Kỳ Cựu','Quản Lý'].includes(window.currentUserPosition);
+        const delBtn = canDelete ? `<span class="del-x" title="Xóa session ${label}" onclick="event.stopPropagation(); deleteSession('${s.day}', '${label}')">✕</span>` : '';
+        tab.innerHTML = `${calSvg} ${label} <span class="time-badge">${time}</span>${note}${dateStr ? ` <span class="day-date">${dateStr}</span>` : ''}${delBtn}`;
+        tab.onclick = function() { switchDay(this, s.day); };
+        sep.parentNode.insertBefore(tab, sep);
+    });
+
+    // Render data cho tab được chọn (giữ nguyên tab cũ nếu vẫn tồn tại)
+    const activeSession = sessions.find(s => s.day === targetDay) || sessions[0];
+    currentDay = activeSession.day;
+    currentSessionData = activeSession;
+    updateTacticsButtonTarget(activeSession.day);
+    updateEditorButtonVisibility();
+    renderTeams(activeSession);
+    updateStats(activeSession);
+    updateSignupBar(activeSession);
+    refreshRegularSessionButton(activeSession.day);
+}
+
+async function loadBCData(day) {
+    currentDay = day;
+    updateTacticsButtonTarget(day);
+    const { data, error } = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('day', day)
+        .single();
+
+    if (error || !data) {
+        currentSessionData = null;
+        updateTacticsButtonTarget(null);
+        document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chưa có phiên bang chiến nào cho ngày này.<br><br>Sử dụng lệnh <b>?bc</b> trên Discord để bắt đầu.</div>';
+        updateStats(null);
+        updateSignupBar(null);
+        refreshRegularSessionButton(null);
+        return;
+    }
+
+    currentSessionData = data;
+    updateTacticsButtonTarget(data.day || day);
+    updateEditorButtonVisibility();
+    renderTeams(data);
+    updateStats(data);
+    updateSignupBar(data);
+    refreshRegularSessionButton(data.day || day);
+}
+
+// ═══ TRẠNG THÁI ĐĂNG KÝ COMPACT ═══
+function updateSignupBar(data) {
+    const bar = document.getElementById('bcSignupBar');
+
+    // Xóa class .joined khỏi tất cả tabs trước
+    document.querySelectorAll('.day-tab.joined').forEach(t => t.classList.remove('joined'));
+
+    if (!data || !window.currentDiscordId) {
+        bar.style.display = 'none';
+        return;
+    }
+
+    // Kiểm tra user đã đăng ký chưa
+    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
+    let isJoined = false;
+    for (const key of allTeams) {
+        let players = [];
+        try { players = typeof data[key] === 'string' ? JSON.parse(data[key]) : (data[key] || []); } catch(e) {}
+        if (players.some(p => p.id === window.currentDiscordId)) { isJoined = true; break; }
+    }
+
+    // Thêm dot xanh lên tab active nếu đã đăng ký
+    if (isJoined) {
+        const activeTab = document.querySelector(`.day-tab[data-day="${currentDay}"]`);
+        if (activeTab) activeTab.classList.add('joined');
+    }
+
+    if (isJoined) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+    } else {
+        bar.style.display = 'flex';
+        bar.innerHTML = `
+            <button class="bc-action-btn" onclick="joinBC()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
+                ⚔️ Đăng ký
+            </button>`;
+    }
+}
+
+async function joinBC() {
+    if (!currentDay || !window.currentDiscordId) return;
+    // Lấy session hiện tại
+    const { data, error } = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('day', currentDay)
+        .single();
+    if (error || !data) { alert('Không tìm thấy phiên BC!'); return; }
+
+    // Parse teams
+    const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+    let t1 = parseTeam(data.team_attack1);
+    let t2 = parseTeam(data.team_attack2);
+    let td = parseTeam(data.team_defense);
+    let tf = parseTeam(data.team_forest);
+    let wl = parseTeam(data.waiting_list);
+
+    // Kiểm tra đã có chưa
+    const allPlayers = [...t1,...t2,...td,...tf,...wl];
+    if (allPlayers.some(p => p.id === window.currentDiscordId)) { alert('Bạn đã đăng ký rồi!'); return; }
+
+    // Lookup bc_users để lấy game_username, sub_role
+    let gameName = '', subRole = '';
+    try {
+        const { data: userInfo } = await sb
+            .from('bc_users')
+            .select('game_username, sub_role, position')
+            .eq('discord_id', window.currentDiscordId)
+            .single();
+        if (userInfo) {
+            gameName = userInfo.game_username || '';
+            subRole = userInfo.sub_role || '';
+        }
+    } catch(e) {}
+
+    const sizes = typeof data.team_sizes === 'string' ? JSON.parse(data.team_sizes) : (data.team_sizes || {attack1:10,attack2:10,defense:5,forest:5});
+    const newPlayer = {
+        id: window.currentDiscordId,
+        name: gameName || window.currentUserName,
+        username: window.currentUserName,
+        gn: gameName,
+        sub: subRole,
+        role: 'DPS',
+        joinedAt: Date.now()
+    };
+
+    // Thêm vào team có chỗ trống (ưu tiên: công 1 → công 2 → chờ)
+    if (t1.length < (sizes.attack1 || 10)) { t1.push(newPlayer); }
+    else if (t2.length < (sizes.attack2 || 10)) { t2.push(newPlayer); }
+    else { wl.push(newPlayer); }
+
+    // Cập nhật Supabase
+    const { error: updateErr } = await sb
+        .from('bc_sessions')
+        .update({
+            team_attack1: JSON.stringify(t1),
+            team_attack2: JSON.stringify(t2),
+            waiting_list: JSON.stringify(wl)
+        })
+        .eq('guild_id', GUILD_ID)
+        .eq('day', currentDay);
+
+    if (updateErr) { alert('Lỗi đăng ký: ' + updateErr.message); return; }
+    await loadBCData(currentDay);
+}
+
+async function leaveBC() {
+    if (!currentDay || !window.currentDiscordId) return;
+
+    const { data, error } = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('day', currentDay)
+        .single();
+    if (error || !data) return;
+
+    const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+
+    // Kiểm tra leader không được hủy đăng ký (đồng bộ logic với Bot Discord)
+    // Cách 1: Check leader_ids (luôn đáng tin cậy - lưu khi tạo session)
+    try {
+        const leaderIds = typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids) : (data.leader_ids || {});
+        if (leaderIds.creator_id === window.currentDiscordId) {
+            alert('❌ Leader không thể hủy đăng ký! Hãy dùng lệnh ?bcend trên Discord.');
+            return;
+        }
+    } catch(e) {}
+
+    // Cách 2: Check isLeader trong player data (backup)
+    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
+    for (const key of allTeams) {
+        const players = parseTeam(data[key]);
+        const me = players.find(p => p.id === window.currentDiscordId);
+        if (me && (me.ld || me.isLeader)) {
+            alert('❌ Leader không thể hủy đăng ký! Hãy dùng lệnh ?bcend trên Discord.');
+            return;
+        }
+    }
+
+    if (!confirm('Bạn muốn hủy đăng ký Bang Chiến?')) return;
+
+    const removePlayer = (team) => team.filter(p => p.id !== window.currentDiscordId);
+
+    const { error: updateErr } = await sb
+        .from('bc_sessions')
+        .update({
+            team_attack1: JSON.stringify(removePlayer(parseTeam(data.team_attack1))),
+            team_attack2: JSON.stringify(removePlayer(parseTeam(data.team_attack2))),
+            team_defense: JSON.stringify(removePlayer(parseTeam(data.team_defense))),
+            team_forest: JSON.stringify(removePlayer(parseTeam(data.team_forest))),
+            waiting_list: JSON.stringify(removePlayer(parseTeam(data.waiting_list)))
+        })
+        .eq('guild_id', GUILD_ID)
+        .eq('day', currentDay);
+
+    if (updateErr) { alert('Lỗi hủy đăng ký: ' + updateErr.message); return; }
+    await loadBCData(currentDay);
+}
+
+function renderTeams(data) {
+    const SVG = {
+        sword: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>',
+        dagger: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>',
+        shield: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+        tree: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V8"/><path d="M5 12l7-8 7 8"/><path d="M3 17l9-6 9 6"/></svg>',
+        clock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        dpsAv: '<img src="./anh/dps.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">',
+        healAv: '<img src="./anh/healer.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">',
+        tankAv: '<img src="./anh/tanker.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">',
+        crown: '<svg width="12" height="12" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><path d="M2 20h20v2H2z"/></svg>'
+    };
+    const allTeams = [
+        { key: 'team_attack1', cls: 'a1', icon: SVG.sword, title: 'TEAM CÔNG 1', max: 10 },
+        { key: 'team_attack2', cls: 'a2', icon: SVG.dagger, title: 'TEAM CÔNG 2', max: 10 },
+        { key: 'team_defense', cls: 'df', icon: SVG.shield, title: 'TEAM THỦ', max: 5 },
+        { key: 'team_forest', cls: 'fr', icon: SVG.tree, title: 'TEAM RỪNG', max: 5 },
+        { key: 'waiting_list', cls: 'wt', icon: SVG.clock, title: 'DANH SÁCH CHỜ', max: 0 }
+    ];
+
+    const sizes = typeof data.team_sizes === 'string' ? JSON.parse(data.team_sizes || '{}') : (data.team_sizes || {});
+    allTeams[0].max = sizes.attack1 ?? 10;
+    allTeams[1].max = sizes.attack2 ?? 10;
+    allTeams[2].max = sizes.defense ?? 5;
+    allTeams[3].max = sizes.forest ?? 5;
+
+    const teams = allTeams.filter(t => t.key === 'waiting_list' || (t.max ?? 0) > 0);
+    const attackTeams = teams.filter(t => t.key === 'team_attack1' || t.key === 'team_attack2');
+    if (attackTeams.length === 1) {
+        attackTeams[0].title = 'TEAM CÔNG';
+        attackTeams[0].max = (sizes.attack1 ?? 10) + (sizes.attack2 ?? 10);
+    }
+
+    let html = '', num = 1;
+    if (data.locked === true) {
+        html += `<div class="team-card" style="border-color:rgba(255,99,71,.4);background:linear-gradient(180deg,rgba(90,22,18,.22),rgba(18,28,17,.92));margin-bottom:12px;"><div class="t-hdr wt" style="background:linear-gradient(135deg,rgba(255,110,90,.18),rgba(120,30,24,.08));"><div class="t-info"><div class="t-icon wt">🔒</div><div><div class="t-title" style="color:#ffb4a8">ĐÃ CHỐT DANH SÁCH</div><div class="t-cnt">Người mới đăng ký sẽ vào hàng chờ cho tới khi mở khóa.</div></div></div></div></div>`;
+    }
+    teams.forEach(t => {
+        let players = [];
+        try { players = typeof data[t.key] === 'string' ? JSON.parse(data[t.key]) : (data[t.key] || []); } catch(e) {}
+
+        const stats = { d: 0, h: 0, t: 0 };
+        players.forEach(p => { if (p.role === 'DPS') stats.d++; else if (p.role === 'Healer') stats.h++; else stats.t++; });
+
+        html += `<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key === 'waiting_list' ? ' style="color:var(--gold)"' : ''}>${t.title}</div><div class="t-cnt">${t.max ? players.length + '/' + t.max + ' thành viên' : players.length + ' người chờ'}</div></div></div><div class="t-roles">`;
+        if (stats.d) html += `<div class="rb d"><div class="rd d"></div>${stats.d}</div>`;
+        if (stats.h) html += `<div class="rb h"><div class="rd h"></div>${stats.h}</div>`;
+        if (stats.t) html += `<div class="rb t"><div class="rd t"></div>${stats.t}</div>`;
+        html += `</div></div><div class="t-list">`;
+
+        players.forEach(p => {
+            const sub = p.sub ? ' [' + p.sub + ']' : '';
+            const ld = p.ld ? ' ' + SVG.crown : '';
+            const rcls = p.role === 'Healer' ? 'h' : p.role === 'Tanker' ? 't' : 'd';
+            const roleImg = (p.role || 'DPS').toLowerCase();
+            const emo = `<img src="./anh/icons/${roleImg}.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            const displayName = p.gn || p.game_username || p.name || p.username || 'Unknown';
+            const secondaryName = (p.gn || p.game_username) ? (p.name || p.username || '') : '';
+            let actionBtn = '';
+            const isLeader = p.ld || p.isLeader;
+            // Check thêm leader_ids (phòng trường hợp isLeader bị thiếu)
+            let isCreator = false;
+            try {
+                const leaderIds = typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids) : (data.leader_ids || {});
+                isCreator = leaderIds.creator_id === p.id;
+            } catch(e) {}
+            
+            const isMe = p.id === window.currentDiscordId;
+            if (isMe && !isLeader && !isCreator) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC()" title="Hủy đăng ký">× Hủy đăng ký</div>`;
+            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${sub}</div></div>`;
+            num++;
+        });
+
+        if (t.max && players.length < t.max) {
+            for (let i = players.length; i < t.max; i++) {
+                html += `<div class="slot-e"><div class="m-num">${num}</div>Trống...</div>`;
+                num++;
+            }
+        }
+        html += `</div></div>`;
+    });
+
+    document.getElementById('leftPanel').innerHTML = html;
+}
+
+function updateStats(data) {
+    if (!data) {
+        ['statTotal', 'statDPS', 'statHealer', 'statTanker'].forEach(id => document.getElementById(id).textContent = '--');
+        return;
+    }
+
+    let total = 0, dps = 0, healer = 0, tanker = 0;
+    ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].forEach(k => {
+        let players = [];
+        try { players = typeof data[k] === 'string' ? JSON.parse(data[k]) : (data[k] || []); } catch(e) {}
+        total += players.length;
+        players.forEach(p => { if (p.role === 'DPS') dps++; else if (p.role === 'Healer') healer++; else tanker++; });
+    });
+
+    document.getElementById('statTotal').textContent = total + '/30';
+    document.getElementById('statDPS').textContent = dps;
+    document.getElementById('statHealer').textContent = healer;
+    document.getElementById('statTanker').textContent = tanker;
+}
+
+// ═══ REALTIME (chỉ khởi tạo 1 lần sau khi auth thành công) ═══
+// Kèm POLLING FALLBACK nếu Realtime bị TIMED_OUT
+let _realtimeSetup = false;
+let _pollingInterval = null;
+let _renderDebounceTimer = null; // Debounce render khi nhiều UPDATE liên tiếp
+
+function setupRealtimeSubscription() {
+    if (!sb || _realtimeSetup) return;
+    _realtimeSetup = true;
+
+    sb.channel('bc-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bc_sessions', filter: `guild_id=eq.${GUILD_ID}` },
+          (payload) => {
+              const eventDay = payload.new?.day || payload.old?.day || '?';
+              console.log(`[LangGia] 🔄 Realtime ${payload.eventType}: ${eventDay}`);
+
+              // DELETE: session bị xóa → clear cache + rebuild tabs
+              if (payload.eventType === 'DELETE') {
+                  console.log(`[LangGia] 🗑️ DELETE event, old:`, JSON.stringify(payload.old));
+                  // Supabase Replica Identity DEFAULT chỉ gửi id, không có day
+                  // → Clear toàn bộ cache rồi fetch lại để rebuild đúng
+                  Object.keys(_cachedSessions).forEach(k => delete _cachedSessions[k]);
+                  loadAllSessions();
+                  return;
+              }
+              // INSERT: session mới → rebuild tabs (giữ tab đang xem)
+              if (payload.eventType === 'INSERT') {
+                  if (payload.new) _cachedSessions[payload.new.day] = payload.new;
+                  loadAllSessions();
+                  return;
+              }
+              // UPDATE: cập nhật UI thông minh — không rebuild tabs
+              if (payload.new) {
+                  // Signal 'ended' từ bot → session sắp bị xóa → rebuild tabs (NGAY)
+                  if (payload.new.status === 'ended') {
+                      console.log(`[LangGia] 🗑️ Session ${payload.new.day} ended signal → xóa tab`);
+                      delete _cachedSessions[payload.new.day];
+                      loadAllSessions();
+                      return;
+                  }
+                  // Luôn cache data mới nhất NGAY (không debounce)
+                  _cachedSessions[payload.new.day] = payload.new;
+
+                  // Debounce render 300ms — gộp nhiều update liên tiếp
+                  if (_renderDebounceTimer) clearTimeout(_renderDebounceTimer);
+                  _renderDebounceTimer = setTimeout(() => {
+                      const latestData = _cachedSessions[currentDay];
+                      if (latestData) {
+                          currentSessionData = latestData;
+                          updateEditorButtonVisibility();
+                          renderTeams(latestData);
+                          updateStats(latestData);
+                          updateSignupBar(latestData);
+                          refreshRegularSessionButton(latestData.day || currentDay);
+                          console.log(`[LangGia] ✅ Debounced render cho ${currentDay}`);
+                      }
+
+                      // Cập nhật trạng thái .joined trên tất cả tabs
+                      if (window.currentDiscordId) {
+                          document.querySelectorAll('.day-tab').forEach(tab => {
+                              const d = tab.dataset.day;
+                              const sData = _cachedSessions[d];
+                              if (!sData) return;
+                              const parseT = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+                              const allP = [...parseT(sData.team_attack1),...parseT(sData.team_attack2),...parseT(sData.team_defense),...parseT(sData.team_forest),...parseT(sData.waiting_list)];
+                              tab.classList.toggle('joined', allP.some(p => p.id === window.currentDiscordId));
+                          });
+                      }
+                  }, 300);
+              }
+          }
+      )
+      .subscribe((status) => {
+          console.log(`[LangGia] 📡 Realtime subscription: ${status}`);
+          if (status === 'SUBSCRIBED') {
+              if (_pollingInterval) {
+                  clearInterval(_pollingInterval);
+                  _pollingInterval = null;
+                  console.log('[LangGia] ✅ Realtime hoạt động, tắt polling fallback');
+              }
+          } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+              startPollingFallback();
+          }
+      });
+}
+
+// Polling fallback thông minh: không rebuild toàn bộ UI
+function startPollingFallback() {
+    if (_pollingInterval) return;
+    console.log('[LangGia] ⚠️ Realtime bị lỗi, bật polling fallback (mỗi 3 giây)');
+
+    _pollingInterval = setInterval(async () => {
+        try {
+            const { data } = await sb
+                .from('bc_sessions')
+                .select('*')
+                .eq('guild_id', GUILD_ID)
+                .eq('status', 'active');
+
+            const sessions = data || [];
+
+            // Kiểm tra số lượng sessions thay đổi (thêm/xóa tab)
+            const oldDays = Object.keys(_cachedSessions).sort().join(',');
+            const newDays = sessions.map(s => s.day).sort().join(',');
+            if (oldDays !== newDays) {
+                // Số tabs thay đổi → clear cache cũ + rebuild (có giữ tab cũ)
+                console.log('[LangGia] 🔄 Polling: tabs thay đổi, rebuild');
+                Object.keys(_cachedSessions).forEach(k => delete _cachedSessions[k]);
+                sessions.forEach(s => { _cachedSessions[s.day] = s; });
+                await loadAllSessions();
+                return;
+            }
+
+            // Kiểm tra data của từng session có thay đổi không
+            let hasChange = false;
+            for (const s of sessions) {
+                const oldHash = JSON.stringify(_cachedSessions[s.day] || {});
+                const newHash = JSON.stringify(s);
+                if (oldHash !== newHash) {
+                    _cachedSessions[s.day] = s;
+                    hasChange = true;
+                    // Nếu đây là tab đang xem → render ngay
+                    if (s.day === currentDay) {
+                        currentSessionData = s;
+                        updateEditorButtonVisibility();
+                        renderTeams(s);
+                        updateStats(s);
+                        updateSignupBar(s);
+                        console.log(`[LangGia] 🔄 Polling: cập nhật tab ${s.day}`);
+                    }
+                }
+            }
+            if (hasChange) {
+                console.log('[LangGia] 🔄 Polling phát hiện thay đổi data');
+            }
+        } catch (e) {
+            // Bỏ qua lỗi poll
+        }
+    }, 3000);
+}
+
+// ═══ UI HELPERS ═══
+
+function switchDay(el, day) {
+    document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    updateTacticsButtonTarget(day);
+    loadBCData(day);
+}
+
+function switchRTab(el, id) {
+    document.querySelectorAll('.r-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.r-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+// ═══ MODAL TẠO BC ═══
+document.getElementById('addBcBtn').addEventListener('click', () => {
+    document.getElementById('modalBc').classList.add('show');
+});
+function closeModal() { document.getElementById('modalBc').classList.remove('show'); }
+
+async function createCustomBc() {
+    const day = document.getElementById('bcDaySelect').value;
+    const time = document.getElementById('bcTimeInput').value || '19:30';
+    const note = document.getElementById('bcNoteInput').value;
+
+    // Kiểm tra tab đã tồn tại chưa
+    if (document.querySelector(`.day-tab[data-day="${day}"]`)) {
+        alert('Ngày này đã có tab rồi!');
+        return;
+    }
+
+    const creatorName = window.currentUserName || 'User';
+    const creatorId = window.currentDiscordId || 'unknown';
+
+    // Lookup game_username từ bc_users
+    let gameName = '', subRole = '';
+    try {
+        const { data: userInfo } = await sb
+            .from('bc_users')
+            .select('game_username, sub_role')
+            .eq('discord_id', creatorId)
+            .single();
+        if (userInfo) {
+            gameName = userInfo.game_username || '';
+            subRole = userInfo.sub_role || '';
+        }
+    } catch(e) {}
+
+    // Tạo player object cho người tạo
+    const creatorPlayer = {
+        id: creatorId,
+        name: gameName || creatorName,
+        username: creatorName,
+        gn: gameName,
+        sub: subRole,
+        role: 'DPS',
+        isLeader: true, // Leader không được phép hủy đăng ký
+        joinedAt: Date.now()
+    };
+
+    // Tạo session mới trên Supabase — tự thêm leader vào Team Công 1
+    const { error } = await sb
+        .from('bc_sessions')
+        .upsert({
+            guild_id: GUILD_ID,
+            day,
+            time,
+            note: note || '',
+            status: 'active',
+            team_attack1: JSON.stringify([creatorPlayer]),
+            team_attack2: '[]',
+            team_defense: '[]', team_forest: '[]',
+            waiting_list: '[]',
+            leader_ids: JSON.stringify({ creator_id: creatorId, creator_name: creatorName }),
+            team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}'
+        }, { onConflict: 'guild_id,day' });
+
+    if (error) { alert('Lỗi tạo BC: ' + error.message); return; }
+
+    closeModal();
+    document.getElementById('bcNoteInput').value = '';
+
+    // Realtime INSERT sẽ trigger loadAllSessions tự động
+    // Nhưng fallback load ngay cho chắc
+    await loadAllSessions();
+}
+
+function removeCustomTab(x) {
+    const tab = x.closest('.day-tab');
+    const wasActive = tab.classList.contains('active');
+    tab.remove();
+    if (wasActive) {
+        const first = document.querySelector('.day-tab');
+        if (first) switchDay(first, first.dataset.day);
+    }
+}
+
+// Xóa session BC (từ web → Supabase → bot sync)
+async function deleteSession(day, label) {
+    // Kiểm tra quyền: chỉ Kỳ Cựu (kc) / Phó BC (pbc) / Bang Chủ (bc) mới được xoá (đồng bộ với bot ?bcend)
+    const pos = window.currentUserPosition || 'mem';
+    if (!['kc','pbc','bc','Kỳ Cựu','Quản Lý'].includes(pos)) {
+        alert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được xóa session Bang Chiến!');
+        return;
+    }
+    if (!confirm(`Xóa phiên Bang Chiến ${label}?\n\nBot Discord sẽ tự động cập nhật.`)) return;
+
+    // Signal+Delete: UPDATE status='ended' trước (anon key có quyền UPDATE)
+    // → Bot/web nhận Realtime UPDATE → xóa tab
+    const { error: updateErr } = await sb
+        .from('bc_sessions')
+        .update({ status: 'ended' })
+        .eq('guild_id', GUILD_ID)
+        .eq('day', day);
+
+    if (updateErr) { alert('Lỗi xóa: ' + updateErr.message); return; }
+
+    // Cố xóa hẳn row (nếu RLS cho phép)
+    await sb.from('bc_sessions').delete().eq('guild_id', GUILD_ID).eq('day', day).catch(() => {});
+
+    // Xóa cache + reload UI ngay
+    delete _cachedSessions[day];
+    await loadAllSessions();
+}
+
+// ═══ TOGGLE MAP MODE (3D / Giấy) ═══
+let isGiayMode = false;
+function toggleMapMode() {
+    isGiayMode = !isGiayMode;
+    const btn = document.getElementById('mapToggleBtn');
+    const mapBg = document.querySelector('.map-bg');
+    const mapBgGiay = document.getElementById('mapBgGiay');
+
+    if (isGiayMode) {
+        btn.classList.add('active');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> 3D Map';
+        mapBg.classList.add('hidden-map');
+        mapBgGiay.classList.add('show');
+    } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ';
+        mapBg.classList.remove('hidden-map');
+        mapBgGiay.classList.remove('show');
+    }
+}
+
+// ═══ MAP ICONS - Tự động khớp vị trí icon với ảnh cover ═══
+function calcCoverFit(boxW, boxH, natW, natH) {
+    const boxRatio = boxW / boxH;
+    const imgRatio = natW / natH;
+    let renderW, renderH, offsetX, offsetY;
+    if (imgRatio > boxRatio) {
+        // Ảnh rộng hơn container → fit theo chiều cao, crop trái/phải
+        renderH = boxH;
+        renderW = boxH * imgRatio;
+        offsetX = (boxW - renderW) / 2;
+        offsetY = 0;
+    } else {
+        // Ảnh cao hơn container → fit theo chiều ngang, crop trên/dưới
+        renderW = boxW;
+        renderH = boxW / imgRatio;
+        offsetX = 0;
+        offsetY = (boxH - renderH) / 2;
+    }
+    return { renderW, renderH, offsetX, offsetY };
+}
+
+function applyIconLayerPosition(layer, offsetX, offsetY, renderW, renderH) {
+    layer.style.left = offsetX + 'px';
+    layer.style.top = offsetY + 'px';
+    layer.style.width = renderW + 'px';
+    layer.style.height = renderH + 'px';
+    const REF_WIDTH = 1100;
+    const scale = Math.min(renderW / REF_WIDTH, 1.2);
+    layer.style.setProperty('--map-scale', scale.toFixed(3));
+}
+
+function updateMapIconsPosition() {
+    const mapBox = document.getElementById('mapBox');
+    if (!mapBox) return;
+    const boxW = mapBox.clientWidth;
+    const boxH = mapBox.clientHeight;
+    if (!boxW || !boxH) return;
+
+    const mapBg = mapBox.querySelector('.map-bg');
+    const mapIcons = document.getElementById('mapIcons');
+    const mapBgGiay = document.getElementById('mapBgGiay');
+    if (mapBg && mapIcons && mapBg.naturalWidth) {
+        const fit = calcCoverFit(boxW, boxH, mapBg.naturalWidth, mapBg.naturalHeight);
+        applyIconLayerPosition(mapIcons, fit.offsetX, fit.offsetY, fit.renderW, fit.renderH);
+        // Map giấy cùng vị trí/kích thước với icon layer
+        if (mapBgGiay) {
+            mapBgGiay.style.left = fit.offsetX + 'px';
+            mapBgGiay.style.top = fit.offsetY + 'px';
+            mapBgGiay.style.width = fit.renderW + 'px';
+            mapBgGiay.style.height = fit.renderH + 'px';
+        }
+    }
+}
+
+// Wrapper dùng requestAnimationFrame để đợi layout settle trước khi tính
+function scheduleMapUpdate() {
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            updateMapIconsPosition();
+        });
+    });
+}
+
+// Gọi khi ảnh load xong
+const mapBgImg = document.querySelector('.map-bg');
+if (mapBgImg) {
+    if (mapBgImg.complete) scheduleMapUpdate();
+    mapBgImg.addEventListener('load', scheduleMapUpdate);
+}
+// Gọi khi resize window (debounce 50ms để tránh gọi quá nhiều)
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(scheduleMapUpdate, 50);
+});
+// ResizeObserver cho map-box (khi panel thay đổi kích thước)
+const mapBoxEl = document.getElementById('mapBox');
+if (mapBoxEl && window.ResizeObserver) {
+    new ResizeObserver(() => scheduleMapUpdate()).observe(mapBoxEl);
+}
+
+// ═══ INIT ═══
+checkAuth();
+
+// ═══ MỞ TRANG CHIẾN THUẬT ═══
+function openTactics() {
+    const day = document.getElementById('btnTactics')?.dataset.day || currentSessionData?.day || currentDay;
+    if (!day) return;
+    try {
+        sessionStorage.setItem('tactics_target_day', day);
+        if (currentSessionData?.id) sessionStorage.setItem('tactics_target_session_id', String(currentSessionData.id));
+        else sessionStorage.removeItem('tactics_target_session_id');
+    } catch (error) {
+        console.warn('[Index] Remember tactics target failed:', error);
+    }
+    const sessionParam = currentSessionData?.id ? `&session=${encodeURIComponent(currentSessionData.id)}` : '';
+    const url = `./tactics.html?day=${encodeURIComponent(day)}${sessionParam}&ts=${Date.now()}`;
+
+    // Tạo overlay transition
+    let overlay = document.querySelector('.page-transition');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'page-transition';
+        overlay.innerHTML = '<div class="pt-content"><span class="pt-icon">⚔️</span><div class="pt-text">Đang vào Sa Bàn...</div></div>';
+        document.body.appendChild(overlay);
+    }
+    // Kích hoạt animation
+    requestAnimationFrame(() => {
+        overlay.classList.add('active');
+        setTimeout(() => { window.location.href = url; }, 600);
+    });
+}
+
+function openTeamEditor() {
+    const day = document.getElementById('btnTeamEditor')?.dataset.day || currentSessionData?.day || currentDay;
+    if (!day) return;
+    try {
+        sessionStorage.setItem('team_editor_target_day', day);
+        if (currentSessionData?.id) sessionStorage.setItem('team_editor_target_session_id', String(currentSessionData.id));
+        else sessionStorage.removeItem('team_editor_target_session_id');
+    } catch (error) {
+        console.warn('[Index] Remember team editor target failed:', error);
+    }
+
+    const sessionParam = currentSessionData?.id ? `&session=${encodeURIComponent(currentSessionData.id)}` : '';
+    const url = `./team_editor.html?day=${encodeURIComponent(day)}${sessionParam}&ts=${Date.now()}`;
+
+    let overlay = document.querySelector('.page-transition');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'page-transition';
+        overlay.innerHTML = '<div class="pt-content"><span class="pt-icon">✏️</span><div class="pt-text">Đang mở Đội Hình...</div></div>';
+        document.body.appendChild(overlay);
+    } else {
+        const icon = overlay.querySelector('.pt-icon');
+        const text = overlay.querySelector('.pt-text');
+        if (icon) icon.textContent = '✏️';
+        if (text) text.textContent = 'Đang mở Đội Hình...';
+    }
+
+    requestAnimationFrame(() => {
+        overlay.classList.add('active');
+        setTimeout(() => { window.location.href = url; }, 600);
+    });
+}
+
+// ═══ TAB NHIỆM VỤ ═══
+const SCOPE_LABELS = {
+    'all|all': '🏴 Toàn đội',
+    'team|attack1': '⚔️ Công 1', 'team|attack2': '⚔️ Công 2',
+    'team|defense': '🛡️ Thủ', 'team|forest': '🌲 Rừng',
+    'role|Healer': '💚 Healer', 'role|Tanker': '🧡 Tanker', 'role|DPS': '🔵 DPS',
+    'weapon|QD': '🪭 Quạt Dù', 'weapon|SD': '⚔️ Song Đao', 'weapon|VD': '🗡️ Vô Danh',
+    'weapon|9K': '🔱 Cửu Kiếm', 'weapon|DR': '🌂 Dù Roi', 'weapon|HD': '🔪 Hoành Đao'
+};
+function taskScopeLabel(scope, target) {
+    if (scope === 'personal') return '👤 Cá nhân';
+    const key = scope + '|' + target;
+    return SCOPE_LABELS[key] || target;
+}
+function fmtTime(s) {
+    if (!s && s !== 0) return '—';
+    return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+}
+
+const TASK_AUTO_BLUE_TOWER_IDS = ['tb1', 'tb2', 'tb3'];
+const TASK_AUTO_JUNGLE_IDS = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
+const TASK_AUTO_TIMELINE_SNAP = 30;
+const TASK_AUTO_BOSS_WINDOWS = {
+    boss_minor: { time: 1500, duration: TASK_AUTO_TIMELINE_SNAP },
+    boss_major: { time: 900, duration: TASK_AUTO_TIMELINE_SNAP }
+};
+const TASK_AUTO_TOWER_LABELS = {
+    tb1: 'Giữ Trụ Bắc',
+    tb2: 'Giữ Trụ Trung',
+    tb3: 'Giữ Trụ Nam'
+};
+const TASK_AUTO_JUNGLE_LABELS = {
+    d1: 'Bãi Quái Rừng A1',
+    d2: 'Bãi Quái Rừng A2',
+    d3: 'Bãi Quái Rừng B1',
+    d4: 'Bãi Quái Rừng B2',
+    d5: 'Bãi Quái Rừng C1',
+    d6: 'Bãi Quái Rừng D2',
+    d7: 'Bãi Quái Rừng C2',
+    d8: 'Bãi Quái Rừng D1'
+};
+const TASK_AUTO_BOSS_LABELS = {
+    boss_minor: 'Boss Vàng phụ',
+    boss_major: 'Boss Vàng chính'
+};
+
+function normalizeTaskTimeValue(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return num > 30 ? num : num * 60;
+}
+
+function isTaskAutoBossVisible(eventType, seconds) {
+    const window = TASK_AUTO_BOSS_WINDOWS[eventType];
+    if (!window) return false;
+    const target = normalizeTaskTimeValue(seconds);
+    return Number.isFinite(target) &&
+        target <= window.time &&
+        target > Math.max(0, window.time - window.duration);
+}
+
+function isTaskAutoTransientMarkVisible(mark, targetTime) {
+    if (!mark?.isSystem) return true;
+    const target = normalizeTaskTimeValue(targetTime);
+    if (mark.type === 'solo') {
+        return target <= 1200 && target > (1200 - TASK_AUTO_TIMELINE_SNAP);
+    }
+    if (mark.type === 'boss_minor' || mark.type === 'boss_major') {
+        return isTaskAutoBossVisible(mark.type, target);
+    }
+    return true;
+}
+
+function normalizeTaskAutoIds(ids) {
+    return [...new Set((ids || []).filter(Boolean))].sort();
+}
+
+function taskAutoIdsEqual(a = [], b = []) {
+    if (a.length !== b.length) return false;
+    for (let index = 0; index < a.length; index++) {
+        if (a[index] !== b[index]) return false;
+    }
+    return true;
+}
+
+function normalizeTaskAutoTowerState(mark) {
+    const source = mark?.tower_guards && typeof mark.tower_guards === 'object' ? mark.tower_guards : {};
+    const state = {};
+    TASK_AUTO_BLUE_TOWER_IDS.forEach(towerId => {
+        state[towerId] = normalizeTaskAutoIds(source[towerId]);
+    });
+    return state;
+}
+
+function normalizeTaskAutoJungleState(mark) {
+    const source = mark?.jungle_assignments && typeof mark.jungle_assignments === 'object'
+        ? mark.jungle_assignments
+        : {};
+    const state = {};
+    TASK_AUTO_JUNGLE_IDS.forEach(objId => {
+        const entry = source[objId];
+        if (!entry) return;
+        const blue = normalizeTaskAutoIds(entry.blue);
+        const windows = {};
+        Object.entries(entry.windows || {}).forEach(([spawnKey, windowEntry]) => {
+            const spawnTime = normalizeTaskTimeValue(spawnKey);
+            if (!Number.isFinite(spawnTime)) return;
+            const ids = normalizeTaskAutoIds(windowEntry?.blue);
+            if (ids.length) windows[spawnTime] = ids;
+        });
+        if (blue.length || Object.keys(windows).length) {
+            state[objId] = { blue, windows };
+        }
+    });
+    return state;
+}
+
+function findPreviousTaskAutoSourceMark(markList, index) {
+    if (!Array.isArray(markList) || index <= 0 || index >= markList.length) return null;
+    const targetTime = normalizeTaskTimeValue(markList[index]?.time);
+    for (let sourceIndex = index - 1; sourceIndex >= 0; sourceIndex--) {
+        const sourceMark = markList[sourceIndex];
+        if (!sourceMark) continue;
+        if (!isTaskAutoTransientMarkVisible(sourceMark, targetTime)) continue;
+        return sourceMark;
+    }
+    return null;
+}
+
+function createIndexAutoTask({ id, time, target, text, generatedType }) {
+    if (!target || !text) return null;
+    return {
+        id,
+        time: normalizeTaskTimeValue(time),
+        scope: 'personal',
+        target,
+        text,
+        generated: true,
+        generatedType
+    };
+}
+
+function buildIndexAutoTasksForMark(mark, previousMark = null) {
+    if (!mark) return [];
+    const time = normalizeTaskTimeValue(mark.time);
+    const autoTasks = [];
+
+    const towerState = normalizeTaskAutoTowerState(mark);
+    const previousTowerState = normalizeTaskAutoTowerState(previousMark);
+    TASK_AUTO_BLUE_TOWER_IDS.forEach(towerId => {
+        const currentIds = towerState[towerId] || [];
+        const previousIds = previousTowerState[towerId] || [];
+        if (!currentIds.length || taskAutoIdsEqual(currentIds, previousIds)) return;
+        currentIds.forEach(playerId => {
+            const task = createIndexAutoTask({
+                id: `auto:tower:${time}:${towerId}:${playerId}`,
+                time,
+                target: playerId,
+                text: TASK_AUTO_TOWER_LABELS[towerId] || 'Giữ trụ',
+                generatedType: 'tower'
+            });
+            if (task) autoTasks.push(task);
+        });
+    });
+
+    const jungleState = normalizeTaskAutoJungleState(mark);
+    const previousJungleState = normalizeTaskAutoJungleState(previousMark);
+    TASK_AUTO_JUNGLE_IDS.forEach(objId => {
+        const label = TASK_AUTO_JUNGLE_LABELS[objId] || objId;
+        const currentEntry = jungleState[objId] || { blue: [], windows: {} };
+        const previousEntry = previousJungleState[objId] || { blue: [], windows: {} };
+        if (currentEntry.blue.length && !taskAutoIdsEqual(currentEntry.blue, previousEntry.blue)) {
+            currentEntry.blue.forEach(playerId => {
+                const task = createIndexAutoTask({
+                    id: `auto:jungle:global:${time}:${objId}:${playerId}`,
+                    time,
+                    target: playerId,
+                    text: `Ăn ${label} mỗi lần xuất hiện`,
+                    generatedType: 'jungle-global'
+                });
+                if (task) autoTasks.push(task);
+            });
+        }
+        const spawnTimes = [...new Set([
+            ...Object.keys(currentEntry.windows || {}),
+            ...Object.keys(previousEntry.windows || {})
+        ])]
+            .map(normalizeTaskTimeValue)
+            .filter(Number.isFinite)
+            .sort((a, b) => b - a);
+        spawnTimes.forEach(spawnTime => {
+            const currentIds = currentEntry.windows?.[spawnTime] || [];
+            const previousIds = previousEntry.windows?.[spawnTime] || [];
+            if (!currentIds.length || taskAutoIdsEqual(currentIds, previousIds)) return;
+            currentIds.forEach(playerId => {
+                const task = createIndexAutoTask({
+                    id: `auto:jungle:spawn:${spawnTime}:${objId}:${playerId}`,
+                    time: spawnTime,
+                    target: playerId,
+                    text: `Ăn ${label} ở mốc này`,
+                    generatedType: 'jungle-spawn'
+                });
+                if (task) autoTasks.push(task);
+            });
+        });
+    });
+
+    ['boss_minor', 'boss_major'].forEach(eventType => {
+        const blueIds = normalizeTaskAutoIds(mark?.boss_assignments?.[eventType]?.blue);
+        blueIds.forEach(playerId => {
+            const task = createIndexAutoTask({
+                id: `auto:boss:${eventType}:${playerId}`,
+                time: TASK_AUTO_BOSS_WINDOWS[eventType]?.time,
+                target: playerId,
+                text: `Ăn ${TASK_AUTO_BOSS_LABELS[eventType] || 'Boss Vàng'}`,
+                generatedType: 'boss'
+            });
+            if (task) autoTasks.push(task);
+        });
+    });
+
+    const soloId = mark?.pvp_fighters?.blue;
+    if (soloId && normalizeTaskTimeValue(mark.time) === 1200) {
+        const task = createIndexAutoTask({
+            id: `auto:solo:1200:${soloId}`,
+            time: 1200,
+            target: soloId,
+            text: 'Solo PVP giữa sân',
+            generatedType: 'solo'
+        });
+        if (task) autoTasks.push(task);
+    }
+
+    return autoTasks;
+}
+
+function buildIndexCompiledTimelineTasks(markList = []) {
+    if (!Array.isArray(markList) || !markList.length) return [];
+    const sortedMarks = [...markList]
+        .map(mark => ({ ...mark, time: normalizeTaskTimeValue(mark.time) }))
+        .sort((a, b) => b.time - a.time);
+    const compiled = [];
+    sortedMarks.forEach((mark, index) => {
+        const previousMark = findPreviousTaskAutoSourceMark(sortedMarks, index);
+        compiled.push(...buildIndexAutoTasksForMark(mark, previousMark));
+        compiled.push(...((mark.tasks || []).map(task => ({ ...task }))));
+    });
+    return compiled;
+}
+
+function taskMatchesPlayer(task, player, playerId) {
+    return task.scope === 'all' ||
+        (task.scope === 'team' && player.team === task.target) ||
+        (task.scope === 'role' && player.role === task.target) ||
+        (task.scope === 'weapon' && player.sub === task.target) ||
+        (task.scope === 'personal' && playerId === task.target);
+}
+
+async function loadTasksTab() {
+    const container = document.getElementById('tasksTabContent');
+    if (!container || !currentDay) return;
+
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)"><div class="spinner" style="margin:0 auto 12px"></div>Đang tải nhiệm vụ...</div>';
+
+    let parsed = null;
+
+    if (sb) {
+        // Fetch tactics data từ Supabase
+        const { data, error } = await sb.from('bc_tactics')
+            .select('markers')
+            .eq('guild_id', GUILD_ID)
+            .eq('day', currentDay)
+            .maybeSingle();
+
+        if (error || !data?.markers) {
+            container.innerHTML = '<div class="task-empty"><div style="font-size:28px;opacity:.3;margin-bottom:8px">📋</div>Chưa có chiến thuật cho ngày này</div>';
+            return;
+        }
+        parsed = data.markers;
+        if (typeof parsed === 'string') try { parsed = JSON.parse(parsed); } catch(e) { parsed = null; }
+        if (parsed?.markers) parsed = parsed.markers;
+    } else {
+        // TEST MODE — dữ liệu demo
+        parsed = {
+            marks: [
+                { time: 1800, tasks: [
+                    { id: 't1', time: 1800, scope: 'all', target: 'all', text: 'Tập trung điểm xuất phát, chờ lệnh' },
+                    { id: 't2', time: 1800, scope: 'team', target: 'attack1', text: 'Công 1 rush trụ giữa ngay khi bắt đầu' },
+                    { id: 't3', time: 1800, scope: 'role', target: 'Healer', text: 'Xài Q quạt để hồi Vitality cho đồng đội' }
+                ]},
+                { time: 1500, tasks: [
+                    { id: 't4', time: 1500, scope: 'team', target: 'defense', text: 'Thủ giữ trụ giữa, không rời vị trí' },
+                    { id: 't5', time: 1500, scope: 'role', target: 'Tanker', text: 'Tank đứng đầu, kéo aggro boss phụ' },
+                    { id: 't6', time: 1500, scope: 'weapon', target: 'QD', text: 'Quạt Dù focus buff team + CC đối phương' }
+                ]},
+                { time: 1200, tasks: [
+                    { id: 't7', time: 1200, scope: 'team', target: 'attack2', text: 'Công 2 di chuyển sang trụ bắc' },
+                    { id: 't8', time: 1200, scope: 'personal', target: 'mock_0', text: 'TaoRain dẫn đầu squad PVP!' }
+                ]},
+                { time: 900, tasks: [
+                    { id: 't9', time: 900, scope: 'all', target: 'all', text: 'Boss Vàng Chính spawn — tập trung đánh boss' },
+                    { id: 't10', time: 900, scope: 'team', target: 'forest', text: 'Rừng quay về hỗ trợ boss' }
+                ]}
+            ],
+            global_notes: [
+                { id: 'g1', scope: 'all', target: 'all', text: '⚠️ Ưu tiên giữ trụ hơn giết người' },
+                { id: 'g2', scope: 'role', target: 'Healer', text: 'Luôn theo sát Tanker, không đi 1 mình' },
+                { id: 'g3', scope: 'team', target: 'attack1', text: 'Công 1 là main push, phối hợp chặt' }
+            ]
+        };
+    }
+
+
+    if (!parsed || !Array.isArray(parsed.marks)) {
+        container.innerHTML = '<div class="task-empty">Dữ liệu chiến thuật không hợp lệ</div>';
+        return;
+    }
+
+    const marks = parsed.marks || [];
+    const globalNotes = parsed.global_notes || [];
+    const compiledTimelineTasks = buildIndexCompiledTimelineTasks(marks);
+
+    // Lấy roster hiện tại
+    const session = currentSessionData;
+    if (!session) { container.innerHTML = '<div class="task-empty">Chưa có session</div>'; return; }
+    const parseTeam = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+    const roster = {};
+    const teamNames = { team_attack1: 'attack1', team_attack2: 'attack2', team_defense: 'defense', team_forest: 'forest' };
+    Object.entries(teamNames).forEach(([key, team]) => {
+        parseTeam(session[key]).forEach(p => {
+            roster[p.id] = { ...p, team };
+        });
+    });
+
+    const isLeader = canEditTeamRoster(session);
+    const myId = window.currentDiscordId;
+
+    // Compile tasks cho tất cả player (hoặc chỉ bản thân)
+    const playersToShow = isLeader ? Object.keys(roster) : (roster[myId] ? [myId] : []);
+
+    if (!playersToShow.length) {
+        container.innerHTML = '<div class="task-empty"><div style="font-size:28px;opacity:.3;margin-bottom:8px">🔒</div>Bạn chưa đăng ký bang chiến này</div>';
+        return;
+    }
+
+    // Compile tasks
+    const playerTasks = {};
+    playersToShow.forEach(pid => {
+        const player = roster[pid];
+        if (!player) return;
+        const tasks = [];
+        // Global notes
+        globalNotes.forEach(note => {
+            if (taskMatchesPlayer(note, player, pid))
+                tasks.push({ ...note, time: null, source: 'global' });
+        });
+        // Timeline tasks
+        compiledTimelineTasks.forEach(task => {
+            if (taskMatchesPlayer(task, player, pid))
+                tasks.push({ ...task, source: 'timeline' });
+        });
+        tasks.sort((a, b) => {
+            if (a.source === 'global' && b.source !== 'global') return -1;
+            if (a.source !== 'global' && b.source === 'global') return 1;
+            return (b.time || 0) - (a.time || 0);
+        });
+        if (tasks.length) playerTasks[pid] = tasks;
+    });
+
+    const totalTasks = Object.values(playerTasks).reduce((s, t) => s + t.length, 0);
+
+    // Render
+    let html = `<div class="tasks-tab-header">
+        <span class="tt-title">📋 Nhiệm Vụ — ${DAY_LABELS[currentDay] || currentDay}</span>
+        <span class="tt-badge">${totalTasks} nhiệm vụ</span>
+        ${isLeader ? '<span class="tt-badge" style="border-color:rgba(251,191,36,.2);background:rgba(251,191,36,.08);color:#fbbf24">👑 Leader View</span>' : ''}
+        <div class="task-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" placeholder="Tìm thông minh..." oninput="filterTasksTab(this.value)">
+        </div>
+    </div>`;
+
+    if (!Object.keys(playerTasks).length) {
+        html += '<div class="task-empty">Chưa có nhiệm vụ nào được giao</div>';
+    } else {
+        html += '<div class="tasks-grid">';
+        Object.entries(playerTasks).forEach(([pid, tasks]) => {
+            const player = roster[pid];
+            if (!player) return;
+            const roleClass = player.role === 'Healer' ? 'role-h' : player.role === 'Tanker' ? 'role-t' : 'role-d';
+            const initial = (player.gn || player.name || '?')[0].toUpperCase();
+
+            html += `<div class="task-player-card">
+                <div class="task-player-hdr" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                    <div class="tp-avatar ${roleClass}">${initial}</div>
+                    <span class="tp-name">${escHtml(player.gn || player.name || pid)}</span>
+                    <span class="tp-count">${tasks.length} nhiệm vụ</span>
+                </div>
+                <div class="task-player-body">`;
+
+            tasks.forEach(t => {
+                const timeStr = t.source === 'global' ? '📌' : fmtTime(t.time);
+                html += `<div class="task-line">
+                    <span class="tl-time">${timeStr}</span>
+                    <span class="tl-scope s-${t.scope}">${taskScopeLabel(t.scope, t.target)}</span>
+                    <span class="tl-text">${escHtml(t.text)}</span>
+                </div>`;
+            });
+
+            html += '</div></div>';
+        });
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+// ═══ TÌM KIẾM THÔNG MINH NHIỆM VỤ ═══
+window.filterTasksTab = function(query) {
+    function removeAccents(str) {
+        if (!str) return '';
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
+    query = removeAccents(query || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('#tasksTabContent .task-player-card');
+    
+    cards.forEach(card => {
+        const allLines = card.querySelectorAll('.task-line');
+        const countSpan = card.querySelector('.tp-count');
+        const totalLines = allLines.length;
+
+        // Xóa query -> hiện lại tất cả
+        if (!query) {
+            card.style.display = 'block';
+            allLines.forEach(line => line.style.display = 'flex');
+            countSpan.textContent = totalLines + ' nhiệm vụ';
+            return;
+        }
+        
+        const cardTextRaw = card.textContent.toLowerCase();
+        const headerTextRaw = card.querySelector('.task-player-hdr').textContent.toLowerCase();
+        
+        const cardText = removeAccents(cardTextRaw);
+        const headerText = removeAccents(headerTextRaw);
+        
+        // Nếu cả thẻ card không có chữ nào khớp thì ẩn luôn cho nhanh
+        if (!cardText.includes(query)) {
+            card.style.display = 'none';
+            return;
+        }
+        
+        // Nếu tên player/header khớp query -> hiện toàn bộ task của người đó
+        if (headerText.includes(query)) {
+            card.style.display = 'block';
+            allLines.forEach(line => line.style.display = 'flex');
+            countSpan.textContent = totalLines + ' nhiệm vụ';
+            return;
+        }
+        
+        // Nếu chỉ match các dòng nhiệm vụ cụ thể bên trong -> tiến hành lọc nhiệm vụ
+        let viLines = 0;
+        allLines.forEach(line => {
+            const lineText = removeAccents(line.textContent.toLowerCase());
+            if (lineText.includes(query)) {
+                line.style.display = 'flex';
+                viLines++;
+            } else {
+                line.style.display = 'none';
+            }
+        });
+        
+        card.style.display = 'block';
+        countSpan.textContent = viLines + ' kết quả lọc';
+    });
+};
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Auto load khi chuyển tab
+const _origSwitchRTab = typeof switchRTab === 'function' ? switchRTab : null;
+function switchRTab(el, paneId) {
+    document.querySelectorAll('.r-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.r-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(paneId)?.classList.add('active');
+    if (paneId === 'pane-tasks') loadTasksTab();
+}
+
+
+// ═══ MOBILE TAB SWITCHING ═══
+function switchMobileTab(el) {
+    document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const target = el.dataset.target;
+
+    const left = document.getElementById('leftPanel');
+    const right = document.querySelector('.right');
+    if (left) left.classList.remove('mob-active');
+    if (right) right.classList.remove('mob-active');
+
+    if (target === 'mob-teams') {
+        if (left) left.classList.add('mob-active');
+    } else if (target === 'mob-map') {
+        if (right) right.classList.add('mob-active');
+        // Chuyển sang tab bản đồ trong right panel
+        const mapTab = document.querySelector('.r-tab');
+        if (mapTab) switchRTab(mapTab, 'pane-map');
+    } else if (target === 'mob-tasks') {
+        if (right) right.classList.add('mob-active');
+        // Chuyển sang tab nhiệm vụ
+        const taskTabs = document.querySelectorAll('.r-tab');
+        if (taskTabs[1]) switchRTab(taskTabs[1], 'pane-tasks');
+    }
+}
+
+// Map tooltip touch: chạm để hiện/ẩn tooltip thay vì hover
+if ('ontouchstart' in window) {
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.map-icon').forEach(icon => {
+            icon.addEventListener('touchstart', (e) => {
+                document.querySelectorAll('.map-icon-tooltip').forEach(t => t.style.opacity = '0');
+                const tooltip = icon.querySelector('.map-icon-tooltip');
+                if (tooltip) tooltip.style.opacity = tooltip.style.opacity === '1' ? '0' : '1';
+            });
+        });
+    });
+}
+
+// Auto-init mobile: hiện tab Đội hình mặc định
+if (window.matchMedia('(max-width: 768px)').matches) {
+    document.getElementById('leftPanel')?.classList.add('mob-active');
+}
+
+</script>
+</body>
+</html>

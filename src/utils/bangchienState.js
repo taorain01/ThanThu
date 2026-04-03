@@ -12,52 +12,48 @@ const bangchienRegistrations = new Map();
 // Số người tối đa mỗi party
 const BANGCHIEN_MAX_MEMBERS = 30;
 
-// Giới hạn số party tối đa mỗi guild (1 T7 + 1 CN = 2)
-const BANGCHIEN_MAX_PARTIES = 2;
+// Giới hạn số party tối đa mỗi guild (T7 + CN + 5 ngày tuần = 7)
+const BANGCHIEN_MAX_PARTIES = 7;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MULTI-DAY CONFIG
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Cấu hình các ngày BC (tên cơ bản, dùng getDayNameWithDate để lấy tên kèm ngày)
+// Cấu hình tất cả các ngày BC
 const DAY_CONFIG = {
-    sat: { name: 'Thứ 7', color: 0x00CED1, emoji: '📅' },   // Xanh nước biển
-    sun: { name: 'Chủ Nhật', color: 0x87CEEB, emoji: '📅' }, // Xanh da trời
-    custom: { name: 'BC Tự Do', color: 0xFF6B35, emoji: '🎯' } // Cam — BC Custom
+    mon: { name: 'Thứ 2', color: 0xFF6B35, emoji: '📅' },
+    tue: { name: 'Thứ 3', color: 0xE91E63, emoji: '📅' },
+    wed: { name: 'Thứ 4', color: 0x9C27B0, emoji: '📅' },
+    thu: { name: 'Thứ 5', color: 0x3F51B5, emoji: '📅' },
+    fri: { name: 'Thứ 6', color: 0x009688, emoji: '📅' },
+    sat: { name: 'Thứ 7', color: 0x00CED1, emoji: '📅', primary: true },
+    sun: { name: 'Chủ Nhật', color: 0x87CEEB, emoji: '📅', primary: true }
 };
+
+// Ngày mặc định (luôn hiện trên web + overview)
+const PRIMARY_DAYS = ['sat', 'sun'];
 
 /**
  * Tính ngày Thứ 7 hoặc Chủ Nhật của tuần này (hoặc tuần tới nếu đã qua)
  * @param {'sat' | 'sun'} day - 'sat' hoặc 'sun'
  * @returns {Date} Ngày cụ thể
  */
+// Map day key → getDay() value
+const DAY_NUM = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+
 function getNextDayDate(day) {
+    if (!DAY_NUM.hasOwnProperty(day)) return new Date();
     const now = new Date();
-    // Convert to Vietnam timezone (UTC+7)
-    const vnOffset = 7 * 60; // minutes
+    const vnOffset = 7 * 60;
     const localOffset = now.getTimezoneOffset();
     const vnNow = new Date(now.getTime() + (vnOffset + localOffset) * 60 * 1000);
 
-    const currentDay = vnNow.getDay(); // 0=CN, 1-6=T2-T7
-    const targetDay = day === 'sat' ? 6 : 0; // 6=Thứ 7, 0=Chủ Nhật
+    const currentDay = vnNow.getDay();
+    const targetDay = DAY_NUM[day];
 
-    let daysUntilTarget;
-    if (targetDay === 0) {
-        // Chủ Nhật
-        daysUntilTarget = (7 - currentDay) % 7;
-        if (daysUntilTarget === 0 && vnNow.getHours() < 23) {
-            daysUntilTarget = 0; // Vẫn trong ngày CN hôm nay
-        } else if (daysUntilTarget === 0) {
-            daysUntilTarget = 7; // Đã qua CN, lấy CN tuần sau
-        }
-    } else {
-        // Thứ 7
-        daysUntilTarget = (targetDay - currentDay + 7) % 7;
-        if (daysUntilTarget === 0 && vnNow.getHours() < 23) {
-            daysUntilTarget = 0; // Vẫn trong ngày T7 hôm nay
-        } else if (daysUntilTarget === 0) {
-            daysUntilTarget = 7; // Đã qua T7, lấy T7 tuần sau
-        }
+    let daysUntilTarget = (targetDay - currentDay + 7) % 7;
+    if (daysUntilTarget === 0 && vnNow.getHours() >= 23) {
+        daysUntilTarget = 7;
     }
 
     const targetDate = new Date(vnNow);
@@ -72,8 +68,6 @@ function getNextDayDate(day) {
  */
 function getDayNameWithDate(day) {
     if (!day || !DAY_CONFIG[day]) return '';
-    // Custom không có ngày cụ thể
-    if (day === 'custom') return DAY_CONFIG[day].name;
 
     const targetDate = getNextDayDate(day);
     const dd = String(targetDate.getDate()).padStart(2, '0');
@@ -85,33 +79,56 @@ function getDayNameWithDate(day) {
 
 // Aliases cho ngày (để parse từ args)
 const DAY_ALIASES = {
+    't2': 'mon', 'mon': 'mon', 'monday': 'mon', 'thu2': 'mon', 'thứ2': 'mon',
+    't3': 'tue', 'tue': 'tue', 'tuesday': 'tue', 'thu3': 'tue', 'thứ3': 'tue',
+    't4': 'wed', 'wed': 'wed', 'wednesday': 'wed', 'thu4': 'wed', 'thứ4': 'wed',
+    't5': 'thu', 'thu5': 'thu', 'thứ5': 'thu', 'thursday': 'thu',
+    // Lưu ý: 'thu' vừa là alias T5 vừa là key. Ưu tiên T5 vì args[0] thường là thứ
+    't6': 'fri', 'fri': 'fri', 'friday': 'fri', 'thu6': 'fri', 'thứ6': 'fri',
     't7': 'sat', 'sat': 'sat', 'saturday': 'sat', 'thu7': 'sat', 'thứ7': 'sat',
-    'cn': 'sun', 'sun': 'sun', 'sunday': 'sun', 'chunhat': 'sun', 'chủnhật': 'sun',
-    'cus': 'custom', 'custom': 'custom', 'tudo': 'custom', 'td': 'custom'
+    'cn': 'sun', 'sun': 'sun', 'sunday': 'sun', 'chunhat': 'sun', 'chủnhật': 'sun'
 };
 
-// Helper: Parse day từ args
+/**
+ * Parse day, time, note từ args
+ * VD: ['t2', '21h', 'Đánh', 'guild', 'XXX'] → { day: 'mon', time: '21:00', note: 'Đánh guild XXX' }
+ * VD: ['t7'] → { day: 'sat', time: null, note: null }
+ * VD: [] → null
+ */
 function parseDayArg(args) {
     if (!args || args.length === 0) return null;
 
-    for (let i = args.length - 1; i >= 0; i--) {
-        const arg = args[i]?.toLowerCase();
-        if (DAY_ALIASES[arg]) {
-            return DAY_ALIASES[arg];
+    // Tìm day ở vị trí đầu tiên
+    const firstArg = args[0]?.toLowerCase();
+    const day = DAY_ALIASES[firstArg];
+    if (!day) return null;
+
+    // Parse time (format: 21h, 21h30, 19:30, 20h00)
+    let time = null;
+    let noteStartIdx = 1;
+    if (args[1]) {
+        const timeMatch = args[1].match(/^(\d{1,2})[h:](\d{0,2})$/i);
+        if (timeMatch) {
+            const h = timeMatch[1].padStart(2, '0');
+            const m = (timeMatch[2] || '00').padStart(2, '0');
+            time = `${h}:${m}`;
+            noteStartIdx = 2;
         }
     }
-    return null;
+
+    // Phần còn lại là ghi chú
+    const note = args.slice(noteStartIdx).join(' ').trim() || null;
+
+    return { day, time, note };
 }
 
 // Helper: Lấy day từ party key (format: guildId_day_leaderId)
 function getDayFromPartyKey(partyKey) {
     const parts = partyKey.split('_');
     if (parts.length >= 3) {
-        // Format mới: guildId_day_leaderId
         const day = parts[1];
-        if (day === 'sat' || day === 'sun' || day === 'custom') return day;
+        if (DAY_CONFIG[day]) return day;
     }
-    // Format cũ hoặc không có day
     return null;
 }
 
@@ -178,7 +195,7 @@ async function refreshOverviewEmbed(client, guildId) {
 
     try {
         const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
-        const newEmbed = createOverviewEmbed(guildId);
+        const newEmbed = createOverviewEmbed(guildId, client.guilds.cache.get(guildId));
         const newRow = createOverviewButton(guildId);
 
         // Thử edit trước (nhanh hơn)
@@ -217,18 +234,10 @@ async function refreshOverviewEmbed(client, guildId) {
 function isSessionExpired(session) {
     if (!session || !session.created_at) return false;
 
-    const day = session.day; // 'sat', 'sun', hoặc 'custom'
-    if (!day) return false;
+    const day = session.day;
+    if (!day || !DAY_CONFIG[day]) return false;
 
-    // ═══ CUSTOM: hết hạn sau 24 giờ kể từ khi tạo ═══
-    if (day === 'custom') {
-        const createdAt = new Date(session.created_at);
-        const now = new Date();
-        const hoursSinceCreated = (now - createdAt) / (60 * 60 * 1000);
-        return hoursSinceCreated >= 24;
-    }
-
-    // ═══ T7/CN: tính theo 23:00 VN ngày BC ═══
+    // ═══ Tất cả ngày: tính theo 23:00 VN ngày BC ═══
     const vnOffset = 7 * 60; // phút
     const localOffset = new Date().getTimezoneOffset();
     const now = new Date();
@@ -349,6 +358,12 @@ async function autoCleanupExpiredSessions(client, guildId) {
             // 4. XÓA SESSION KHỎI DB
             db.deleteActiveBangchien(partyKey);
 
+            // 5. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
+            try {
+                const { deleteBCSession } = require('./supabaseSync');
+                await deleteBCSession(guildId, sessionDay);
+            } catch (e) { /* bỏ qua nếu supabase chưa init */ }
+
             cleanedCount++;
             console.log(`[bangchien] Auto-cleanup xong: ${partyKey} (${sessionDay})`);
 
@@ -389,6 +404,7 @@ module.exports = {
     // Multi-day config
     DAY_CONFIG,
     DAY_ALIASES,
+    PRIMARY_DAYS,
     // Helper functions
     parseDayArg,
     getDayFromPartyKey,

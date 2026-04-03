@@ -14,6 +14,7 @@
 const { MessageFlags } = require('discord.js');
 const { bangchienNotifications, bangchienRegistrations, refreshOverviewEmbed } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
+const { syncBCSession, formatActiveSession } = require('./supabaseSync');
 
 const BC_ROLE_NAME = 'bc';
 
@@ -43,8 +44,9 @@ async function handleButton(interaction, client) {
                 });
             }
 
-            // Detect user role (DPS/Healer/Tanker) from Discord roles
+            // Detect user role (DPS/Healer/Tanker) từ Discord roles
             let userRole = 'DPS'; // Default
+            let subRoleName = ''; // Phái (Quạt Dù, Vô Danh,...)
             const member = interaction.member;
             const dpsSubTypeRoles = ['Quạt Dù', 'Vô Danh', 'Song Đao', 'Cửu Kiếm'];
 
@@ -58,11 +60,12 @@ async function handleButton(interaction, client) {
             if (tankerRole && member.roles.cache.has(tankerRole.id)) {
                 userRole = 'Tanker';
             }
-            // Check DPS sub-types
+            // Check DPS sub-types (phái)
             for (const subTypeName of dpsSubTypeRoles) {
                 const subRole = interaction.guild.roles.cache.find(r => r.name === subTypeName);
                 if (subRole && member.roles.cache.has(subRole.id)) {
                     userRole = 'DPS';
+                    subRoleName = subTypeName;
                     break;
                 }
             }
@@ -72,11 +75,17 @@ async function handleButton(interaction, client) {
                 userRole = 'DPS';
             }
 
+            // Lấy game_username từ DB users
+            const userInfo = db.getUserByDiscordId(interaction.user.id);
+            const gameName = userInfo ? userInfo.game_username : '';
+
             // Thêm vào DB với auto-team assignment (4-TEAM SYSTEM + ROLE BALANCE)
             const result = db.addBangchienParticipant(partyKey, {
                 id: interaction.user.id,
                 username: interaction.user.username,
-                role: userRole // Pass role for balancing
+                gn: gameName, // Tên in-game
+                role: userRole, // DPS/Healer/Tanker
+                sub: subRoleName // Phái (Quạt Dù, Vô Danh,...)
             }, interaction.guild.id); // Pass guildId for preset checking
 
             if (!result.success) {
@@ -108,6 +117,19 @@ async function handleButton(interaction, client) {
 
             // Auto-refresh overview embed
             await refreshOverviewEmbed(interaction.client, interaction.guild.id);
+
+            // Sync lên Supabase để Web cập nhật realtime
+            try {
+                const updatedSession = db.getActiveBangchien(partyKey);
+                if (updatedSession) {
+                    const sessionData = formatActiveSession(updatedSession, db, interaction.guild);
+                    if (sessionData) {
+                        await syncBCSession(interaction.guild.id, updatedSession.day || 'sat', sessionData);
+                    }
+                }
+            } catch (syncErr) {
+                console.error('[bangchienJoin] Lỗi sync Supabase:', syncErr.message);
+            }
 
             // 4-TEAM: Display team names correctly
             const teamEmojis = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng', waiting: '⏳ Chờ' };
@@ -169,6 +191,19 @@ async function handleButton(interaction, client) {
 
             // Auto-refresh overview embed
             await refreshOverviewEmbed(interaction.client, interaction.guild.id);
+
+            // Sync lên Supabase để Web cập nhật realtime
+            try {
+                const updatedSession = db.getActiveBangchien(partyKey);
+                if (updatedSession) {
+                    const sessionData = formatActiveSession(updatedSession, db, interaction.guild);
+                    if (sessionData) {
+                        await syncBCSession(interaction.guild.id, updatedSession.day || 'sat', sessionData);
+                    }
+                }
+            } catch (syncErr) {
+                console.error('[bangchienLeave] Lỗi sync Supabase:', syncErr.message);
+            }
 
             // 4-TEAM: Display counts correctly
             const total = result.counts.attack1 + result.counts.attack2 + result.counts.defense + result.counts.forest + result.counts.waiting;

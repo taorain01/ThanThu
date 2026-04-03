@@ -1,56 +1,68 @@
 /**
- * ?setkc @user - Grant "Kỳ Cựu" role (Owner only)
+ * ?setkc @user - Grant/sync "Kỳ Cựu" role (Owner only)
  * Only user ID 395151484179841024 can use this
  */
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const supaSync = require('../../utils/supabaseSync');
+const { ensureTrackedMemberFromDiscord } = require('../../utils/discordPositionSync');
 
 const OWNER_ID = '395151484179841024';
 
 function findRole(guild, roleName) {
-    return guild.roles.cache.find(r => r.name === roleName) || null;
+    const normalize = (value = '') => String(value)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    const target = normalize(roleName);
+    return guild.roles.cache.find((role) => normalize(role.name) === target) || null;
 }
 
-async function execute(message, args) {
-    // Only owner can use this
+async function execute(message) {
     if (message.author.id !== OWNER_ID) {
         return message.channel.send('❌ Chỉ **Chủ sở hữu** mới có thể sử dụng lệnh này!');
     }
 
     const mentionedUser = message.mentions.members.first();
     if (!mentionedUser) {
-        return message.channel.send('❌ Cách dùng: `?setkc @user` - Cấp role Kỳ Cựu');
+        return message.channel.send('❌ Cách dùng: `?setkc @user` - Cấp hoặc sync role Kỳ Cựu');
     }
 
-    // Find KC role
     const kcRole = findRole(message.guild, 'Kỳ Cựu');
     if (!kcRole) {
         return message.channel.send('❌ Role **Kỳ Cựu** không tồn tại trên server!');
     }
 
-    // Check if already has
-    if (mentionedUser.roles.cache.has(kcRole.id)) {
-        return message.channel.send(`⚠️ ${mentionedUser.displayName} đã có role **Kỳ Cựu** rồi!`);
-    }
-
     try {
-        await mentionedUser.roles.add(kcRole);
+        const alreadyHasKc = mentionedUser.roles.cache.has(kcRole.id);
+        if (!alreadyHasKc) {
+            await mentionedUser.roles.add(kcRole);
+        }
 
-        // Update database
-        const userData = db.getUserByDiscordId(mentionedUser.id);
-        if (userData) {
+        let userData = db.getUserByDiscordId(mentionedUser.id);
+        if (!userData || userData.left_at) {
+            userData = await ensureTrackedMemberFromDiscord(mentionedUser, 'kc', message.guild.id);
+        } else {
             db.updateUserPosition(mentionedUser.id, 'kc');
+            userData = db.getUserByDiscordId(mentionedUser.id);
+            try {
+                await supaSync.syncOneUser(userData, message.guild.id);
+            } catch (syncError) {
+                console.error('[setkc] Sync existing KC user failed:', syncError.message);
+            }
         }
 
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
-            .setTitle('🏆 Đã cấp Kỳ Cựu!')
+            .setTitle(alreadyHasKc ? '🔄 Đã sync Kỳ Cựu!' : '🏆 Đã cấp Kỳ Cựu!')
             .setDescription(
-                `✅ Đã cấp role **Kỳ Cựu** cho ${mentionedUser}\n\n` +
+                `${alreadyHasKc ? '✅ Đã đồng bộ user Kỳ Cựu cho' : '✅ Đã cấp role **Kỳ Cựu** cho'} ${mentionedUser}\n\n` +
                 `${mentionedUser.displayName} có thể dùng \`?setrole <mã>\` để chọn role phụ.`
             )
-            .setFooter({ text: `Cấp bởi ${message.author.username}` })
+            .setFooter({ text: `Thực hiện bởi ${message.author.username}` })
             .setTimestamp();
 
         return message.channel.send({ embeds: [embed] });

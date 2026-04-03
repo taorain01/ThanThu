@@ -120,22 +120,25 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
                 flags: MessageFlags.Ephemeral
             });
 
-            // Auto-refresh bangchien embed nếu user đang trong party (CHỈ Thứ 7)
+            // Auto-refresh bangchien embed + sync Supabase cho TẤT CẢ ngày
             try {
                 const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey } = require('../../utils/bangchienState');
                 const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
+                const supaSync = require('../../utils/supabaseSync');
+                const db = require('../../database/db');
 
                 const guildId = interaction.guild.id;
                 const partyKeys = getGuildBangchienKeys(guildId);
 
                 for (const partyKey of partyKeys) {
-                    // CHỈ refresh Thứ 7
-                    if (getDayFromPartyKey(partyKey) !== 'sat') continue;
-
                     const registrations = bangchienRegistrations.get(partyKey) || [];
                     const isInParty = registrations.some(r => r.id === member.id);
 
                     if (isInParty) {
+                        // Force-fetch member mới từ Discord API để cache có role mới
+                        await interaction.guild.members.fetch(member.id).catch(() => null);
+
+                        // Refresh Discord embed
                         const notifData = bangchienNotifications.get(partyKey);
                         if (notifData && notifData.message) {
                             try { await notifData.message.delete(); } catch (e) { }
@@ -148,12 +151,35 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
                                 notifData.messageId = newMessage.id;
                             }
                         }
-                        break;
+
+                        // Sync lên Supabase → web nhận realtime update
+                        if (supaSync.isReady()) {
+                            const day = getDayFromPartyKey(partyKey);
+                            const session = db.getActiveBangchien(partyKey);
+                            if (session) {
+                                const formatted = supaSync.formatActiveSession(session, db, interaction.guild);
+                                if (formatted) await supaSync.syncBCSession(guildId, day || session.day, formatted);
+                            }
+                        }
+                        // Không break — duyệt tất cả partyKeys của guild
                     }
                 }
             } catch (e) {
                 console.error('[pickrole DPS] Lỗi khi refresh bangchien:', e);
             }
+            // Refresh overview embed
+            try {
+                const { bangchienOverviews } = require('../../utils/bangchienState');
+                const { createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
+                const overviewData = bangchienOverviews.get(interaction.guild.id);
+                if (overviewData && overviewData.message) {
+                    const newEmbed = createOverviewEmbed(interaction.guild.id, interaction.guild);
+                    const newRow = createOverviewButton(interaction.guild.id);
+                    const editOpts = { embeds: [newEmbed] };
+                    if (newRow) editOpts.components = [newRow]; else editOpts.components = [];
+                    await overviewData.message.edit(editOpts);
+                }
+            } catch (oe) { }
             return;
         }
 
@@ -213,45 +239,67 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
             flags: MessageFlags.Ephemeral
         });
 
-        // Auto-refresh bangchien embed nếu user đang trong party (CHỈ Thứ 7)
-        try {
-            const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey } = require('../../utils/bangchienState');
-            const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
+            // Auto-refresh bangchien embed + sync Supabase cho TẤT CẢ ngày
+            try {
+                const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey } = require('../../utils/bangchienState');
+                const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
+                const supaSync = require('../../utils/supabaseSync');
+                const db = require('../../database/db');
 
-            const guildId = interaction.guild.id;
-            const userId = interaction.user.id;
-            const partyKeys = getGuildBangchienKeys(guildId);
+                const guildId = interaction.guild.id;
+                const userId = interaction.user.id;
+                const partyKeys = getGuildBangchienKeys(guildId);
 
-            for (const partyKey of partyKeys) {
-                // CHỈ refresh Thứ 7
-                if (getDayFromPartyKey(partyKey) !== 'sat') continue;
+                for (const partyKey of partyKeys) {
+                    const registrations = bangchienRegistrations.get(partyKey) || [];
+                    const isInParty = registrations.some(r => r.id === userId);
 
-                const registrations = bangchienRegistrations.get(partyKey) || [];
-                const isInParty = registrations.some(r => r.id === userId);
+                    if (isInParty) {
+                        // Force-fetch member mới từ Discord API để cache có role mới
+                        await interaction.guild.members.fetch(userId).catch(() => null);
 
-                if (isInParty) {
-                    const notifData = bangchienNotifications.get(partyKey);
-                    if (notifData && notifData.message) {
-                        // Xóa tin nhắn cũ
-                        try { await notifData.message.delete(); } catch (e) { }
-
-                        // Gửi tin nhắn mới với role cập nhật - LUÔN dùng channel gốc
-                        const channel = await interaction.guild.channels.fetch(notifData.channelId).catch(() => null);
-                        if (channel) {
-                            const newEmbed = createBangchienEmbed(partyKey, notifData.leaderName, interaction.guild);
-                            const newRow = createBangchienButtons(partyKey);
-                            const newMessage = await channel.send({ embeds: [newEmbed], components: [newRow] });
-
-                            notifData.message = newMessage;
-                            notifData.messageId = newMessage.id;
+                        // Refresh Discord embed
+                        const notifData = bangchienNotifications.get(partyKey);
+                        if (notifData && notifData.message) {
+                            try { await notifData.message.delete(); } catch (e) { }
+                            const channel = await interaction.guild.channels.fetch(notifData.channelId).catch(() => null);
+                            if (channel) {
+                                const newEmbed = createBangchienEmbed(partyKey, notifData.leaderName, interaction.guild);
+                                const newRow = createBangchienButtons(partyKey);
+                                const newMessage = await channel.send({ embeds: [newEmbed], components: [newRow] });
+                                notifData.message = newMessage;
+                                notifData.messageId = newMessage.id;
+                            }
                         }
+
+                        // Sync lên Supabase → web nhận realtime update
+                        if (supaSync.isReady()) {
+                            const day = getDayFromPartyKey(partyKey);
+                            const session = db.getActiveBangchien(partyKey);
+                            if (session) {
+                                const formatted = supaSync.formatActiveSession(session, db, interaction.guild);
+                                if (formatted) await supaSync.syncBCSession(guildId, day || session.day, formatted);
+                            }
+                        }
+                        // Không break — duyệt tất cả partyKeys của guild
                     }
-                    break; // Chỉ 1 party mỗi guild
                 }
+            } catch (e) {
+                console.error('[pickrole] Lỗi khi refresh bangchien:', e);
             }
-        } catch (e) {
-            console.error('[pickrole] Lỗi khi refresh bangchien:', e);
-        }
+            // Refresh overview embed
+            try {
+                const { bangchienOverviews } = require('../../utils/bangchienState');
+                const { createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
+                const overviewData = bangchienOverviews.get(interaction.guild.id);
+                if (overviewData && overviewData.message) {
+                    const newEmbed = createOverviewEmbed(interaction.guild.id, interaction.guild);
+                    const newRow = createOverviewButton(interaction.guild.id);
+                    const editOpts = { embeds: [newEmbed] };
+                    if (newRow) editOpts.components = [newRow]; else editOpts.components = [];
+                    await overviewData.message.edit(editOpts);
+                }
+            } catch (oe) { }
 
     } catch (error) {
         console.error('Lỗi khi xử lý pickrole:', error);

@@ -32,7 +32,7 @@ module.exports = {
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
 
         // Parse day từ args (MULTI-DAY) và filter bỏ day arg khỏi args
-        const day = parseDayArg(args);
+        const day = parseDayArg(args)?.day;
         if (day) {
             // Lọc bỏ day arg (t7, cn...) khỏi args để chỉ còn số
             const { DAY_ALIASES } = require('../../utils/bangchienState');

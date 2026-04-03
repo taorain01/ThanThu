@@ -1,6 +1,6 @@
-/**
- * Handler cho các nút bcql (Panel quản lý Bang Chiến)
- * Được import vào interactionCreate.js
+﻿/**
+ * Handler cho cÃ¡c nÃºt bcql (Panel quáº£n lÃ½ Bang Chiáº¿n)
+ * ÄÆ°á»£c import vÃ o interactionCreate.js
  */
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -8,8 +8,25 @@ const db = require('../database/db');
 const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
 
+// Helper: Sync session lÃªn Supabase sau khi SQLite thay Ä‘á»•i
+async function syncSessionToSupabase(guildId, partyKey, guild = null) {
+    try {
+        const supaSync = require('./supabaseSync');
+        if (!supaSync.isReady()) return;
+        const session = db.getActiveBangchien(partyKey);
+        if (!session) return;
+        const formatted = supaSync.formatActiveSession(session, db, guild);
+        if (formatted) {
+            await supaSync.syncBCSession(guildId, session.day || 'sat', formatted);
+            console.log(`[bcqlHandlers] âœ… ÄÃ£ sync session ${session.day} lÃªn Supabase`);
+        }
+    } catch (e) {
+        console.error('[bcqlHandlers] Lá»—i sync Supabase:', e.message);
+    }
+}
+
 /**
- * Parse day từ customId format: bcql_action_partyKey_day
+ * Parse day tá»« customId format: bcql_action_partyKey_day
  */
 function parseDayFromCustomId(customId) {
     const parts = customId.split('_');
@@ -21,7 +38,7 @@ function parseDayFromCustomId(customId) {
 }
 
 /**
- * Refresh listbc embed sau khi thực hiện action
+ * Refresh listbc embed sau khi thá»±c hiá»‡n action
  */
 async function refreshListbcEmbed(interaction, session, day) {
     if (!day) return;
@@ -37,11 +54,11 @@ async function refreshListbcEmbed(interaction, session, day) {
 
     const listbcCommand = require('../commands/bangchien/listbangchien');
 
-    // Lấy session mới nhất
+    // Láº¥y session má»›i nháº¥t
     const freshSession = db.getActiveBangchienByDay(guildId, day);
     if (!freshSession) return;
 
-    // Tạo embed mới và edit message
+    // Táº¡o embed má»›i vÃ  edit message
     let newEmbed = null;
     let newComponents = [];
 
@@ -56,14 +73,14 @@ async function refreshListbcEmbed(interaction, session, day) {
 
     await listbcCommand.showDetailedSession(fakeMessage, freshSession, true, day, true);
 
-    // Edit stored message với embed mới
+    // Edit stored message vá»›i embed má»›i
     if (newEmbed) {
         try {
             await storedData.message.edit({ embeds: [newEmbed], components: newComponents });
             console.log(`[bcqlHandlers] Refreshed listbc embed for ${listbcKey}`);
         } catch (e) {
             console.error(`[bcqlHandlers] Cannot edit listbc message:`, e.message);
-            // Xóa reference nếu message không còn tồn tại
+            // XÃ³a reference náº¿u message khÃ´ng cÃ²n tá»“n táº¡i
             listbcDetailMessages.delete(listbcKey);
         }
     }
@@ -77,15 +94,15 @@ async function refreshListbcEmbed(interaction, session, day) {
 async function handleBcqlButton(interaction) {
     const customId = interaction.customId;
 
-    // Chỉ xử lý các nút bcql_
+    // Chá»‰ xá»­ lÃ½ cÃ¡c nÃºt bcql_
     if (!customId.startsWith('bcql_')) return false;
 
     const guildId = interaction.guild.id;
 
-    // Parse day từ customId (format mới: bcql_action_partyKey_day)
+    // Parse day tá»« customId (format má»›i: bcql_action_partyKey_day)
     const day = parseDayFromCustomId(customId);
 
-    // Lấy session từ DB - ưu tiên theo day nếu có
+    // Láº¥y session tá»« DB - Æ°u tiÃªn theo day náº¿u cÃ³
     let session;
     if (day) {
         session = db.getActiveBangchienByDay(guildId, day);
@@ -95,16 +112,16 @@ async function handleBcqlButton(interaction) {
     }
 
     if (!session) {
-        await interaction.reply({ content: '❌ Không có BC đang chạy!', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'âŒ KhÃ´ng cÃ³ BC Ä‘ang cháº¡y!', flags: MessageFlags.Ephemeral });
         return true;
     }
 
     const partyKey = session.party_key;
 
-    // Kiểm tra quyền
-    const quanLyRole = interaction.guild.roles.cache.find(r => r.name === 'Quản Lý');
+    // Kiá»ƒm tra quyá»n
+    const quanLyRole = interaction.guild.roles.cache.find(r => r.name === 'Quáº£n LÃ½');
     const leaderBcRole = interaction.guild.roles.cache.find(r => r.name === 'Leader BC');
-    const kyCuuRole = interaction.guild.roles.cache.find(r => r.name === 'Kỳ Cựu');
+    const kyCuuRole = interaction.guild.roles.cache.find(r => r.name === 'Ká»³ Cá»±u');
 
     const isQuanLy = quanLyRole && interaction.member.roles.cache.has(quanLyRole.id);
     const isLeaderBc = leaderBcRole && interaction.member.roles.cache.has(leaderBcRole.id);
@@ -112,22 +129,22 @@ async function handleBcqlButton(interaction) {
     const isSessionLeader = session.leader_id === interaction.user.id;
 
     if (!isSessionLeader && !isQuanLy && !isLeaderBc && !isKyCuu) {
-        await interaction.reply({ content: '❌ Bạn không có quyền!', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'âŒ Báº¡n khÃ´ng cÃ³ quyá»n!', flags: MessageFlags.Ephemeral });
         return true;
     }
 
-    // ========== NÚT LOẠI BỎ ==========
+    // ========== NÃšT LOáº I Bá»Ž ==========
     if (customId.startsWith('bcql_kick_')) {
         const allMembers = [
-            ...session.team_attack1.map(p => ({ ...p, team: 'Công 1' })),
-            ...session.team_attack2.map(p => ({ ...p, team: 'Công 2' })),
-            ...session.team_defense.map(p => ({ ...p, team: 'Thủ' })),
-            ...session.team_forest.map(p => ({ ...p, team: 'Rừng' })),
-            ...session.waiting_list.map(p => ({ ...p, team: 'Chờ' }))
-        ].filter(p => p.id !== session.leader_id); // Không cho kick leader
+            ...session.team_attack1.map(p => ({ ...p, team: 'CÃ´ng 1' })),
+            ...session.team_attack2.map(p => ({ ...p, team: 'CÃ´ng 2' })),
+            ...session.team_defense.map(p => ({ ...p, team: 'Thá»§' })),
+            ...session.team_forest.map(p => ({ ...p, team: 'Rá»«ng' })),
+            ...session.waiting_list.map(p => ({ ...p, team: 'Chá»' }))
+        ].filter(p => p.id !== session.leader_id); // KhÃ´ng cho kick leader
 
         if (allMembers.length === 0) {
-            await interaction.reply({ content: '⚠️ Không có ai để loại bỏ!', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'âš ï¸ KhÃ´ng cÃ³ ai Ä‘á»ƒ loáº¡i bá»!', flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -140,47 +157,47 @@ async function handleBcqlButton(interaction) {
         const dayParam = day || 'sat';
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`bcql_kick_select_${partyKey}_${dayParam}`)
-            .setPlaceholder('Chọn người để loại bỏ...')
+            .setPlaceholder('Chá»n ngÆ°á»i Ä‘á»ƒ loáº¡i bá»...')
             .setMinValues(1)
             .setMaxValues(Math.min(options.length, 10))
             .addOptions(options);
 
         const row = new ActionRowBuilder().addComponents(selectMenu);
-        await interaction.reply({ content: '👢 **Chọn thành viên để loại:**', components: [row], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'ðŸ‘¢ **Chá»n thÃ nh viÃªn Ä‘á»ƒ loáº¡i:**', components: [row], flags: MessageFlags.Ephemeral });
         return true;
     }
 
-    // ========== NÚT ƯU TIÊN ==========
+    // ========== NÃšT Æ¯U TIÃŠN ==========
     if (customId.startsWith('bcql_priority_')) {
         const waitingList = session.waiting_list || [];
 
         if (waitingList.length === 0) {
-            await interaction.reply({ content: '⚠️ Danh sách chờ trống!', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'âš ï¸ Danh sÃ¡ch chá» trá»‘ng!', flags: MessageFlags.Ephemeral });
             return true;
         }
 
         const options = waitingList.slice(0, 25).map((p, i) => ({
             label: p.username || `User ${i + 1}`,
-            description: `Vị trí chờ: ${i + 1}`,
+            description: `Vá»‹ trÃ­ chá»: ${i + 1}`,
             value: p.id
         }));
 
         const dayParam2 = day || 'sat';
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(`bcql_priority_select_${partyKey}_${dayParam2}`)
-            .setPlaceholder('Chọn người để ưu tiên lên team...')
+            .setPlaceholder('Chá»n ngÆ°á»i Ä‘á»ƒ Æ°u tiÃªn lÃªn team...')
             .setMinValues(1)
             .setMaxValues(Math.min(options.length, 5))
             .addOptions(options);
 
         const row = new ActionRowBuilder().addComponents(selectMenu);
-        await interaction.reply({ content: '⬆️ **Chọn người từ danh sách chờ:**', components: [row], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'â¬†ï¸ **Chá»n ngÆ°á»i tá»« danh sÃ¡ch chá»:**', components: [row], flags: MessageFlags.Ephemeral });
         return true;
     }
 
-    // ========== NÚT CHỐT DS ==========
+    // ========== NÃšT CHá»T DS ==========
     if (customId.startsWith('bcql_finalize_')) {
-        // Defer reply NGAY ĐẦU vì quá trình chốt DS + cấp role mất nhiều thời gian
+        // Defer reply NGAY Äáº¦U vÃ¬ quÃ¡ trÃ¬nh chá»‘t DS + cáº¥p role máº¥t nhiá»u thá»i gian
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const teamAttack1 = session.team_attack1 || [];
@@ -191,14 +208,19 @@ async function handleBcqlButton(interaction) {
         const total = teamAttack1.length + teamAttack2.length + teamDefense.length + teamForest.length;
 
         if (total === 0) {
-            await interaction.editReply({ content: '⚠️ Chưa có ai đăng ký!' });
+            await interaction.editReply({ content: 'âš ï¸ ChÆ°a cÃ³ ai Ä‘Äƒng kÃ½!' });
             return true;
         }
 
-        // Role emojis
-        const roleEmojis = { 'DPS': '🔵', 'Healer': '🟢', 'Tanker': '🟠', 'Unknown': '❓' };
+        try {
+            const supaSync = require('./supabaseSync');
+            await supaSync.setSessionLocked(guildId, day || session.day || 'sat', true);
+        } catch (e) {}
 
-        // Helper: detect role từ Discord - ƯU TIÊN Healer/Tanker
+        // Role emojis
+        const roleEmojis = { 'DPS': 'ðŸ”µ', 'Healer': 'ðŸŸ¢', 'Tanker': 'ðŸŸ ', 'Unknown': 'â“' };
+
+        // Helper: detect role tá»« Discord - Æ¯U TIÃŠN Healer/Tanker
         function getMemberRole(memberId) {
             try {
                 const member = interaction.guild.members.cache.get(memberId);
@@ -210,7 +232,7 @@ async function handleBcqlButton(interaction) {
                 const tankerRole = interaction.guild.roles.cache.find(r => r.name === 'Tanker');
                 if (tankerRole && member.roles.cache.has(tankerRole.id)) return 'Tanker';
 
-                const dpsSubTypes = ['Quạt Dù', 'Vô Danh', 'Song Đao', 'Cửu Kiếm'];
+                const dpsSubTypes = ['Quáº¡t DÃ¹', 'VÃ´ Danh', 'Song Äao', 'Cá»­u Kiáº¿m'];
                 for (const subTypeName of dpsSubTypes) {
                     const role = interaction.guild.roles.cache.find(r => r.name === subTypeName);
                     if (role && member.roles.cache.has(role.id)) return 'DPS';
@@ -223,11 +245,11 @@ async function handleBcqlButton(interaction) {
         }
 
         function formatTeam(team, startNum) {
-            if (team.length === 0) return '_Trống_';
+            if (team.length === 0) return '_Trá»‘ng_';
             return team.map((p, i) => {
                 const role = getMemberRole(p.id);
-                const icon = roleEmojis[role] || '❓';
-                const leader = p.isLeader || p.isTeamLeader ? ' 👑' : '';
+                const icon = roleEmojis[role] || 'â“';
+                const leader = p.isLeader || p.isTeamLeader ? ' ðŸ‘‘' : '';
                 return `${startNum + i}. ${icon} <@${p.id}>${leader}`;
             }).join('\n');
         }
@@ -240,10 +262,10 @@ async function handleBcqlButton(interaction) {
                 else if (role === 'Tanker') s.t++;
                 else s.d++;
             });
-            return `🟢${s.h} 🟠${s.t} 🔵${s.d}`;
+            return `ðŸŸ¢${s.h} ðŸŸ ${s.t} ðŸ”µ${s.d}`;
         }
 
-        // Dynamic slot numbers - đồng bộ với bcsize
+        // Dynamic slot numbers - Ä‘á»“ng bá»™ vá»›i bcsize
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
         const slotstartAtt2 = 1 + attack1Size;
@@ -255,55 +277,55 @@ async function handleBcqlButton(interaction) {
 
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
-            .setTitle('📋 CHỐT DS BANG CHIẾN LANG GIA!')
-            .setDescription(`Leader: ${session.leader_name} | Tổng: **${total}** người`)
+            .setTitle('ðŸ“‹ CHá»T DS BANG CHIáº¾N LANG GIA!')
+            .setDescription(`Leader: ${session.leader_name} | Tá»•ng: **${total}** ngÆ°á»i`)
             .addFields(
-                { name: `⚔️ CÔNG 1 (${teamAttack1.length}/${attack1Size}) [${getStats(teamAttack1)}]`, value: formatTeam(teamAttack1, 1), inline: false },
-                { name: `🗡️ CÔNG 2 (${teamAttack2.length}/${attack2Size}) [${getStats(teamAttack2)}]`, value: formatTeam(teamAttack2, slotstartAtt2), inline: false }
+                { name: `âš”ï¸ CÃ”NG 1 (${teamAttack1.length}/${attack1Size}) [${getStats(teamAttack1)}]`, value: formatTeam(teamAttack1, 1), inline: false },
+                { name: `ðŸ—¡ï¸ CÃ”NG 2 (${teamAttack2.length}/${attack2Size}) [${getStats(teamAttack2)}]`, value: formatTeam(teamAttack2, slotstartAtt2), inline: false }
             );
 
-        // Chỉ hiện team Thủ nếu size > 0
+        // Chá»‰ hiá»‡n team Thá»§ náº¿u size > 0
         if (defenseSize2 > 0) {
-            embed.addFields({ name: `🛡️ THỦ (${teamDefense.length}/${defenseSize2}) [${getStats(teamDefense)}]`, value: formatTeam(teamDefense, slotStartDef), inline: false });
+            embed.addFields({ name: `ðŸ›¡ï¸ THá»¦ (${teamDefense.length}/${defenseSize2}) [${getStats(teamDefense)}]`, value: formatTeam(teamDefense, slotStartDef), inline: false });
         }
-        // Chỉ hiện team Rừng nếu size > 0
+        // Chá»‰ hiá»‡n team Rá»«ng náº¿u size > 0
         if (forestSize2 > 0) {
-            embed.addFields({ name: `🌲 RỪNG (${teamForest.length}/${forestSize2}) [${getStats(teamForest)}]`, value: formatTeam(teamForest, slotStartFor), inline: false });
+            embed.addFields({ name: `ðŸŒ² Rá»ªNG (${teamForest.length}/${forestSize2}) [${getStats(teamForest)}]`, value: formatTeam(teamForest, slotStartFor), inline: false });
         }
 
         if (waitingList.length > 0) {
-            embed.addFields({ name: `⏳ Chờ (${waitingList.length})`, value: waitingList.map((p, i) => `${i + 1}. <@${p.id}>`).join('\n'), inline: false });
+            embed.addFields({ name: `â³ Chá» (${waitingList.length})`, value: waitingList.map((p, i) => `${i + 1}. <@${p.id}>`).join('\n'), inline: false });
         }
 
         embed.setTimestamp();
         await interaction.channel.send({ embeds: [embed] });
 
-        // Role BC đã được cấp ngay khi bấm Tham gia, không cần cấp lại ở đây
+        // Role BC Ä‘Ã£ Ä‘Æ°á»£c cáº¥p ngay khi báº¥m Tham gia, khÃ´ng cáº§n cáº¥p láº¡i á»Ÿ Ä‘Ã¢y
 
-        await interaction.editReply({ content: `✅ Đã chốt danh sách! (${total} người)` });
+        await interaction.editReply({ content: `ðŸ”’ ÄÃ£ chá»‘t danh sÃ¡ch! (${total} ngÆ°á»i)\nðŸ’¡ Má»i ngÆ°á»i váº«n cÃ³ thá»ƒ Ä‘Äƒng kÃ½ nhÆ°ng sáº½ vÃ o hÃ ng chá».\nðŸ“ DÃ¹ng Team Editor trÃªn web Ä‘á»ƒ má»Ÿ khÃ³a.` });
         return true;
     }
 
-    // ========== NÚT ĐỔI CHỖ ==========
+    // ========== NÃšT Äá»”I CHá»– ==========
     if (customId.startsWith('bcql_swap_')) {
         const dayParam3 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_swap_modal_${partyKey}_${dayParam3}`)
-            .setTitle('🔄 Đổi chỗ 2 người');
+            .setTitle('ðŸ”„ Äá»•i chá»— 2 ngÆ°á»i');
 
         const input1 = new TextInputBuilder()
             .setCustomId('position1')
-            .setLabel('Vị trí thứ 1 (1-30)')
+            .setLabel('Vá»‹ trÃ­ thá»© 1 (1-30)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ví dụ: 5')
+            .setPlaceholder('VÃ­ dá»¥: 5')
             .setRequired(true)
             .setMaxLength(2);
 
         const input2 = new TextInputBuilder()
             .setCustomId('position2')
-            .setLabel('Vị trí thứ 2 (1-30)')
+            .setLabel('Vá»‹ trÃ­ thá»© 2 (1-30)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('Ví dụ: 15')
+            .setPlaceholder('VÃ­ dá»¥: 15')
             .setRequired(true)
             .setMaxLength(2);
 
@@ -316,16 +338,16 @@ async function handleBcqlButton(interaction) {
         return true;
     }
 
-    // ========== NÚT THÊM NGƯỜI ==========
+    // ========== NÃšT THÃŠM NGÆ¯á»œI ==========
     if (customId.startsWith('bcql_add_')) {
         const dayParam4 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_add_modal_${partyKey}_${dayParam4}`)
-            .setTitle('➕ Thêm người vào BC');
+            .setTitle('âž• ThÃªm ngÆ°á»i vÃ o BC');
 
         const userInput = new TextInputBuilder()
             .setCustomId('user_id')
-            .setLabel('User ID, @mention, hoặc tên username')
+            .setLabel('User ID, @mention, hoáº·c tÃªn username')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('VD: 395151484179841024, @TaoRain, TaoRain')
             .setRequired(true)
@@ -333,9 +355,9 @@ async function handleBcqlButton(interaction) {
 
         const teamInput = new TextInputBuilder()
             .setCustomId('team')
-            .setLabel('Team (1/2/thu/rung) - để trống = tự động')
+            .setLabel('Team (1/2/thu/rung) - Ä‘á»ƒ trá»‘ng = tá»± Ä‘á»™ng')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('1, 2, thu, hoặc rung')
+            .setPlaceholder('1, 2, thu, hoáº·c rung')
             .setRequired(false)
             .setMaxLength(4);
 
@@ -348,7 +370,7 @@ async function handleBcqlButton(interaction) {
         return true;
     }
 
-    // ========== NÚT SỐ LƯỢNG (unused, kept for reference) ==========
+    // ========== NÃšT Sá» LÆ¯á»¢NG (unused, kept for reference) ==========
     if (customId.startsWith('bcql_size_')) {
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
@@ -358,31 +380,31 @@ async function handleBcqlButton(interaction) {
 
         const embed = new EmbedBuilder()
             .setColor(0x3498DB)
-            .setTitle('📊 Số lượng Team hiện tại')
+            .setTitle('ðŸ“Š Sá»‘ lÆ°á»£ng Team hiá»‡n táº¡i')
             .addFields(
-                { name: '⚔️ Công 1', value: `**${attack1Size}**`, inline: true },
-                { name: '🗡️ Công 2', value: `**${attack2Size}**`, inline: true },
-                { name: '📝 Tổng', value: `${total}`, inline: true },
-                { name: '🛡️ Thủ', value: `**${defenseSize}**`, inline: true },
-                { name: '🌲 Rừng', value: `**${forestSize}**`, inline: true },
+                { name: 'âš”ï¸ CÃ´ng 1', value: `**${attack1Size}**`, inline: true },
+                { name: 'ðŸ—¡ï¸ CÃ´ng 2', value: `**${attack2Size}**`, inline: true },
+                { name: 'ðŸ“ Tá»•ng', value: `${total}`, inline: true },
+                { name: 'ðŸ›¡ï¸ Thá»§', value: `**${defenseSize}**`, inline: true },
+                { name: 'ðŸŒ² Rá»«ng', value: `**${forestSize}**`, inline: true },
                 { name: '\u200B', value: '\u200B', inline: true }
             )
-            .setFooter({ text: '💡 VD: ?bcsize cong1 11 cong2 10 thu 5 rung 4' });
+            .setFooter({ text: 'ðŸ’¡ VD: ?bcsize cong1 11 cong2 10 thu 5 rung 4' });
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         return true;
     }
 
-    // ========== NÚT RESIZE ==========
+    // ========== NÃšT RESIZE ==========
     if (customId.startsWith('bcql_resize_')) {
         const dayParam5 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_resize_modal_${partyKey}_${dayParam5}`)
-            .setTitle('📏 Thay đổi số lượng Team');
+            .setTitle('ðŸ“ Thay Ä‘á»•i sá»‘ lÆ°á»£ng Team');
 
         const attack1Input = new TextInputBuilder()
             .setCustomId('attack1_size')
-            .setLabel('Công 1 (1-20)')
+            .setLabel('CÃ´ng 1 (1-20)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('10')
             .setValue(String(db.getTeamSize('attack1') || 10))
@@ -390,7 +412,7 @@ async function handleBcqlButton(interaction) {
 
         const attack2Input = new TextInputBuilder()
             .setCustomId('attack2_size')
-            .setLabel('Công 2 (1-20)')
+            .setLabel('CÃ´ng 2 (1-20)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('10')
             .setValue(String(db.getTeamSize('attack2') || 10))
@@ -398,7 +420,7 @@ async function handleBcqlButton(interaction) {
 
         const defenseInput = new TextInputBuilder()
             .setCustomId('defense_size')
-            .setLabel('Thủ (0-10, nhập 0 để ẩn team Thủ)')
+            .setLabel('Thá»§ (0-10, nháº­p 0 Ä‘á»ƒ áº©n team Thá»§)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('5')
             .setValue(String(db.getTeamSize('defense') ?? 5))
@@ -406,7 +428,7 @@ async function handleBcqlButton(interaction) {
 
         const forestInput = new TextInputBuilder()
             .setCustomId('forest_size')
-            .setLabel('Rừng (0-10, nhập 0 để ẩn team Rừng)')
+            .setLabel('Rá»«ng (0-10, nháº­p 0 Ä‘á»ƒ áº©n team Rá»«ng)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('5')
             .setValue(String(db.getTeamSize('forest') ?? 5))
@@ -423,12 +445,12 @@ async function handleBcqlButton(interaction) {
         return true;
     }
 
-    // ========== NÚT SET LEADER ==========
+    // ========== NÃšT SET LEADER ==========
     if (customId.startsWith('bcql_setleader_')) {
         const dayParam6 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_setleader_modal_${partyKey}_${dayParam6}`)
-            .setTitle('👑 Set Leader cho 4 team');
+            .setTitle('ðŸ‘‘ Set Leader cho 4 team');
 
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
@@ -440,7 +462,7 @@ async function handleBcqlButton(interaction) {
 
         const leadersInput = new TextInputBuilder()
             .setCustomId('leaders_input')
-            .setLabel(`Nhập 4 số slot (Công1, Công2, Thủ, Rừng)`)
+            .setLabel(`Nháº­p 4 sá»‘ slot (CÃ´ng1, CÃ´ng2, Thá»§, Rá»«ng)`)
             .setStyle(TextInputStyle.Short)
             .setPlaceholder(`VD: 1 ${slotStartAtt2} ${slotStartDef} ${slotStartFor}`)
             .setRequired(true);
@@ -464,10 +486,10 @@ async function handleBcqlSelect(interaction) {
 
     const guildId = interaction.guild.id;
 
-    // Parse day từ customId (format: bcql_kick_select_partyKey_day)
+    // Parse day tá»« customId (format: bcql_kick_select_partyKey_day)
     const day = parseDayFromCustomId(customId);
 
-    // Lấy session từ DB - ưu tiên theo day nếu có
+    // Láº¥y session tá»« DB - Æ°u tiÃªn theo day náº¿u cÃ³
     let session;
     if (day) {
         session = db.getActiveBangchienByDay(guildId, day);
@@ -477,7 +499,7 @@ async function handleBcqlSelect(interaction) {
     }
 
     if (!session) {
-        await interaction.reply({ content: '❌ BC không tồn tại!', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'âŒ BC khÃ´ng tá»“n táº¡i!', flags: MessageFlags.Ephemeral });
         return true;
     }
 
@@ -488,17 +510,69 @@ async function handleBcqlSelect(interaction) {
         const selectedIds = interaction.values;
         let kicked = 0;
 
+        const freshSession = db.getActiveBangchien(partyKey);
+        if (!freshSession) {
+            await interaction.update({ content: 'Ã¢ÂÅ’ BC khÃƒÂ´ng tÃ¡Â»â€œn tÃ¡ÂºÂ¡i!', components: [] });
+            return true;
+        }
+
+        const teams = {
+            attack1: [...(freshSession.team_attack1 || [])],
+            attack2: [...(freshSession.team_attack2 || [])],
+            defense: [...(freshSession.team_defense || [])],
+            forest: [...(freshSession.team_forest || [])],
+            waiting: [...(freshSession.waiting_list || [])]
+        };
+
+        for (const userId of selectedIds) {
+            let moved = false;
+            for (const teamKey of ['attack1', 'attack2', 'defense', 'forest']) {
+                const idx = teams[teamKey].findIndex(p => p.id === userId);
+                if (idx !== -1) {
+                    const person = teams[teamKey].splice(idx, 1)[0];
+                    teams.waiting.push(person);
+                    kicked++;
+                    moved = true;
+                    break;
+                }
+            }
+            if (!moved && teams.waiting.some(p => p.id === userId)) kicked++;
+
+            const sessionDay = day || freshSession.day || 'sat';
+            db.removeBcRegular(guildId, userId, sessionDay);
+            try {
+                const supaSync = require('./supabaseSync');
+                await supaSync.removeBcRegular(guildId, userId, sessionDay);
+            } catch (e) {}
+        }
+
+        db.updateActiveBangchien(partyKey, {
+            team_attack1: teams.attack1,
+            team_attack2: teams.attack2,
+            team_defense: teams.defense,
+            team_forest: teams.forest,
+            waiting_list: teams.waiting
+        });
+
+        await refreshOverviewEmbed(interaction.client, guildId);
+        await syncSessionToSupabase(guildId, partyKey);
+        await interaction.update({ content: `Ã¢Å“â€¦ Ã„ÂÃƒÂ£ Ã„â€˜Ã†Â°a ${kicked} ngÃ†Â°Ã¡Â»Âi xuÃ¡Â»â€˜ng hÃƒÂ ng chÃ¡Â»Â!`, components: [] });
+        if (day) {
+            await refreshListbcEmbed(interaction, session, day);
+        }
+        return true;
+
         for (const userId of selectedIds) {
             const result = db.removeBangchienParticipant(partyKey, userId);
             if (result.success) {
                 kicked++;
-                // Xóa "Luôn tham gia" cho user bị kick
+                // XÃ³a "LuÃ´n tham gia" cho user bá»‹ kick
                 const sessionDay = day || 'sat';
                 db.removeBcRegular(guildId, userId, sessionDay);
             }
         }
 
-        // Xóa role BC cho các user bị kick
+        // XÃ³a role BC cho cÃ¡c user bá»‹ kick
         const bcRole = interaction.guild.roles.cache.find(r => r.name === 'bc');
         if (bcRole) {
             for (const userId of selectedIds) {
@@ -511,10 +585,11 @@ async function handleBcqlSelect(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
+        await syncSessionToSupabase(guildId, partyKey);
 
-        await interaction.update({ content: `✅ Đã loại ${kicked} người!`, components: [] });
+        await interaction.update({ content: `âœ… ÄÃ£ loáº¡i ${kicked} ngÆ°á»i!`, components: [] });
 
-        // Refresh ?listbc embed nếu có day
+        // Refresh ?listbc embed náº¿u cÃ³ day
         if (day) {
             await refreshListbcEmbed(interaction, session, day);
         }
@@ -526,10 +601,10 @@ async function handleBcqlSelect(interaction) {
         const selectedIds = interaction.values;
         let moved = 0;
 
-        // Lấy session mới nhất
+        // Láº¥y session má»›i nháº¥t
         const freshSession = db.getActiveBangchien(partyKey);
         if (!freshSession) {
-            await interaction.update({ content: '❌ BC không tồn tại!', components: [] });
+            await interaction.update({ content: 'âŒ BC khÃ´ng tá»“n táº¡i!', components: [] });
             return true;
         }
 
@@ -539,13 +614,13 @@ async function handleBcqlSelect(interaction) {
         const forestSize = db.getTeamSize('forest') ?? 5;
 
         for (const userId of selectedIds) {
-            // Tìm người trong waiting list
+            // TÃ¬m ngÆ°á»i trong waiting list
             const waitIndex = freshSession.waiting_list.findIndex(p => p.id === userId);
             if (waitIndex === -1) continue;
 
             const person = freshSession.waiting_list[waitIndex];
 
-            // Thử đưa vào team theo thứ tự
+            // Thá»­ Ä‘Æ°a vÃ o team theo thá»© tá»±
             if (freshSession.team_attack1.length < attack1Size) {
                 freshSession.team_attack1.push(person);
                 freshSession.waiting_list.splice(waitIndex, 1);
@@ -576,10 +651,11 @@ async function handleBcqlSelect(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
+        await syncSessionToSupabase(guildId, partyKey);
 
-        await interaction.update({ content: `✅ Đã đưa ${moved} người lên team!`, components: [] });
+        await interaction.update({ content: `âœ… ÄÃ£ Ä‘Æ°a ${moved} ngÆ°á»i lÃªn team!`, components: [] });
 
-        // Refresh ?listbc embed nếu có day
+        // Refresh ?listbc embed náº¿u cÃ³ day
         if (day) {
             await refreshListbcEmbed(interaction, session, day);
         }
@@ -600,10 +676,10 @@ async function handleBcqlModal(interaction) {
 
     const guildId = interaction.guild.id;
 
-    // Parse day từ customId (format: bcql_swap_modal_partyKey_day hoặc bcql_add_modal_partyKey_day)
+    // Parse day tá»« customId (format: bcql_swap_modal_partyKey_day hoáº·c bcql_add_modal_partyKey_day)
     const day = parseDayFromCustomId(customId);
 
-    // Lấy session từ DB - ưu tiên theo day nếu có
+    // Láº¥y session tá»« DB - Æ°u tiÃªn theo day náº¿u cÃ³
     let session;
     if (day) {
         session = db.getActiveBangchienByDay(guildId, day);
@@ -613,7 +689,7 @@ async function handleBcqlModal(interaction) {
     }
 
     if (!session) {
-        await interaction.reply({ content: '❌ BC không tồn tại!', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'âŒ BC khÃ´ng tá»“n táº¡i!', flags: MessageFlags.Ephemeral });
         return true;
     }
 
@@ -625,11 +701,11 @@ async function handleBcqlModal(interaction) {
         const pos2 = parseInt(interaction.fields.getTextInputValue('position2'));
 
         if (isNaN(pos1) || isNaN(pos2) || pos1 < 1 || pos2 < 1) {
-            await interaction.reply({ content: '❌ Vị trí không hợp lệ!', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'âŒ Vá»‹ trÃ­ khÃ´ng há»£p lá»‡!', flags: MessageFlags.Ephemeral });
             return true;
         }
 
-        // Dynamic slot numbers - đồng bộ với bcsize
+        // Dynamic slot numbers - Ä‘á»“ng bá»™ vá»›i bcsize
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
         const defenseSize = db.getTeamSize('defense') ?? 5;
@@ -651,7 +727,7 @@ async function handleBcqlModal(interaction) {
         const member1 = allMembers.find(m => m.pos === pos1);
         const member2 = allMembers.find(m => m.pos === pos2);
 
-        // Helper: xác định team từ slot number
+        // Helper: xÃ¡c Ä‘á»‹nh team tá»« slot number
         function getTeamFromSlot(slotNum) {
             if (slotNum >= 1 && slotNum < slotStartAtt2) return { team: 'attack1', maxSize: attack1Size, currentLen: session.team_attack1.length, startSlot: 1 };
             if (slotNum >= slotStartAtt2 && slotNum < slotStartDef) return { team: 'attack2', maxSize: attack2Size, currentLen: session.team_attack2.length, startSlot: slotStartAtt2 };
@@ -661,7 +737,7 @@ async function handleBcqlModal(interaction) {
             return null;
         }
 
-        const TEAM_EMOJI = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng', waiting: '⏳ Chờ' };
+        const TEAM_EMOJI = { attack1: 'âš”ï¸ CÃ´ng 1', attack2: 'ðŸ—¡ï¸ CÃ´ng 2', defense: 'ðŸ›¡ï¸ Thá»§', forest: 'ðŸŒ² Rá»«ng', waiting: 'â³ Chá»' };
 
         // Swap in session
         const teams = {
@@ -676,7 +752,7 @@ async function handleBcqlModal(interaction) {
         const isAttackTeam = (team) => team === 'attack1' || team === 'attack2';
         const isPresetTeam = (team) => team === 'defense' || team === 'forest';
 
-        // Case 1: Cả 2 slot có người → SWAP
+        // Case 1: Cáº£ 2 slot cÃ³ ngÆ°á»i â†’ SWAP
         if (member1 && member2) {
             const person1Data = { id: member1.id, username: member1.username, role: member1.role, isLeader: member1.isLeader };
             const person2Data = { id: member2.id, username: member2.username, role: member2.role, isLeader: member2.isLeader };
@@ -731,30 +807,31 @@ async function handleBcqlModal(interaction) {
 
             // Refresh overview
             await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey);
 
-            await interaction.reply({ content: `✅ Đã đổi vị trí ${pos1} ↔ ${pos2}!`, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: `âœ… ÄÃ£ Ä‘á»•i vá»‹ trÃ­ ${pos1} â†” ${pos2}!`, flags: MessageFlags.Ephemeral });
             if (day) await refreshListbcEmbed(interaction, session, day);
             return true;
         }
 
-        // Case 2: Slot1 có người, Slot2 trống → MOVE
+        // Case 2: Slot1 cÃ³ ngÆ°á»i, Slot2 trá»‘ng â†’ MOVE
         if (member1 && !member2) {
             const targetTeamInfo = getTeamFromSlot(pos2);
             if (!targetTeamInfo) {
-                await interaction.reply({ content: '❌ Vị trí đích không hợp lệ!', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: 'âŒ Vá»‹ trÃ­ Ä‘Ã­ch khÃ´ng há»£p lá»‡!', flags: MessageFlags.Ephemeral });
                 return true;
             }
 
-            // Kiểm tra phải di chuyển vào slot đầu tiên
+            // Kiá»ƒm tra pháº£i di chuyá»ƒn vÃ o slot Ä‘áº§u tiÃªn
             const firstEmptySlot = targetTeamInfo.startSlot + targetTeamInfo.currentLen;
             if (pos2 !== firstEmptySlot) {
-                await interaction.reply({ content: `❌ Phải di chuyển vào slot **${firstEmptySlot}** (slot trống đầu tiên của ${TEAM_EMOJI[targetTeamInfo.team]})`, flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: `âŒ Pháº£i di chuyá»ƒn vÃ o slot **${firstEmptySlot}** (slot trá»‘ng Ä‘áº§u tiÃªn cá»§a ${TEAM_EMOJI[targetTeamInfo.team]})`, flags: MessageFlags.Ephemeral });
                 return true;
             }
 
-            // Kiểm tra team đích có đầy không
+            // Kiá»ƒm tra team Ä‘Ã­ch cÃ³ Ä‘áº§y khÃ´ng
             if (targetTeamInfo.currentLen >= targetTeamInfo.maxSize) {
-                await interaction.reply({ content: `❌ ${TEAM_EMOJI[targetTeamInfo.team]} đã đầy!`, flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: `âŒ ${TEAM_EMOJI[targetTeamInfo.team]} Ä‘Ã£ Ä‘áº§y!`, flags: MessageFlags.Ephemeral });
                 return true;
             }
 
@@ -792,14 +869,15 @@ async function handleBcqlModal(interaction) {
 
             // Refresh overview
             await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey);
 
-            await interaction.reply({ content: `✅ Đã di chuyển **${movedPerson.username}** → ${TEAM_EMOJI[targetTeamInfo.team]}!`, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: `âœ… ÄÃ£ di chuyá»ƒn **${movedPerson.username}** â†’ ${TEAM_EMOJI[targetTeamInfo.team]}!`, flags: MessageFlags.Ephemeral });
             if (day) await refreshListbcEmbed(interaction, session, day);
             return true;
         }
 
-        // Case 3: Slot1 trống
-        await interaction.reply({ content: '❌ Vị trí nguồn không có người!', flags: MessageFlags.Ephemeral });
+        // Case 3: Slot1 trá»‘ng
+        await interaction.reply({ content: 'âŒ Vá»‹ trÃ­ nguá»“n khÃ´ng cÃ³ ngÆ°á»i!', flags: MessageFlags.Ephemeral });
         return true;
     }
 
@@ -808,28 +886,28 @@ async function handleBcqlModal(interaction) {
         let userInput = interaction.fields.getTextInputValue('user_id').trim();
         const teamInput = interaction.fields.getTextInputValue('team').trim().toLowerCase();
 
-        // Resolve user từ nhiều định dạng: ID, @mention, username, display name
+        // Resolve user tá»« nhiá»u Ä‘á»‹nh dáº¡ng: ID, @mention, username, display name
         let user;
         let userId;
 
-        // 1. Thử parse @mention format: <@123456> hoặc <@!123456>
+        // 1. Thá»­ parse @mention format: <@123456> hoáº·c <@!123456>
         const mentionMatch = userInput.match(/^<@!?(\d+)>$/);
         if (mentionMatch) {
             userInput = mentionMatch[1];
         }
 
-        // 2. Nếu là số thuần (User ID) → fetch trực tiếp
+        // 2. Náº¿u lÃ  sá»‘ thuáº§n (User ID) â†’ fetch trá»±c tiáº¿p
         if (/^\d{17,20}$/.test(userInput)) {
             try {
                 user = await interaction.client.users.fetch(userInput);
                 userId = userInput;
             } catch (e) {
-                await interaction.reply({ content: '❌ User ID không tồn tại!', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: 'âŒ User ID khÃ´ng tá»“n táº¡i!', flags: MessageFlags.Ephemeral });
                 return true;
             }
         } else {
-            // 3. Tìm theo username hoặc display name trong guild
-            const searchTerm = userInput.toLowerCase().replace(/^@/, ''); // Bỏ @ đầu nếu có
+            // 3. TÃ¬m theo username hoáº·c display name trong guild
+            const searchTerm = userInput.toLowerCase().replace(/^@/, ''); // Bá» @ Ä‘áº§u náº¿u cÃ³
             await interaction.guild.members.fetch().catch(() => null);
             const foundMember = interaction.guild.members.cache.find(m =>
                 m.user.username.toLowerCase() === searchTerm ||
@@ -838,7 +916,7 @@ async function handleBcqlModal(interaction) {
             );
 
             if (!foundMember) {
-                await interaction.reply({ content: `❌ Không tìm thấy user "${userInput}" trong server!\n💡 Thử nhập User ID hoặc username chính xác.`, flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: `âŒ KhÃ´ng tÃ¬m tháº¥y user "${userInput}" trong server!\nðŸ’¡ Thá»­ nháº­p User ID hoáº·c username chÃ­nh xÃ¡c.`, flags: MessageFlags.Ephemeral });
                 return true;
             }
             user = foundMember.user;
@@ -848,25 +926,30 @@ async function handleBcqlModal(interaction) {
         // Check if already registered
         const allMembers = [...session.team_attack1, ...session.team_attack2, ...session.team_defense, ...session.team_forest, ...session.waiting_list];
         if (allMembers.some(p => p.id === userId)) {
-            await interaction.reply({ content: '❌ Người này đã đăng ký rồi!', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'âŒ NgÆ°á»i nÃ y Ä‘Ã£ Ä‘Äƒng kÃ½ rá»“i!', flags: MessageFlags.Ephemeral });
             return true;
         }
 
+        // Lookup tÃªn ingame tá»« DB
+        const addUserInfo = db.getUserByDiscordId(userId);
+        const addGameName = addUserInfo?.game_username || '';
+
         // Add to specified team or auto
-        const result = db.addBangchienParticipant(partyKey, { id: userId, username: user.username, role: 'DPS' }, guildId);
+        const result = db.addBangchienParticipant(partyKey, { id: userId, username: user.username, gn: addGameName, name: addGameName || user.username, role: 'DPS' }, guildId);
 
         if (!result.success) {
-            await interaction.reply({ content: `❌ ${result.error}`, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: `âŒ ${result.error}`, flags: MessageFlags.Ephemeral });
             return true;
         }
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
+        await syncSessionToSupabase(guildId, partyKey);
 
-        const teamEmojis = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng', waiting: '⏳ Chờ' };
-        await interaction.reply({ content: `✅ Đã thêm ${user.username} vào ${teamEmojis[result.team] || result.team}!`, flags: MessageFlags.Ephemeral });
+        const teamEmojis = { attack1: 'âš”ï¸ CÃ´ng 1', attack2: 'ðŸ—¡ï¸ CÃ´ng 2', defense: 'ðŸ›¡ï¸ Thá»§', forest: 'ðŸŒ² Rá»«ng', waiting: 'â³ Chá»' };
+        await interaction.reply({ content: `âœ… ÄÃ£ thÃªm ${user.username} vÃ o ${teamEmojis[result.team] || result.team}!`, flags: MessageFlags.Ephemeral });
 
-        // Refresh ?listbc embed nếu có day
+        // Refresh ?listbc embed náº¿u cÃ³ day
         if (day) {
             await refreshListbcEmbed(interaction, session, day);
         }
@@ -885,7 +968,13 @@ async function handleBcqlModal(interaction) {
         // Validate
         if (attack1Size < 1 || attack1Size > 20 || attack2Size < 1 || attack2Size > 20 ||
             defenseSize < 0 || defenseSize > 10 || forestSize < 0 || forestSize > 10) {
-            await interaction.reply({ content: '❌ Số lượng không hợp lệ! Công: 1-20, Thủ/Rừng: 0-10', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'âŒ Sá»‘ lÆ°á»£ng khÃ´ng há»£p lá»‡! CÃ´ng: 1-20, Thá»§/Rá»«ng: 0-10', flags: MessageFlags.Ephemeral });
+            return true;
+        }
+
+        const total = attack1Size + attack2Size + defenseSize + forestSize;
+        if (total !== 30) {
+            await interaction.reply({ content: `Tong so thanh vien phai dung bang 30! Hien tai la ${total}.`, flags: MessageFlags.Ephemeral });
             return true;
         }
 
@@ -895,13 +984,12 @@ async function handleBcqlModal(interaction) {
         db.setTeamSize('defense', defenseSize);
         db.setTeamSize('forest', forestSize);
 
-        const total = attack1Size + attack2Size + defenseSize + forestSize;
         await interaction.reply({
-            content: `✅ Đã cập nhật!\n⚔️ Công 1: **${attack1Size}**\n🗡️ Công 2: **${attack2Size}**\n🛡️ Thủ: **${defenseSize}**\n🌲 Rừng: **${forestSize}**\n📊 Tổng: **${total}**`,
+            content: `âœ… ÄÃ£ cáº­p nháº­t!\nâš”ï¸ CÃ´ng 1: **${attack1Size}**\nðŸ—¡ï¸ CÃ´ng 2: **${attack2Size}**\nðŸ›¡ï¸ Thá»§: **${defenseSize}**\nðŸŒ² Rá»«ng: **${forestSize}**\nðŸ“Š Tá»•ng: **${total}**`,
             flags: MessageFlags.Ephemeral
         });
 
-        // Refresh listbc nếu có
+        // Refresh listbc náº¿u cÃ³
         if (day && session) {
             await refreshListbcEmbed(interaction, session, day);
         }
@@ -914,11 +1002,11 @@ async function handleBcqlModal(interaction) {
         const slotNumbers = leadersStr.split(/\s+/).map(s => parseInt(s)).filter(n => !isNaN(n));
 
         if (slotNumbers.length === 0 || slotNumbers.length > 4) {
-            await interaction.reply({ content: '❌ Nhập 1-4 số slot (cách nhau bằng dấu cách)!', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: 'âŒ Nháº­p 1-4 sá»‘ slot (cÃ¡ch nhau báº±ng dáº¥u cÃ¡ch)!', flags: MessageFlags.Ephemeral });
             return true;
         }
 
-        // Lấy team sizes
+        // Láº¥y team sizes
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
         const defenseSize = db.getTeamSize('defense') ?? 5;
@@ -960,16 +1048,16 @@ async function handleBcqlModal(interaction) {
             return null;
         }
 
-        const TEAM_EMOJI = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng' };
+        const TEAM_EMOJI = { attack1: 'âš”ï¸ CÃ´ng 1', attack2: 'ðŸ—¡ï¸ CÃ´ng 2', defense: 'ðŸ›¡ï¸ Thá»§', forest: 'ðŸŒ² Rá»«ng' };
         const results = [];
 
         for (const slotNum of slotNumbers) {
             const info = getPersonBySlot(slotNum);
             if (info) {
                 info.person.isTeamLeader = true;
-                results.push(`👑 ${info.person.username} → ${TEAM_EMOJI[info.team]}`);
+                results.push(`ðŸ‘‘ ${info.person.username} â†’ ${TEAM_EMOJI[info.team]}`);
             } else {
-                results.push(`❌ Slot ${slotNum} không có người`);
+                results.push(`âŒ Slot ${slotNum} khÃ´ng cÃ³ ngÆ°á»i`);
             }
         }
 
@@ -984,8 +1072,9 @@ async function handleBcqlModal(interaction) {
 
         // Refresh ?bc overview embed
         await refreshOverviewEmbed(interaction.client, guildId);
+        await syncSessionToSupabase(guildId, partyKey);
 
-        await interaction.reply({ content: `✅ Đã set Leader:\n${results.join('\n')}`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `âœ… ÄÃ£ set Leader:\n${results.join('\n')}`, flags: MessageFlags.Ephemeral });
 
         if (day) await refreshListbcEmbed(interaction, session, day);
         return true;

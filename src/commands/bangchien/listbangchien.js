@@ -58,7 +58,7 @@ module.exports = {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CASE 2: ?listbc → Tóm tắt 2 ngày + buttons T7/CN
+        // CASE 2: ?listbc → Tóm tắt các ngày + buttons
         // ═══════════════════════════════════════════════════════════════════
         const allSessions = db.getActiveBangchienByGuild(guildId) || [];
         const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -75,23 +75,23 @@ module.exports = {
 
         const overviewEmbed = new EmbedBuilder()
             .setColor(0xFFD700)
-            .setTitle('ðŸ“‹ BANG CHIáº¾N TUáº¦N NÃ€Y');
+            .setTitle('📋 BANG CHIẾN TUẦN NÀY');
 
         if (allSessions.length === 0) {
-            overviewEmbed.setDescription('ðŸ“… ChÆ°a cÃ³ phiÃªn Bang Chiáº¿n nÃ o Ä‘ang má»Ÿ.');
+            overviewEmbed.setDescription('📅 Chưa có phiên Bang Chiến nào đang mở.');
         } else {
             for (const sessionItem of allSessions) {
                 const stats = getStats(sessionItem);
                 const dateStr = getDayNameWithDate(sessionItem.day).toUpperCase();
-                let line = `ðŸ“… **${dateStr}** (${stats.total}/30) - Äang diá»…n ra\nâš”ï¸ CÃ´ng: ${stats.attack}`;
-                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | ðŸ›¡ï¸ Thá»§: ${stats.defense}`;
-                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | ðŸŒ² Rá»«ng: ${stats.forest}`;
+                let line = `📅 **${dateStr}** (${stats.total}/30) - Đang diễn ra\n⚔️ Công: ${stats.attack}`;
+                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ Thủ: ${stats.defense}`;
+                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 Rừng: ${stats.forest}`;
                 overviewEmbed.addFields({ name: '\u200b', value: line, inline: false });
             }
         }
 
         overviewEmbed
-            .setFooter({ text: hasPermission ? 'ðŸ’¡ Báº¥m nÃºt Ä‘á»ƒ xem chi tiáº¿t vÃ  quáº£n lÃ½' : 'ðŸ’¡ Chá»‰ Ká»³ Cá»±u má»›i xem chi tiáº¿t' })
+            .setFooter({ text: hasPermission ? '💡 Bấm nút để xem chi tiết và quản lý' : '💡 Chỉ Kỳ Cựu mới xem chi tiết' })
             .setTimestamp();
 
         const overviewComponents = [];
@@ -102,7 +102,7 @@ module.exports = {
                 row.addComponents(
                     new ButtonBuilder()
                         .setCustomId(`listbc_view_${sessionItem.day}_${guildId}`)
-                        .setLabel(`ðŸ“‹ ${shortLabels[sessionItem.day] || sessionItem.day}`)
+                        .setLabel(`📋 ${shortLabels[sessionItem.day] || sessionItem.day}`)
                         .setStyle(ButtonStyle.Primary)
                 );
             }
@@ -110,58 +110,6 @@ module.exports = {
         }
 
         return await message.reply({ embeds: [overviewEmbed], components: overviewComponents });
-
-        const embed = new EmbedBuilder()
-            .setColor(0xFFD700)
-            .setTitle('📋 BANG CHIẾN TUẦN NÀY');
-
-        // Thứ 7 - với ngày cụ thể
-        const satDateStr = getDayNameWithDate('sat').toUpperCase();
-        const satStatus = satSession
-            ? (() => {
-                let line = `📅 **${satDateStr}** (${satStats.total}/30) - Đang diễn ra\n⚔️ Công: ${satStats.attack}`;
-                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ Thủ: ${satStats.defense}`;
-                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 Rừng: ${satStats.forest}`;
-                return line;
-            })()
-            : `📅 **${satDateStr}** - _Chưa mở_`;
-        embed.addFields({ name: '\u200b', value: satStatus, inline: false });
-
-        // Chủ Nhật - với ngày cụ thể
-        const sunDateStr = getDayNameWithDate('sun').toUpperCase();
-        const sunStatus = sunSession
-            ? (() => {
-                let line = `📅 **${sunDateStr}** (${sunStats.total}/30) - Đang diễn ra\n⚔️ Công: ${sunStats.attack}`;
-                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ Thủ: ${sunStats.defense}`;
-                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 Rừng: ${sunStats.forest}`;
-                return line;
-            })()
-            : `📅 **${sunDateStr}** - _Chưa mở_`;
-        embed.addFields({ name: '\u200b', value: sunStatus, inline: false });
-
-        embed.setFooter({ text: hasPermission ? '💡 Bấm nút để xem chi tiết và quản lý' : '💡 Chỉ Kỳ Cựu mới xem chi tiết' })
-            .setTimestamp();
-
-        // Buttons T7/CN (chỉ cho Kỳ Cựu+)
-        const components = [];
-        if (hasPermission) {
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`listbc_view_sat_${guildId}`)
-                        .setLabel('📋 Thứ 7')
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(!satSession),
-                    new ButtonBuilder()
-                        .setCustomId(`listbc_view_sun_${guildId}`)
-                        .setLabel('📋 Chủ Nhật')
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(!sunSession)
-                );
-            components.push(row);
-        }
-
-        await message.reply({ embeds: [embed], components });
     },
 
 

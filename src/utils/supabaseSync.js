@@ -402,8 +402,16 @@ async function pollBcRegulars(db, guildId) {
  * @param {string} guildId - Guild ID
  * @param {Function} onSessionChange - Callback khi session thay đổi
  */
+let _webChangesListening = false;
+
 function listenForWebChanges(guildId, onSessionChange) {
     if (!isReady()) return;
+    if (_webChangesListening) {
+        console.warn('[Supabase] listenForWebChanges da duoc goi roi, bo qua');
+        return;
+    }
+    _webChangesListening = true;
+
 
     let pollingInterval = null;
     let lastPollHash = '';

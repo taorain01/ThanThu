@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bản Đồ Editor (Pro UI)</title>
+<style>
+  body {
+    background: #0a120c; 
+    color: white; 
+    display: flex; 
+    flex-direction: row; 
+    margin: 0; 
+    height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+  }
+  
+  /* ═══ SIDEBAR ĐIỀU KHIỂN ═══ */
+  .sidebar {
+    width: 380px;
+    background: #111814;
+    border-right: 2px solid #fbbf24;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+  }
+  .sidebar h3 { 
+    margin: 0 0 20px 0; 
+    font-size: 20px; 
+    color: #fbbf24; 
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+  
+  .control-group {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+  }
+  .control-group h4 { margin: 0 0 12px 0; color: #60a5fa; font-size: 14px; }
+  
+  .slider-row {
+    margin-bottom: 15px;
+  }
+  .slider-row:last-child { margin-bottom: 0; }
+  .slider-row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #cbd5e1;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .slider-row .val { color: #fbbf24; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #fbbf24;
+    cursor: ew-resize;
+  }
+  
+  .select-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .select-row label { font-size: 13px; font-weight: 600; color: #cbd5e1; }
+  select {
+    background: #222; color: #fff; border: 1px solid #444; padding: 4px 8px; border-radius: 4px; outline: none;
+  }
+  
+  button.action-btn {
+    background: #059669; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold;
+    cursor: pointer; transition: 0.2s; width: 100%; margin-top: 10px;
+  }
+  button.action-btn:hover { background: #10b981; }
+
+  /* ═══ MAP PREVIEW AREA ═══ */
+  .preview-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: #020403;
+  }
+  
+  /* Lớp vỏ mô phỏng r-pane */
+  .viewport-sim {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    margin: 20px;
+    border: 2px dashed rgba(96, 165, 250, 0.4);
+    background: repeating-linear-gradient(45deg, #111, #111 10px, #1a1a1a 10px, #1a1a1a 20px);
+  }
+  .viewport-label {
+    position: absolute; top: 8px; left: 8px; color: rgba(96, 165, 250, 0.8); font-size: 12px; font-weight: bold; pointer-events: none;
+  }
+
+  /* ═══ BẾN CHỨA MAP CHÍNH ═══ */
+  .map-box { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    position: relative; 
+    overflow: hidden; 
+    background: #060a08;
+    /* Kích thước của map-box được điều khiển qua slider */
+    width: 100%;
+    height: 100%;
+  }
+  
+  /* ═══ CONTAINER - Lõi đo tỉ lệ ═══ */
+  .map-container {
+    position: relative; 
+    display: inline-block; 
+    background: rgba(251, 191, 36, 0.1); /* Màu nền nhạt để dễ quan sát bounding box */
+    border: 1px solid #fbbf24; /* Viền bao bọc container */
+    
+    /* Giao diện mặc định */
+    width: 100%; 
+    height: auto; 
+    max-width: 100%; 
+    max-height: 100%;
+    aspect-ratio: 900 / 500; /* Mặc định chuẩn ảnh */
+  }
+
+  /* ═══ MAP WRAPPER (Zoom container) ═══ */
+  .map-zoom-wrapper {
+    position: absolute; 
+    inset: 0; 
+  }
+
+  /* ═══ ẢNH NỀN BẢN ĐỒ ═══ */
+  img.map-bg {
+    display: block; 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    pointer-events: none;
+    opacity: 0.8; /* Mờ 1 xí để nhìn viền container */
+  }
+
+  /* ═══ KHU VỰC ICON (Tọa độ %) ═══ */
+  .map-icons { 
+    position: absolute; 
+    inset: 0; 
+    pointer-events: auto;
+  }
+  .map-icon { 
+    position: absolute; 
+    transform: translate(-50%, -50%); 
+    width: 28px; 
+    height: 28px; 
+    border: 2px solid rgba(255,255,255,0.7);
+    border-radius: 5px;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    cursor: grab;
+    transition: box-shadow 0.2s;
+  }
+  .map-icon:hover { box-shadow: 0 0 10px #fbbf24; z-index: 10; }
+  .map-icon img { pointer-events: none; }
+  
+  /* Log output */
+  .log-box {
+    margin-top: 15px; background: #000; border: 1px solid #333; height: 120px; padding: 8px; font-family: monospace; font-size: 11px; color: #0f0; overflow-y: auto;
+  }
+  
+  /* Thẻ spacer ảo để thử class */
+  .map-spacer {
+    display: none;
+    width: 100%; height: 100%;
+    object-fit: contain; pointer-events: none; opacity: 0; visibility: hidden;
+  }
+</style>
+</head>
+<body>
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <h3>🛠 Map Layout Editor</h3>
+    
+    <div class="control-group">
+      <h4>1. Viewport (Vùng chứa Map-Box)</h4>
+      <div class="slider-row">
+        <label>Chiều cao (VH) <span class="val" id="valVh">90%</span></label>
+        <input type="range" id="rnVh" min="30" max="100" value="90">
+      </div>
+      <div class="slider-row">
+        <label>Chiều rộng (VW) <span class="val" id="valVw">90%</span></label>
+        <input type="range" id="rnVw" min="30" max="100" value="90">
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h4>2. Thuộc tính .map-container</h4>
+      <div class="slider-row">
+        <label>Aspect Ratio (Width/Height) <span class="val" id="valAr">1.80 (900/500)</span></label>
+        <input type="range" id="rnAr" min="50" max="300" value="180">
+      </div>
+      <div class="slider-row">
+        <label>Width (%) <span class="val" id="valW">100%</span></label>
+        <input type="range" id="rnW" min="10" max="200" value="100">
+      </div>
+      <div class="slider-row">
+        <label>Max-Width (%) <span class="val" id="valMw">100%</span></label>
+        <input type="range" id="rnMw" min="10" max="200" value="100">
+      </div>
+      <div class="select-row">
+        <label>Display</label>
+        <select id="selDisplay">
+          <option value="inline-block">inline-block</option>
+          <option value="block">block</option>
+          <option value="flex">flex</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <h4>3. Thuộc tính Ảnh (map-bg)</h4>
+      <div class="select-row">
+        <label>Object Fit</label>
+        <select id="selObjFit">
+          <option value="contain">contain</option>
+          <option value="cover" selected>cover</option>
+          <option value="fill">fill</option>
+          <option value="none">none</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <h4>4. Chế độ Móng Ảo (Spacer)</h4>
+      <div class="select-row">
+        <label style="flex:1;">Hiện thẻ img ảo thay Aspect Ratio?</label>
+        <input type="checkbox" id="chkSpacer" style="transform: scale(1.3);">
+      </div>
+    </div>
+
+    <button class="action-btn" onclick="copyCss()">📋 Copy Code CSS Hiện Tại</button>
+    
+    <div class="log-box" id="coordsLog">
+      > Hệ thống sẵn sàng.<br>
+      > Kéo thả icon để canh tọa độ mới.<br>
+      > Tỉ lệ bản đồ gốc là 900x500 (1.8).<br>
+    </div>
+  </div>
+
+  <!-- RIGHT PREVIEW -->
+  <div class="preview-area">
+    <div class="viewport-sim" id="viewportSim">
+      <div class="viewport-label">Vùng r-pane/mapBox viewport</div>
+      
+      <div class="map-box" id="mapBox">
+        <div class="map-container" id="mapContainer">
+          
+          <!-- Spacer (Phantom img) -->
+          <img class="map-spacer" id="mapSpacer" src="./anh/battle_map_clean.png">
+
+          <!-- Lớp zoom của index -->
+          <div class="map-zoom-wrapper" id="mapZoomWrapper">
+             <img class="map-bg" id="mapBg" src="./anh/battle_map_clean.png" alt="Battle Map">
+          </div>
+
+          <!-- Lớp Icons theo phần trăm -->
+          <div class="map-icons" id="mapIcons">
+            <!-- tower_blue -->
+            <div class="map-icon tower" style="left:36%;top:15%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
+            <div class="map-icon tower" style="left:36%;top:50.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
+            <div class="map-icon tower" style="left:36%;top:84.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
+            <!-- tower_red -->
+            <div class="map-icon tower" style="left:62.5%;top:15%"><img src="./anh/icons/tower_red.png" width="100%"></div>
+            <div class="map-icon tower" style="left:62.5%;top:50.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
+            <div class="map-icon tower" style="left:62.5%;top:84.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
+            <!-- boss -->
+            <div class="map-icon boss" style="left:50%;top:30.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
+            <div class="map-icon boss" style="left:50%;top:70.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
+            <!-- goose -->
+            <div class="map-icon goose" style="left:8.5%;top:51.5%"><img src="./anh/icons/goose_blue.png" width="100%"></div>
+            <div class="map-icon goose" style="left:90.5%;top:50%"><img src="./anh/icons/goose_red.png" width="100%"></div>
+            <!-- tree -->
+            <div class="map-icon tree" style="left:4%;top:51%"><img src="./anh/icons/tree_blue.png" width="100%"></div>
+            <div class="map-icon tree" style="left:95.5%;top:50%"><img src="./anh/icons/tree_red.png" width="100%"></div>
+            <!-- dots -->
+            <div class="map-icon dot" style="left:29.5%;top:37.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" style="left:40.5%;top:37%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" style="left:57.5%;top:27.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ═══ Elements
+    const rnVh = document.getElementById('rnVh'), valVh = document.getElementById('valVh'), viewportSim = document.getElementById('viewportSim');
+    const rnVw = document.getElementById('rnVw'), valVw = document.getElementById('valVw');
+    const rnAr = document.getElementById('rnAr'), valAr = document.getElementById('valAr'), mapContainer = document.getElementById('mapContainer');
+    const rnW = document.getElementById('rnW'), valW = document.getElementById('valW');
+    const rnMw = document.getElementById('rnMw'), valMw = document.getElementById('valMw');
+    const selDisplay = document.getElementById('selDisplay'), selObjFit = document.getElementById('selObjFit');
+    const mapBg = document.getElementById('mapBg'), chkSpacer = document.getElementById('chkSpacer'), mapSpacer = document.getElementById('mapSpacer');
+    const coordsLog = document.getElementById('coordsLog');
+
+    function logToScreen(msg) {
+        coordsLog.innerHTML += `> ${msg}<br>`;
+        coordsLog.scrollTop = coordsLog.scrollHeight;
+    }
+
+    // ═══ Update Functions
+    function updateVP() {
+        valVh.textContent = rnVh.value + '%';
+        valVw.textContent = rnVw.value + '%';
+        viewportSim.style.height = rnVh.value + '%';
+        viewportSim.style.width = rnVw.value + '%';
+    }
+
+    function updateContainer() {
+        // Aspect Ratio
+        const ratio = (parseInt(rnAr.value) / 100).toFixed(2);
+        valAr.textContent = ratio + (ratio == 1.8 ? ' (900/500)' : '');
+        mapContainer.style.aspectRatio = chkSpacer.checked ? 'auto' : ratio;
+
+        // Width & Max-Width
+        valW.textContent = rnW.value + '%';
+        mapContainer.style.width = rnW.value + '%';
+        
+        valMw.textContent = rnMw.value + '%';
+        mapContainer.style.maxWidth = rnMw.value + '%';
+
+        // Display
+        mapContainer.style.display = selDisplay.value;
+    }
+
+    function updateImg() {
+        mapBg.style.objectFit = selObjFit.value;
+    }
+
+    function updateSpacer() {
+        if(chkSpacer.checked) {
+            mapSpacer.style.display = 'block';
+            mapContainer.style.aspectRatio = 'auto'; // Spacer handle height
+        } else {
+            mapSpacer.style.display = 'none';
+            mapContainer.style.aspectRatio = (parseInt(rnAr.value) / 100).toFixed(2);
+        }
+    }
+
+    // ═══ Events Listeners
+    rnVh.addEventListener('input', updateVP);
+    rnVw.addEventListener('input', updateVP);
+    rnAr.addEventListener('input', updateContainer);
+    rnW.addEventListener('input', updateContainer);
+    rnMw.addEventListener('input', updateContainer);
+    selDisplay.addEventListener('change', updateContainer);
+    selObjFit.addEventListener('change', updateImg);
+    chkSpacer.addEventListener('change', updateSpacer);
+
+    // Initial update
+    updateVP(); updateContainer(); updateImg(); updateSpacer();
+
+    function copyCss() {
+        const cssCode = `.map-container {
+    position: relative;
+    display: ${selDisplay.value};
+    width: ${rnW.value}%;
+    max-width: ${rnMw.value}%;
+    max-height: 100%;
+    ${chkSpacer.checked ? "/* Dùng thẻ spacer ẩn thay vì aspect-ratio */" : `aspect-ratio: ${(parseInt(rnAr.value)/100).toFixed(2)};`}
+}
+
+.map-bg {
+    object-fit: ${selObjFit.value};
+}`;
+        navigator.clipboard.writeText(cssCode).then(() => alert('Đã copy CSS vào Clipboard!'));
+    }
+
+    // ═══ Drag & Drop Logic
+    const mapIconsLayer = document.getElementById('mapIcons');
+    let draggedIcon = null, isDragging = false;
+
+    mapIconsLayer.addEventListener('mousedown', (e) => {
+        const iconNode = e.target.closest('.map-icon');
+        if (!iconNode) return;
+        draggedIcon = iconNode;
+        isDragging = true;
+        iconNode.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging || !draggedIcon) return;
+        const rect = mapContainer.getBoundingClientRect();
+        
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+        
+        let pctX = (x / rect.width) * 100;
+        let pctY = (y / rect.height) * 100;
+
+        pctX = Math.max(0, Math.min(100, pctX));
+        pctY = Math.max(0, Math.min(100, pctY));
+
+        draggedIcon.style.left = pctX.toFixed(2) + '%';
+        draggedIcon.style.top = pctY.toFixed(2) + '%';
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isDragging && draggedIcon) {
+            isDragging = false;
+            draggedIcon.style.cursor = 'grab';
+            logToScreen(`Tọa độ mới nhất: left:${draggedIcon.style.left}; top:${draggedIcon.style.top}`);
+            draggedIcon = null;
+        }
+    });
+
+  </script>
+</body>
+</html>

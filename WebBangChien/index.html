@@ -884,6 +884,188 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .ttm-track{height:20px}
   .tc-mark-label{font-size:10px}
 }
+/* ═══ FIX: Xoá thanh cuộn ngang ═══ */
+html, body { overflow-x: hidden; }
+.app { overflow-x: hidden; max-width: 100vw; }
+
+/* ═══ MAP ZOOM & PAN ═══ */
+.map-box { position: relative; overflow: hidden; }
+.map-box .map-zoom-wrapper {
+    width: 100%; height: 100%;
+    transform-origin: var(--zoom-ox, 50%) var(--zoom-oy, 50%);
+    transform: scale(var(--zoom-level, 1)) translate(var(--pan-x, 0px), var(--pan-y, 0px));
+    transition: transform 0.35s cubic-bezier(.25,.46,.45,.94);
+    will-change: transform;
+}
+.map-box.zoomed { cursor: grab; }
+.map-box.zoomed.grabbing { cursor: grabbing; }
+.map-box.zoomed .map-zoom-wrapper { transition: none; }
+.map-zoom-hint {
+    position: absolute; bottom: 8px; right: 8px; z-index: 10;
+    padding: 4px 10px; border-radius: 8px;
+    background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+    color: rgba(255,255,255,.6); font-size: 11px; font-weight: 600;
+    pointer-events: none; opacity: 1;
+    transition: opacity 0.3s;
+}
+.map-box.zoomed .map-zoom-hint { opacity: 0; }
+
+/* ═══ TIMELINE TOOLTIP NÂNG CẤP ═══ */
+.ttm-tooltip {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(0,0,0,.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(251,191,36,.2);
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+.ttm-mark.active .ttm-tooltip {
+    background: rgba(251,191,36,.15);
+    border-color: rgba(251,191,36,.4);
+    color: #fde68a;
+}
+
+/* ═══ FULLSCREEN MAP MODE ═══ */
+.fs-overlay {
+    position: fixed; inset: 0; z-index: 9990;
+    background: #060a08;
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+.fs-overlay.active { opacity: 1; pointer-events: all; }
+
+.fs-overlay .fs-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px;
+    background: rgba(10,18,12,.95);
+    border-bottom: 1px solid rgba(251,191,36,.12);
+    backdrop-filter: blur(12px);
+    flex-shrink: 0;
+}
+.fs-overlay .fs-map-area {
+    flex: 1; position: relative; overflow: hidden;
+}
+.fs-overlay .fs-timeline-bar {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    background: rgba(10,18,12,.95);
+    border-top: 1px solid rgba(251,191,36,.12);
+}
+.fs-overlay .fs-tasks-panel {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 340px; max-width: 90vw;
+    background: rgba(10,18,12,.92);
+    backdrop-filter: blur(16px);
+    border-right: 1px solid rgba(251,191,36,.12);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 10;
+}
+.fs-overlay .fs-tasks-panel.open { transform: translateX(0); }
+.fs-close-btn {
+    background: rgba(255,80,80,.12); border: 1px solid rgba(255,80,80,.25);
+    color: #ffb3b3; border-radius: 10px; padding: 6px 14px;
+    font-weight: 800; cursor: pointer; font-size: 13px;
+}
+.fs-tasks-toggle {
+    background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.25);
+    color: #fde68a; border-radius: 10px; padding: 6px 14px;
+    font-weight: 800; cursor: pointer; font-size: 13px;
+}
+
+.fs-overlay .tv-player .tv-dot {
+    width: 14px; height: 14px;
+    box-shadow: 0 0 8px 2px currentColor;
+    animation: fsPulse 2s ease-in-out infinite;
+}
+.fs-overlay .tv-player .tv-label {
+    opacity: 1 !important;
+    font-size: 11px;
+    text-shadow: 0 0 6px currentColor;
+    animation: fsBlink 3s ease-in-out infinite;
+}
+.fs-overlay .tv-player.is-me .tv-dot {
+    width: 16px; height: 16px;
+    box-shadow: 0 0 12px 4px rgba(251,191,36,.6);
+}
+@keyframes fsPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+}
+@keyframes fsBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ═══ TIMELINE REDESIGN ═══ */
+.tactics-timeline-mini {
+    background: linear-gradient(180deg, rgba(10,18,12,.95), rgba(8,14,10,.98));
+    border: 1px solid rgba(251,191,36,.1);
+    border-radius: 14px;
+    padding: 12px 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 32px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.03);
+}
+.ttm-mark::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: radial-gradient(circle, currentColor, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.ttm-mark:hover::before,
+.ttm-mark.active::before { opacity: 0.3; }
+.ttm-mark.active { transform: scale(1.4); }
+
+/* ═══ TACTICS CONTROLS GLASSMORPHISM ═══ */
+.tactics-controls {
+    background: rgba(10,18,12,.85);
+    backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid rgba(251,191,36,.08);
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.02);
+}
+
+/* ═══ MAP VIGNETTE ═══ */
+.map-box::after {
+    content: '';
+    position: absolute; inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 0 60px rgba(0,0,0,.3);
+    z-index: 5;
+}
+
+@media (max-width: 768px) {
+    .fs-overlay .fs-tasks-panel {
+        width: 100%; height: 45vh;
+        top: auto; bottom: 0;
+        transform: translateY(100%);
+        border-right: none;
+        border-top: 1px solid rgba(251,191,36,.15);
+    }
+    .fs-overlay .fs-tasks-panel.open { transform: translateY(0); }
+
+    .fs-overlay .fs-topbar { padding: 6px 10px; }
+    .fs-close-btn, .fs-tasks-toggle { font-size: 12px; padding: 5px 10px; }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+    .fs-overlay .fs-tasks-panel {
+        width: 280px; height: 100%;
+        top: 0; bottom: 0;
+        transform: translateX(-100%);
+        border-top: none;
+        border-right: 1px solid rgba(251,191,36,.15);
+    }
+    .fs-overlay .fs-tasks-panel.open { transform: translateX(0); }
+}
 </style>
 </head>
 <body oncontextmenu="return false;">
@@ -1026,7 +1208,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
             <!-- Map giấy (background-image, chỉ đổi ảnh nền, icon giữ nguyên) -->
             <div class="map-bg-giay" id="mapBgGiay"></div>
             <div class="map-ov"></div>
-            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
+            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle fullscreen-btn" id="mapFullscreenBtn" onclick="toggleMapFullscreen()">⛶ Toàn màn hình</button><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
             <!-- Tactics Viewer Layers (chỉ xem) -->
             <svg class="tactics-targeting-svg" id="tvTargetingSvg" style="display:none" xmlns="http://www.w3.org/2000/svg">
               <defs>
@@ -2996,6 +3178,12 @@ function tvShowAll() {
         const e = document.getElementById(id);
         if (e) e.style.display = '';
     });
+    
+    // Auto chuyển sang tab Bản đồ khi load lần đầu
+    const mapTab = document.querySelector('.r-tab');
+    if (mapTab && !mapTab.classList.contains('active')) {
+        switchRTab(mapTab, 'pane-map');
+    }
 }
 
 // Render timeline mini
@@ -3031,11 +3219,11 @@ function tvRenderTimeline() {
 
     // Render mark dots
     const SYSTEM_TYPES = {
-        1800: { cls: 'ev-start', label: '🏁 Bắt đầu' },
-        1500: { cls: 'ev-boss', label: '☀ Boss phụ' },
-        1200: { cls: 'ev-solo', label: '⚔️ PVP Solo' },
-        900:  { cls: 'ev-boss', label: '🔥 Boss chính' },
-        0:    { cls: 'ev-end', label: '🏁 Kết thúc' }
+        1800: { cls: 'ev-start', label: '🏁 Bắt đầu', icon: '🏁' },
+        1500: { cls: 'ev-boss', label: '☀ Boss Vàng phụ', icon: '☀' },
+        1200: { cls: 'ev-solo', label: '⚔️ PVP Solo 20:00', icon: '⚔️' },
+        900:  { cls: 'ev-boss', label: '🔥 Boss Vàng chính', icon: '🔥' },
+        0:    { cls: 'ev-end', label: '🏁 Kết thúc', icon: '🏆' }
     };
 
     marks.forEach((m, i) => {
@@ -3049,7 +3237,16 @@ function tvRenderTimeline() {
         const dot = document.createElement('div');
         dot.className = `ttm-mark ${evClass}${hasMe ? ' has-me' : ''}${i === _tvActiveMarkIdx ? ' active' : ''}`;
         dot.style.left = pct + '%';
-        dot.innerHTML = `<span class="ttm-tooltip">${tvFormatTime(time)} ${label}</span>`;
+
+        // Sau khi tạo dot, thêm chi tiết vào tooltip
+        const jungleCount = Object.keys(m.jungle_assignments || {}).length;
+        const towerCount = Object.values(m.tower_guards || {}).flat().filter(Boolean).length;
+        let detail = '';
+        if (jungleCount) detail += ` 🌿${jungleCount}`;
+        if (towerCount) detail += ` 🏰${towerCount}`;
+        if (m.pvp_fighters?.blue) detail += ' ⚔️PVP';
+        dot.innerHTML = `<span class="ttm-tooltip">${tvFormatTime(time)} ${label}${detail}</span>`;
+
         dot.onclick = (e) => {
             e.stopPropagation();
             tvSelectMark(i);
@@ -3655,7 +3852,7 @@ async function renderPmLevelTab(container, discordId) {
         const formatVoice = (m) => {
             if(!m) return '0 phút';
             const h = Math.floor(m/60); const mins = m%60;
-            return h>0 ? \`\${h}h \${mins}m\` : \`\${mins} phút\`;
+            return h>0 ? `${h}h ${mins}m` : `${mins} phút`;
         };
         const getLevelTier = (lv) => {
             if(lv>=50) return '~ Vô Song';
@@ -3680,7 +3877,7 @@ async function renderPmLevelTab(container, discordId) {
 
         const tierName = getLevelTier(level);
 
-        container.innerHTML = \`
+        container.innerHTML = `
           <div class="pm-level-bar-wrap">
             <div class="pm-lbar-header">
               <div>
@@ -3725,7 +3922,7 @@ async function renderPmLevelTab(container, discordId) {
           <div style="margin-top:12px;padding:10px 14px;background:rgba(251,191,36,.05);border:1px dashed rgba(251,191,36,.2);border-radius:12px;font-size:11px;color:var(--text3);text-align:center">
             Dữ liệu được đồng bộ từ Bot Discord ThanThu. 
           </div>
-        \`;
+        `;
 
         // Animation fill
         setTimeout(() => {
@@ -3734,10 +3931,255 @@ async function renderPmLevelTab(container, discordId) {
         }, 50);
 
     } catch (e) {
-        container.innerHTML = \`<div style="color:#fca5a5;padding:20px;text-align:center">⚠️ Không tải được Level: \${e.message}</div>\`;
+        container.innerHTML = `<div style="color:#fca5a5;padding:20px;text-align:center">⚠️ Không tải được Level: ${e.message}</div>`;
     }
 }
 
+// ═══ MAP ZOOM & PAN — Double-click zoom 2x, drag pan ═══
+(function initMapZoomPan() {
+    const mapBox = document.getElementById('mapBox');
+    if (!mapBox) return;
+
+    // Wrap tất cả children vào .map-zoom-wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'map-zoom-wrapper';
+    while (mapBox.firstChild) wrapper.appendChild(mapBox.firstChild);
+    mapBox.appendChild(wrapper);
+
+    // Thêm hint
+    const hint = document.createElement('div');
+    hint.className = 'map-zoom-hint';
+    hint.textContent = '🔍 Nhấp đúp để phóng to';
+    mapBox.appendChild(hint);
+
+    let isZoomed = false;
+    let panX = 0, panY = 0;
+    let startX, startY, startPanX, startPanY;
+    let isPanning = false;
+    const ZOOM_LEVEL = 2;
+
+    function applyTransform(animate = false) {
+        if (animate) wrapper.style.transition = 'transform 0.35s cubic-bezier(.25,.46,.45,.94)';
+        else wrapper.style.transition = 'none';
+        wrapper.style.setProperty('--zoom-level', isZoomed ? ZOOM_LEVEL : 1);
+        wrapper.style.setProperty('--pan-x', panX + 'px');
+        wrapper.style.setProperty('--pan-y', panY + 'px');
+        mapBox.classList.toggle('zoomed', isZoomed);
+    }
+
+    function clampPan() {
+        if (!isZoomed) { panX = 0; panY = 0; return; }
+        const rect = mapBox.getBoundingClientRect();
+        const maxX = (rect.width * (ZOOM_LEVEL - 1)) / (2 * ZOOM_LEVEL);
+        const maxY = (rect.height * (ZOOM_LEVEL - 1)) / (2 * ZOOM_LEVEL);
+        panX = Math.max(-maxX, Math.min(maxX, panX));
+        panY = Math.max(-maxY, Math.min(maxY, panY));
+    }
+
+    // Double-click: toggle zoom
+    mapBox.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        if (isZoomed) {
+            isZoomed = false; panX = 0; panY = 0;
+        } else {
+            isZoomed = true;
+            // Zoom vào vị trí click
+            const rect = mapBox.getBoundingClientRect();
+            const ox = ((e.clientX - rect.left) / rect.width) * 100;
+            const oy = ((e.clientY - rect.top) / rect.height) * 100;
+            wrapper.style.setProperty('--zoom-ox', ox + '%');
+            wrapper.style.setProperty('--zoom-oy', oy + '%');
+            panX = 0; panY = 0;
+        }
+        applyTransform(true);
+    });
+
+    // Mouse drag pan khi zoomed
+    mapBox.addEventListener('mousedown', (e) => {
+        if (!isZoomed || e.button !== 0) return;
+        // Không pan nếu click vào interactive element
+        if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
+        isPanning = true;
+        startX = e.clientX; startY = e.clientY;
+        startPanX = panX; startPanY = panY;
+        mapBox.classList.add('grabbing');
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        const dx = (e.clientX - startX) / ZOOM_LEVEL;
+        const dy = (e.clientY - startY) / ZOOM_LEVEL;
+        panX = startPanX + dx;
+        panY = startPanY + dy;
+        clampPan();
+        applyTransform(false);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isPanning) {
+            isPanning = false;
+            mapBox.classList.remove('grabbing');
+        }
+    });
+
+    // ESC: reset zoom
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isZoomed) {
+            isZoomed = false; panX = 0; panY = 0;
+            applyTransform(true);
+        }
+    });
+
+    // Touch: double-tap zoom + 1-finger pan
+    let lastTap = 0;
+    mapBox.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTap < 300 && e.changedTouches.length === 1) {
+            e.preventDefault();
+            mapBox.dispatchEvent(new MouseEvent('dblclick', {
+                clientX: e.changedTouches[0].clientX,
+                clientY: e.changedTouches[0].clientY
+            }));
+        }
+        lastTap = now;
+    });
+
+    let touchStartX, touchStartY, touchPanX, touchPanY;
+    mapBox.addEventListener('touchstart', (e) => {
+        if (!isZoomed || e.touches.length !== 1) return;
+        if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchPanX = panX; touchPanY = panY;
+    }, { passive: true });
+
+    mapBox.addEventListener('touchmove', (e) => {
+        if (!isZoomed || e.touches.length !== 1) return;
+        if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
+        const dx = (e.touches[0].clientX - touchStartX) / ZOOM_LEVEL;
+        const dy = (e.touches[0].clientY - touchStartY) / ZOOM_LEVEL;
+        panX = touchPanX + dx;
+        panY = touchPanY + dy;
+        clampPan();
+        applyTransform(false);
+        e.preventDefault();
+    }, { passive: false });
+})();
+
+// ═══ FULLSCREEN MAP MODE ═══
+let _fsOverlay = null;
+let _fsTasksOpen = false;
+
+function toggleMapFullscreen() {
+    if (_fsOverlay?.classList.contains('active')) {
+        exitMapFullscreen();
+        return;
+    }
+    enterMapFullscreen();
+}
+
+function enterMapFullscreen() {
+    // Tạo overlay nếu chưa có
+    if (!_fsOverlay) {
+        _fsOverlay = document.createElement('div');
+        _fsOverlay.className = 'fs-overlay';
+        _fsOverlay.id = 'fsOverlay';
+        _fsOverlay.innerHTML = `
+            <div class="fs-topbar">
+                <button class="fs-tasks-toggle" onclick="toggleFsTasks()">📋 Nhiệm vụ</button>
+                <div style="font-weight:800;color:var(--gold);font-size:14px" id="fsTitle">Chiến Thuật</div>
+                <button class="fs-close-btn" onclick="exitMapFullscreen()">✕ Đóng</button>
+            </div>
+            <div class="fs-map-area" id="fsMapArea"></div>
+            <div class="fs-timeline-bar" id="fsTimelineBar"></div>
+            <div class="fs-tasks-panel" id="fsTasksPanel"></div>
+        `;
+        document.body.appendChild(_fsOverlay);
+    }
+
+    // Clone map content vào fullscreen
+    const mapBox = document.getElementById('mapBox');
+    const fsMapArea = document.getElementById('fsMapArea');
+    const fsTimeline = document.getElementById('fsTimelineBar');
+
+    if (mapBox) {
+        fsMapArea.innerHTML = mapBox.innerHTML;
+    }
+
+    // Clone timeline
+    const timeline = document.getElementById('tacticsTimeline');
+    if (timeline) {
+        fsTimeline.innerHTML = timeline.innerHTML;
+    }
+
+    // Clone tasks
+    const tasksContent = document.getElementById('tasksTabContent');
+    const fsTasksPanel = document.getElementById('fsTasksPanel');
+    if (tasksContent) {
+        fsTasksPanel.innerHTML = tasksContent.innerHTML;
+    }
+
+    // Activate
+    _fsOverlay.classList.add('active');
+
+    // Màn hình ngang khi mobile
+    if (window.matchMedia('(max-width: 768px) and (orientation: portrait)').matches) {
+        // Thêm hint xoay ngang
+        const rotateHint = document.createElement('div');
+        rotateHint.id = 'fsRotateHint';
+        rotateHint.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(6,10,8,.97);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fde68a;font-size:18px;font-weight:800;';
+        rotateHint.innerHTML = '<div style="font-size:48px;animation:rotateHint 2s ease-in-out infinite">📱↪️</div><div>Xoay ngang điện thoại</div>';
+        _fsOverlay.appendChild(rotateHint);
+
+        // Tự ẩn khi xoay xong
+        const mql = window.matchMedia('(orientation: landscape)');
+        const handler = (e) => {
+            if (e.matches) { rotateHint.remove(); mql.removeEventListener('change', handler); }
+        };
+        mql.addEventListener('change', handler);
+    }
+
+    // Fullscreen API
+    try {
+        document.documentElement.requestFullscreen?.() ||
+        document.documentElement.webkitRequestFullscreen?.();
+    } catch(e) {}
+
+    // Mobile: thử lock landscape
+    try { screen.orientation.lock('landscape').catch(() => {}); } catch(e) {}
+
+    // Re-apply map icons position
+    requestAnimationFrame(() => {
+        updateMapIconsPosition();
+        if (_tvTacticsData) tvRenderMark(_tvActiveMarkIdx);
+    });
+}
+
+function exitMapFullscreen() {
+    if (_fsOverlay) _fsOverlay.classList.remove('active');
+    _fsTasksOpen = false;
+
+    // Exit fullscreen API
+    try {
+        document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+    } catch(e) {}
+
+    // Unlock orientation
+    try { screen.orientation.unlock?.(); } catch(e) {}
+}
+
+function toggleFsTasks() {
+    _fsTasksOpen = !_fsTasksOpen;
+    document.getElementById('fsTasksPanel')?.classList.toggle('open', _fsTasksOpen);
+}
+
+// ESC listener cho fullscreen
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && _fsOverlay?.classList.contains('active')) {
+        exitMapFullscreen();
+    }
+});
 </script>
 </body>
 </html>

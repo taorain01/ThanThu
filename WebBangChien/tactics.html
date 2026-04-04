@@ -1039,8 +1039,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 
 /* ═══ MOBILE TAB BAR ═══ */
 .mobile-tab-bar {
+  display: none; /* Ẩn mặc định trên PC */
   position: fixed; top: 0; left: 0; right: 0; z-index: 60;
-  height: 38px; display: flex; align-items: stretch;
+  height: 38px; align-items: stretch;
   background: rgba(7,18,9,.97);
   border-bottom: 1px solid rgba(251,191,36,.18);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);

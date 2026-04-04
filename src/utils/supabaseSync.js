@@ -39,6 +39,42 @@ function isReady() {
     return supabase !== null;
 }
 
+// ═══ HELPER: Xử lý lỗi Supabase gọn gàng (tránh dump HTML 502/503) ═══
+let _supabaseBackoffUntil = 0; // Timestamp backoff khi server down
+const BACKOFF_DURATION_MS = 30000; // 30 giây backoff
+
+function sanitizeErrorMessage(msg) {
+    if (!msg || typeof msg !== 'string') return msg || 'Unknown error';
+    // Phát hiện HTML response (502, 503, 504 gateway errors)
+    if (msg.includes('<!DOCTYPE') || msg.includes('<html') || msg.includes('<head')) {
+        const titleMatch = msg.match(/<title[^>]*>(.*?)<\/title>/i);
+        const statusMatch = msg.match(/(\d{3}):\s*([^<]+)/i);
+        return titleMatch ? titleMatch[1].trim() : (statusMatch ? `HTTP ${statusMatch[1]}: ${statusMatch[2].trim()}` : 'Supabase trả về HTML (server error)');
+    }
+    // Cắt ngắn message quá dài
+    return msg.length > 200 ? msg.substring(0, 200) + '...' : msg;
+}
+
+function isBackingOff() {
+    if (Date.now() < _supabaseBackoffUntil) return true;
+    return false;
+}
+
+function triggerBackoff() {
+    _supabaseBackoffUntil = Date.now() + BACKOFF_DURATION_MS;
+    console.warn(`[Supabase] ⏸️ Server lỗi → tạm dừng sync ${BACKOFF_DURATION_MS / 1000}s`);
+}
+
+function handleSyncError(context, error) {
+    const msg = sanitizeErrorMessage(error?.message || String(error));
+    // Nếu là lỗi server (502/503/504) → trigger backoff
+    if (/502|503|504|Bad gateway|Service Unavailable/i.test(msg)) {
+        if (!isBackingOff()) triggerBackoff();
+        return; // Không spam log
+    }
+    console.error(`[Supabase] ❌ ${context}:`, msg);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SYNC BANG CHIẾN SESSIONS
 // ═══════════════════════════════════════════════════════════════
@@ -973,12 +1009,12 @@ async function syncExpLevels(db) {
                     console.error('[Supabase] ❌ Bảng bc_exp_levels chưa được tạo trên Supabase. Đã tắt syncExpLevels để tránh spam lỗi.');
                     return;
                 }
-                console.error('[Supabase] ❌ Sync exp_levels lỗi:', error.message); 
+                handleSyncError('Sync exp_levels lỗi', error); 
             }
         }
         if (_hasExpLevelsTable) console.log(`[Supabase] ✅ Sync ${allExp.length} exp_levels thành công`);
     } catch (err) {
-        console.error('[Supabase] ❌ syncExpLevels exception:', err.message);
+        handleSyncError('syncExpLevels exception', err);
     }
 }
 
@@ -1007,10 +1043,10 @@ async function syncOneExpLevel(discordId, expRecord) {
                 console.error('[Supabase] ❌ Bảng bc_exp_levels chưa có. Đã tắt syncOneExpLevel.');
                 return;
             }
-            console.error('[Supabase] ❌ Sync exp user lỗi:', error.message); 
+            handleSyncError('Sync exp user lỗi', error); 
         }
     } catch (err) {
-        console.error('[Supabase] ❌ syncOneExpLevel exception:', err.message);
+        handleSyncError('syncOneExpLevel exception', err);
     }
 }
 

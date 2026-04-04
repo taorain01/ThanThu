@@ -1564,13 +1564,24 @@ async function joinBC() {
     else if (t2.length < (sizes.attack2 || 10)) { t2.push(newPlayer); }
     else { wl.push(newPlayer); }
 
-    // Cập nhật Supabase
+    // Cập nhật Supabase — ghi rõ editor metadata để bot thông báo đúng
+    const currentLeaderIds = (() => {
+        try { return typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids || '{}') : (data.leader_ids || {}); } catch(e) { return {}; }
+    })();
     const { error: updateErr } = await sb
         .from('bc_sessions')
         .update({
             team_attack1: JSON.stringify(t1),
             team_attack2: JSON.stringify(t2),
-            waiting_list: JSON.stringify(wl)
+            waiting_list: JSON.stringify(wl),
+            // Ghi rõ editor là người dùng tự đăng ký (không phải leader)
+            leader_ids: JSON.stringify({
+                ...currentLeaderIds,
+                editor_id: window.currentDiscordId,
+                editor_name: window.currentUserName || 'Thành viên',
+                editor_action: 'self_join',
+                edited_at: Date.now()
+            })
         })
         .eq('guild_id', GUILD_ID)
         .eq('day', currentDay);
@@ -1608,6 +1619,10 @@ async function leaveBC() {
 
     const removePlayer = (team) => team.filter(p => p.id !== window.currentDiscordId);
 
+    // Ghi rõ editor metadata để bot thông báo đúng (tự hủy đăng ký)
+    const currentLeaderIds2 = (() => {
+        try { return typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids || '{}') : (data.leader_ids || {}); } catch(e) { return {}; }
+    })();
     const { error: updateErr } = await sb
         .from('bc_sessions')
         .update({
@@ -1615,7 +1630,15 @@ async function leaveBC() {
             team_attack2: JSON.stringify(removePlayer(parseTeam(data.team_attack2))),
             team_defense: JSON.stringify(removePlayer(parseTeam(data.team_defense))),
             team_forest: JSON.stringify(removePlayer(parseTeam(data.team_forest))),
-            waiting_list: JSON.stringify(removePlayer(parseTeam(data.waiting_list)))
+            waiting_list: JSON.stringify(removePlayer(parseTeam(data.waiting_list))),
+            // Ghi rõ editor là người dùng tự hủy (không phải leader)
+            leader_ids: JSON.stringify({
+                ...currentLeaderIds2,
+                editor_id: window.currentDiscordId,
+                editor_name: window.currentUserName || 'Thành viên',
+                editor_action: 'self_leave',
+                edited_at: Date.now()
+            })
         })
         .eq('guild_id', GUILD_ID)
         .eq('day', currentDay);

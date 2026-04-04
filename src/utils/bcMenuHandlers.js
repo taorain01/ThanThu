@@ -1,14 +1,28 @@
 /**
  * bcMenuHandlers.js
  * Xử lý ephemeral menu cho Bang Chiến multi-day
- * Khi user bấm nút "📋 Đăng ký BANG CHIẾN" -> hiển thị menu riêng cho họ
+ * Khi user bấm nút "📌 Đăng ký BANG CHIẾN" -> hiển thị menu riêng cho họ
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { DAY_CONFIG, getDayFromPartyKey, getDayNameWithDate } = require('./bangchienState');
+const { DAY_CONFIG, getDayFromPartyKey, getDayNameWithDate, getNextDayDate } = require('./bangchienState');
 const { syncBCSession, formatActiveSession, syncBcRegular, removeBcRegular } = require('./supabaseSync');
 
 const BC_ROLE_NAME = 'bc';
+
+/**
+ * Sắp xếp danh sách ngày theo ngày gần nhất (ngày sắp đến trước)
+ * Dùng getNextDayDate để tính khoảng cách thực tế từ hôm nay
+ * @param {string[]} days - Mảng các key ngày ('mon', 'tue', ...)
+ * @returns {string[]} Mảng đã được sắp xếp theo ngày gần nhất
+ */
+function sortDaysByNearest(days) {
+    return [...days].sort((a, b) => {
+        const dateA = getNextDayDate(a);
+        const dateB = getNextDayDate(b);
+        return dateA.getTime() - dateB.getTime();
+    });
+}
 
 // Helper: Sync session lên Supabase sau khi SQLite thay đổi
 async function syncSessionToSupabase(guildId, partyKey, guild = null) {
@@ -60,13 +74,11 @@ function createBcMenu(guildId, userId) {
 
     const embed = new EmbedBuilder()
         .setColor(0xFFD700)
-        .setTitle('📋 ĐĂNG KÝ BANG CHIẾN')
+        .setTitle('📌 ĐĂNG KÝ BANG CHIẾN')
         .setDescription('Chọn ngày bạn muốn tham gia. Bấm **Luôn tham gia** để tự động đăng ký mỗi tuần.');
 
-    // Danh sách ngày: PRIMARY_DAYS + ngày có session
-    const daysToShow = [...new Set([...PRIMARY_DAYS, ...Object.keys(sessionMap)])];
-    const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-    daysToShow.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+    // Sắp xếp theo ngày gần nhất (ngày sắp đến trước)
+    const daysToShow = sortDaysByNearest([...new Set([...PRIMARY_DAYS, ...Object.keys(sessionMap)])]);
 
     const actionRows = [];
 
@@ -84,8 +96,8 @@ function createBcMenu(guildId, userId) {
         } else {
             const total = getSessionTotal(session);
             status = `📅 **${dateStr}** (${total}/30)\n`;
-            status += isInDay ? '✅ Bạn đã đăng ký' : '⭕ Bạn chưa đăng ký';
-            if (isRegularDay) status += ' 🔄';
+            status += isInDay ? '✅ Bạn đã đăng ký' : '🔘 Bạn chưa đăng ký';
+            if (isRegularDay) status += ' 📌';
         }
         embed.addFields({ name: '\u200b', value: status, inline: false });
 
@@ -108,24 +120,24 @@ function createBcMenu(guildId, userId) {
                 );
             }
             if (isPrimaryDay) {
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_regular_${day}_${guildId}`)
-                    .setLabel(isRegularDay ? `🔄 Bỏ luôn ${shortLabel}` : `🔄 Luôn ${shortLabel}`)
-                    .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
-            );
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`bcmenu_regular_${day}_${guildId}`)
+                        .setLabel(isRegularDay ? `📌 Bỏ luôn ${shortLabel}` : `📌 Luôn ${shortLabel}`)
+                        .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
+                );
             }
             actionRows.push(row);
         }
     }
 
-    embed.setFooter({ text: '🔄 = Luôn tham gia • Menu này chỉ bạn thấy' });
+    embed.setFooter({ text: '📌 = Luôn tham gia | Menu này chỉ bạn thấy' });
 
     const closeRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId(`bcmenu_close_${guildId}`)
-                .setLabel('🚪 Đóng')
+                .setLabel('🔴 Đóng')
                 .setStyle(ButtonStyle.Danger)
         );
 
@@ -166,7 +178,7 @@ async function handleBcMenuButton(interaction) {
     const customId = interaction.customId;
     if (!customId.startsWith('bcmenu_') && !customId.startsWith('bc_menu_') && !customId.startsWith('bc_regular_') && !customId.startsWith('bc_viewdetail_') && !customId.startsWith('bc_viewlist_')) return false;
 
-    // ═══ DEFER NGAY LẬP TỨC ═══
+    // DEFER NGAY LẬP TỨC
     try {
         if (customId.startsWith('bc_menu_')) {
             await interaction.deferReply({ ephemeral: true });
@@ -214,25 +226,22 @@ async function handleBcMenuButton(interaction) {
     // bc_regular_{day}_{guildId} từ overview (toggle quick)
     if (customId.startsWith('bc_regular_')) {
         const day = parseDayFromCustomId(customId);
-        if (DAY_CONFIG[day]?.primary !== true) { await interaction.editReply({ content: 'âš ï¸ "LuÃ´n tham gia" chá»‰ Ã¡p dá»¥ng cho Thá»© 7 vÃ  Chá»§ Nháº­t.', embeds: [], components: [] }); return true; }
         if (!day || !DAY_CONFIG[day]) return true;
         if (DAY_CONFIG[day]?.primary !== true) {
-            await interaction.editReply({ content: 'âš ï¸ "LuÃ´n tham gia" chá»‰ Ã¡p dá»¥ng cho Thá»© 7 vÃ  Chá»§ Nháº­t.' });
+            await interaction.editReply({ content: '⚠️ "Luôn tham gia" chỉ áp dụng cho Thứ 7 và Chủ Nhật.' });
             return true;
         }
         const isRegular = db.isBcRegular(guildId, userId, day);
 
         if (isRegular) {
             db.removeBcRegular(guildId, userId, day);
-            await removeBcRegular(guildId, userId, day);
-            await removeBcRegular(guildId, userId, day);
+            await removeBcRegular(guildId, userId, day); // Sync Supabase
             await interaction.editReply({
                 content: `✅ Đã tắt "Luôn tham gia" ${DAY_CONFIG[day].name}.`
             });
         } else {
             db.addBcRegular(guildId, userId, username, day);
-            await syncBcRegular(guildId, userId, username, day);
-            await syncBcRegular(guildId, userId, username, day);
+            await syncBcRegular(guildId, userId, username, day); // Sync Supabase
 
             let autoJoinMsg = '';
             const session = db.getActiveBangchienByDay(guildId, day);
@@ -274,13 +283,13 @@ async function handleBcMenuButton(interaction) {
         const sessionMap = {};
         allSessions.forEach(s => { if (s.day) sessionMap[s.day] = s; });
 
-        const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
         const dayShortLabels = { 'mon': 'T2', 'tue': 'T3', 'wed': 'T4', 'thu': 'T5', 'fri': 'T6', 'sat': 'T7', 'sun': 'CN' };
-        const activeDays = Object.keys(sessionMap).sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+        // Sắp xếp theo ngày gần nhất (ngày sắp đến trước)
+        const activeDays = sortDaysByNearest(Object.keys(sessionMap));
 
         const embed = new EmbedBuilder()
             .setColor(0x3498DB)
-            .setTitle('🔍 XEM DANH SÁCH BANG CHIẾN')
+            .setTitle('📋 XEM DANH SÁCH BANG CHIẾN')
             .setDescription('Chọn ngày để xem danh sách chi tiết:');
 
         for (const day of activeDays) {
@@ -312,7 +321,7 @@ async function handleBcMenuButton(interaction) {
         row.addComponents(
             new ButtonBuilder()
                 .setCustomId(`bcmenu_close_${guildId}`)
-                .setLabel('🚪 Đóng')
+                .setLabel('🔴 Đóng')
                 .setStyle(ButtonStyle.Secondary)
         );
 
@@ -333,7 +342,7 @@ async function handleBcMenuButton(interaction) {
 
         const { createBangchienEmbed } = require('../commands/bangchien/bangchien');
         const embed = createBangchienEmbed(session.party_key, session.leader_name, interaction.guild);
-        embed.setFooter({ text: 'Menu này chỉ bạn thấy • Hôm nay lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) });
+        embed.setFooter({ text: 'Menu này chỉ bạn thấy | Hôm nay lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) });
 
         const shortLabel = { mon: 'T2', tue: 'T3', wed: 'T4', thu: 'T5', fri: 'T6', sat: 'T7', sun: 'CN' }[day] || day.toUpperCase();
         const isInDay = isUserInSession(session, userId);
@@ -360,7 +369,7 @@ async function handleBcMenuButton(interaction) {
             actionRow.addComponents(
                 new ButtonBuilder()
                     .setCustomId(`bcmenu_regular_${day}_${guildId}`)
-                    .setLabel(isRegularDay ? `🔄 Bỏ luôn ${shortLabel}` : `🔄 Luôn ${shortLabel}`)
+                    .setLabel(isRegularDay ? `📌 Bỏ luôn ${shortLabel}` : `📌 Luôn ${shortLabel}`)
                     .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
             );
         }
@@ -374,7 +383,7 @@ async function handleBcMenuButton(interaction) {
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId(`bcmenu_close_${guildId}`)
-                    .setLabel('🚪 Đóng')
+                    .setLabel('🔴 Đóng')
                     .setStyle(ButtonStyle.Danger)
             );
 

@@ -134,14 +134,14 @@ function getRandomStatus() {
 
 /**
  * Auto-cleanup session BC hết hạn + re-schedule timer auto-end cho session còn hạn
- * Chạy khi bot khxi "ng Ồ ảm bảo setTimeout không b9 mất sau restart
+ * Chạy khi bot khởi động để đảm bảo setTimeout không bị mất sau restart
  */
 async function cleanupAndRescheduleBc(client) {
   const { autoCleanupExpiredSessions, isSessionExpired, DAY_CONFIG,
     bangchienNotifications, bangchienRegistrations, bangchienChannels
   } = require('../../utils/bangchienState');
 
-  console.log('[ready] Bắt ầu cleanup + re-schedule BC...');
+  console.log('[ready] Bắt đầu cleanup + re-schedule BC...');
 
   for (const [, guild] of client.guilds.cache) {
     const guildId = guild.id;
@@ -155,12 +155,12 @@ async function cleanupAndRescheduleBc(client) {
     // 2. Re-schedule timer cho session còn hạn
     const activeSessions = db.getActiveBangchienByGuild(guildId);
     for (const session of activeSessions) {
-      if (isSessionExpired(session)) continue; // ã cleanup x trên
+      if (isSessionExpired(session)) continue; // đã cleanup ở trên
 
       const day = session.day;
       if (!day) continue;
 
-      // Tính thời gian ến 23:00 VN ngày BC
+      // Tính thời gian đến 23:00 VN ngày BC
       const vnOffset = 7 * 60;
       const localOffset = new Date().getTimezoneOffset();
       const now = new Date();
@@ -201,7 +201,7 @@ async function cleanupAndRescheduleBc(client) {
               await channel.send({ embeds: [embed] });
             }
           } catch (e) {
-            console.error('[ready] Li re-scheduled auto-end:', e.message);
+            console.error('[ready] Lỗi re-scheduled auto-end:', e.message);
           }
         }, msUntilCleanup);
 
@@ -319,8 +319,15 @@ function getRosterDisplayName(member) {
 
 function buildSessionChangeSummaries(localSession, newData) {
   const actorMeta = parseLeaderIdsForDiff(newData.leader_ids);
-  const actorName = actorMeta.editor_name || localSession.leader_name || 'Ai ó';
   const editorAction = actorMeta.editor_action || 'sync';
+
+  // Nếu là self_join hoặc self_leave: thông báo đúng là member tự thực hiện
+  // không dùng fallback về localSession.leader_name
+  const isSelfAction = editorAction === 'self_join' || editorAction === 'self_leave';
+  const actorName = isSelfAction
+    ? (actorMeta.editor_name || 'Thành viên')
+    : (actorMeta.editor_name || localSession.leader_name || 'Ai đó');
+
   const oldTeams = {
     team_attack1: parseSessionTeamForDiff(localSession.team_attack1),
     team_attack2: parseSessionTeamForDiff(localSession.team_attack2),
@@ -362,13 +369,16 @@ function buildSessionChangeSummaries(localSession, newData) {
   };
 
   const leaderMessages = [];
-  for (const [leaderKey, teamKey] of Object.entries(leaderTeamKeys)) {
-    const beforeId = oldLeaderIds[leaderKey] || null;
-    const afterId = newLeaderIds[leaderKey] || null;
-    if (beforeId === afterId) continue;
-    const target = newTeams[teamKey].find((member) => member.id === afterId);
-    if (afterId && target) {
-      leaderMessages.push(`${actorName} ã ặt ${getRosterDisplayName(target)} làm leader ${TEAM_LABELS_SHORT[teamKey]}.`);
+  // Không thông báo leader thay đổi với self_join/self_leave
+  if (!isSelfAction) {
+    for (const [leaderKey, teamKey] of Object.entries(leaderTeamKeys)) {
+      const beforeId = oldLeaderIds[leaderKey] || null;
+      const afterId = newLeaderIds[leaderKey] || null;
+      if (beforeId === afterId) continue;
+      const target = newTeams[teamKey].find((member) => member.id === afterId);
+      if (afterId && target) {
+        leaderMessages.push(`${actorName} đã đặt ${getRosterDisplayName(target)} làm leader ${TEAM_LABELS_SHORT[teamKey]}.`);
+      }
     }
   }
 
@@ -385,10 +395,10 @@ function buildSessionChangeSummaries(localSession, newData) {
   const changedSizes = (editorAction === 'resize' && hasValidResizeTotal)
     ? Object.entries(sizeKeys)
       .filter(([key]) => newSizes[key] !== undefined && newSizes[key] !== oldSizes[key])
-      .map(([key, label]) => `${label} ${oldSizes[key]}${newSizes[key]}`)
+      .map(([key, label]) => `${label} ${oldSizes[key]}→${newSizes[key]}`)
     : [];
   if (changedSizes.length) {
-    sizeMessages.push(`${actorName} ã "i size "i hình: ${changedSizes.join(', ')}.`);
+    sizeMessages.push(`${actorName} đã đổi size đội hình: ${changedSizes.join(', ')}.`);
   }
   const oldMap = new Map();
   const newMap = new Map();
@@ -399,17 +409,33 @@ function buildSessionChangeSummaries(localSession, newData) {
   for (const [memberId, nextInfo] of newMap.entries()) {
     const prevInfo = oldMap.get(memberId);
     if (!prevInfo) {
-      moveMessages.push(`${actorName} ã thêm ${getRosterDisplayName(nextInfo.member)} vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      // Thành viên mới xuất hiện
+      if (editorAction === 'self_join') {
+        // Chính người dùng tự đăng ký
+        moveMessages.push(`${actorName} đã tự đăng ký vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      } else {
+        moveMessages.push(`${actorName} đã thêm ${getRosterDisplayName(nextInfo.member)} vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      }
       continue;
     }
     if (prevInfo.teamKey === nextInfo.teamKey) continue;
     const memberName = getRosterDisplayName(nextInfo.member);
     if (nextInfo.teamKey === 'waiting_list') {
-      moveMessages.push(`${actorName} ã ưa ${memberName} về hàng chờ.`);
+      moveMessages.push(`${actorName} đã đưa ${memberName} về hàng chờ.`);
     } else if (prevInfo.teamKey === 'waiting_list') {
-      moveMessages.push(`${actorName} ã ưa ${memberName} vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      moveMessages.push(`${actorName} đã đưa ${memberName} vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
     } else {
-      moveMessages.push(`${actorName} ã di chuyỒn ${memberName} sang ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      moveMessages.push(`${actorName} đã di chuyển ${memberName} sang ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+    }
+  }
+
+  // Thành viên rời đi (tự hủy đăng ký)
+  for (const [memberId, prevInfo] of oldMap.entries()) {
+    if (!newMap.has(memberId)) {
+      if (editorAction === 'self_leave') {
+        moveMessages.push(`${actorName} đã tự hủy đăng ký.`);
+      }
+      // Các hành động leader kick sẽ không xuất hiện ở đây vì đã có kickToWaiting notification riêng
     }
   }
 
@@ -420,7 +446,7 @@ function buildSessionChangeSummaries(localSession, newData) {
 async function sendSessionChangeSummaries(client, guild, session, summaries = []) {
   if (!session?.channel_id || !summaries.length) return;
 
-  // Dedup: chong gui trung trong 5 giay
+  // Dedup: chống gửi trùng trong 5 giây
   const dedupKey = session.day || session.party_key || 'x';
   const dedupHash = summaries.join('|');
   const _last = _sessionNotifDedup.get(dedupKey);
@@ -442,13 +468,13 @@ async function sendSessionChangeSummaries(client, guild, session, summaries = []
 }
 
 const TACTICS_DAY_LABELS = {
-  mon: 'Thu 2',
-  tue: 'Thu 3',
-  wed: 'Thu 4',
-  thu: 'Thu 5',
-  fri: 'Thu 6',
-  sat: 'Thu 7',
-  sun: 'Chu Nhat'
+  mon: 'Thứ 2',
+  tue: 'Thứ 3',
+  wed: 'Thứ 4',
+  thu: 'Thứ 5',
+  fri: 'Thứ 6',
+  sat: 'Thứ 7',
+  sun: 'Chủ Nhật'
 };
 
 function normalizeTacticsStrategyName(value) {
@@ -573,8 +599,8 @@ async function sendTacticsSaveNotice(client, guild, historyEntry) {
   const dayLabel = TACTICS_DAY_LABELS[historyEntry.day] || historyEntry.day;
   const sessionLabel = `${dayLabel} ${session.time || '19:30'}`;
   const content = strategyName
-    ? `${actorName} da luu chien thuat "${strategyName}" cho ${sessionLabel}.`
-    : `${actorName} da luu chien thuat cho ${sessionLabel}.`;
+    ? `${actorName} đã lưu chiến thuật "${strategyName}" cho ${sessionLabel}.`
+    : `${actorName} đã lưu chiến thuật cho ${sessionLabel}.`;
 
   await channel.send({ content });
 }
@@ -583,7 +609,7 @@ module.exports = {
   name: 'ready',
   once: true,
   async execute(client) {
-    console.log(`Bot ${client.user.tag} ã online!`);
+    console.log(`Bot ${client.user.tag} đã online!`);
 
     // Migrate old display roles sang tên mới
     await migrateDisplayRoles(client);
@@ -591,13 +617,13 @@ module.exports = {
     await seedKcMembersIntoBotData(client);
 
 
-    // S& Đng b" lại position từ role Discord thật -> SQLite/Supabase
+    // ♦ Đồng bộ lại position từ role Discord thật -> SQLite/Supabase
     await refreshUserPositionsFromDiscord(client);
 
-    // S& Auto-cleanup session BC hết hạn + re-schedule timer
+    // ♦ Auto-cleanup session BC hết hạn + re-schedule timer
     await cleanupAndRescheduleBc(client);
 
-    // S& Khxi tạo Supabase sync cho Web Bang Chiến
+    // ♦ Khởi tạo Supabase sync cho Web Bang Chiến
     const supaOk = supaSync.initSupabase();
     if (supaOk) {
       const guild = resolvePrimaryGuild(client);
@@ -627,28 +653,28 @@ module.exports = {
             console.log(`[Supabase] Đã sync ${allUsers.length} users khi start`);
           }
         } catch (userSyncErr) {
-          console.error('[Supabase] Li sync users:', userSyncErr.message);
+          console.error('[Supabase] Lỗi sync users:', userSyncErr.message);
         }
 
-        // Lắng nghe thay "i từ web   sync ngược về SQLite + xoá role
-        // H trợ INSERT (tạo m:i), UPDATE (thay "i danh sách) và DELETE (xóa session)
+        // Lắng nghe thay đổi từ web → sync ngược về SQLite + xoá role
+        // Hỗ trợ INSERT (tạo mới), UPDATE (thay đổi danh sách) và DELETE (xóa session)
         supaSync.listenForWebChanges(guild.id, async (newData) => {
-          // """ CASE: INSERT session từ web """
+          // CASE: INSERT session từ web
           if (newData._inserted) {
             try {
               const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, createPartyKey, refreshOverviewEmbed } = require('../../utils/bangchienState');
               const day = newData.day;
               const dayConfig = DAY_CONFIG[day];
-              if (!dayConfig) { console.log(`[Supabase] a️ Ngày không hợp l!: ${day}`); return; }
+              if (!dayConfig) { console.log(`[Supabase] ⚠️ Ngày không hợp lệ: ${day}`); return; }
 
-              // KiỒm tra ã có session cho ngày này chưa
+              // Kiểm tra đã có session cho ngày này chưa
               const existing = db.getActiveBangchienByDay(guild.id, day);
-              if (existing) { console.log(`[Supabase] a️ Session ${day} ã tn tại trong SQLite, bỏ qua INSERT`); return; }
+              if (existing) { console.log(`[Supabase] ⚠️ Session ${day} đã tồn tại trong SQLite, bỏ qua INSERT`); return; }
 
-              // Lấy kênh BC ã set bằng ?setbc
+              // Lấy kênh BC đã set bằng ?setbc
               const bcChannelId = db.getConfig(`bc_channel_${guild.id}`);
               if (!bcChannelId) {
-                console.log(`[Supabase] a️ Chưa set kênh BC (?setbc). Không thỒ tạo session từ web.`);
+                console.log(`[Supabase] ⚠️ Chưa set kênh BC (?setbc). Không thể tạo session từ web.`);
                 return;
               }
 
@@ -673,7 +699,7 @@ module.exports = {
                 note: newData.note || null
               });
 
-              // Khxi tạo trong memory
+              // Khởi tạo trong memory
               bangchienRegistrations.set(partyKey, []);
               bangchienNotifications.set(partyKey, {
                 intervalId: null,
@@ -738,16 +764,16 @@ module.exports = {
                 const noteStr = newData.note ? `  _${newData.note}_` : '';
                 const embed = new EmbedBuilder()
                   .setColor(dayConfig.color)
-                  .setTitle(`x " BANG CHIẾN ${dayConfig.name.toUpperCase()} ĐÒ M~!`)
-                  .setDescription(`x Được tạo từ **${creatorName}**${noteStr}\n⏰ Thời gian: **${newData.time || '19:30'}**\n\n` +
-                    `${addedCount > 0 ? `S& Đã tự "ng thêm **${addedCount}** người tham gia thường xuyên\n\n` : ''}` +
-                    `x Dùng \`?bc\` Ồ xem t"ng quan hoặc Ēng ký trên web.`)
+                  .setTitle(`💀 BANG CHIẾN ${dayConfig.name.toUpperCase()} ĐÃ MỞ!`)
+                  .setDescription(`✅ Được tạo từ **${creatorName}**${noteStr}\n⏰ Thời gian: **${newData.time || '19:30'}**\n\n` +
+                    `${addedCount > 0 ? `👥 Đã tự động thêm **${addedCount}** người tham gia thường xuyên\n\n` : ''}` +
+                    `📝 Dùng \`?bc\` để xem tổng quan hoặc Đăng ký trên web.`)
                   .setTimestamp();
                 await channel.send({ embeds: [embed] });
               }
 
-              // Gửi overview embed (bảng t"ng quan) ngay sau thông báo
-              // Nếu ã có overview   xóa cũ ri gửi m:i. Nếu chưa có   tạo m:i luôn.
+              // Gửi overview embed (bảng tổng quan) ngay sau thông báo
+              // Nếu đã có overview → xóa cũ rồi gửi mới. Nếu chưa có → tạo mới luôn.
               const { createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
               const { bangchienOverviews } = require('../../utils/bangchienState');
               
@@ -757,7 +783,7 @@ module.exports = {
                 try { if (existingOverview.message) await existingOverview.message.delete(); } catch (e) { }
               }
               
-              // Gửi overview embed m:i vào kênh BC
+              // Gửi overview embed mới vào kênh BC
               if (channel) {
                 const overviewEmbed = createOverviewEmbed(guild.id, guild);
                 const overviewButton = createOverviewButton(guild.id);
@@ -765,7 +791,7 @@ module.exports = {
                 if (overviewButton) sendOptions.components = [overviewButton];
                 const overviewMsg = await channel.send(sendOptions);
                 
-                // Lưu vào Map Ồ các handler khác có thỒ refresh
+                // Lưu vào Map để các handler khác có thể refresh
                 bangchienOverviews.set(guild.id, {
                   messageId: overviewMsg.id,
                   channelId: bcChannelId,
@@ -773,20 +799,20 @@ module.exports = {
                 });
               }
 
-              // Cập nhật l9ch tuần
+              // Cập nhật lịch tuần
               try {
                 const { refreshScheduleEmbed } = require('../../commands/thongbao/thongbaoguild');
                 await refreshScheduleEmbed(client, guild.id, null, 'resend');
               } catch (e) { }
 
-              console.log(`[Supabase] S& Web INSERT   tạo SQLite session ${day}, ${addedCount} regulars, thông báo #${channel?.name || bcChannelId}`);
+              console.log(`[Supabase] ✅ Web INSERT → tạo SQLite session ${day}, ${addedCount} regulars, thông báo #${channel?.name || bcChannelId}`);
             } catch (err) {
-              console.error('[Supabase] R Xử lý web INSERT li:', err.message);
+              console.error('[Supabase] ❌ Xử lý web INSERT lỗi:', err.message);
             }
             return;
           }
 
-          // """ CASE: DELETE session từ web """
+          // CASE: DELETE session từ web
           if (newData._deleted) {
             try {
               const { bangchienNotifications, bangchienRegistrations, bangchienChannels, getGuildBangchienKeys } = require('../../utils/bangchienState');
@@ -849,8 +875,8 @@ module.exports = {
             return;
           }
 
-          // """ CASE: UPDATE session từ web """
-          console.log(`[Supabase] x Web ã sửa BC session (${newData.day})`);
+          // CASE: UPDATE session từ web
+          console.log(`[Supabase] 🔄 Web đã sửa BC session (${newData.day})`);
           try {
             const sessions = db.getActiveBangchienByGuild(guild.id);
             const localSession = sessions.find(s => s.day === newData.day);
@@ -973,17 +999,17 @@ module.exports = {
             }
 
           } catch (syncBackErr) {
-            console.error('[Supabase] R Sync ngược li:', syncBackErr.message);
+            console.error('[Supabase] ❌ Sync ngược lỗi:', syncBackErr.message);
           }
         });
       }
     }
 
-    // Khxi tạo notifications từ file
+    // Khởi tạo notifications từ file
     thongbao.initializeNotifications(client);
 
-    // Khxi tạo YenTiec Time Change Reminder
-    // Tự "ng lấy channel ID từ YenTiec notification ã lưu
+    // Khởi tạo YenTiec Time Change Reminder
+    // Tự động lấy channel ID từ YenTiec notification đã lưu
     const { weeklyNotifications } = require('../../utils/notificationState');
     let yentiecChannelId = null;
     for (const [id, notif] of weeklyNotifications) {
@@ -1000,7 +1026,7 @@ module.exports = {
       console.log('[yentiecReminder] No YenTiec notification found, skipping');
     }
 
-    // Set status ban ầu (random)
+    // Set status ban đầu (random)
     client.user.setPresence({
       activities: [getRandomStatus()],
       status: 'online',

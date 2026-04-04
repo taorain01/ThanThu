@@ -1,18 +1,18 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════════
+ * PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
  * bangchienManageHandlers.js - Handlers cho Quản lý Bang Chiến
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * Handlers:
+ * PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+ *
+ * Handlers (hệ thống CŨ - legacy, vẫn giữ để tương thích ngược):
  *   - bangchien_regular_*         : Đăng ký tham gia định kỳ
  *   - bangchien_regular_confirm_* : Xác nhận đăng ký định kỳ
  *   - bangchien_regular_cancel_*  : Hủy đăng ký định kỳ
  *   - bangchien_kick_*            : Kick member khỏi BC party (leader only)
  *   - bangchien_priority_*        : Ưu tiên member từ danh sách chờ (leader only)
  *   - bangchien_finalize_*        : Chốt danh sách BC (leader only)
- * 
+ *
  * Được import vào: src/events/client/interactionCreate.js
- * ═══════════════════════════════════════════════════════════════════════════
+ * PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
  */
 
 const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
@@ -20,17 +20,17 @@ const { bangchienNotifications, bangchienRegistrations, bangchienFinalizedPartie
 
 /**
  * Xử lý button interactions cho quản lý Bang Chiến
- * @param {ButtonInteraction} interaction 
- * @param {Client} client 
+ * @param {ButtonInteraction} interaction
+ * @param {Client} client
  * @returns {boolean} true nếu đã xử lý, false nếu không phải handler này
  */
 async function handleButton(interaction, client) {
     const customId = interaction.customId;
 
     try {
-        // ═══════════════════════════════════════════════════════════════
-        // Xử lý nút Định kỳ (Regular Participant) - BƯỚC 1: Hiển thị xác nhận
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+        // Xử lý nút Đăng ký (Regular Participant) - BƯỚC 1: Hiển thị xác nhận
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         if (customId.startsWith('bangchien_regular_') && !customId.includes('_confirm_') && !customId.includes('_cancel_')) {
             const partyKey = customId.replace('bangchien_regular_', '');
             const db = require('../database/db');
@@ -43,14 +43,14 @@ async function handleButton(interaction, client) {
             // Tạo embed xác nhận với hint
             const confirmEmbed = new EmbedBuilder()
                 .setColor(isRegular ? 0xE74C3C : 0x3498DB)
-                .setTitle(isRegular ? '❌ HỦY ĐĂNG KÝ THAM GIA ĐỊNH KỲ?' : '🔄 XÁC NHẬN THAM GIA ĐỊNH KỲ?')
+                .setTitle(isRegular ? '❌ HỦY ĐĂNG KÝ THAM GIA ĐỊNH KỲ?' : '✅ XÁC NHẬN THAM GIA ĐỊNH KỲ?')
                 .setDescription(
                     isRegular
                         ? '**Bạn có chắc muốn hủy đăng ký tham gia định kỳ?**\n\n' +
                         '⚠️ Sau khi hủy, bạn sẽ **không** tự động được thêm vào danh sách khi có trận Bang Chiến mới.'
                         : '**Bạn có chắc muốn đăng ký tham gia định kỳ?**\n\n' +
-                        '💡 **Lưu ý:** Nếu nhấn xác nhận, bạn sẽ **tự động được thêm vào** danh sách đăng ký mỗi khi có trận Bang Chiến mới được mở.\n\n' +
-                        '✅ Phù hợp với những người **luôn tham gia** các trận Bang Chiến của bang.'
+                        '📌 **Lưu ý:** Nếu nhấn xác nhận, bạn sẽ **tự động được thêm vào** danh sách đăng ký mỗi khi có trận Bang Chiến mới được mở.\n\n' +
+                        '✨ Phù hợp với những người **luôn tham gia** các trận Bang Chiến của bang.'
                 )
                 .setFooter({ text: 'Bạn có 30 giây để xác nhận' });
 
@@ -74,9 +74,9 @@ async function handleButton(interaction, client) {
             return true;
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // Xử lý nút Định kỳ - BƯỚC 2: Xử lý xác nhận
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+        // Xử lý nút Đăng ký - BƯỚC 2: Xử lý xác nhận
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         if (customId.startsWith('bangchien_regular_confirm_')) {
             const parts = customId.replace('bangchien_regular_confirm_', '').split('_');
             const partyKey = parts.slice(0, -1).join('_'); // Lấy partyKey (có thể chứa _)
@@ -116,9 +116,9 @@ async function handleButton(interaction, client) {
             return true;
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // Xử lý nút Định kỳ - BƯỚC 3: Xử lý hủy bỏ
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
+        // Xử lý nút Đăng ký - BƯỚC 3: Xử lý hủy bỏ
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         if (customId.startsWith('bangchien_regular_cancel_')) {
             const parts = customId.replace('bangchien_regular_cancel_', '').split('_');
             const targetUserId = parts[parts.length - 1];
@@ -139,9 +139,9 @@ async function handleButton(interaction, client) {
             return true;
         }
 
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         // Xử lý nút Loại bỏ (Kick) - Chỉ Leader dùng được
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         if (customId.startsWith('bangchien_kick_')) {
             const partyKey = customId.replace('bangchien_kick_', '');
 
@@ -197,9 +197,9 @@ async function handleButton(interaction, client) {
             return true;
         }
 
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         // Xử lý nút Ưu tiên - Đưa người từ danh sách chờ lên danh sách chính
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         if (customId.startsWith('bangchien_priority_') && !customId.startsWith('bangchien_priority_select_')) {
             const partyKey = customId.replace('bangchien_priority_', '');
 
@@ -255,9 +255,9 @@ async function handleButton(interaction, client) {
             return true;
         }
 
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         // Xử lý nút Chốt danh sách Bang Chiến
-        // ═══════════════════════════════════════════════════════════════
+        // PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP
         if (customId.startsWith('bangchien_finalize_')) {
             const partyKey = customId.replace('bangchien_finalize_', '');
 
@@ -326,8 +326,8 @@ async function handleButton(interaction, client) {
                 return chunks;
             }
 
-            // Role emojis - tất cả DPS dùng 🔵
-            const roleEmojis = { 'DPS': '🔵', 'Quạt Dù': '🔵', 'Vô Danh': '🔵', 'Song Đao': '🔵', 'Cửu Kiếm': '🔵', 'Healer': '🟢', 'Tanker': '🟠', 'Unknown': '❓' };
+            // Role emojis - tất cả DPS dùng 🟢
+            const roleEmojis = { 'DPS': '🟢', 'Quạt Dù': '🟢', 'Vô Danh': '🟢', 'Song Đao': '🟢', 'Cửu Kiếm': '🟢', 'Healer': '🔵', 'Tanker': '🟠', 'Unknown': '❓' };
 
             // Helper: detect role từ Discord - ƯU TIÊN Healer/Tanker
             function getMemberRole(memberId) {
@@ -375,19 +375,19 @@ async function handleButton(interaction, client) {
             // Thống kê team
             const defStats = teamResult.stats.defense;
             const offStats = teamResult.stats.offense;
-            const defenseStats = `🟢${defStats.healer} 🟠${defStats.tanker} 🔵${defStats.dps}` + (defStats.unknown > 0 ? ` ❓${defStats.unknown}` : '');
-            const offenseStats = `🟢${offStats.healer} 🟠${offStats.tanker} 🔵${offStats.dps}` + (offStats.unknown > 0 ? ` ❓${offStats.unknown}` : '');
+            const defenseStats = `🔵${defStats.healer} 🟠${defStats.tanker} 🟢${defStats.dps}` + (defStats.unknown > 0 ? ` ❓${defStats.unknown}` : '');
+            const offenseStats = `🔵${offStats.healer} 🟠${offStats.tanker} 🟢${offStats.dps}` + (offStats.unknown > 0 ? ` ❓${offStats.unknown}` : '');
 
             // Tạo embed chốt danh sách với 2 team
             const finalEmbed = new EmbedBuilder()
                 .setColor(0x9B59B6)
-                .setTitle('⚔️ CHỐT DANH SÁCH BANG CHIẾN LANG GIA!');
+                .setTitle('📋 CHỐT DANH SÁCH BANG CHIẾN LANG GIA!');
 
             // Thêm Team Phòng Thủ
             const defenseChunks = splitListIntoChunks(defenseList);
             defenseChunks.forEach((chunk, index) => {
                 finalEmbed.addFields({
-                    name: index === 0 ? `🛡️ TEAM PHÒNG THỦ (${teamResult.defense.length}) [${defenseStats}]` : '​',
+                    name: index === 0 ? `🛡️ TEAM PHÒNG THỦ (${teamResult.defense.length}) [${defenseStats}]` : '\u200b',
                     value: chunk,
                     inline: false
                 });
@@ -397,7 +397,7 @@ async function handleButton(interaction, client) {
             const offenseChunks = splitListIntoChunks(offenseList);
             offenseChunks.forEach((chunk, index) => {
                 finalEmbed.addFields({
-                    name: index === 0 ? `⚔️ TEAM TẤN CÔNG (${teamResult.offense.length}) [${offenseStats}]` : '​',
+                    name: index === 0 ? `⚔️ TEAM TẤN CÔNG (${teamResult.offense.length}) [${offenseStats}]` : '\u200b',
                     value: chunk,
                     inline: false
                 });
@@ -409,7 +409,7 @@ async function handleButton(interaction, client) {
                 const waitingChunks = splitListIntoChunks(waitingListText);
                 waitingChunks.forEach((chunk, index) => {
                     finalEmbed.addFields({
-                        name: index === 0 ? `⏳ Danh sách chờ (${waitingList.length} người)` : '​',
+                        name: index === 0 ? `⏳ Danh sách chờ (${waitingList.length} người)` : '\u200b',
                         value: chunk,
                         inline: false
                     });
@@ -425,7 +425,7 @@ async function handleButton(interaction, client) {
                 });
             }
 
-            finalEmbed.setFooter({ text: `💡 Leader reply tin này để tag tất cả • Tổng đăng ký: ${registrations.length}` })
+            finalEmbed.setFooter({ text: `👑 Leader reply tin này để tag tất cả | Tổng đăng ký: ${registrations.length}` })
                 .setTimestamp();
 
             // Gửi thông báo chốt danh sách (KHÔNG tag ngay)
@@ -433,7 +433,7 @@ async function handleButton(interaction, client) {
                 embeds: [finalEmbed]
             });
 
-            // Lưu danh sách để reply tag sau (cả memory và database)
+            // Lưu danh sách để reply tag sau (có memory và database)
             const participantData = selectedParticipants.map(r => ({ id: r.id, username: r.username }));
 
             // Lưu vào memory cho reply-to-tag ngay lập tức

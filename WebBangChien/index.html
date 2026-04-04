@@ -3527,6 +3527,7 @@ async function fetchAndRenderProfile() {
         // Fetch bc_sessions để tính số BC đã tham gia
         let bcCount = 0;
         let bcDays = [];
+        let mainRole = '';
         if (sb && discordId && discordId !== '–') {
             const { data: sessions } = await sb.from('bc_sessions')
                 .select('day, team_attack1, team_attack2, team_defense, team_forest, waiting_list')
@@ -3537,7 +3538,12 @@ async function fetchAndRenderProfile() {
                     const isIn = allTeams.some(key => {
                         try {
                             const arr = typeof s[key] === 'string' ? JSON.parse(s[key]) : (s[key] || []);
-                            return arr.some(p => p.id === discordId);
+                            const player = arr.find(p => p.id === discordId);
+                            if (player) {
+                                if (!mainRole && player.role) mainRole = player.role;
+                                return true;
+                            }
+                            return false;
                         } catch { return false; }
                     });
                     if (isIn) { bcCount++; bcDays.push(s.day); }
@@ -3549,8 +3555,18 @@ async function fetchAndRenderProfile() {
         const gameUsername = userData?.game_username || '–';
         const gameUid = userData?.game_uid || '–';
         const subRole = userData?.sub_role || '';
-        const roleClass = ROLE_CLASS[subRole] || 'dps';
-        const subLabel = SUB_LABELS[subRole] || subRole || '–';
+        let roleClass = ROLE_CLASS[subRole] || 'dps';
+        let subLabel = SUB_LABELS[subRole] || subRole || '–';
+
+        if (!subRole) {
+            if (mainRole === 'Tanker') {
+                subLabel = 'Đao / Thương';
+                roleClass = 'tanker';
+            } else if (mainRole === 'Healer') {
+                subLabel = 'Quạt / Dù';
+                roleClass = 'healer';
+            }
+        }
 
         pmInfoGrid.innerHTML = `
           <div class="pm-info-card">

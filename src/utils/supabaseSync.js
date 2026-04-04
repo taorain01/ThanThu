@@ -839,13 +839,15 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
 // SYNC EXP LEVELS (cho tab Level trên web profile)
 // ═══════════════════════════════════════════════════════════════
 
+let _hasExpLevelsTable = true;
+
 /**
  * Sync toàn bộ exp_levels lên Supabase (bàng bc_exp_levels)
  * Gọi khi bot start
  * @param {Object} db - Database module (economy)
  */
 async function syncExpLevels(db) {
-    if (!isReady()) return;
+    if (!isReady() || !_hasExpLevelsTable) return;
     try {
         let allExp = [];
         if (db && db.db) {
@@ -869,9 +871,16 @@ async function syncExpLevels(db) {
             const { error } = await supabase
                 .from('bc_exp_levels')
                 .upsert(batch, { onConflict: 'discord_id' });
-            if (error) { console.error('[Supabase] ❌ Sync exp_levels lỗi:', error.message); }
+            if (error) { 
+                if (/schema cache|find the table/.test(error.message)) {
+                    _hasExpLevelsTable = false;
+                    console.error('[Supabase] ❌ Bảng bc_exp_levels chưa được tạo trên Supabase. Đã tắt syncExpLevels để tránh spam lỗi.');
+                    return;
+                }
+                console.error('[Supabase] ❌ Sync exp_levels lỗi:', error.message); 
+            }
         }
-        console.log(`[Supabase] ✅ Sync ${allExp.length} exp_levels thành công`);
+        if (_hasExpLevelsTable) console.log(`[Supabase] ✅ Sync ${allExp.length} exp_levels thành công`);
     } catch (err) {
         console.error('[Supabase] ❌ syncExpLevels exception:', err.message);
     }
@@ -883,7 +892,7 @@ async function syncExpLevels(db) {
  * @param {Object} expRecord - { level, total_exp, text_exp, voice_exp, total_messages, total_voice_minutes }
  */
 async function syncOneExpLevel(discordId, expRecord) {
-    if (!isReady()) return;
+    if (!isReady() || !_hasExpLevelsTable) return;
     try {
         const { error } = await supabase
             .from('bc_exp_levels')
@@ -896,7 +905,14 @@ async function syncOneExpLevel(discordId, expRecord) {
                 total_messages: expRecord.total_messages || expRecord.totalMessages || 0,
                 total_voice_minutes: expRecord.total_voice_minutes || expRecord.totalVoiceMinutes || 0
             }, { onConflict: 'discord_id' });
-        if (error) { console.error('[Supabase] ❌ Sync exp user lỗi:', error.message); }
+        if (error) { 
+            if (/schema cache|find the table/.test(error.message)) {
+                _hasExpLevelsTable = false;
+                console.error('[Supabase] ❌ Bảng bc_exp_levels chưa có. Đã tắt syncOneExpLevel.');
+                return;
+            }
+            console.error('[Supabase] ❌ Sync exp user lỗi:', error.message); 
+        }
     } catch (err) {
         console.error('[Supabase] ❌ syncOneExpLevel exception:', err.message);
     }

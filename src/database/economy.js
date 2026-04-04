@@ -1571,18 +1571,19 @@ function addTextExp(discordId) {
         WHERE discord_id = ?
     `).run(newTextExp, newTotalExp, newLevel, new Date().toISOString(), newMessages, discordId);
 
-    // Sync to Supabase
-    try {
-        const supaSync = require('../utils/supabaseSync');
-        supaSync.syncOneExpLevel(discordId, {
-            level: newLevel,
-            total_exp: newTotalExp,
-            text_exp: newTextExp,
-            voice_exp: record.voice_exp,
-            total_messages: newMessages,
-            total_voice_minutes: record.total_voice_minutes
-        });
-    } catch (e) {}
+    // Sync to Supabase (TẮT TẠM: bảng bc_exp_levels chưa được tạo trên Supabase)
+    // TODO: Tạo bảng bc_exp_levels trên Supabase rồi bỏ comment block này
+    // try {
+    //     const supaSync = require('../utils/supabaseSync');
+    //     supaSync.syncOneExpLevel(discordId, {
+    //         level: newLevel,
+    //         total_exp: newTotalExp,
+    //         text_exp: newTextExp,
+    //         voice_exp: record.voice_exp,
+    //         total_messages: newMessages,
+    //         total_voice_minutes: record.total_voice_minutes
+    //     });
+    // } catch (e) {}
 
     return {
         success: true,
@@ -1640,18 +1641,19 @@ function addVoiceExp(discordId, minutes = 1, isMuted = false) {
         WHERE discord_id = ?
     `).run(newVoiceExp, newTotalExp, newLevel, newVoiceMinutes, unmutedAdd, mutedAdd, discordId);
 
-    // Sync to Supabase
-    try {
-        const supaSync = require('../utils/supabaseSync');
-        supaSync.syncOneExpLevel(discordId, {
-            level: newLevel,
-            total_exp: newTotalExp,
-            text_exp: record.text_exp,
-            voice_exp: newVoiceExp,
-            total_messages: record.total_messages,
-            total_voice_minutes: newVoiceMinutes
-        });
-    } catch (e) {}
+    // Sync to Supabase (TẮT TẠM: bảng bc_exp_levels chưa được tạo trên Supabase)
+    // TODO: Tạo bảng bc_exp_levels trên Supabase rồi bỏ comment block này
+    // try {
+    //     const supaSync = require('../utils/supabaseSync');
+    //     supaSync.syncOneExpLevel(discordId, {
+    //         level: newLevel,
+    //         total_exp: newTotalExp,
+    //         text_exp: record.text_exp,
+    //         voice_exp: newVoiceExp,
+    //         total_messages: record.total_messages,
+    //         total_voice_minutes: newVoiceMinutes
+    //     });
+    // } catch (e) {}
 
     return {
         success: true,

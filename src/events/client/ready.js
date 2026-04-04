@@ -557,7 +557,14 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
         );
 
         // Khởi tạo memory state
-        bangchienRegistrations.set(partyKey, parseTeam(remoteSession.team_attack1));
+        // Set đầy đủ tất cả teams (không chỉ team_attack1) để tránh data loss
+        bangchienRegistrations.set(partyKey, [
+          ...parseTeam(remoteSession.team_attack1),
+          ...parseTeam(remoteSession.team_attack2),
+          ...parseTeam(remoteSession.team_defense),
+          ...parseTeam(remoteSession.team_forest),
+          ...parseTeam(remoteSession.waiting_list)
+        ]);
         bangchienNotifications.set(partyKey, {
           intervalId: null, channelId: bcChannelId,
           leaderId: leaderIds.creator_id || 'web',
@@ -655,12 +662,14 @@ module.exports = {
         }
 
         // Sync exp_levels lên Supabase (cho tab Level trên web profile)
-        try {
-          const economy = require('../../database/economy');
-          await supaSync.syncExpLevels(economy);
-        } catch (expSyncErr) {
-          console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
-        }
+        // TẮT TẠM: bảng bc_exp_levels chưa được tạo trên Supabase
+        // TODO: Tạo bảng bc_exp_levels rồi bỏ comment block này
+        // try {
+        //   const economy = require('../../database/economy');
+        //   await supaSync.syncExpLevels(economy);
+        // } catch (expSyncErr) {
+        //   console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
+        // }
 
         // Lắng nghe thay đổi từ web → sync ngược về SQLite + xoá role
         // Hỗ trợ INSERT (tạo mới), UPDATE (thay đổi danh sách) và DELETE (xóa session)

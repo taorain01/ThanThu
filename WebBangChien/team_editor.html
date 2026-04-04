@@ -1084,7 +1084,12 @@
           filter: `guild_id=eq.${GUILD_ID}`
         }, (payload) => {
           if (!payload.new || payload.new.day !== currentDay) return;
-          if (isDragging || isSyncing) return;
+          // Guard: bỏ qua Realtime nếu đang kéo thả, đang sync, HOẶC có thay đổi local chưa sync (debounce)
+          // Fix bug: Realtime ghi đè localState trong debounce window gây mất người
+          if (isDragging || isSyncing || debounceTimer) {
+            console.log('[Realtime] Bỏ qua vì đang có pending changes (drag/sync/debounce)');
+            return;
+          }
           hydrateFromRealtime(payload.new);
         })
         .subscribe();

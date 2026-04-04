@@ -123,10 +123,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   border:2px solid rgba(251,191,36,.8);flex-shrink:0;
   box-shadow:0 0 8px rgba(251,191,36,.4)}
 .user-badge .uname{
-  font-family:'Playfair Display',serif;font-size:16px;font-weight:900;
+  font-family:'Playfair Display',serif;font-size:26px;font-weight:900;
   background:linear-gradient(to bottom, #fffdf2 0%, #fde68a 25%, #d9a036 50%, #f5c451 75%, #fffdf2 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  letter-spacing:1px;max-width:140px;
+  letter-spacing:2px;max-width:200px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;
   padding-bottom: 2px;
 }
@@ -167,7 +167,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 
 /* ═══ PROFILE MODAL ═══ */
 .profile-modal-ov{
-  position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);
+  position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);
   display:none;align-items:center;justify-content:center;padding:16px;
   backdrop-filter:blur(4px);
 }
@@ -3752,16 +3752,21 @@ async function fetchAndRenderProfile() {
         const gameUsername = userData?.game_username || '–';
         const gameUid = userData?.game_uid || '–';
         const subRole = userData?.sub_role || '';
+        // Tìm class phù hợp từ subRole (có thể là short tag hoặc tên đầy đủ)
         let roleClass = ROLE_CLASS[subRole] || 'dps';
-        let subLabel = SUB_LABELS[subRole] || subRole || '–';
+        // Ưu tiên: label đầy đủ từ short tag → giữ nguyên nếu đã là text đầy đủ → dấu gạch ngang
+        let subLabel = SUB_LABELS[subRole] || (subRole && subRole.length > 2 ? subRole : '') || '';
 
-        if (!subRole) {
+        if (!subLabel) {
+            // Fallback theo role chính từ session
             if (mainRole === 'Tanker') {
                 subLabel = 'Đao / Thương';
                 roleClass = 'tanker';
             } else if (mainRole === 'Healer') {
                 subLabel = 'Quạt / Dù';
                 roleClass = 'healer';
+            } else {
+                subLabel = '–';
             }
         }
 
@@ -3819,7 +3824,19 @@ async function renderPmLevelTab(container, discordId) {
         // Fetch dữ liệu từ bc_exp_levels
         const { data: expData, error } = await sb.from('bc_exp_levels').select('*').eq('discord_id', discordId).maybeSingle();
         
-        if (error) throw error;
+        if (error) {
+            // Bảng bc_exp_levels chưa được tạo → hiện thông báo thân thiện
+            if (/schema cache|find the table|does not exist/i.test(error.message || '')) {
+                container.innerHTML = `
+                  <div class="pm-level-bar-wrap" style="text-align:center;padding:40px 10px">
+                    <div style="font-size:32px;margin-bottom:12px">📊</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:4px">Tính năng Level chưa sẵn sàng</div>
+                    <div style="font-size:12px;color:var(--text3)">Bot Discord cần cập nhật để đồng bộ dữ liệu EXP. Vui lòng liên hệ Kỳ Cựu.</div>
+                  </div>`;
+                return;
+            }
+            throw error;
+        }
 
         if (!expData) {
             container.innerHTML = `

@@ -3,6 +3,7 @@ description: Gửi file HTML (hoặc bất kỳ file nào) lên Discord qua Webh
 ---
 
 # Workflow: Gửi file lên Discord (GuiDiscord)
+# Khi nào tôi yêu cầu mới dùng
 
 ## Thông tin cố định
 - **Webhook URL**: `https://discord.com/api/webhooks/1489493107564216391/LyWYs432U0YN87FQ3WllNu_6t6d3xNt6rgfcp16anzxkhArx-eG9vKXJgTnxfLPUqeLR`

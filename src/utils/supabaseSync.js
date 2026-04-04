@@ -266,6 +266,78 @@ async function syncOneUser(user, guildId) {
     }
 }
 
+/**
+ * Sync toàn bộ bảng exp_levels lên Supabase (chạy 1 lần khi bot start)
+ * @param {Object} economyDb - Database/economy module
+ */
+async function syncExpLevels(economyDb) {
+    if (!isReady()) return;
+    try {
+        const rows = economyDb.getAllExpLevels();
+        if (!rows || rows.length === 0) return;
+
+        // Upsert từng batch 50 records để tránh quá tải payload
+        for (let i = 0; i < rows.length; i += 50) {
+            const batch = rows.slice(i, i + 50).map(r => ({
+                discord_id: r.discord_id,
+                level: r.level,
+                text_exp: r.text_exp,
+                voice_exp: r.voice_exp,
+                total_exp: r.total_exp,
+                total_messages: r.total_messages,
+                total_voice_minutes: r.total_voice_minutes,
+                updated_at: new Date().toISOString()
+            }));
+            const { error } = await supabase
+                .from('bc_exp_levels')
+                .upsert(batch, { onConflict: 'discord_id' });
+
+            if (error) {
+                // Nếu báo lỗi bảng chưa tồn tại thì stop (báo qua console)
+                if (/does not exist/i.test(error.message)) {
+                    console.error('[Supabase] ❌ Bảng bc_exp_levels chưa tồn tại! Hãy tạo bảng này trên Supabase.');
+                    return;
+                }
+                console.error(`[Supabase] ❌ Sync exp batch ${i} lỗi:`, error.message);
+            }
+        }
+        console.log(`[Supabase] ✅ Sync ${rows.length} exp_levels thành công`);
+    } catch (err) {
+        console.error('[Supabase] ❌ syncExpLevels exception:', err.message);
+    }
+}
+
+/**
+ * Sync 1 record EXP lên Supabase
+ * @param {string} discordId 
+ * @param {Object} expData 
+ */
+async function syncOneExpLevel(discordId, expData) {
+    if (!isReady()) return;
+    try {
+        const payload = {
+            discord_id: discordId,
+            level: expData.level,
+            text_exp: expData.text_exp,
+            voice_exp: expData.voice_exp,
+            total_exp: expData.total_exp,
+            total_messages: expData.total_messages,
+            total_voice_minutes: expData.total_voice_minutes,
+            updated_at: new Date().toISOString()
+        };
+        const { error } = await supabase
+            .from('bc_exp_levels')
+            .upsert(payload, { onConflict: 'discord_id' });
+        
+        if (error) {
+            if (/does not exist/i.test(error.message)) return; // Bảng chưa tạo
+            console.error('[Supabase] ❌ syncOneExpLevel lỗi:', error.message);
+        }
+    } catch (err) {
+        console.error('[Supabase] ❌ syncOneExpLevel exception:', err.message);
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // LOG ACTIONS
 // ═══════════════════════════════════════════════════════════════

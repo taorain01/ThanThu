@@ -47,10 +47,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 
 .landing-emblem{width:160px;height:160px;margin:0 auto 24px;border-radius:50%;overflow:hidden;
   border:3px solid rgba(200,162,44,.6);background:#1a1205;
-  filter:drop-shadow(0 0 30px rgba(200,162,44,.5)) drop-shadow(0 0 60px rgba(200,162,44,.2));
-  animation:emblemGlow 3s ease-in-out infinite}
+  box-shadow: 0 0 30px rgba(200,162,44,.5), 0 0 60px rgba(200,162,44,.2);
+  animation:emblemGlowLanding 3s ease-in-out infinite; will-change: box-shadow;}
 .landing-emblem img{width:100%;height:100%;object-fit:cover}
-@keyframes emblemGlow{0%,100%{filter:drop-shadow(0 0 30px rgba(200,162,44,.4)) drop-shadow(0 0 60px rgba(200,162,44,.15))}50%{filter:drop-shadow(0 0 40px rgba(200,162,44,.6)) drop-shadow(0 0 80px rgba(200,162,44,.25))}}
+@keyframes emblemGlowLanding{0%,100%{box-shadow: 0 0 30px rgba(200,162,44,.4), 0 0 60px rgba(200,162,44,.15);}50%{box-shadow: 0 0 40px rgba(200,162,44,.6), 0 0 80px rgba(200,162,44,.25);}}
 
 .landing-title{font-family:'Cinzel Decorative',serif;font-size:64px;font-weight:900;
   background:linear-gradient(180deg,#f0d867,#c8a22c 30%,#8b6914 50%,#c8a22c 70%,#6b4f0a);
@@ -275,11 +275,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .fire-particle:nth-child(odd){background:radial-gradient(circle,#fde68a,#fbbf24 40%,#dc2626 80%,transparent)}
 .fire-particle.ember{width:3px;height:3px;background:#fbbf24;filter:blur(0.5px);box-shadow:0 0 4px #f59e0b}
 @keyframes fireFloat{
-  0%{opacity:0;transform:translateY(0) translateX(0) scale(1)}
+  0%{opacity:0;transform:translate3d(0, 5vh, 0) scale(1)}
   10%{opacity:.7}
-  50%{opacity:.5;transform:translateY(-45vh) translateX(30px) scale(.7)}
+  50%{opacity:.5;transform:translate3d(30px, -45vh, 0) scale(.7)}
   80%{opacity:.2}
-  100%{opacity:0;transform:translateY(-100vh) translateX(-20px) scale(.3)}
+  100%{opacity:0;transform:translate3d(-20px, -105vh, 0) scale(.3)}
 }
 
 /* ═══ HEADER ═══ */
@@ -314,7 +314,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 @keyframes emblemGlow{0%,100%{box-shadow:inset 0 0 10px rgba(0,0,0,.8), 0 0 12px rgba(251,191,36,.1)}50%{box-shadow:inset 0 0 10px rgba(0,0,0,.5), 0 0 20px rgba(251,191,36,.3)}}
 .guild-emblem img{width:90%;height:90%;object-fit:contain;filter:drop-shadow(2px 2px 2px rgba(0,0,0,.8))}
 
-.guild-name-wrapper{filter:drop-shadow(0 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 10px rgba(251,191,36,.2));display:inline-block;margin-top:8px;animation:nameShine 5s linear infinite;position:relative}
+.guild-name-wrapper{filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)) drop-shadow(0 0 12px rgba(251,191,36,.3));display:inline-block;margin-top:8px;position:relative}
 .guild-name{font-family:'Playfair Display',serif;font-size:42px;font-weight:900;
   background:linear-gradient(to bottom, #fffdf2 0%, #fde68a 25%, #d9a036 50%, #f5c451 75%, #fffdf2 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -328,10 +328,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 @keyframes shineSweep{
   0%{background-position:-200% center}
   100%{background-position:200% center}
-}
-@keyframes nameShine{
-  0%,100%{filter:drop-shadow(0 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 10px rgba(251,191,36,.2));}
-  50%{filter:drop-shadow(0 2px 4px rgba(0,0,0,.8)) drop-shadow(0 0 18px rgba(251,191,36,.4));}
 }
 
 .header-info{margin-left:auto;display:flex;gap:24px;align-items:center}
@@ -1350,24 +1346,20 @@ try {
 // ═══ FIRE PARTICLES (hiệu ứng lửa bay nhẹ) ═══
 function createFireParticles() {
     const fc = document.getElementById('fireContainer');
-    function spawnFire() {
+    // Chỉ tạo một số lượng hạt cố định 1 lần duy nhất để tối ưu hiệu suất (DOM Pooling)
+    for (let i = 0; i < 20; i++) {
         const p = document.createElement('div');
         const isEmber = Math.random() > 0.6;
         p.className = isEmber ? 'fire-particle ember' : 'fire-particle';
-        const size = isEmber ? 3 : (4 + Math.random() * 6);
+        const size = isEmber ? (2 + Math.random()*2) : (4 + Math.random() * 6);
         p.style.width = size + 'px';
         p.style.height = size + 'px';
         p.style.left = Math.random() * 100 + '%';
-        const dur = 5 + Math.random() * 8;
-        p.style.animationDuration = dur + 's';
-        p.style.animationDelay = '0s';
+        const dur = 5 + Math.random() * 7;
+        const delay = -(Math.random() * 8); // Bắt đầu rải rác ngay lập tức
+        p.style.animation = `fireFloat ${dur}s linear ${delay}s infinite`;
         fc.appendChild(p);
-        setTimeout(() => p.remove(), dur * 1000);
     }
-    // Tạo ban đầu
-    for (let i = 0; i < 8; i++) setTimeout(() => spawnFire(), Math.random() * 3000);
-    // Liên tục spawn mới
-    setInterval(spawnFire, 800 + Math.random() * 500);
 }
 createFireParticles();
 
@@ -2791,18 +2783,6 @@ function buildIndexAutoTasksForMark(mark, previousMark = null) {
         const label = TASK_AUTO_JUNGLE_LABELS[objId] || objId;
         const currentEntry = jungleState[objId] || { blue: [], windows: {} };
         const previousEntry = previousJungleState[objId] || { blue: [], windows: {} };
-        if (currentEntry.blue.length && !taskAutoIdsEqual(currentEntry.blue, previousEntry.blue)) {
-            currentEntry.blue.forEach(playerId => {
-                const task = createIndexAutoTask({
-                    id: `auto:jungle:global:${time}:${objId}:${playerId}`,
-                    time,
-                    target: playerId,
-                    text: `Ăn ${label} mỗi lần xuất hiện`,
-                    generatedType: 'jungle-global'
-                });
-                if (task) autoTasks.push(task);
-            });
-        }
         const spawnTimes = [...new Set([
             ...Object.keys(currentEntry.windows || {}),
             ...Object.keys(previousEntry.windows || {})
@@ -2867,6 +2847,45 @@ function buildIndexCompiledTimelineTasks(markList = []) {
         compiled.push(...buildIndexAutoTasksForMark(mark, previousMark));
         compiled.push(...((mark.tasks || []).map(task => ({ ...task }))));
     });
+    
+    // Thêm các nhiệm vụ rừng "toàn trận" cho tất cả các mốc thời gian xuất hiện
+    const JUNGLE_SPAWN_TIMES = [1800, 1500, 1200, 900, 600, 300, 0];
+    const JUNGLE_CAMP_IDS = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'];
+    const TASK_AUTO_JUNGLE_LABELS = {
+        d1: 'Bãi Quái Rừng A1', d2: 'Bãi Quái Rừng A2', d3: 'Bãi Quái Rừng B1',
+        d4: 'Bãi Quái Rừng B2', d5: 'Bãi Quái Rừng C1', d6: 'Bãi Quái Rừng D2',
+        d7: 'Bãi Quái Rừng C2', d8: 'Bãi Quái Rừng D1'
+    };
+    
+    JUNGLE_SPAWN_TIMES.forEach(spawnTime => {
+        // Tìm mark gần nhất có thời gian >= spawnTime
+        let activeMark = null;
+        for (let i = sortedMarks.length - 1; i >= 0; i--) {
+            if (sortedMarks[i].time >= spawnTime) {
+                activeMark = sortedMarks[i];
+                break;
+            }
+        }
+        if (!activeMark) return;
+
+        const jungleState = normalizeTaskAutoJungleState(activeMark);
+        JUNGLE_CAMP_IDS.forEach(objId => {
+            const entry = jungleState[objId];
+            if (!entry || !entry.blue || !entry.blue.length) return;
+            entry.blue.forEach(playerId => {
+                compiled.push({
+                    id: `auto:jungle:global:${spawnTime}:${objId}:${playerId}`,
+                    time: spawnTime,
+                    scope: 'personal',
+                    target: playerId,
+                    text: `Ăn ${TASK_AUTO_JUNGLE_LABELS[objId] || objId} mỗi lần xuất hiện`,
+                    generated: true,
+                    generatedType: 'jungle-global'
+                });
+            });
+        });
+    });
+
     return compiled;
 }
 
@@ -3392,8 +3411,70 @@ function tvRenderMark(idx) {
     const mapIcons = document.getElementById('mapIcons');
     if (!mapIcons) return;
 
-    const players = mark.players || [];
-    const enemies = _tvFilterTeam ? (mark.enemies || []) : [];
+    let players = JSON.parse(JSON.stringify(mark.players || []));
+    
+    // Đảm bảo các đối tượng bị targeting hiển thị khi lọc "Cá nhân"
+    const targeting = mark.targeting || mark.icon_targets || [];
+    const targetedEnemyIds = new Set(targeting.map(t => t.enemyId || t.targetId || t.toId));
+    let enemies = JSON.parse(JSON.stringify(mark.enemies || []));
+    
+    const markTime = Number.isFinite(Number(mark.time)) ? Number(mark.time) : 1800;
+    const isPvpMode = markTime === 1200;
+
+    // Lọc theo chế độ
+    if (!isPvpMode && !_tvFilterTeam) {
+        enemies = enemies.filter(e => targetedEnemyIds.has(e.id));
+    }
+
+    if (isPvpMode) {
+        const center = { x: 50, y: 50.5 };
+        const fighters = {
+            blue: mark.pvp_fighters?.blue || mark.solo_pvp,
+            red: mark.pvp_fighters?.red
+        };
+        const buildArc = (side, roster, centerPos) => {
+            if (!roster.length) return [];
+            const ringCaps = [15, 14];
+            const ringRadii = [22.4, 17.2];
+            const arcStart = side === 'blue' ? 205 : 25;
+            const arcEnd = side === 'blue' ? 335 : 155;
+            const units = [];
+            let offset = 0;
+            ringCaps.forEach((cap, ringIndex) => {
+                const slice = roster.slice(offset, offset + cap);
+                if (!slice.length) return;
+                const radius = ringRadii[ringIndex] || ringRadii[ringRadii.length - 1];
+                slice.forEach((member, index) => {
+                    const angleDeg = slice.length === 1
+                        ? (arcStart + arcEnd) / 2
+                        : arcStart + ((arcEnd - arcStart) * index) / Math.max(1, slice.length - 1);
+                    const angle = (angleDeg * Math.PI) / 180;
+                    units.push({
+                        ...member,
+                        x: Math.round((centerPos.x + Math.cos(angle) * radius) * 10) / 10,
+                        y: Math.round((centerPos.y + Math.sin(angle) * radius) * 10) / 10
+                    });
+                });
+                offset += cap;
+            });
+            return units;
+        };
+
+        const blueFighter = players.find(p => p.id === fighters.blue) || players[0];
+        const redFighter = enemies.find(e => e.id === fighters.red) || enemies[0];
+        
+        const blueSpectators = buildArc('blue', players.filter(p => p.id !== blueFighter?.id), center);
+        const redSpectators = buildArc('red', enemies.filter(e => e.id !== redFighter?.id), center);
+        
+        players = [];
+        if (blueFighter) players.push({ ...blueFighter, x: center.x, y: center.y - 6.2 });
+        players.push(...blueSpectators);
+        
+        enemies = [];
+        if (redFighter) enemies.push({ ...redFighter, x: center.x, y: center.y + 6.2 });
+        enemies.push(...redSpectators);
+    }
+
     const myId = window.currentDiscordId;
     const roster = tvGetRoster();
 

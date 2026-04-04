@@ -662,14 +662,12 @@ module.exports = {
         }
 
         // Sync exp_levels lên Supabase (cho tab Level trên web profile)
-        // TẮT TẠM: bảng bc_exp_levels chưa được tạo trên Supabase
-        // TODO: Tạo bảng bc_exp_levels rồi bỏ comment block này
-        // try {
-        //   const economy = require('../../database/economy');
-        //   await supaSync.syncExpLevels(economy);
-        // } catch (expSyncErr) {
-        //   console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
-        // }
+        try {
+          const economy = require('../../database/economy');
+          await supaSync.syncExpLevels(economy);
+        } catch (expSyncErr) {
+          console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
+        }
 
         // Lắng nghe thay đổi từ web → sync ngược về SQLite + xoá role
         // Hỗ trợ INSERT (tạo mới), UPDATE (thay đổi danh sách) và DELETE (xóa session)

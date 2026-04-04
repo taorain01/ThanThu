@@ -65,8 +65,8 @@ module.exports = {
         // CASE 2: ?listbc → Tóm tắt các ngày + buttons
         // ═══════════════════════════════════════════════════════════════════
         const allSessions = db.getActiveBangchienByGuild(guildId) || [];
-        const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-        allSessions.sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
+        // Sắp xếp theo ngày tạo gần nhất (thay vì cố định Thứ 2 -> CN)
+        allSessions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         // Helper: tính stats cho 1 session
         const getStats = (s) => {

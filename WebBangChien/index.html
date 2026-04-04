@@ -4168,7 +4168,18 @@ async function renderPmLevelTab(container, discordId) {
     // CSS sẽ áp dụng transform cho wrapper, ảnh nền bên trong sẽ zoom
     const mapBg = mapContainer.querySelector('.map-bg');
     const mapBgGiay = mapContainer.querySelector('#mapBgGiay');
-    if (mapBg) wrapper.appendChild(mapBg);
+    
+    if (mapBg) {
+        // Tạo thẻ spacer tàng hình để giữ layout cho container (map-container bị xẹp do mapBg dời vào wrapper absolute)
+        const spacer = mapBg.cloneNode();
+        spacer.className = '';
+        spacer.style.visibility = 'hidden';
+        spacer.style.position = 'static';
+        spacer.id = '';
+        mapContainer.insertBefore(spacer, mapBg);
+        
+        wrapper.appendChild(mapBg);
+    }
     if (mapBgGiay) wrapper.appendChild(mapBgGiay);
     mapContainer.insertBefore(wrapper, mapContainer.firstChild);
 

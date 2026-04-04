@@ -884,6 +884,15 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .tactics-timeline-mini{padding:4px 6px}
   .ttm-track{height:20px}
   .tc-mark-label{font-size:10px}
+
+  /* Fix mobile: r-content không overflow:hidden để timeline hiện đúng */
+  .r-content { overflow: visible !important; }
+  /* r-pane không cần scroll riêng trên mobile (cả trang đã scroll) */
+  .r-pane { overflow-y: visible !important; height: auto !important; }
+  /* map-box: height rõ ràng */
+  .map-box { min-height: 50vh; height: 50vh; }
+  /* Timeline + controls hiện rõ sau map */
+  .tactics-timeline-mini, .tactics-controls { position: relative; z-index: 10; }
 }
 /* ═══ FIX: Xoá thanh cuộn ngang ═══ */
 html, body { overflow-x: hidden; }
@@ -897,12 +906,14 @@ html, body { overflow-x: hidden; }
     transform: scale(var(--zoom-level, 1)) translate(var(--pan-x, 0px), var(--pan-y, 0px));
     transition: transform 0.35s cubic-bezier(.25,.46,.45,.94);
     will-change: transform;
-    overflow: hidden;
+    /* KHÔNG overflow:hidden để icon ngoài wrapper không bị clip */
     pointer-events: none;
 }
 /* Ảnh nền trong zoom-wrapper */
 .map-box .map-zoom-wrapper > .map-bg {
     width: 100%; height: 100%; object-fit: cover; display: block;
+    /* Ảnh nền cover toàn bộ wrapper */
+    position: absolute; inset: 0;
 }
 .map-box .map-zoom-wrapper > .map-bg-giay {
     position: absolute; inset: 0;
@@ -1045,7 +1056,8 @@ html, body { overflow-x: hidden; }
 }
 .ttm-mark:hover::before,
 .ttm-mark.active::before { opacity: 0.3; }
-.ttm-mark.active { transform: scale(1.4); }
+/* Fix: giữ nguyên translate(-50%,-50%) khi active để không bị lệch khỏi track */
+.ttm-mark.active { transform: translate(-50%, -50%) scale(1.4) !important; }
 
 /* ═══ TACTICS CONTROLS GLASSMORPHISM ═══ */
 .tactics-controls {
@@ -1259,7 +1271,7 @@ html, body { overflow-x: hidden; }
               <span id="tcMarkName">Bắt đầu</span>
             </div>
           </div>
-          <div class="tactics-timeline-mini" id="tacticsTimeline" style="display:none">
+          <div class="tactics-timeline-mini" id="tacticsTimeline">
             <div class="ttm-track" id="ttmTrack"></div>
           </div>
         </div>
@@ -3087,11 +3099,22 @@ function switchMobileTab(el) {
         // Chuyển sang tab bản đồ trong right panel
         const mapTab = document.querySelector('.r-tab');
         if (mapTab) switchRTab(mapTab, 'pane-map');
+        // Đợi layout xong rồi recalculate icon positions
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                scheduleMapUpdate();
+                tvUpdateLayerPositions();
+            });
+        });
     } else if (target === 'mob-tasks') {
         if (right) right.classList.add('mob-active');
         // Chuyển sang tab nhiệm vụ
         const taskTabs = document.querySelectorAll('.r-tab');
         if (taskTabs[1]) switchRTab(taskTabs[1], 'pane-tasks');
+    } else if (target === 'mob-editor') {
+        openTeamEditor();
+    } else if (target === 'mob-tactics') {
+        openTactics();
     }
 }
 
@@ -3208,10 +3231,15 @@ async function loadTacticsForViewer() {
 
 function tvHideAll() {
     _tvTacticsData = null;
-    ['tacticsViewLayer', 'tvTargetingSvg', 'tvTowerNames', 'tacticsControls', 'tacticsTimeline'].forEach(id => {
+    ['tacticsViewLayer', 'tvTargetingSvg', 'tvTowerNames', 'tacticsControls'].forEach(id => {
         const e = document.getElementById(id);
         if (e) e.style.display = 'none';
     });
+    // Timeline: không ẩn hoàn toàn, chỉ hiện empty state
+    const track = document.getElementById('ttmTrack');
+    if (track) {
+        track.innerHTML = '<div style="padding:8px 16px;font-size:11px;color:rgba(255,255,255,.3);text-align:center;font-style:italic">Chưa có chiến thuật — Mở Biương với chiến thuật đã lưu để xem timeline</div>';
+    }
 }
 
 function tvShowAll() {
@@ -4040,12 +4068,46 @@ async function renderPmLevelTab(container, discordId) {
     const ZOOM_LEVEL = 2;
 
     function applyTransform(animate = false) {
-        if (animate) wrapper.style.transition = 'transform 0.35s cubic-bezier(.25,.46,.45,.94)';
+        const tr = animate ? 'transform 0.35s cubic-bezier(.25,.46,.45,.94)' : 'none';
+        if (animate) wrapper.style.transition = tr;
         else wrapper.style.transition = 'none';
         wrapper.style.setProperty('--zoom-level', isZoomed ? ZOOM_LEVEL : 1);
         wrapper.style.setProperty('--pan-x', panX + 'px');
         wrapper.style.setProperty('--pan-y', panY + 'px');
         mapBox.classList.toggle('zoomed', isZoomed);
+
+        // Sync cùng transform đến các icon/overlay layers để chúng follow background khi zoom
+        // wrapper là inset:0 nên percentage origin trên wrapper = cùng pixel trong mapBox
+        const boxW = mapBox.offsetWidth;
+        const boxH = mapBox.offsetHeight;
+        if (!boxW || !boxH) return;
+
+        // Origin pixel trong tọa độ mapBox
+        const oxPct = parseFloat(wrapper.style.getPropertyValue('--zoom-ox') || '50') / 100;
+        const oyPct = parseFloat(wrapper.style.getPropertyValue('--zoom-oy') || '50') / 100;
+        const oxPx = oxPct * boxW;
+        const oyPx = oyPct * boxH;
+
+        const syncLayers = [
+            document.getElementById('mapIcons'),
+            document.getElementById('tacticsViewLayer'),
+            document.getElementById('tvTargetingSvg'),
+            document.getElementById('tvTowerNames'),
+        ].filter(Boolean);
+
+        syncLayers.forEach(el => {
+            el.style.transition = tr;
+            if (!isZoomed) {
+                el.style.transform = '';
+                el.style.transformOrigin = '';
+            } else {
+                // Chuyển origin từ mapBox px sang element-relative px
+                const elLeft = el.offsetLeft || 0;
+                const elTop = el.offsetTop || 0;
+                el.style.transformOrigin = `${oxPx - elLeft}px ${oyPx - elTop}px`;
+                el.style.transform = `scale(${ZOOM_LEVEL}) translate(${panX}px, ${panY}px)`;
+            }
+        });
     }
 
     function clampPan() {

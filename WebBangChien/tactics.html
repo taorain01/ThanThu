@@ -23,7 +23,7 @@
   --panel-w:260px;--timeline-h:154px;--header-h:48px;
 }
 html,body{height:100%;overflow:hidden}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-select:none;-webkit-user-select:none}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-select:none;-webkit-user-select:none;display:flex;flex-direction:column}
 
 /* ═══ HEADER ═══ */
 .t-header{height:var(--header-h);display:flex;align-items:center;padding:0 16px;gap:12px;
@@ -101,7 +101,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 .page-transition-overlay.active .pt-icon,.page-transition-overlay.active .pt-text{opacity:1;transform:none}
 
 /* ═══ LAYOUT CHÍNH ═══ */
-.t-layout{display:flex;height:calc(100vh - var(--header-h) - var(--timeline-h));overflow:hidden}
+.t-layout{display:flex;flex:1;min-height:0;overflow:hidden}
 
 /* ═══ PANEL TRÁI — Collapsible Accordion ═══ */
 .panel-left{width:var(--panel-w);background:var(--bg2);border-right:1px solid var(--border);
@@ -586,7 +586,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
   text-align:center;font-size:12px;font-weight:700;line-height:1.45;color:#fef3c7;letter-spacing:.15px}
 .timeline-setup-hint strong{color:var(--gold-glow)}
 .timeline-setup-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
-.timeline-bar.setup-mode{justify-content:center;padding-top:14px;padding-bottom:14px}
+.timeline-bar.setup-mode{justify-content:center;padding-top:14px;padding-bottom:14px;height:auto;min-height:var(--timeline-h)}
 .timeline-bar.setup-mode .timeline-label,
 .timeline-bar.setup-mode .timeline-track,
 .timeline-bar.setup-mode .timeline-hint,
@@ -11812,16 +11812,33 @@ Promise.resolve(__tacticsBoot)
     .then(() => forceHydrateCurrentSessionAfterBoot())
     .catch(error => console.warn('[Tactics] Forced session hydrate failed:', error));
 
-// Map scale tự tính
-const mapObs = new ResizeObserver(entries => {
-    for (const e of entries) {
-        const w = e.contentRect.width;
-        const scale = Math.max(0.4, Math.min(1, w / 900));
-        e.target.style.setProperty('--map-scale', scale);
-    }
-});
-const mc = document.getElementById('mapContainer');
+// Map scale tự tính — dựa vào kích thước render thực tế của ảnh
+function recalcMapScale() {
+    const img = document.getElementById('mapImg');
+    const iconsLayer = document.getElementById('mapIconsLayer');
+    if (!img || !iconsLayer) return;
+    // Kích thước ảnh thực tế sau khi browser render (object-fit:contain)
+    const renderedW = img.offsetWidth;
+    const renderedH = img.offsetHeight;
+    if (!renderedW || !renderedH) return;
+    // Scale dựa vào chiều ngắn hơn so với reference 900×500
+    const scaleW = renderedW / 900;
+    const scaleH = renderedH / 500;
+    const scale = Math.max(0.35, Math.min(1.2, Math.min(scaleW, scaleH)));
+    iconsLayer.style.setProperty('--map-scale', scale.toFixed(3));
+    // Cũng set trên map-container để CSS calc() hoạt động đúng
+    const mc2 = document.getElementById('mapContainer');
+    if (mc2) mc2.style.setProperty('--map-scale', scale.toFixed(3));
+}
+const mapObs = new ResizeObserver(() => recalcMapScale());
+const mc = document.getElementById('mapArea') || document.getElementById('mapContainer');
 if (mc) mapObs.observe(mc);
+// Tính lại khi ảnh load xong
+const mapImgEl = document.getElementById('mapImg');
+if (mapImgEl) {
+    if (mapImgEl.complete) recalcMapScale();
+    else mapImgEl.addEventListener('load', recalcMapScale);
+}
 
 document.getElementById('unsavedCancelBtn')?.addEventListener('click', closeUnsavedModal);
 document.getElementById('unsavedSaveBtn')?.addEventListener('click', () => {

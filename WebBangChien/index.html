@@ -781,6 +781,9 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   text-shadow:0 1px 3px rgba(0,0,0,.9);font-weight:600;opacity:0;transition:opacity .2s;
   background:rgba(0,0,0,.8);padding:3px 8px;border-radius:5px;line-height:1.3;
   border:1px solid rgba(255,255,255,.15)}
+/* Label flip: khi chấm ở bên phải map, label hiển thị sang trái */
+.tv-player.label-flip .tv-label{left:auto;right:0;transform:none;}
+.tv-enemy.label-flip .tv-name{left:auto;right:0;transform:none;}
 
 /* Highlight bản thân */
 .tv-player.is-me .tv-dot{border-color:var(--gold);box-shadow:0 0 12px rgba(251,191,36,.7),0 2px 4px rgba(0,0,0,.5);
@@ -2065,11 +2068,18 @@ function renderTeams(data) {
         tankAv: '<img src="./anh/tanker.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">',
         crown: '<svg width="12" height="12" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><path d="M2 20h20v2H2z"/></svg>'
     };
+    // Đọc tên team tùy chỉnh từ session data
+    const teamNamesRaw = data.team_names || {};
+    const teamNames = typeof teamNamesRaw === 'string'
+        ? (() => { try { return JSON.parse(teamNamesRaw); } catch(e) { return {}; } })()
+        : teamNamesRaw;
+    const TEAM_NAME_DEFAULTS = { attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2', defense: 'TEAM THỦ', forest: 'TEAM RỪNG' };
+
     const allTeams = [
-        { key: 'team_attack1', cls: 'a1', icon: SVG.sword, title: 'TEAM CÔNG 1', max: 10 },
-        { key: 'team_attack2', cls: 'a2', icon: SVG.dagger, title: 'TEAM CÔNG 2', max: 10 },
-        { key: 'team_defense', cls: 'df', icon: SVG.shield, title: 'TEAM THỦ', max: 5 },
-        { key: 'team_forest', cls: 'fr', icon: SVG.tree, title: 'TEAM RỪNG', max: 5 },
+        { key: 'team_attack1', cls: 'a1', icon: SVG.sword, title: teamNames.attack1 || TEAM_NAME_DEFAULTS.attack1, max: 10 },
+        { key: 'team_attack2', cls: 'a2', icon: SVG.dagger, title: teamNames.attack2 || TEAM_NAME_DEFAULTS.attack2, max: 10 },
+        { key: 'team_defense', cls: 'df', icon: SVG.shield, title: teamNames.defense || TEAM_NAME_DEFAULTS.defense, max: 5 },
+        { key: 'team_forest', cls: 'fr', icon: SVG.tree, title: teamNames.forest || TEAM_NAME_DEFAULTS.forest, max: 5 },
         { key: 'waiting_list', cls: 'wt', icon: SVG.clock, title: 'DANH SÁCH CHỜ', max: 0 }
     ];
 
@@ -3406,20 +3416,21 @@ function tvRenderMark(idx) {
         const isDimmed = _tvFilterMe && !isMe;
         const roleCls = p.role === 'Healer' ? 'healer' : p.role === 'Tanker' ? 'tanker' : '';
         const displayName = p.name || p.gn || roster[p.id]?.name || roster[p.id]?.gn || '?';
+        // Flip label sang trái khi chấm nằm bên phải map (x > 58%)
+        const labelFlip = p.x > 58 ? ' label-flip' : '';
 
         let el = existingPlayers[p.id];
         if (el) {
-            // Animate di chuyển (CSS transition tự xử lý)
             el.style.left = p.x + '%';
             el.style.top = p.y + '%';
-            el.className = `tv-player${isMe ? ' is-me' : ''}${isDimmed ? ' dimmed' : ''}`;
+            el.className = `tv-player${isMe ? ' is-me' : ''}${isDimmed ? ' dimmed' : ''}${labelFlip}`;
             const dot = el.querySelector('.tv-dot');
             if (dot) dot.className = `tv-dot ${roleCls}`;
             const label = el.querySelector('.tv-label');
             if (label) label.textContent = displayName;
         } else {
             el = document.createElement('div');
-            el.className = `tv-player${isMe ? ' is-me' : ''}${isDimmed ? ' dimmed' : ''}`;
+            el.className = `tv-player${isMe ? ' is-me' : ''}${isDimmed ? ' dimmed' : ''}${labelFlip}`;
             el.dataset.id = p.id;
             el.style.left = p.x + '%';
             el.style.top = p.y + '%';
@@ -3435,15 +3446,17 @@ function tvRenderMark(idx) {
         const roleCls = e.role === 'Tanker' ? 'tv-tanker' : e.role === 'Healer' ? 'tv-healer' : '';
         const initial = e.role === 'Tanker' ? 'T' : e.role === 'Healer' ? 'H' : 'D';
         const isDimmed = _tvFilterMe;
+        // Flip label sang trái khi địch nằm bên phải map
+        const eLabelFlip = e.x > 58 ? ' label-flip' : '';
 
         let el = existingEnemies[e.id];
         if (el) {
             el.style.left = e.x + '%';
             el.style.top = e.y + '%';
-            el.className = `tv-enemy ${roleCls}${isDimmed ? ' dimmed' : ''}`;
+            el.className = `tv-enemy ${roleCls}${isDimmed ? ' dimmed' : ''}${eLabelFlip}`;
         } else {
             el = document.createElement('div');
-            el.className = `tv-enemy ${roleCls}${isDimmed ? ' dimmed' : ''}`;
+            el.className = `tv-enemy ${roleCls}${isDimmed ? ' dimmed' : ''}${eLabelFlip}`;
             el.dataset.id = e.id;
             el.style.left = e.x + '%';
             el.style.top = e.y + '%';

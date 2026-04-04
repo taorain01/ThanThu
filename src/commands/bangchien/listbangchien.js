@@ -8,13 +8,17 @@
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, parseDayArg, getDayNameWithDate } = require('../../utils/bangchienState');
 
-// Helper: Lấy team sizes từ DB (đồng bộ với ?bcsize)
+// Helper: Lấy team config từ DB (size + tên tùy chỉnh, đồng bộ với bcsize và bcql_resize)
 function getTeamConfig(db) {
+    const names = db.getTeamNames ? db.getTeamNames() : {
+        attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2',
+        defense: 'TEAM THỦ', forest: 'TEAM RỪNG'
+    };
     return {
-        attack1: { name: 'TEAM CÔNG 1', emoji: '⚔️', maxSize: db.getTeamSize('attack1') || 10 },
-        attack2: { name: 'TEAM CÔNG 2', emoji: '🗡️', maxSize: db.getTeamSize('attack2') || 10 },
-        defense: { name: 'TEAM THỦ', emoji: '🛡️', maxSize: db.getTeamSize('defense') ?? 5 },
-        forest: { name: 'TEAM RỪNG', emoji: '🌲', maxSize: db.getTeamSize('forest') ?? 5 }
+        attack1: { name: names.attack1, emoji: '⚔️', maxSize: db.getTeamSize('attack1') || 10 },
+        attack2: { name: names.attack2, emoji: '🗡️', maxSize: db.getTeamSize('attack2') || 10 },
+        defense: { name: names.defense, emoji: '🛡️', maxSize: db.getTeamSize('defense') ?? 5 },
+        forest:  { name: names.forest,  emoji: '🌲', maxSize: db.getTeamSize('forest')  ?? 5 }
     };
 }
 

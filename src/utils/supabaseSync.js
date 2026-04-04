@@ -12,6 +12,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 let supabase = null;
 let supportsBcSessionsLockedColumn = true;
+let supportsBcSessionsTeamNamesColumn = true; // Flag auto-fallback cho cột team_names
 
 /**
  * Khởi tạo Supabase client (gọi 1 lần khi bot start)
@@ -60,6 +61,7 @@ async function syncBCSession(guildId, day, sessionData) {
             waiting_list = [],
             leader_ids = {},
             team_sizes = { attack1: 10, attack2: 10, defense: 5, forest: 5 },
+            team_names = {},
             status = 'active',
             time = '19:30',
             note = '',
@@ -83,6 +85,10 @@ async function syncBCSession(guildId, day, sessionData) {
         if (supportsBcSessionsLockedColumn) {
             payload.locked = !!locked;
         }
+        // team_names: auto-fallback nếu cột chưa tồn tại
+        if (supportsBcSessionsTeamNamesColumn) {
+            payload.team_names = JSON.stringify(team_names);
+        }
 
         let { error } = await supabase
             .from('bc_sessions')
@@ -95,6 +101,16 @@ async function syncBCSession(guildId, day, sessionData) {
                 .from('bc_sessions')
                 .upsert(payload, { onConflict: 'guild_id,day' });
             error = retry.error || null;
+        }
+
+        // Fallback nếu cột team_names chưa tồn tại
+        if (error && /team_names/i.test(error.message || '')) {
+            supportsBcSessionsTeamNamesColumn = false;
+            delete payload.team_names;
+            const retry2 = await supabase
+                .from('bc_sessions')
+                .upsert(payload, { onConflict: 'guild_id,day' });
+            error = retry2.error || null;
         }
 
         if (error) {
@@ -452,7 +468,14 @@ function listenForWebChanges(guildId, onSessionChange) {
             time: session.time || '19:30',
             note: session.note || '',
             locked: !!session.locked,
-            status: session.status || 'active'
+            status: session.status || 'active',
+            team_names: (() => {
+                try {
+                    return typeof session.team_names === 'string'
+                        ? JSON.parse(session.team_names || '{}')
+                        : (session.team_names || {});
+                } catch (e) { return {}; }
+            })()
         });
     };
 
@@ -708,6 +731,7 @@ function formatActiveSession(activeSession, db, guild = null) {
                 commander: activeSession.commander_id
             },
             team_sizes: teamSizes,
+            team_names: db.getTeamNames ? db.getTeamNames() : {},
             status: 'active',
             time: activeSession.time || '19:30',
             note: activeSession.note || '',

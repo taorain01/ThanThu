@@ -420,28 +420,21 @@
   </div>
 
   <div class="modal-wrap" id="resizeModal">
-    <div class="modal">
-      <h3>Resize đội hình</h3>
-      <div class="grid-2">
-        <label>Công 1
-          <input type="number" id="sizeAttack1" min="0" max="20">
-        </label>
-        <label>Công 2
-          <input type="number" id="sizeAttack2" min="0" max="20">
-        </label>
-        <label>Thủ
-          <input type="number" id="sizeDefense" min="0" max="10">
-        </label>
-        <label>Rừng
-          <input type="number" id="sizeForest" min="0" max="10">
-        </label>
+    <div class="modal" style="max-width:480px">
+      <h3 style="margin-bottom:16px">📏 Resize &amp; Đổi Tên Đội Hình</h3>
+      <div id="resizeRows" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div id="resizeTotalBar" style="margin-top:18px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.85rem;opacity:.75">📊 Tổng số slot</span>
+        <span id="resizeTotalText" style="font-weight:700;font-size:1.05rem;color:#7dd3fc">0 / 30</span>
       </div>
+      <div id="resizeWarning" style="margin-top:8px;font-size:.8rem;color:#f87171;display:none">⚠️ Tổng vượt quá 30 — nên kiểm tra lại</div>
       <div class="modal-actions">
         <button class="btn" id="btnResizeCancel">Hủy</button>
-        <button class="btn primary" id="btnResizeSave">Lưu</button>
+        <button class="btn primary" id="btnResizeSave">💾 Lưu</button>
       </div>
     </div>
   </div>
+
   <script>
     const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
@@ -549,6 +542,11 @@
         team_forest: safeParse(session.team_forest, []).map((item) => ({ ...item })),
         waiting_list: safeParse(session.waiting_list, []).map((item) => ({ ...item })),
         team_sizes: typeof session.team_sizes === 'string' ? JSON.parse(session.team_sizes || '{}') : { ...(session.team_sizes || {}) },
+        team_names: (() => {
+          try {
+            return typeof session.team_names === 'string' ? JSON.parse(session.team_names || '{}') : { ...(session.team_names || {}) };
+          } catch (e) { return {}; }
+        })(),
         leader_ids: typeof session.leader_ids === 'string' ? JSON.parse(session.leader_ids || '{}') : { ...(session.leader_ids || {}) },
         locked: session.locked === true,
         note: session.note || '',
@@ -582,11 +580,13 @@
     function getVisibleTeams() {
       if (!localState) return [];
       const sizes = localState.team_sizes || {};
+      const names = localState.team_names || {};
+      const DEFAULTS = { attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2', defense: 'TEAM THỦ', forest: 'TEAM RỪNG' };
       const configs = [
-        { key:'team_attack1', max: sizes.attack1 ?? 10, title: '⚔️ TEAM CÔNG 1' },
-        { key:'team_attack2', max: sizes.attack2 ?? 10, title: '🗡️ TEAM CÔNG 2' },
-        { key:'team_defense', max: sizes.defense ?? 5, title: '🛡️ TEAM THỦ' },
-        { key:'team_forest', max: sizes.forest ?? 5, title: '🌲 TEAM RỪNG' }
+        { key:'team_attack1', max: sizes.attack1 ?? 10, title: `⚔️ ${names.attack1 || DEFAULTS.attack1}` },
+        { key:'team_attack2', max: sizes.attack2 ?? 10, title: `🗡️ ${names.attack2 || DEFAULTS.attack2}` },
+        { key:'team_defense', max: sizes.defense ?? 5,  title: `🛡️ ${names.defense || DEFAULTS.defense}` },
+        { key:'team_forest',  max: sizes.forest  ?? 5,  title: `🌲 ${names.forest  || DEFAULTS.forest}` }
       ].filter((item) => item.max > 0);
 
       const attackOnly = configs.filter((item) => item.key === 'team_attack1' || item.key === 'team_attack2');
@@ -911,6 +911,11 @@
         leader_ids: JSON.stringify(localState.leader_ids || {})
       };
       if (supportsSessionLocked) payload.locked = !!localState.locked;
+      // team_names: auto-fallback nếu cột chưa tồn tại
+      let supportsTeamNames = true;
+      if (localState.team_names && Object.keys(localState.team_names).length > 0) {
+        payload.team_names = JSON.stringify(localState.team_names);
+      }
 
       let query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
       if (currentSessionId) query = query.eq('id', currentSessionId);
@@ -925,6 +930,17 @@
         const retry = await query;
         error = retry.error || null;
       }
+
+      // Fallback nếu cột team_names chưa tồn tại trên Supabase
+      if (error && /team_names/i.test(error.message || '')) {
+        supportsTeamNames = false;
+        delete payload.team_names;
+        query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
+        if (currentSessionId) query = query.eq('id', currentSessionId);
+        const retry2 = await query;
+        error = retry2.error || null;
+      }
+
 
       isSyncing = false;
       if (error) {
@@ -975,18 +991,68 @@
       scheduleSync('setleader', 'Dang cap nhat leader team...');
     }
 
+    // Định nghĩa các team trong modal resize
+    const RESIZE_TEAMS = [
+      { key: 'attack1', teamKey: 'team_attack1', emoji: '⚔️', defaultName: 'TEAM CÔNG 1', min: 1, max: 20 },
+      { key: 'attack2', teamKey: 'team_attack2', emoji: '🗡️', defaultName: 'TEAM CÔNG 2', min: 1, max: 20 },
+      { key: 'defense', teamKey: 'team_defense', emoji: '🛡️', defaultName: 'TEAM THỦ', min: 0, max: 10 },
+      { key: 'forest',  teamKey: 'team_forest',  emoji: '🌲', defaultName: 'TEAM RỪNG',  min: 0, max: 10 }
+    ];
+
+    function updateResizeTotal() {
+      let total = 0;
+      RESIZE_TEAMS.forEach(t => {
+        total += Math.max(0, Number(document.getElementById('rSize_' + t.key)?.value || 0));
+      });
+      const totalText = document.getElementById('resizeTotalText');
+      const warning = document.getElementById('resizeWarning');
+      if (totalText) totalText.textContent = `${total} / 30`;
+      if (warning) warning.style.display = total > 30 ? 'block' : 'none';
+      // Đổi màu chữ tổng
+      if (totalText) totalText.style.color = total > 30 ? '#f87171' : '#7dd3fc';
+    }
+
     function openResizeModal() {
       if (!isLeaderEditor || localState.locked) return;
       const sizes = localState.team_sizes || {};
-      document.getElementById('sizeAttack1').value = sizes.attack1 ?? 10;
-      document.getElementById('sizeAttack2').value = sizes.attack2 ?? 10;
-      document.getElementById('sizeDefense').value = sizes.defense ?? 5;
-      document.getElementById('sizeForest').value = sizes.forest ?? 5;
-      document.getElementById('resizeModal').classList.add('show');
-    }
+      const names = localState.team_names || {};
+      const container = document.getElementById('resizeRows');
+      container.innerHTML = '';
 
-    function closeResizeModal() {
-      document.getElementById('resizeModal').classList.remove('show');
+      RESIZE_TEAMS.forEach(t => {
+        const curSize = sizes[t.key] ?? (t.key.startsWith('attack') ? 10 : 5);
+        const curName = names[t.key] || t.defaultName;
+        const row = document.createElement('div');
+        row.style.cssText = 'background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px';
+        row.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:1.1rem">${t.emoji}</span>
+            <input id="rName_${t.key}" type="text" maxlength="20" value="${curName}"
+              style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
+                     border-radius:8px;padding:6px 10px;color:#fff;font-size:.88rem;outline:none"
+              placeholder="${t.defaultName}">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:.78rem;opacity:.6;min-width:70px">Số slot (${t.min}-${t.max}):</span>
+            <input id="rSize_${t.key}" type="number" min="${t.min}" max="${t.max}" value="${curSize}"
+              style="width:70px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
+                     border-radius:8px;padding:6px 10px;color:#7dd3fc;font-weight:700;
+                     font-size:1rem;text-align:center;outline:none"
+              oninput="updateResizeTotal()">
+            <input type="range" min="${t.min}" max="${t.max}" value="${curSize}"
+              style="flex:1;accent-color:#38bdf8"
+              oninput="document.getElementById('rSize_${t.key}').value=this.value;updateResizeTotal()">
+          </div>
+        `;
+        // Sync slider ↔ number input
+        const numInput = row.querySelector(`#rSize_${t.key}`);
+        const rangeInput = row.querySelector('input[type=range]');
+        numInput.addEventListener('input', () => { rangeInput.value = numInput.value; updateResizeTotal(); });
+        container.appendChild(row);
+      });
+
+      updateResizeTotal();
+      document.getElementById('resizeModal').classList.add('show');
     }
 
     function spillOverflow(teamKey, maxSize) {
@@ -997,20 +1063,30 @@
       }
     }
 
+    function closeResizeModal() {
+      document.getElementById('resizeModal').classList.remove('show');
+    }
+
     async function applyResize() {
-      const nextSizes = {
-        attack1: Math.max(0, Math.min(20, Number(document.getElementById('sizeAttack1').value || 0))),
-        attack2: Math.max(0, Math.min(20, Number(document.getElementById('sizeAttack2').value || 0))),
-        defense: Math.max(0, Math.min(10, Number(document.getElementById('sizeDefense').value || 0))),
-        forest: Math.max(0, Math.min(10, Number(document.getElementById('sizeForest').value || 0)))
-      };
-      const totalSize = nextSizes.attack1 + nextSizes.attack2 + nextSizes.defense + nextSizes.forest;
+      const nextSizes = {};
+      const nextNames = {};
+      let hasInvalid = false;
+
+      RESIZE_TEAMS.forEach(t => {
+        const sizeVal = Math.max(t.min, Math.min(t.max, Number(document.getElementById('rSize_' + t.key)?.value || 0)));
+        const nameVal = (document.getElementById('rName_' + t.key)?.value || '').trim().slice(0, 20);
+        nextSizes[t.key] = sizeVal;
+        nextNames[t.key] = nameVal || t.defaultName;
+      });
+
+      const totalSize = Object.values(nextSizes).reduce((a, b) => a + b, 0);
       if (totalSize < 1) {
         alert('Tổng số thành viên phải lớn hơn 0.');
         return;
       }
 
       localState.team_sizes = nextSizes;
+      localState.team_names = nextNames;
       spillOverflow('team_attack1', nextSizes.attack1);
       spillOverflow('team_attack2', nextSizes.attack2);
       spillOverflow('team_defense', nextSizes.defense);
@@ -1018,7 +1094,7 @@
       normalizeLeaderState();
       closeResizeModal();
       renderEditor();
-      scheduleSync('resize', 'Dang cap nhat kich thuoc team...');
+      scheduleSync('resize', 'Đang cập nhật kích thước & tên team...');
     }
 
     async function toggleLocked() {

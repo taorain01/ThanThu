@@ -542,6 +542,52 @@ function getAllTeamSizes() {
     };
 }
 
+// ============== TEAM NAME FUNCTIONS ==============
+
+/** Tên mặc định cho các team */
+const DEFAULT_TEAM_NAMES = {
+    attack1: 'TEAM CÔNG 1',
+    attack2: 'TEAM CÔNG 2',
+    defense: 'TEAM THỦ',
+    forest: 'TEAM RỪNG'
+};
+
+/**
+ * Lấy tên tùy chỉnh của các team
+ * @returns {{ attack1: string, attack2: string, defense: string, forest: string }}
+ */
+function getTeamNames() {
+    try {
+        const raw = getConfig('team_names');
+        if (!raw) return { ...DEFAULT_TEAM_NAMES };
+        const parsed = JSON.parse(raw);
+        return {
+            attack1: parsed.attack1 || DEFAULT_TEAM_NAMES.attack1,
+            attack2: parsed.attack2 || DEFAULT_TEAM_NAMES.attack2,
+            defense: parsed.defense || DEFAULT_TEAM_NAMES.defense,
+            forest: parsed.forest || DEFAULT_TEAM_NAMES.forest
+        };
+    } catch (e) {
+        return { ...DEFAULT_TEAM_NAMES };
+    }
+}
+
+/**
+ * Lưu tên tùy chỉnh cho các team
+ * @param {{ attack1?: string, attack2?: string, defense?: string, forest?: string }} names
+ */
+function setTeamNames(names) {
+    const current = getTeamNames();
+    const merged = {
+        attack1: (names.attack1 || '').trim().slice(0, 20) || current.attack1,
+        attack2: (names.attack2 || '').trim().slice(0, 20) || current.attack2,
+        defense: (names.defense || '').trim().slice(0, 20) || current.defense,
+        forest:  (names.forest  || '').trim().slice(0, 20) || current.forest
+    };
+    setConfig('team_names', JSON.stringify(merged));
+    return merged;
+}
+
 // ============== USER FUNCTIONS ==============
 
 /**
@@ -1932,6 +1978,9 @@ module.exports = {
     getTeamSize,
     setTeamSize,
     getAllTeamSizes,
+    // Team names
+    getTeamNames,
+    setTeamNames,
     // Users
     upsertUser,
     getUserByDiscordId,

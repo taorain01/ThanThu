@@ -400,45 +400,60 @@ async function handleBcqlButton(interaction) {
         const dayParam5 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_resize_modal_${partyKey}_${dayParam5}`)
-            .setTitle('📏 Thay đổi số lượng Team');
+            .setTitle('📏 Resize & Đổi Tên Team');
 
-        const attack1Input = new TextInputBuilder()
-            .setCustomId('attack1_size')
-            .setLabel('Công 1 (1-20)')
+        // Lấy sizes hiện tại
+        const curAtk1 = db.getTeamSize('attack1') || 10;
+        const curAtk2 = db.getTeamSize('attack2') || 10;
+        const curDef  = db.getTeamSize('defense') ?? 5;
+        const curFor  = db.getTeamSize('forest')  ?? 5;
+
+        // Lấy tên hiện tại
+        const curNames = db.getTeamNames ? db.getTeamNames() : { attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2', defense: 'TEAM THỦ', forest: 'TEAM RỪNG' };
+
+        // 1 field gộp 4 số — tránh lãng phí 4 field Discord
+        const sizesInput = new TextInputBuilder()
+            .setCustomId('all_sizes')
+            .setLabel('Số slot (Công1 Công2 Thủ Rừng) — cách bằng dấu cách')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('10')
-            .setValue(String(db.getTeamSize('attack1') || 10))
+            .setPlaceholder('10 10 5 5')
+            .setValue(`${curAtk1} ${curAtk2} ${curDef} ${curFor}`)
             .setRequired(true);
 
-        const attack2Input = new TextInputBuilder()
-            .setCustomId('attack2_size')
-            .setLabel('Công 2 (1-20)')
+        const name1Input = new TextInputBuilder()
+            .setCustomId('name_attack1')
+            .setLabel('⚔️ Tên Team Công 1 (tối đa 20 ký tự)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('10')
-            .setValue(String(db.getTeamSize('attack2') || 10))
-            .setRequired(true);
+            .setValue(curNames.attack1)
+            .setRequired(false);
 
-        const defenseInput = new TextInputBuilder()
-            .setCustomId('defense_size')
-            .setLabel('Thủ (0-10, nhập 0 để ẩn team Thủ)')
+        const name2Input = new TextInputBuilder()
+            .setCustomId('name_attack2')
+            .setLabel('🗡️ Tên Team Công 2 (tối đa 20 ký tự)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('5')
-            .setValue(String(db.getTeamSize('defense') ?? 5))
-            .setRequired(true);
+            .setValue(curNames.attack2)
+            .setRequired(false);
 
-        const forestInput = new TextInputBuilder()
-            .setCustomId('forest_size')
-            .setLabel('Rừng (0-10, nhập 0 để ẩn team Rừng)')
+        const nameDefInput = new TextInputBuilder()
+            .setCustomId('name_defense')
+            .setLabel('🛡️ Tên Team Thủ (tối đa 20 ký tự)')
             .setStyle(TextInputStyle.Short)
-            .setPlaceholder('5')
-            .setValue(String(db.getTeamSize('forest') ?? 5))
-            .setRequired(true);
+            .setValue(curNames.defense)
+            .setRequired(false);
+
+        const nameForInput = new TextInputBuilder()
+            .setCustomId('name_forest')
+            .setLabel('🌲 Tên Team Rừng (tối đa 20 ký tự)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(curNames.forest)
+            .setRequired(false);
 
         modal.addComponents(
-            new ActionRowBuilder().addComponents(attack1Input),
-            new ActionRowBuilder().addComponents(attack2Input),
-            new ActionRowBuilder().addComponents(defenseInput),
-            new ActionRowBuilder().addComponents(forestInput)
+            new ActionRowBuilder().addComponents(sizesInput),
+            new ActionRowBuilder().addComponents(name1Input),
+            new ActionRowBuilder().addComponents(name2Input),
+            new ActionRowBuilder().addComponents(nameDefInput),
+            new ActionRowBuilder().addComponents(nameForInput)
         );
 
         await interaction.showModal(modal);
@@ -925,12 +940,21 @@ async function handleBcqlModal(interaction) {
 
     // ========== MODAL RESIZE ==========
     if (customId.startsWith('bcql_resize_modal_')) {
-        const attack1Size = parseInt(interaction.fields.getTextInputValue('attack1_size')) || 10;
-        const attack2Size = parseInt(interaction.fields.getTextInputValue('attack2_size')) || 10;
-        const defenseRaw = parseInt(interaction.fields.getTextInputValue('defense_size'));
-        const forestRaw = parseInt(interaction.fields.getTextInputValue('forest_size'));
-        const defenseSize = isNaN(defenseRaw) ? 5 : defenseRaw;
-        const forestSize = isNaN(forestRaw) ? 5 : forestRaw;
+        // Parse 4 con số từ 1 field dạng "10 10 5 5"
+        const sizesRaw = interaction.fields.getTextInputValue('all_sizes').trim();
+        const sizeParts = sizesRaw.split(/[\s,]+/).map(s => parseInt(s)).filter(n => !isNaN(n));
+
+        if (sizeParts.length < 4) {
+            await interaction.reply({
+                content: '❌ Nhập đúng 4 số (Công1 Công2 Thủ Rừng)!\nVD: `10 10 5 5`',
+                flags: MessageFlags.Ephemeral
+            });
+            return true;
+        }
+
+        const [attack1Size, attack2Size, defSizeRaw, forSizeRaw] = sizeParts;
+        const defenseSize = defSizeRaw;
+        const forestSize = forSizeRaw;
 
         // Validate
         if (attack1Size < 1 || attack1Size > 20 || attack2Size < 1 || attack2Size > 20 ||
@@ -941,20 +965,49 @@ async function handleBcqlModal(interaction) {
 
         const total = attack1Size + attack2Size + defenseSize + forestSize;
         if (total < 1) {
-            await interaction.reply({ content: `Tổng số thành viên không hợp lệ (${total}). Phải lớn hơn 0.`, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: `❌ Tổng số thành viên không hợp lệ (${total}). Phải lớn hơn 0.`, flags: MessageFlags.Ephemeral });
             return true;
         }
 
-        // Save
+        // Parse tên team (bỏ trống nếu không nhập)
+        const nameAttack1 = interaction.fields.getTextInputValue('name_attack1').trim();
+        const nameAttack2 = interaction.fields.getTextInputValue('name_attack2').trim();
+        const nameDefense = interaction.fields.getTextInputValue('name_defense').trim();
+        const nameForest  = interaction.fields.getTextInputValue('name_forest').trim();
+
+        // Lưu sizes
         db.setTeamSize('attack1', attack1Size);
         db.setTeamSize('attack2', attack2Size);
         db.setTeamSize('defense', defenseSize);
         db.setTeamSize('forest', forestSize);
 
+        // Lưu names (chỉ cập nhật nếu có nhập)
+        const savedNames = db.setTeamNames({
+            attack1: nameAttack1 || undefined,
+            attack2: nameAttack2 || undefined,
+            defense: nameDefense || undefined,
+            forest:  nameForest  || undefined
+        });
+
+        // Lấy các sizes cũ để so sánh
+        const oldAtk1 = sizeParts[0]; // Giả nguyên, đây là nếu cần diff
+        const emoji = { attack1: '⚔️', attack2: '🗡️', defense: '🛡️', forest: '🌲' };
+
+        const resultLines = [
+            `${emoji.attack1} **${savedNames.attack1}**: ${attack1Size} slot`,
+            `${emoji.attack2} **${savedNames.attack2}**: ${attack2Size} slot`,
+            ...(defenseSize > 0 ? [`${emoji.defense} **${savedNames.defense}**: ${defenseSize} slot`] : [`${emoji.defense} **${savedNames.defense}**: ẩn`]),
+            ...(forestSize  > 0 ? [`${emoji.forest}  **${savedNames.forest}**: ${forestSize} slot`] : [`${emoji.forest}  **${savedNames.forest}**: ẩn`]),
+            `📊 Tổng: **${total}** slot`
+        ];
+
         await interaction.reply({
-            content: `✅ Đã cập nhật!\n⚔️ Công 1: **${attack1Size}**\n🗡️ Công 2: **${attack2Size}**\n🛡️ Thủ: **${defenseSize}**\n🌲 Rừng: **${forestSize}**\n📊 Tổng: **${total}**`,
+            content: `✅ Đã cập nhật đội hình!\n${resultLines.join('\n')}`,
             flags: MessageFlags.Ephemeral
         });
+
+        // Sync lên Supabase (team_sizes + team_names)
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
         // Refresh listbc nếu có
         if (day && session) {

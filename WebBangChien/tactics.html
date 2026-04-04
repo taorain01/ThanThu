@@ -270,6 +270,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 .map-icon img{width:100%;height:100%;pointer-events:none;transition:filter .25s ease;
   filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
 .map-icon:hover{transform:translate(-50%,-50%) scale(1.3)}
+/* Giảm scale hover icon rừng để dễ kéo người bên cạnh */
+.map-icon.dot:hover{transform:translate(-50%,-50%) scale(1.06)!important}
 .map-icon.tower{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));}
 .map-icon.tower img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.56)}
 .map-icon.tower[data-type="tower_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.09)}
@@ -2569,6 +2571,25 @@ async function loadSessionData() {
     ensureSessionDefaults();
     const DAY_LABELS = {mon:'Thứ 2',tue:'Thứ 3',wed:'Thứ 4',thu:'Thứ 5',fri:'Thứ 6',sat:'Thứ 7',sun:'Chủ Nhật'};
     document.getElementById('dayLabel').textContent = `${DAY_LABELS[currentDay] || currentDay} — ${data.time || '19:30'}`;
+
+    // Cập nhật tên team trong section headers từ team_names
+    try {
+        const rawNames = data.team_names;
+        const teamNames = typeof rawNames === 'string'
+            ? (() => { try { return JSON.parse(rawNames); } catch(e) { return {}; } })()
+            : (rawNames || {});
+        const TEAM_NAME_DEFAULTS = { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
+        const titleMap = {
+            secA1: '⚔️ ' + (teamNames.attack1 || TEAM_NAME_DEFAULTS.attack1),
+            secA2: '🗡️ ' + (teamNames.attack2 || TEAM_NAME_DEFAULTS.attack2),
+            secDF: '🛡️ ' + (teamNames.defense || TEAM_NAME_DEFAULTS.defense),
+            secFR: '🌲 ' + (teamNames.forest  || TEAM_NAME_DEFAULTS.forest)
+        };
+        Object.entries(titleMap).forEach(([secId, title]) => {
+            const titleEl = document.querySelector(`#${secId} .ps-title`);
+            if (titleEl) titleEl.textContent = title;
+        });
+    } catch (e) { /* bỏ qua lỗi parse team_names */ }
 
     // Giả lập full team 30 người nếu session chưa đủ (DEBUG)
     fillMockTeams();
@@ -9101,8 +9122,9 @@ document.addEventListener('mouseup', e => {
         } else if (dragState.source === 'enemy-map') {
             const enemies = getMarkEnemies();
             if (dragState.fromJunglePreview) {
-                const mark = getEditableCurrentMark();
-                if (mark) detachJungleAssignmentIds(mark, 'red', [dragState.enemyId]);
+                // Detach từ TẤT CẢ marks vì assignment là global
+                marks.forEach(m => detachJungleAssignmentIds(m, 'red', [dragState.enemyId]));
+                flagMarkDirty({ refreshUi: false });
             }
             if (dragState.fromBossPreview) {
                 const mark = getEditableCurrentMark();
@@ -9194,8 +9216,10 @@ document.addEventListener('mouseup', e => {
         } else if (dragState.source === 'map') {
             const players = getMarkPlayers();
             if (dragState.fromJunglePreview) {
-                const mark = getEditableCurrentMark();
-                if (mark) detachJungleAssignmentIds(mark, 'blue', [dragState.playerId]);
+                // Detach từ TẤT CẢ marks vì assignment là global
+                let anyChanged = false;
+                marks.forEach(m => { if (detachJungleAssignmentIds(m, 'blue', [dragState.playerId])) anyChanged = true; });
+                if (anyChanged) flagMarkDirty({ refreshUi: false });
             }
             if (dragState.fromBossPreview) {
                 const mark = getEditableCurrentMark();
@@ -9273,8 +9297,10 @@ document.addEventListener('mouseup', e => {
         }
     } else if (dragState.source === 'enemy-map') {
         if (dragState.fromJunglePreview) {
-            const mark = getEditableCurrentMark();
-            if (mark && detachJungleAssignmentIds(mark, 'red', [dragState.enemyId])) {
+            // Detach địch từ TẤT CẢ marks
+            let anyChanged = false;
+            marks.forEach(m => { if (detachJungleAssignmentIds(m, 'red', [dragState.enemyId])) anyChanged = true; });
+            if (anyChanged) {
                 flagMarkDirty({ refreshUi: false });
                 shouldCommitHistory = true;
             }
@@ -9300,8 +9326,10 @@ document.addEventListener('mouseup', e => {
         if (typeof refreshZoomModal === 'function') refreshZoomModal();
     } else if (dragState.source === 'map') {
         if (dragState.fromJunglePreview) {
-            const mark = getEditableCurrentMark();
-            if (mark && detachJungleAssignmentIds(mark, 'blue', [dragState.playerId])) {
+            // Detach từ TẤT CẢ marks để đồng bộ với buildAutoJunglePreviewPlayers
+            let anyChanged = false;
+            marks.forEach(m => { if (detachJungleAssignmentIds(m, 'blue', [dragState.playerId])) anyChanged = true; });
+            if (anyChanged) {
                 flagMarkDirty({ refreshUi: false });
                 shouldCommitHistory = true;
             }
@@ -9401,19 +9429,19 @@ function commitDragPreviewTarget(state, preview, options = {}) {
     const unitIds = side === 'blue' ? blueIds : redIds;
     const spawnTime = getActiveJungleSpawnTime(viewingTime);
     if (!side || !unitIds.length || !Number.isFinite(spawnTime)) return false;
-    const previousAssignments = cloneDeep(mark.jungle_assignments || {});
+
+    // Xóa pending cũ để tránh lỗi snapshot khi gán lần 2
+    pendingJungleAssignment = null;
     const changed = setJungleAssignment(preview.targetId, side, unitIds, { scope: 'global', spawnTime });
     if (!changed) return false;
-    showJungleAssignmentScopeMenu(
-        options.clientX || window.innerWidth / 2,
-        options.clientY || window.innerHeight / 2,
-        preview.targetId,
-        side,
-        unitIds,
-        spawnTime,
-        previousAssignments
-    );
+
+    // Tự động gán "toàn trậnvì" (option 1), không hiện scope menu
     refreshJungleAssignmentUi();
+    commitTacticsHistory('jungle-assign-global');
+    const baiIcon = document.querySelector(`.map-icon.dot[data-obj-id="${preview.targetId}"]`);
+    const baiName = baiIcon?.dataset?.name || preview.targetId.toUpperCase();
+    const countStr = side === 'blue' ? `${unitIds.length} người` : `${unitIds.length} địch`;
+    toast(`🌲 ${baiName}: ${countStr} ăn toàn trận`);
     return true;
 }
 
@@ -10121,12 +10149,22 @@ function getJunglePreviewPlacement(point, side, index, total) {
 buildAutoJunglePreviewPlayers = function(seconds = viewingTime) {
     if (!isJungleCampVisible(seconds)) return [];
     const stateMark = getJungleStateMark(seconds) || getCurrentMark();
+    const spawnTime = getActiveJungleSpawnTime(seconds);
     const rosterById = new Map(getAllPlayers().map(player => [player.id, player]));
     const usedIds = new Set();
     const previewPlayers = [];
     JUNGLE_CAMP_IDS.forEach(objId => {
         const point = getObjectiveMapPoint(objId);
-        const assignedIds = getEffectiveJungleAssignmentIds(objId, 'blue', seconds, stateMark);
+        // Gộp global assignments từ TẤT CẢ marks (để gán "toàn trậnvì" hiện ở mọi mốc thời gian)
+        const globalIds = new Set();
+        marks.forEach(m => {
+            const nj = normalizeJungleAssignments(m.jungle_assignments || {});
+            (nj[objId]?.blue || []).forEach(id => globalIds.add(id));
+        });
+        // Thêm spawn-specific từ mark hiện tại
+        const currentEntry = getJungleAssignmentEntry(stateMark, objId);
+        const spawnIds = Number.isFinite(spawnTime) ? (currentEntry.windows?.[spawnTime]?.blue || []) : [];
+        const assignedIds = [...new Set([...globalIds, ...spawnIds])];
         assignedIds.forEach((playerId, index) => {
             if (usedIds.has(playerId)) return;
             const player = rosterById.get(playerId);
@@ -10150,12 +10188,21 @@ buildAutoJunglePreviewPlayers = function(seconds = viewingTime) {
 function buildAutoJunglePreviewEnemies(seconds = viewingTime) {
     if (!isJungleCampVisible(seconds)) return [];
     const stateMark = getJungleStateMark(seconds) || getCurrentMark();
+    const spawnTime = getActiveJungleSpawnTime(seconds);
     const rosterById = new Map(enemyList.map(enemy => [enemy.id, enemy]));
     const usedIds = new Set();
     const previewEnemies = [];
     JUNGLE_CAMP_IDS.forEach(objId => {
         const point = getObjectiveMapPoint(objId);
-        const assignedIds = getEffectiveJungleAssignmentIds(objId, 'red', seconds, stateMark);
+        // Gộp global assignments địch từ TẤT CẢ marks
+        const globalIds = new Set();
+        marks.forEach(m => {
+            const nj = normalizeJungleAssignments(m.jungle_assignments || {});
+            (nj[objId]?.red || []).forEach(id => globalIds.add(id));
+        });
+        const currentEntry = getJungleAssignmentEntry(stateMark, objId);
+        const spawnIds = Number.isFinite(spawnTime) ? (currentEntry.windows?.[spawnTime]?.red || []) : [];
+        const assignedIds = [...new Set([...globalIds, ...spawnIds])];
         assignedIds.forEach((enemyId, index) => {
             if (usedIds.has(enemyId)) return;
             const enemy = rosterById.get(enemyId);
@@ -11842,10 +11889,15 @@ if (mapImgEl) {
 
 document.getElementById('unsavedCancelBtn')?.addEventListener('click', closeUnsavedModal);
 document.getElementById('unsavedSaveBtn')?.addEventListener('click', () => {
+    // Lưu action trước khi closeUnsavedModal (vì closeUnsavedModal sẽ null-ify pendingUnsavedAction)
     const action = pendingUnsavedAction;
     const pendingCommit = pendingHistoryCommitReason;
+    // Xóa pending trước để modal không re-trigger
+    pendingUnsavedAction = null;
+    pendingHistoryCommitReason = null;
     saveCurrentMarkLocal({ silent: true });
-    closeUnsavedModal();
+    document.getElementById('unsavedOverlay')?.classList.remove('show');
+    // Thực thi navigation sau khi đã lưu và đóng modal
     action?.();
     if (pendingCommit) {
         commitTacticsHistory(pendingCommit);

@@ -187,16 +187,22 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         .setTitle(`⚔️ ĐĂNG KÝ BANG CHIẾN LANG GIA${dayTitle}`)
         .setDescription('❓ = Chưa dùng `?pickrole` để chọn vai trò\n`?bcdoi <số1> <số2>` để đổi chỗ');
 
+    // Lấy tên team tùy chỉnh
+    const teamNames = db.getTeamNames ? db.getTeamNames() : {
+        attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2',
+        defense: 'TEAM THỦ', forest: 'TEAM RỪNG'
+    };
+
     // Team Công 1: 1-10
     let currentNum = 1;
-    currentNum += addTeamField(embed, 'TEAM CÔNG 1', '⚔️', teamAttack1, TEAM_ATTACK1_SIZE, currentNum);
+    currentNum += addTeamField(embed, teamNames.attack1, '⚔️', teamAttack1, TEAM_ATTACK1_SIZE, currentNum);
 
     // Team Công 2: 11-20
-    currentNum += addTeamField(embed, 'TEAM CÔNG 2', '🗡️', teamAttack2, TEAM_ATTACK2_SIZE, currentNum);
+    currentNum += addTeamField(embed, teamNames.attack2, '🗡️', teamAttack2, TEAM_ATTACK2_SIZE, currentNum);
 
     // Team Thủ: chỉ hiện nếu size > 0
     if (TEAM_DEFENSE_SIZE > 0) {
-        currentNum += addTeamField(embed, 'TEAM THỦ', '🛡️', teamDefense, TEAM_DEFENSE_SIZE, currentNum);
+        currentNum += addTeamField(embed, teamNames.defense, '🛡️', teamDefense, TEAM_DEFENSE_SIZE, currentNum);
     } else {
         // Vẫn cộng maxSize để giữ số thứ tự liên tục
         currentNum += TEAM_DEFENSE_SIZE;
@@ -204,10 +210,11 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
 
     // Team Rừng: chỉ hiện nếu size > 0
     if (TEAM_FOREST_SIZE > 0) {
-        currentNum += addTeamField(embed, 'TEAM RỮNG', '🌲', teamForest, TEAM_FOREST_SIZE, currentNum);
+        currentNum += addTeamField(embed, teamNames.forest, '🌲', teamForest, TEAM_FOREST_SIZE, currentNum);
     } else {
         currentNum += TEAM_FOREST_SIZE;
     }
+
 
     // Danh sách chờ
     if (waitingList.length > 0) {

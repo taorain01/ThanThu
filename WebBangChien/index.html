@@ -105,13 +105,133 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .not-member .nm-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
 
 /* ═══ USER BADGE (góc phải header khi đã login) ═══ */
-.user-badge{display:flex;align-items:center;gap:8px;padding:5px 14px;border-radius:20px;
-  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);cursor:pointer;transition:all .3s}
-.user-badge:hover{background:rgba(34,197,94,.15)}
-.user-badge img{width:24px;height:24px;border-radius:50%}
-.user-badge .uname{font-size:12px;font-weight:600;color:var(--green-300)}
-.user-badge .logout-btn{font-size:10px;color:var(--text3);margin-left:4px;cursor:pointer}
-.user-badge .logout-btn:hover{color:#fca5a5}
+/* ═══ USER BADGE REDESIGN ═══ */
+.user-badge{
+  display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;
+  border-radius:20px;background:rgba(34,197,94,.1);
+  border:1px solid rgba(34,197,94,.2);cursor:pointer;
+  transition:all .3s;position:relative;user-select:none;
+}
+.user-badge:hover{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.4);
+  box-shadow:0 0 12px rgba(34,197,94,.15)}
+.user-badge img{width:28px;height:28px;border-radius:50%;
+  border:2px solid rgba(34,197,94,.4);flex-shrink:0}
+.user-badge .uname{font-size:12px;font-weight:700;color:var(--green-300);max-width:80px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-badge .ub-arrow{font-size:9px;color:var(--text3);transition:transform .2s;margin-left:2px}
+.user-badge.open .ub-arrow{transform:rotate(180deg)}
+
+/* Dropdown menu */
+.user-dropdown{
+  position:absolute;top:calc(100% + 8px);right:0;z-index:200;
+  background:rgba(8,18,12,.97);border:1px solid rgba(34,197,94,.2);
+  border-radius:14px;overflow:hidden;min-width:160px;
+  box-shadow:0 16px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03);
+  backdrop-filter:blur(16px);
+  opacity:0;transform:translateY(-8px) scale(.97);
+  pointer-events:none;transition:all .2s cubic-bezier(.25,.46,.45,.94);
+}
+.user-badge.open .user-dropdown{
+  opacity:1;transform:translateY(0) scale(1);pointer-events:all;
+}
+.ud-item{
+  display:flex;align-items:center;gap:10px;padding:11px 16px;
+  font-size:13px;font-weight:600;color:var(--text);cursor:pointer;
+  transition:background .15s;border:none;background:none;width:100%;text-align:left;
+  font-family:inherit;
+}
+.ud-item:hover{background:rgba(34,197,94,.08);color:var(--green-300)}
+.ud-item.danger{color:#fca5a5}
+.ud-item.danger:hover{background:rgba(255,80,80,.08)}
+.ud-sep{height:1px;background:rgba(255,255,255,.06);margin:2px 0}
+
+/* ═══ PROFILE MODAL ═══ */
+.profile-modal-ov{
+  position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);
+  display:none;align-items:center;justify-content:center;padding:16px;
+  backdrop-filter:blur(4px);
+}
+.profile-modal-ov.active{display:flex}
+.profile-modal{
+  width:min(480px,100%);background:linear-gradient(160deg,rgba(10,22,14,.98),rgba(6,14,9,.99));
+  border:1px solid rgba(34,197,94,.2);border-radius:20px;
+  box-shadow:0 32px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.03);
+  overflow:hidden;animation:pmSlideIn .3s cubic-bezier(.25,.46,.45,.94);
+}
+@keyframes pmSlideIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+
+.pm-header{
+  display:flex;align-items:center;gap:14px;padding:20px 20px 16px;
+  background:linear-gradient(135deg,rgba(34,197,94,.06),rgba(251,191,36,.04));
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.pm-avatar{
+  width:56px;height:56px;border-radius:50%;border:3px solid rgba(34,197,94,.4);
+  box-shadow:0 0 20px rgba(34,197,94,.2);flex-shrink:0;
+}
+.pm-meta{flex:1;min-width:0}
+.pm-name{font-size:18px;font-weight:800;color:var(--text)}
+.pm-disc{font-size:12px;color:var(--text2);margin-top:2px}
+.pm-pos-badge{
+  display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+  padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
+  background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.25);color:var(--gold);
+}
+.pm-close{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  color:var(--text2);border-radius:10px;padding:6px 10px;cursor:pointer;
+  font-size:13px;transition:all .2s;align-self:flex-start;flex-shrink:0;
+}
+.pm-close:hover{background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.2);color:#fca5a5}
+
+/* Tabs trong profile modal */
+.pm-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.05);padding:0 16px}
+.pm-tab{
+  padding:10px 14px;font-size:12px;font-weight:700;color:var(--text3);
+  cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;
+  white-space:nowrap;
+}
+.pm-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.pm-tab:hover:not(.active){color:var(--text)}
+
+.pm-body{padding:16px 20px 20px;min-height:140px}
+.pm-pane{display:none;animation:pmFadeIn .2s ease}
+.pm-pane.active{display:block}
+@keyframes pmFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* Info rows */
+.pm-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pm-info-card{
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  border-radius:12px;padding:12px 14px;
+}
+.pm-ic-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.pm-ic-value{font-size:15px;font-weight:800;color:var(--text)}
+.pm-ic-value.gold{color:var(--gold)}
+.pm-ic-value.green{color:var(--green-400)}
+.pm-ic-value.dps{color:var(--dps)}
+.pm-ic-value.healer{color:var(--healer)}
+.pm-ic-value.tanker{color:var(--tanker)}
+
+/* Level progress bar */
+.pm-level-bar-wrap{margin-top:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.pm-lbar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.pm-lbar-lv{font-size:20px;font-weight:900;color:var(--gold)}
+.pm-lbar-exp{font-size:11px;color:var(--text3)}
+.pm-lbar{
+  height:8px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;
+}
+.pm-lbar-fill{
+  height:100%;border-radius:999px;transition:width .8s cubic-bezier(.25,.46,.45,.94);
+  background:linear-gradient(90deg,var(--green-600),var(--green-400));
+  box-shadow:0 0 8px rgba(74,222,128,.4);
+}
+.pm-lbar-rank{margin-top:8px;font-size:11px;color:var(--text3);text-align:right}
+
+/* Loading spinner trong modal */
+.pm-loading{text-align:center;padding:30px;color:var(--text3)}
+.pm-loading .spinner{margin:0 auto 10px;width:28px;height:28px}
+
 
 /* ═══ FIRE PARTICLES ═══ */
 .fire-container{position:fixed;inset:0;pointer-events:none;z-index:10;overflow:hidden}
@@ -596,8 +716,9 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .r-tabs { padding: 8px 10px 0; gap: 4px; flex-wrap: wrap }
   .r-tab { padding: 6px 12px; font-size: 11px }
 
-  /* User badge gọn */
+  /* User badge mobile: ẩn tên, giữ ảnh + arrow */
   .user-badge .uname { display: none }
+  .user-badge { padding: 4px 8px 4px 4px; }
 
   /* Modal responsive */
   .modal { width: 90vw }
@@ -784,11 +905,16 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
     </div>
     <div class="guild-name-wrapper"><div class="guild-name" data-text="LANG GIA">LANG GIA</div></div>
     
-    <!-- User Badge ở góc phải -->
-    <div class="user-badge" id="userBadge" style="margin-left: auto;">
+    <!-- User Badge ở góc phải: click để mở dropdown -->
+    <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
       <img id="userAvatar" src="" alt="">
       <span class="uname" id="userName"></span>
-      <span class="logout-btn" onclick="logout()">✕</span>
+      <span class="ub-arrow">▼</span>
+      <div class="user-dropdown" id="userDropdown">
+        <button class="ud-item" onclick="openProfileModal(event)">👤 Thông tin</button>
+        <div class="ud-sep"></div>
+        <button class="ud-item danger" onclick="logout(event)">🚪 Đăng xuất</button>
+      </div>
     </div>
   </div>
 
@@ -913,6 +1039,8 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
     <div class="mob-tab active" data-target="mob-teams" onclick="switchMobileTab(this)">👥<span>Đội hình</span></div>
     <div class="mob-tab" data-target="mob-map" onclick="switchMobileTab(this)">🗺️<span>Bản đồ</span></div>
     <div class="mob-tab" data-target="mob-tasks" onclick="switchMobileTab(this)">📋<span>Nhiệm vụ</span></div>
+    <div class="mob-tab" data-target="mob-editor" onclick="switchMobileTab(this)">✏️<span>Đội Hình</span></div>
+    <div class="mob-tab" data-target="mob-tactics" onclick="switchMobileTab(this)">⚔️<span>Chiến Thuật</span></div>
   </div>
 </div>
 
@@ -3203,6 +3331,252 @@ setupRealtimeSubscription = function() {
     _origSetupRealtimeSub();
     setupTacticsViewerRealtime();
 };
+
+// ═══ MOBILE NAV: Thêm xử lý Đội Hình / Chiến Thuật ═══
+const _origSwitchMobileTab = typeof switchMobileTab === 'function' ? switchMobileTab : null;
+function switchMobileTab(el) {
+    document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const target = el.dataset.target;
+
+    const left = document.getElementById('leftPanel');
+    const right = document.querySelector('.right');
+    if (left) left.classList.remove('mob-active');
+    if (right) right.classList.remove('mob-active');
+
+    if (target === 'mob-teams') {
+        if (left) left.classList.add('mob-active');
+    } else if (target === 'mob-map') {
+        if (right) right.classList.add('mob-active');
+        const mapTab = document.querySelector('.r-tab');
+        if (mapTab) { document.querySelectorAll('.r-tab').forEach(t=>t.classList.remove('active')); mapTab.classList.add('active'); document.querySelectorAll('.r-pane').forEach(p=>p.classList.remove('active')); document.getElementById('pane-map')?.classList.add('active'); }
+    } else if (target === 'mob-tasks') {
+        if (right) right.classList.add('mob-active');
+        const taskTabs = document.querySelectorAll('.r-tab');
+        if (taskTabs[1]) { document.querySelectorAll('.r-tab').forEach(t=>t.classList.remove('active')); taskTabs[1].classList.add('active'); document.querySelectorAll('.r-pane').forEach(p=>p.classList.remove('active')); document.getElementById('pane-tasks')?.classList.add('active'); loadTasksTab(); }
+    } else if (target === 'mob-editor') {
+        // Chuyển trang Đội Hình
+        openTeamEditor();
+    } else if (target === 'mob-tactics') {
+        // Chuyển trang Chiến Thuật
+        openTactics();
+    }
+}
+
+// ═══ USER DROPDOWN ═══
+function toggleUserDropdown(e) {
+    e.stopPropagation();
+    const badge = document.getElementById('userBadge');
+    badge.classList.toggle('open');
+}
+
+// Click ngoài: đóng dropdown
+document.addEventListener('click', (e) => {
+    const badge = document.getElementById('userBadge');
+    if (badge && !badge.contains(e.target)) {
+        badge.classList.remove('open');
+    }
+});
+
+// Override logout để accept event param
+const _origLogout = logout;
+logout = async function(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('userBadge')?.classList.remove('open');
+    await _origLogout();
+};
+
+// ═══ PROFILE MODAL ═══
+let _profileData = null;
+
+async function openProfileModal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('userBadge')?.classList.remove('open');
+
+    // Tạo modal nếu chưa có
+    if (!document.getElementById('profileModalOv')) {
+        const ov = document.createElement('div');
+        ov.className = 'profile-modal-ov';
+        ov.id = 'profileModalOv';
+        ov.onclick = (ev) => { if (ev.target === ov) closeProfileModal(); };
+        ov.innerHTML = `
+        <div class="profile-modal" id="profileModal">
+          <div class="pm-header">
+            <img class="pm-avatar" id="pmAvatar" src="" alt="">
+            <div class="pm-meta">
+              <div class="pm-name" id="pmName">–</div>
+              <div class="pm-disc" id="pmDisc">–</div>
+              <div class="pm-pos-badge" id="pmPosBadge">Đang tải...</div>
+            </div>
+            <button class="pm-close" onclick="closeProfileModal()">✕</button>
+          </div>
+          <div class="pm-tabs" id="pmTabs">
+            <div class="pm-tab active" onclick="switchPmTab(this,'pm-pane-info')">👤 Thông tin</div>
+            <div class="pm-tab" onclick="switchPmTab(this,'pm-pane-level')">📊 Level</div>
+          </div>
+          <div class="pm-body">
+            <div class="pm-loading" id="pmLoading">
+              <div class="spinner"></div>
+              <div>Đang tải thông tin...</div>
+            </div>
+            <div class="pm-pane active" id="pm-pane-info" style="display:none">
+              <div class="pm-info-grid" id="pmInfoGrid"></div>
+            </div>
+            <div class="pm-pane" id="pm-pane-level" style="display:none">
+              <div id="pmLevelContent"></div>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(ov);
+    }
+
+    document.getElementById('profileModalOv').classList.add('active');
+    await fetchAndRenderProfile();
+}
+
+function closeProfileModal() {
+    document.getElementById('profileModalOv')?.classList.remove('active');
+}
+
+function switchPmTab(el, paneId) {
+    document.querySelectorAll('.pm-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.pm-pane').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+    const pane = document.getElementById(paneId);
+    if (pane) { pane.classList.add('active'); pane.style.display = 'block'; }
+}
+
+const POS_LABELS = {
+    'bc': '👑 Bang Chủ', 'pbc': '⚔️ Phó Bang Chủ',
+    'kc': '🌟 Kỳ Cựu', 'ql': '🛡️ Quản Lý',
+    'mem': '👤 Thành viên'
+};
+const ROLE_CLASS = { 'Healer': 'healer', 'Tanker': 'tanker', 'DPS': 'dps' };
+const SUB_LABELS = { 'QD': 'Quạt Dù', 'VD': 'Vô Danh', 'SD': 'Song Đao', '9K': 'Cửu Kiếm', 'DR': 'Dù Roi', 'HĐ': 'Hoành Đao' };
+
+async function fetchAndRenderProfile() {
+    const pmLoading = document.getElementById('pmLoading');
+    const pmInfoGrid = document.getElementById('pmInfoGrid');
+    const pmLevelContent = document.getElementById('pmLevelContent');
+    const paneInfo = document.getElementById('pm-pane-info');
+    const paneLevel = document.getElementById('pm-pane-level');
+
+    pmLoading.style.display = 'block';
+    paneInfo.style.display = 'none';
+    paneLevel.style.display = 'none';
+
+    // Điền header ngay từ cache
+    const avatarSrc = document.getElementById('userAvatar')?.src || '';
+    const discordName = window.currentUserName || '–';
+    const discordId = window.currentDiscordId || '–';
+    document.getElementById('pmAvatar').src = avatarSrc;
+    document.getElementById('pmName').textContent = discordName;
+    document.getElementById('pmDisc').textContent = '@' + discordName + ' • ' + discordId;
+
+    try {
+        // Fetch bc_users từ Supabase
+        let userData = null;
+        if (sb && discordId && discordId !== '–') {
+            const { data } = await sb.from('bc_users')
+                .select('game_username, game_uid, position, sub_role, discord_name')
+                .eq('discord_id', discordId)
+                .maybeSingle();
+            userData = data;
+        }
+
+        // Hiện badge chức vụ
+        const pos = userData?.position || window.currentUserPosition || 'mem';
+        document.getElementById('pmPosBadge').textContent = POS_LABELS[pos] || pos;
+
+        // Fetch bc_sessions để tính số BC đã tham gia
+        let bcCount = 0;
+        let bcDays = [];
+        if (sb && discordId && discordId !== '–') {
+            const { data: sessions } = await sb.from('bc_sessions')
+                .select('day, team_attack1, team_attack2, team_defense, team_forest, waiting_list')
+                .eq('guild_id', GUILD_ID);
+            if (sessions) {
+                sessions.forEach(s => {
+                    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
+                    const isIn = allTeams.some(key => {
+                        try {
+                            const arr = typeof s[key] === 'string' ? JSON.parse(s[key]) : (s[key] || []);
+                            return arr.some(p => p.id === discordId);
+                        } catch { return false; }
+                    });
+                    if (isIn) { bcCount++; bcDays.push(s.day); }
+                });
+            }
+        }
+
+        // Render tab Thông tin
+        const gameUsername = userData?.game_username || '–';
+        const gameUid = userData?.game_uid || '–';
+        const subRole = userData?.sub_role || '';
+        const roleClass = ROLE_CLASS[subRole] || 'dps';
+        const subLabel = SUB_LABELS[subRole] || subRole || '–';
+
+        pmInfoGrid.innerHTML = `
+          <div class="pm-info-card">
+            <div class="pm-ic-label">Tên trong game</div>
+            <div class="pm-ic-value gold">${escHtml(gameUsername)}</div>
+          </div>
+          <div class="pm-info-card">
+            <div class="pm-ic-label">Game UID</div>
+            <div class="pm-ic-value">${escHtml(gameUid)}</div>
+          </div>
+          <div class="pm-info-card">
+            <div class="pm-ic-label">Chức vụ</div>
+            <div class="pm-ic-value gold">${POS_LABELS[pos] || pos}</div>
+          </div>
+          <div class="pm-info-card">
+            <div class="pm-ic-label">Vũ khí / Sub role</div>
+            <div class="pm-ic-value ${roleClass}">${subLabel}</div>
+          </div>
+          <div class="pm-info-card">
+            <div class="pm-ic-label">BC đang đăng ký</div>
+            <div class="pm-ic-value green">${bcCount > 0 ? bcCount + ' phiên (' + bcDays.map(d => DAY_LABELS[d]||d).join(', ') + ')' : 'Chưa đăng ký'}</div>
+          </div>
+          <div class="pm-info-card">
+            <div class="pm-ic-label">Discord ID</div>
+            <div class="pm-ic-value" style="font-size:11px;word-break:break-all">${escHtml(discordId)}</div>
+          </div>`;
+
+        // Render tab Level
+        await renderPmLevelTab(pmLevelContent, discordId);
+
+        pmLoading.style.display = 'none';
+        paneInfo.style.display = 'block';
+        paneInfo.classList.add('active');
+
+    } catch(err) {
+        pmLoading.innerHTML = `<div style="color:#fca5a5;font-size:13px">⚠️ Không tải được thông tin: ${err.message}</div>`;
+    }
+}
+
+async function renderPmLevelTab(container, discordId) {
+    // Thử fetch từ bảng exp_levels nếu có trên Supabase
+    // Bảng này là SQLite local – không có trên Supabase, nên hiển thị placeholder đẹp
+    container.innerHTML = `
+      <div class="pm-level-bar-wrap">
+        <div class="pm-lbar-top">
+          <div class="pm-lbar-lv">LV ??</div>
+          <div class="pm-lbar-exp">EXP: Chưa có dữ liệu</div>
+        </div>
+        <div class="pm-lbar"><div class="pm-lbar-fill" style="width:0%"></div></div>
+        <div class="pm-lbar-rank">📊 Dữ liệu Level lưu trên bot Discord, chưa được đồng bộ lên web</div>
+      </div>
+      <div style="margin-top:12px;padding:12px 14px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:12px;font-size:12px;color:var(--text2);line-height:1.6">
+        🤖 Để xem Level/EXP chính xác, dùng lệnh <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;color:var(--gold)">/rank</code> hoặc <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;color:var(--gold)">@bot rank</code> trên Discord
+      </div>`;
+
+    // Thử fetch bc_users để xem có thêm data không
+    if (!sb) return;
+    try {
+        // Tính thống kê từ sessions: tổng số BC đã tham gia lịch sử (chỉ current active sessions)
+        // Nếu sau này có bảng user_stats trên Supabase thì fetch ở đây
+    } catch(e) {}
+}
 
 </script>
 </body>

@@ -407,7 +407,7 @@
                 <div class="panel-title">⏳ HÀNG CHỜ</div>
                 <div class="panel-meta" id="waitingMeta">0 người</div>
               </div>
-              <div class="badge" id="syncBadge">Đang đồng bộ...</div>
+              <div class="badge" id="syncBadge">Sẵn sàng</div>
             </div>
             <div class="panel-body" id="waitingBody"></div>
             <div class="mini-note">
@@ -643,7 +643,7 @@
           <div class="member-sub">${member.username || member.id}</div>
         </div>
         <button class="leader-btn ${(member.isTeamLeader || member.ld) ? 'active' : ''}" type="button">👑</button>
-        <div class="role-tag ${cls}">${member.role || 'DPS'}</div>
+        <div class="role-tag ${cls}">${member.role || 'DPS'}${member.sub ? ' [' + member.sub + ']' : ''}</div>
         <button class="kick-btn" type="button">✕</button>
       `;
       const leaderBtn = row.querySelector('.leader-btn');
@@ -1058,6 +1058,7 @@
       normalizeLeaderState();
       refreshLeaderEditorPermission();
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
+      updateSyncBadge('Đã cập nhật');
       renderEditor();
     }
 
@@ -1069,6 +1070,7 @@
       normalizeLeaderState();
       refreshLeaderEditorPermission();
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      updateSyncBadge('Đã cập nhật');
       renderEditor();
     }
 

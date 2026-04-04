@@ -71,13 +71,19 @@ Trang team_editor.html:
 
 **File:** `index.html`
 
-**Thay đổi 1 — User Badge:** Click vào avatar → mở dropdown có 2 mục:
-- 👤 **Thông tin** → mở modal profile
-- 🚪 **Đăng xuất** → logout
+**Thay đổi 1 — User Badge:**
+- Đưa hẳng về bên phải đối xứng với logo LANG GIA.
+- Redesign style Golden (vàng kim), font Playfair Display, kèm hiệu ứng ánh sáng quét (shineSweep) giống hệt logo chính.
 
 **Thay đổi 2 — Profile Modal 2 tab:**
 - **Tab Thông tin:** Fetch từ `bc_users` Supabase → hiển thị: Tên game, UID, Chức vụ, Vũ khí/Sub role, BC đang đăng ký
-- **Tab Level:** Hiển thị placeholder đẹp (dữ liệu level lưu trên bot SQLite, chưa sync lên web)
+
+### [x] Bước 0.5: Đồng bộ & hiển thị hệ thống EXP + Level
+
+**Nguồn thay đổi:** `economy.js`, `ready.js`, `supabaseSync.js` (Bot) & `index.html` (Web)
+- **Bot:** Bắt sự kiện mỗi khi người dùng có EXP (Chat/Voice) để push data `total_exp`, `level`, `messages`, `voice` lên bảng `bc_exp_levels` trên Supabase (Real-time). Sync toàn bộ khi bot start.
+- **Web:** Fetch thẳng từ bảng `bc_exp_levels`.
+- **UI:** Redesign lại toàn bộ tab Level với Rank Card tuyệt đẹp: Hiển thị thanh Progress bar mượt mà, phân loại rõ Text vs Voice, hiển thị `#Rank` server, và làm nổi bật Tier (ví dụ: *~ Lữ Khách* in đậm, màu vàng kim). Cập nhật realtime.
 
 ---
 

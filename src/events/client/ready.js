@@ -465,6 +465,94 @@ async function resolveTacticsActorName(guild, savedBy, fallbackName = 'Leader') 
   return raw;
 }
 
+/**
+ * Boot-pull: Tạo sessions trong SQLite từ Supabase khi bot start với SQLite trống
+ * Giải quyết vấn đề hosting bot có SQLite khác với bot cục bộ
+ */
+async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
+  if (!supabaseClient || !db || !guild) return;
+  try {
+    const { data: remoteSessions } = await supabaseClient
+      .from('bc_sessions').select('*')
+      .eq('guild_id', guild.id).eq('status', 'active');
+    if (!remoteSessions || remoteSessions.length === 0) return;
+
+    const { createPartyKey, bangchienNotifications, bangchienRegistrations, bangchienChannels } = require('../../utils/bangchienState');
+    const bcChannelId = db.getConfig ? db.getConfig(`bc_channel_${guild.id}`) : null;
+    let pulledCount = 0;
+
+    for (const remoteSession of remoteSessions) {
+      if (!remoteSession.day) continue;
+      const existing = db.getActiveBangchienByDay ? db.getActiveBangchienByDay(guild.id, remoteSession.day) : null;
+      if (existing) continue; // Đã có trong SQLite, bỏ qua
+
+      if (!bcChannelId) {
+        console.warn(`[Supabase] ⚠️ Boot-pull ${remoteSession.day}: chưa set kênh BC (dùng ?setbc trên hosting bot)`);
+        continue;
+      }
+
+      const leaderIds = (() => {
+        try { return typeof remoteSession.leader_ids === 'string' ? JSON.parse(remoteSession.leader_ids || '{}') : (remoteSession.leader_ids || {}); } catch(e) { return {}; }
+      })();
+      const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+      const partyKey = createPartyKey(guild.id, remoteSession.day, leaderIds.creator_id || 'web');
+
+      // Tạo session trong SQLite
+      try {
+        db.createActiveBangchien({
+          guildId: guild.id,
+          partyKey,
+          leaderId: leaderIds.creator_id || leaderIds.commander || 'web',
+          leaderName: leaderIds.creator_name || 'Web',
+          channelId: bcChannelId,
+          messageId: null,
+          day: remoteSession.day,
+          time: remoteSession.time || '19:30',
+          note: remoteSession.note || null
+        });
+
+        // Ghi dữ liệu team vào SQLite
+        db.db.prepare(`
+          UPDATE bangchien_active
+          SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?,
+              team1_leader_id=?, team2_leader_id=?, team3_leader_id=?, team4_leader_id=?
+          WHERE party_key=?
+        `).run(
+          remoteSession.team_attack1 || '[]',
+          remoteSession.team_attack2 || '[]',
+          remoteSession.team_defense || '[]',
+          remoteSession.team_forest || '[]',
+          remoteSession.waiting_list || '[]',
+          leaderIds.team1 || null,
+          leaderIds.team2 || null,
+          leaderIds.team3 || null,
+          leaderIds.team4 || null,
+          partyKey
+        );
+
+        // Khởi tạo memory state
+        bangchienRegistrations.set(partyKey, parseTeam(remoteSession.team_attack1));
+        bangchienNotifications.set(partyKey, {
+          intervalId: null, channelId: bcChannelId,
+          leaderId: leaderIds.creator_id || 'web',
+          leaderName: leaderIds.creator_name || 'Web',
+          messageId: null, message: null,
+          startTime: Date.now(), day: remoteSession.day
+        });
+        bangchienChannels.set(guild.id, bcChannelId);
+        pulledCount++;
+        console.log(`[Supabase] ✅ Boot-pull: tạo SQLite session ${remoteSession.day} từ Supabase`);
+      } catch (createErr) {
+        console.error(`[Supabase] ❌ Boot-pull lỗi tạo session ${remoteSession.day}:`, createErr.message);
+      }
+    }
+
+    if (pulledCount > 0) console.log(`[Supabase] ✅ Boot-pull hoàn tất: ${pulledCount} session kéo từ Supabase vào SQLite`);
+  } catch (err) {
+    console.error('[Supabase] ❌ Boot-pull error:', err.message);
+  }
+}
+
 async function sendTacticsSaveNotice(client, guild, historyEntry) {
   if (!historyEntry?.day) return;
   const meta = historyEntry?.markers?._history_meta || {};
@@ -521,14 +609,15 @@ module.exports = {
             console.error('[Supabase] Khong gui duoc thong bao luu chien thuat:', error.message);
           }
         });
-        // Sync sessions cho guilds có dữ liệu trong SQLite
+        // Sync sessions cho tất cả guilds (bỏ guard hasSessions)
         for (const [, g] of client.guilds.cache) {
-          const hasSessions = (db.getActiveBangchienByGuild ? db.getActiveBangchienByGuild(g.id) : []).length > 0;
-          if (hasSessions) {
-            await supaSync.syncAllActiveSessions(db, g.id, g);
-          }
+          await supaSync.syncAllActiveSessions(db, g.id, g);
         }
         console.log('[Supabase] Đã sync sessions khi start');
+
+        // Boot-pull: kéo sessions từ Supabase vào SQLite (cho hosting bot với SQLite trống)
+        const supabaseClient = supaSync.getSupabaseClient();
+        await pullMissingSessionsFromSupabase(supabaseClient, db, guild);
 
         // Sync tất cả users lên Supabase bc_users
         try {
@@ -811,6 +900,7 @@ module.exports = {
             ].map(p => p.id));
 
             const removedIds = [...localAllIds].filter(id => !supaAllIds.has(id));
+            const addedIds = [...supaAllIds].filter(id => !localAllIds.has(id));
 
             const updateStmt = db.db.prepare(`
               UPDATE bangchien_active
@@ -836,6 +926,21 @@ module.exports = {
             );
             console.log(`[Supabase] S& Đã sync ngược SQLite cho BC ${newData.day}`);
 
+            if (addedIds.length > 0) {
+              const bcRole = guild.roles.cache.find(r => r.name === 'bc');
+              if (bcRole) {
+                for (const userId of addedIds) {
+                  try {
+                    const member = await guild.members.fetch(userId).catch(() => null);
+                    if (member && !member.roles.cache.has(bcRole.id)) {
+                      await member.roles.add(bcRole);
+                      console.log(`[Supabase] ✅ Gán role BC cho ${member.user.username} (web join)`);
+                    }
+                  } catch (e) { }
+                }
+              }
+            }
+
             if (removedIds.length > 0) {
               const bcRole = guild.roles.cache.find(r => r.name === 'bc');
               if (bcRole) {
@@ -844,12 +949,13 @@ module.exports = {
                     const member = await guild.members.fetch(userId).catch(() => null);
                     if (member && member.roles.cache.has(bcRole.id)) {
                       await member.roles.remove(bcRole);
-                      console.log(`[Supabase] x Đã xoá role BC cho ${member.user.username} (web cancel)`);
+                      console.log(`[Supabase] ❌ Đã xoá role BC cho ${member.user.username} (web cancel)`);
                     }
                   } catch (e) { }
                 }
               }
             }
+
 
             const { refreshOverviewEmbed } = require('../../utils/bangchienState');
             await refreshOverviewEmbed(client, guild.id);

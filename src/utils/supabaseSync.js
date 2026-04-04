@@ -838,6 +838,7 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
 module.exports = {
     initSupabase,
     isReady,
+    getSupabaseClient: () => supabase,
     syncBCSession,
     deleteBCSession,
     deleteAllBCSessions,

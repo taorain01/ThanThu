@@ -162,6 +162,10 @@
       box-shadow:0 0 0 1px rgba(58,208,126,.2),0 18px 42px rgba(0,0,0,.2);
       background:linear-gradient(180deg,rgba(15,35,22,.98),rgba(8,19,12,.98));
     }
+    /* ═══ FIX DRAG OFFSET: Khi kéo, ngăn layout shift do scrollbar xuất hiện/ẩn ═══ */
+    html{
+      scrollbar-gutter:stable; /* Giữ chỗ cho scrollbar luôn, không làm layout nhảy */
+    }
     .member-row{
       display:flex;
       align-items:center;
@@ -170,26 +174,25 @@
       border-radius:12px;
       border:1px solid rgba(255,255,255,.04);
       background:rgba(255,255,255,.025);
-      cursor:grab;
+      cursor:grab; /* Toàn bộ ô đều kéo được */
       user-select:none;
+      touch-action:none; /* Bật touch drag trên toàn ô */
     }
     .member-row.dragging{opacity:.45;transform:scale(.98)}
     .member-row.locked{cursor:default}
     .drag-handle{
       color:var(--muted);
       font-size:18px;
-      /* Touch target đủ lớn trên mobile: 44×44px theo Apple HIG */
-      min-width:44px;
-      min-height:44px;
+      min-width:32px;
+      min-height:32px;
       display:flex;
       align-items:center;
       justify-content:center;
-      /* Ngăn browser scroll/select khi đang giữ để kéo */
-      touch-action:none;
       -webkit-user-select:none;
       user-select:none;
-      cursor:grab;
+      pointer-events:none; /* Handle chỉ là icon trang trí, không phải vùng kéo nữa */
       flex-shrink:0;
+      opacity:.6;
     }
     .avatar{
       width:28px;height:28px;border-radius:50%;
@@ -386,7 +389,7 @@
 
       <div class="toolbar" style="flex:1; justify-content:flex-end;">
         <span class="badge open" id="lockBadge">📂 Chưa chốt</span>
-        <button class="btn" id="btnRefresh">Làm mới</button>
+        <button class="btn" id="btnRefresh">📡 Fetch Bot</button>
         <button class="btn warn" id="btnResize">Resize</button>
         <button class="btn primary" id="btnLockToggle">📋 Chốt danh sách</button>
       </div>
@@ -674,25 +677,28 @@
       body._sortable = new Sortable(body, {
         group: 'teams',           // Cho phép kéo giữa các team
         animation: 180,
-        delay: 100,               // Giảm delay giúp mobile kéo nhanh hơn
+        delay: 80,                // Delay ngắn để phản hồi nhanh
         delayOnTouchOnly: true,
-        touchStartThreshold: 5,   // Phân biệt vuốt màn hình vs kéo thả
+        touchStartThreshold: 4,   // Phân biệt vuốt màn hình vs kéo thả
         ghostClass: 'dragging',
         chosenClass: 'drag-chosen',
         dragClass: 'drag-active',
-        handle: '.drag-handle',   // Chỉ kéo khi chạm vào handle ⠿ (đã to hơn trên mobile)
+        // Bỏ handle: kéo từ bất cứ đâu trong member-row
         fallbackOnBody: true,
         swapThreshold: 0.65,
-        filter: '.empty',         // Không kéo placeholder
+        filter: '.empty,.leader-btn,.kick-btn', // Không kéo khi bấm nút
         preventOnFilter: true,
         forceFallback: false,
-        onStart: function() {
+        onStart: function(evt) {
           isDragging = true;
-          document.body.style.overflow = 'hidden'; // Ngăn scroll trang khi đang kéo
+          // FIX SCROLL OFFSET: Khóa scroll trên toàn bộ container để tránh layout shift
+          // làm ghost bị lệch so với con trỏ khi kéo
+          _lockScrollForDrag();
         },
         onEnd: function(evt) {
           isDragging = false;
-          document.body.style.overflow = ''; // Trả lại scroll trang
+          // Trả lại scroll sau khi kéo xong
+          _unlockScrollAfterDrag();
           const userId = evt.item.dataset.userId;
           // panel-body không có data-team, phải lên parent panel.team-card
           const fromTeam = (evt.from.dataset.team) || evt.from.closest('[data-team]')?.dataset.team
@@ -708,6 +714,43 @@
           scheduleSync('move', 'Đang đồng bộ thay đổi đội hình...');
         }
       });
+    }
+
+    // ═══ HÀM KHÓA/MỞ SCROLL KHI KÉO ═══
+    // Lưu lại scrollTop của tất cả container cuộn rồi set overflow:hidden
+    // để tránh scrollbar xuất hiện/mất đi làm layout shift → ghost bị lệch
+    let _dragScrollLocks = [];
+
+    function _lockScrollForDrag() {
+      _dragScrollLocks = [];
+      // Các selector container có thể cuộn trong trang
+      const scrollables = [
+        document.documentElement,
+        document.body,
+        document.querySelector('.content'),
+        document.querySelector('.right-col'),
+        document.querySelector('.left-col'),
+        document.querySelector('.side-stack')
+      ].filter(Boolean);
+
+      scrollables.forEach((el) => {
+        const style = getComputedStyle(el);
+        const overflowY = style.overflowY;
+        // Chỉ lock những container thực sự có thể cuộn
+        if (overflowY === 'auto' || overflowY === 'scroll' || el === document.documentElement || el === document.body) {
+          _dragScrollLocks.push({ el, overflowY: el.style.overflowY, overflowX: el.style.overflowX });
+          el.style.overflowY = 'hidden';
+          // Giữ overflowX để không ảnh hưởng layout ngang
+        }
+      });
+    }
+
+    function _unlockScrollAfterDrag() {
+      _dragScrollLocks.forEach(({ el, overflowY, overflowX }) => {
+        el.style.overflowY = overflowY;
+        el.style.overflowX = overflowX;
+      });
+      _dragScrollLocks = [];
     }
 
     function renderEditor() {
@@ -1090,7 +1133,21 @@
       setupRealtime();
     }
 
-    document.getElementById('btnRefresh').addEventListener('click', () => loadSession());
+    document.getElementById('btnRefresh').addEventListener('click', async () => {
+      const btn = document.getElementById('btnRefresh');
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang fetch...';
+      try {
+        await loadSession();
+        btn.textContent = '✅ Đã cập nhật!';
+        updateSyncBadge('Đã fetch dữ liệu mới nhất');
+      } catch (e) {
+        btn.textContent = '❌ Lỗi fetch';
+        updateSyncBadge('Lỗi fetch: ' + (e.message || e));
+      }
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = '📡 Fetch Bot'; }, 3000);
+    });
     document.getElementById('btnResize').addEventListener('click', openResizeModal);
     document.getElementById('btnResizeCancel').addEventListener('click', closeResizeModal);
     document.getElementById('btnResizeSave').addEventListener('click', applyResize);

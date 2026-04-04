@@ -466,7 +466,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-tab:hover{color:var(--text);background:rgba(34,197,94,.08)}
 .r-tab.active{background:var(--bg-card);color:var(--gold);border-color:rgba(34,197,94,.2)}
 .r-content{flex:1;overflow:hidden}
-.r-pane{display:none;height:100%;padding:16px;overflow-y:auto}
+.r-pane{display:none;height:100%;padding:16px;overflow-y:auto;overflow-x:hidden}
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 
 .map-box{position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);flex:1;min-height:300px;
@@ -565,12 +565,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .page-transition .pt-text{font-size:16px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
   text-shadow:0 0 20px rgba(251,191,36,.5)}
 
-/* Map giấy (ẩn mặc định) - vị trí/kích thước do JS tính */
+/* Map giấy (ẩn mặc định) */
 .map-bg-giay{position:absolute;display:none;z-index:0;overflow:hidden;
   background:url('./anh/MapGiay.png') no-repeat;
   background-size:108.5% 132.5%;background-position:48% 50%}
 .map-bg-giay.show{display:block}
-.map-box>.map-bg.hidden-map{display:none}
+/* hidden-map: match cả khi map-bg nằm trong zoom-wrapper */
+.map-box>.map-bg.hidden-map,.map-box .map-zoom-wrapper>.map-bg.hidden-map{display:none}
 
 /* ═══ MAP ICONS INTERACTIVE ═══ */
 .map-icons{position:absolute;z-index:1}
@@ -891,12 +892,25 @@ html, body { overflow-x: hidden; }
 /* ═══ MAP ZOOM & PAN ═══ */
 .map-box { position: relative; overflow: hidden; }
 .map-box .map-zoom-wrapper {
-    width: 100%; height: 100%;
+    position: absolute; inset: 0;
     transform-origin: var(--zoom-ox, 50%) var(--zoom-oy, 50%);
     transform: scale(var(--zoom-level, 1)) translate(var(--pan-x, 0px), var(--pan-y, 0px));
     transition: transform 0.35s cubic-bezier(.25,.46,.45,.94);
     will-change: transform;
+    overflow: hidden;
+    pointer-events: none;
 }
+/* Ảnh nền trong zoom-wrapper */
+.map-box .map-zoom-wrapper > .map-bg {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.map-box .map-zoom-wrapper > .map-bg-giay {
+    position: absolute; inset: 0;
+    background-size: 108.5% 132.5%; background-position: 48% 50%;
+    display: none;
+}
+.map-box .map-zoom-wrapper > .map-bg-giay.show { display: block; }
+/* Khi zoomed, enable pointer-events cho những gì cần click */
 .map-box.zoomed { cursor: grab; }
 .map-box.zoomed.grabbing { cursor: grabbing; }
 .map-box.zoomed .map-zoom-wrapper { transition: none; }
@@ -950,10 +964,20 @@ html, body { overflow-x: hidden; }
 }
 .fs-overlay .fs-timeline-bar {
     flex-shrink: 0;
-    padding: 8px 16px;
+    padding: 6px 16px;
     background: rgba(10,18,12,.95);
     border-top: 1px solid rgba(251,191,36,.12);
+    /* Ẩn nếu trống, hiện nếu có content */
+    min-height: 0;
 }
+.fs-overlay .fs-controls-bar {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    background: rgba(10,18,12,.88);
+    border-top: 1px solid rgba(255,255,255,.04);
+}
+.fs-overlay .fs-controls-bar:empty { display: none; }
+.fs-overlay .fs-timeline-bar:empty { display: none; }
 .fs-overlay .fs-tasks-panel {
     position: absolute; left: 0; top: 0; bottom: 0;
     width: 340px; max-width: 90vw;
@@ -2430,17 +2454,10 @@ function updateMapIconsPosition() {
 
     const mapBg = mapBox.querySelector('.map-bg');
     const mapIcons = document.getElementById('mapIcons');
-    const mapBgGiay = document.getElementById('mapBgGiay');
     if (mapBg && mapIcons && mapBg.naturalWidth) {
         const fit = calcCoverFit(boxW, boxH, mapBg.naturalWidth, mapBg.naturalHeight);
         applyIconLayerPosition(mapIcons, fit.offsetX, fit.offsetY, fit.renderW, fit.renderH);
-        // Map giấy cùng vị trí/kích thước với icon layer
-        if (mapBgGiay) {
-            mapBgGiay.style.left = fit.offsetX + 'px';
-            mapBgGiay.style.top = fit.offsetY + 'px';
-            mapBgGiay.style.width = fit.renderW + 'px';
-            mapBgGiay.style.height = fit.renderH + 'px';
-        }
+        // mapBgGiay nằm trong zoom-wrapper với inset:0, không cần set position riêng
     }
 }
 
@@ -3957,11 +3974,17 @@ async function renderPmLevelTab(container, discordId) {
     const mapBox = document.getElementById('mapBox');
     if (!mapBox) return;
 
-    // Wrap tất cả children vào .map-zoom-wrapper
+    // Chỉ wrap ảnh nền (map-bg + map-bg-giay) vào zoom-wrapper
+    // KHÔNG wrap mapIcons, overlay, map-top — chúng phải nằm ngoài scale
     const wrapper = document.createElement('div');
     wrapper.className = 'map-zoom-wrapper';
-    while (mapBox.firstChild) wrapper.appendChild(mapBox.firstChild);
-    mapBox.appendChild(wrapper);
+    // map-zoom-wrapper bao lấy toàn bộ mapBox (position:absolute inset:0)
+    // CSS sẽ áp dụng transform cho wrapper, ảnh nền bên trong sẽ zoom
+    const mapBg = mapBox.querySelector('.map-bg');
+    const mapBgGiay = mapBox.querySelector('#mapBgGiay');
+    if (mapBg) wrapper.appendChild(mapBg);
+    if (mapBgGiay) wrapper.appendChild(mapBgGiay);
+    mapBox.insertBefore(wrapper, mapBox.firstChild);
 
     // Thêm hint
     const hint = document.createElement('div');
@@ -4084,20 +4107,20 @@ async function renderPmLevelTab(container, discordId) {
     }, { passive: false });
 })();
 
-// ═══ FULLSCREEN MAP MODE ═══
+// ═══ FULLSCREEN MAP MODE (CSS overlay — không dùng F11 browser) ═══
 let _fsOverlay = null;
-let _fsTasksOpen = false;
+let _fsMapPlaceholder = null; // Giữ vị trí cho mapBox khi di chuyển
 
 function toggleMapFullscreen() {
     if (_fsOverlay?.classList.contains('active')) {
         exitMapFullscreen();
-        return;
+    } else {
+        enterMapFullscreen();
     }
-    enterMapFullscreen();
 }
 
 function enterMapFullscreen() {
-    // Tạo overlay nếu chưa có
+    // Tạo overlay lần đầu
     if (!_fsOverlay) {
         _fsOverlay = document.createElement('div');
         _fsOverlay.className = 'fs-overlay';
@@ -4105,85 +4128,111 @@ function enterMapFullscreen() {
         _fsOverlay.innerHTML = `
             <div class="fs-topbar">
                 <button class="fs-tasks-toggle" onclick="toggleFsTasks()">📋 Nhiệm vụ</button>
-                <div style="font-weight:800;color:var(--gold);font-size:14px" id="fsTitle">Chiến Thuật</div>
+                <div style="font-weight:800;color:var(--gold);font-size:14px">⚔️ Battle Map</div>
                 <button class="fs-close-btn" onclick="exitMapFullscreen()">✕ Đóng</button>
             </div>
             <div class="fs-map-area" id="fsMapArea"></div>
+            <div class="fs-controls-bar" id="fsControlsBar"></div>
             <div class="fs-timeline-bar" id="fsTimelineBar"></div>
             <div class="fs-tasks-panel" id="fsTasksPanel"></div>
         `;
         document.body.appendChild(_fsOverlay);
     }
 
-    // Clone map content vào fullscreen
     const mapBox = document.getElementById('mapBox');
     const fsMapArea = document.getElementById('fsMapArea');
-    const fsTimeline = document.getElementById('fsTimelineBar');
-
-    if (mapBox) {
-        fsMapArea.innerHTML = mapBox.innerHTML;
-    }
-
-    // Clone timeline
-    const timeline = document.getElementById('tacticsTimeline');
-    if (timeline) {
-        fsTimeline.innerHTML = timeline.innerHTML;
-    }
-
-    // Clone tasks
-    const tasksContent = document.getElementById('tasksTabContent');
+    const fsControlsBar = document.getElementById('fsControlsBar');
+    const fsTimelineBar = document.getElementById('fsTimelineBar');
     const fsTasksPanel = document.getElementById('fsTasksPanel');
-    if (tasksContent) {
+    const tacticsControls = document.getElementById('tacticsControls');
+    const tacticsTimeline = document.getElementById('tacticsTimeline');
+    const tasksContent = document.getElementById('tasksTabContent');
+
+    // Tạo placeholder để giữ chỗ mapBox
+    if (mapBox && !_fsMapPlaceholder) {
+        _fsMapPlaceholder = document.createElement('div');
+        _fsMapPlaceholder.id = 'fsMapPlaceholder';
+        _fsMapPlaceholder.style.cssText = 'flex:1;min-height:300px;background:rgba(0,0,0,.2)';
+        mapBox.parentNode.insertBefore(_fsMapPlaceholder, mapBox);
+    }
+
+    // Di chuyển mapBox thực sự vào fsMapArea (giữ nguyên zoom/pan state)
+    if (mapBox) {
+        mapBox.style.cssText = 'position:absolute;inset:0;border-radius:0;border:none';
+        fsMapArea.appendChild(mapBox);
+    }
+
+    // Di chuyển tactics controls (zoom/pan toggles)
+    if (tacticsControls) {
+        tacticsControls.dataset.fsParent = tacticsControls.parentNode.id || '';
+        fsControlsBar.appendChild(tacticsControls);
+        tacticsControls.style.display = 'flex';
+    }
+
+    // Di chuyển timeline
+    if (tacticsTimeline) {
+        tacticsTimeline.dataset.fsParent = tacticsTimeline.parentNode.id || '';
+        fsTimelineBar.appendChild(tacticsTimeline);
+        if (_tvTacticsData) tacticsTimeline.style.display = '';
+    }
+
+    // Clone nhiệm vụ để xem
+    if (tasksContent && fsTasksPanel) {
         fsTasksPanel.innerHTML = tasksContent.innerHTML;
     }
 
-    // Activate
+    // Kích hoạt overlay
     _fsOverlay.classList.add('active');
 
-    // Màn hình ngang khi mobile
-    if (window.matchMedia('(max-width: 768px) and (orientation: portrait)').matches) {
-        // Thêm hint xoay ngang
-        const rotateHint = document.createElement('div');
-        rotateHint.id = 'fsRotateHint';
-        rotateHint.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(6,10,8,.97);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#fde68a;font-size:18px;font-weight:800;';
-        rotateHint.innerHTML = '<div style="font-size:48px;animation:rotateHint 2s ease-in-out infinite">📱↪️</div><div>Xoay ngang điện thoại</div>';
-        _fsOverlay.appendChild(rotateHint);
-
-        // Tự ẩn khi xoay xong
-        const mql = window.matchMedia('(orientation: landscape)');
-        const handler = (e) => {
-            if (e.matches) { rotateHint.remove(); mql.removeEventListener('change', handler); }
-        };
-        mql.addEventListener('change', handler);
-    }
-
-    // Fullscreen API
-    try {
-        document.documentElement.requestFullscreen?.() ||
-        document.documentElement.webkitRequestFullscreen?.();
-    } catch(e) {}
-
-    // Mobile: thử lock landscape
-    try { screen.orientation.lock('landscape').catch(() => {}); } catch(e) {}
-
-    // Re-apply map icons position
+    // Cập nhật vị trí icon sau khi map vào container mới
     requestAnimationFrame(() => {
         updateMapIconsPosition();
+        tvUpdateLayerPositions();
         if (_tvTacticsData) tvRenderMark(_tvActiveMarkIdx);
     });
+
+    // Nút fullscreen: đổi icon
+    const btn = document.getElementById('mapFullscreenBtn');
+    if (btn) btn.innerHTML = '⛶ Thu nhỏ';
 }
 
 function exitMapFullscreen() {
-    if (_fsOverlay) _fsOverlay.classList.remove('active');
+    if (!_fsOverlay?.classList.contains('active')) return;
+
+    const mapBox = document.getElementById('mapBox');
+    const fsMapArea = document.getElementById('fsMapArea');
+    const paneMap = document.getElementById('pane-map');
+    const tacticsControls = document.getElementById('tacticsControls');
+    const tacticsTimeline = document.getElementById('tacticsTimeline');
+
+    // Trả mapBox về vị trí cũ (thay placeholder)
+    if (mapBox && _fsMapPlaceholder) {
+        mapBox.style.cssText = ''; // Reset inline style, CSS class xử lý
+        _fsMapPlaceholder.parentNode.replaceChild(mapBox, _fsMapPlaceholder);
+        _fsMapPlaceholder = null;
+    }
+
+    // Trả tactics controls về
+    if (tacticsControls && paneMap) {
+        paneMap.appendChild(tacticsControls);
+    }
+
+    // Trả timeline về
+    if (tacticsTimeline && paneMap) {
+        paneMap.appendChild(tacticsTimeline);
+    }
+
+    _fsOverlay.classList.remove('active');
     _fsTasksOpen = false;
 
-    // Exit fullscreen API
-    try {
-        document.exitFullscreen?.() || document.webkitExitFullscreen?.();
-    } catch(e) {}
+    // Cập nhật lại layout
+    requestAnimationFrame(() => {
+        updateMapIconsPosition();
+        tvUpdateLayerPositions();
+    });
 
-    // Unlock orientation
-    try { screen.orientation.unlock?.(); } catch(e) {}
+    const btn = document.getElementById('mapFullscreenBtn');
+    if (btn) btn.innerHTML = '⛶ Toàn màn hình';
 }
 
 function toggleFsTasks() {
@@ -4191,9 +4240,9 @@ function toggleFsTasks() {
     document.getElementById('fsTasksPanel')?.classList.toggle('open', _fsTasksOpen);
 }
 
-// ESC listener cho fullscreen
-document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && _fsOverlay?.classList.contains('active')) {
+// ESC: thoát fullscreen
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && _fsOverlay?.classList.contains('active')) {
         exitMapFullscreen();
     }
 });

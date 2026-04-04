@@ -5677,7 +5677,7 @@ async function loadStorageHistoryEntries() {
     const guildId = getActiveGuildId();
     try {
         const { data, error } = await sb.from('bc_tactics_history')
-            .select('id,type,saved_at,saved_by,roster,markers,result_note')
+            .select('id,type,saved_at,saved_by,roster,markers,result_note,day')
             .eq('guild_id', guildId)
             .eq('day', currentDay)
             .order('saved_at', { ascending: false })
@@ -5715,6 +5715,16 @@ async function loadStoragePresetEntries() {
     return storagePresetEntries;
 }
 
+function formatSessionStoredInfo(entry) {
+    const dateObj = new Date(entry.saved_at || Date.now());
+    const dateStr = dateObj.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const dayKey = entry.day || (typeof currentDay !== 'undefined' ? currentDay : 'sat');
+    const DAY_LABELS = { mon: 'Thứ 2', tue: 'Thứ 3', wed: 'Thứ 4', thu: 'Thứ 5', fri: 'Thứ 6', sat: 'Thứ 7', sun: 'Chủ Nhật' };
+    const dayStr = DAY_LABELS[dayKey] || dayKey;
+    const timeStr = (typeof sessionData !== 'undefined' && sessionData?.time) ? sessionData.time.replace(':', 'h') : '19h30';
+    return `[${dayStr} - ${timeStr} - ${dateStr}]`;
+}
+
 function renderStorageDrawer() {
     const body = document.getElementById('storageDrawerBody');
     const title = document.getElementById('storageDrawerTitle');
@@ -5739,11 +5749,15 @@ function renderStorageDrawer() {
         const battleHtml = storageHistoryEntries.battle.length
             ? storageHistoryEntries.battle.map(entry => {
                 const note = entry.result_note ? `<div class="storage-entry-sub">${escapeHtmlAttr(entry.result_note)}</div>` : '';
+                const strategyName = entry.markers?._history_meta?.strategy_name || entry.markers?.strategy_name || '';
+                const titleStr = strategyName ? `Snapshot thực chiến - ${escapeHtmlAttr(strategyName)}` : 'Snapshot thực chiến';
+                const sessionInfo = formatSessionStoredInfo(entry);
                 return `<div class="storage-entry">
                     <div class="storage-entry-head">
-                        <div class="storage-entry-title">Snapshot thực chiến</div>
+                        <div class="storage-entry-title">${titleStr}</div>
                         <span class="storage-entry-type battle">BATTLE</span>
                     </div>
+                    <div class="storage-entry-sub" style="margin-bottom:4px; font-weight:500; color:#4ade80;">${sessionInfo}</div>
                     <div class="storage-entry-sub">${formatStorageTimestamp(entry.saved_at)}${entry.saved_by ? ` • ${escapeHtmlAttr(entry.saved_by)}` : ''}</div>
                     ${note}
                     <div class="storage-entry-actions">
@@ -5754,17 +5768,23 @@ function renderStorageDrawer() {
             }).join('')
             : `<div class="storage-empty">Chưa có snapshot thực chiến.</div>`;
         const editHtml = storageHistoryEntries.edit.length
-            ? storageHistoryEntries.edit.map(entry => `<div class="storage-entry">
+            ? storageHistoryEntries.edit.map(entry => {
+                const strategyName = entry.markers?._history_meta?.strategy_name || entry.markers?.strategy_name || '';
+                const titleStr = strategyName ? `Lưu chỉnh sửa - ${escapeHtmlAttr(strategyName)}` : 'Lưu chỉnh sửa';
+                const sessionInfo = formatSessionStoredInfo(entry);
+                return `<div class="storage-entry">
                     <div class="storage-entry-head">
-                        <div class="storage-entry-title">Lưu chỉnh sửa</div>
+                        <div class="storage-entry-title">${titleStr}</div>
                         <span class="storage-entry-type edit">EDIT</span>
                     </div>
+                    <div class="storage-entry-sub" style="margin-bottom:4px; font-weight:500; color:#4ade80;">${sessionInfo}</div>
                     <div class="storage-entry-sub">${formatStorageTimestamp(entry.saved_at)}${entry.saved_by ? ` • ${escapeHtmlAttr(entry.saved_by)}` : ''}</div>
                     <div class="storage-entry-actions">
                         <button class="storage-action-btn" onclick="viewTacticsHistoryEntry('${entry.id}')">👁 Xem</button>
                         <button class="storage-action-btn primary" onclick="applyTacticsHistoryEntry('${entry.id}')">↻ Áp dụng</button>
                     </div>
-                </div>`).join('')
+                </div>`;
+            }).join('')
             : `<div class="storage-empty">Chưa có lịch sử chỉnh sửa.</div>`;
         body.innerHTML = `
             <section class="storage-section">
@@ -12163,6 +12183,9 @@ document.getElementById('unsavedSaveBtn')?.addEventListener('click', () => {
     document.getElementById('unsavedOverlay')?.classList.remove('show');
     // Thực thi navigation sau khi đã lưu và đóng modal
     action?.();
+    // Force capture snapshot của mark mới ngay lập tức (sync),
+    // tránh RAF delay khiến markDirty = true khi click timeline tiếp theo
+    captureMarkSnapshot();
     if (pendingCommit) {
         commitTacticsHistory(pendingCommit);
     }
@@ -12173,6 +12196,9 @@ document.getElementById('unsavedDiscardBtn')?.addEventListener('click', () => {
     discardCurrentMarkChanges({ silent: true });
     closeUnsavedModal();
     action?.();
+    // Force capture snapshot của mark mới ngay lập tức (sync),
+    // tránh RAF delay khiến markDirty = true khi click timeline tiếp theo
+    captureMarkSnapshot();
     if (pendingCommit) {
         commitTacticsHistory(pendingCommit);
     }

@@ -887,6 +887,7 @@
       updateSyncBadge(statusText, true);
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        debounceTimer = null; // Reset để Realtime guard không bị kẹt
         syncSessionState();
       }, 1200);
     }
@@ -913,8 +914,9 @@
         leader_ids: JSON.stringify(localState.leader_ids || {})
       };
       if (supportsSessionLocked) payload.locked = !!localState.locked;
-      // team_names: auto-fallback nếu cột chưa tồn tại
+      // team_names & team_sizes: auto-fallback nếu cột chưa tồn tại
       let supportsTeamNames = true;
+      let supportsTeamSizes = true;
       if (localState.team_names && Object.keys(localState.team_names).length > 0) {
         payload.team_names = JSON.stringify(localState.team_names);
       }
@@ -941,6 +943,16 @@
         if (currentSessionId) query = query.eq('id', currentSessionId);
         const retry2 = await query;
         error = retry2.error || null;
+      }
+
+      // Fallback nếu cột team_sizes chưa tồn tại trên Supabase
+      if (error && /team_sizes/i.test(error.message || '')) {
+        supportsTeamSizes = false;
+        delete payload.team_sizes;
+        query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
+        if (currentSessionId) query = query.eq('id', currentSessionId);
+        const retry3 = await query;
+        error = retry3.error || null;
       }
 
 
@@ -1072,7 +1084,6 @@
     async function applyResize() {
       const nextSizes = {};
       const nextNames = {};
-      let hasInvalid = false;
 
       RESIZE_TEAMS.forEach(t => {
         const sizeVal = Math.max(t.min, Math.min(t.max, Number(document.getElementById('rSize_' + t.key)?.value || 0)));
@@ -1096,7 +1107,12 @@
       normalizeLeaderState();
       closeResizeModal();
       renderEditor();
-      scheduleSync('resize', 'Đang cập nhật kích thước & tên team...');
+
+      // Sync ngay lập tức (không debounce) để tránh mất data khi navigate/F5
+      if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+      pendingEditorAction = 'resize';
+      updateSyncBadge('Đang lưu cấu hình team...', true);
+      await syncSessionState();
     }
 
     async function toggleLocked() {
@@ -1239,6 +1255,29 @@
     document.getElementById('btnLockToggle').addEventListener('click', toggleLocked);
     document.getElementById('resizeModal').addEventListener('click', (event) => {
       if (event.target.id === 'resizeModal') closeResizeModal();
+    });
+
+    // Flush pending sync trước khi rời trang (tránh mất data khi debounce chưa kịp chạy)
+    window.addEventListener('beforeunload', (event) => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+        // Dùng sendBeacon để fire-and-forget khi đóng tab
+        if (localState && sb && currentDay) {
+          const payload = {
+            team_attack1: JSON.stringify(localState.team_attack1 || []),
+            team_attack2: JSON.stringify(localState.team_attack2 || []),
+            team_defense: JSON.stringify(localState.team_defense || []),
+            team_forest: JSON.stringify(localState.team_forest || []),
+            waiting_list: JSON.stringify(localState.waiting_list || []),
+            team_sizes: JSON.stringify(localState.team_sizes || {}),
+            team_names: JSON.stringify(localState.team_names || {}),
+            leader_ids: JSON.stringify(localState.leader_ids || {})
+          };
+          // Fallback: schedule async sync ngay (không await)
+          syncSessionState();
+        }
+      }
     });
 
     try {

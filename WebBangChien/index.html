@@ -2017,6 +2017,30 @@ async function leaveBC() {
     await loadBCData(currentDay);
 }
 
+/**
+ * Chuyển sub_role code → tên hiển thị đẹp
+ * Ưu tiên: lookup map → auto format slug → giữ nguyên
+ */
+const _SUB_LABEL_MAP = {
+    'QD':'Quạt Dù','qd':'Quạt Dù','VD':'Vô Danh','vd':'Vô Danh',
+    'SD':'Song Đao','sd':'Song Đao','9K':'Cửu Kiếm','9k':'Cửu Kiếm',
+    'DR':'Dù Roi','dr':'Dù Roi','HĐ':'Hoành Đao','hđ':'Hoành Đao',
+    'DT':'Đao Thương','dt':'Đao Thương',
+    // Discord role slugs
+    'quat_du':'Quạt Dù','rung_3000':'Quạt Dù',
+    'song_dao':'Song Đao','cuu_kiem':'Cửu Kiếm',
+    'du_roi':'Dù Roi','hoanh_dao':'Hoành Đao',
+    'dao_thuong':'Đao Thương','vo_danh':'Vô Danh',
+    'thanh_kiem':'Thanh Kiếm','truong_kiem':'Trường Kiếm',
+    'phu_hieu':'Phù Hiệu','bat_quai':'Bát Quái',
+};
+function formatSubLabel(code) {
+    if (!code) return '';
+    if (_SUB_LABEL_MAP[code]) return _SUB_LABEL_MAP[code];
+    // Fallback: slug → Title Case (vd: rung_3000 → Rung 3000)
+    return code.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function renderTeams(data) {
     const SVG = {
         sword: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>',
@@ -2068,7 +2092,7 @@ function renderTeams(data) {
         html += `</div></div><div class="t-list">`;
 
         players.forEach(p => {
-            const sub = p.sub ? ' [' + p.sub + ']' : '';
+            const sub = p.sub ? ' [' + formatSubLabel(p.sub) + ']' : '';
             const ld = p.ld ? ' ' + SVG.crown : '';
             const rcls = p.role === 'Healer' ? 'h' : p.role === 'Tanker' ? 't' : 'd';
             const roleImg = (p.role || 'DPS').toLowerCase();
@@ -3702,7 +3726,24 @@ const POS_LABELS = {
     'mem': '👤 Thành viên'
 };
 const ROLE_CLASS = { 'Healer': 'healer', 'Tanker': 'tanker', 'DPS': 'dps' };
-const SUB_LABELS = { 'QD': 'Quạt Dù', 'VD': 'Vô Danh', 'SD': 'Song Đao', '9K': 'Cửu Kiếm', 'DR': 'Dù Roi', 'HĐ': 'Hoành Đao' };
+// Map: sub_role code (từ bot) → tên hiển thị đẹp
+const SUB_LABELS = {
+    // Short tags
+    'QD': 'Quạt Dù', 'qd': 'Quạt Dù',
+    'VD': 'Vô Danh', 'vd': 'Vô Danh',
+    'SD': 'Song Đao', 'sd': 'Song Đao',
+    '9K': 'Cửu Kiếm', '9k': 'Cửu Kiếm',
+    'DR': 'Dù Roi', 'dr': 'Dù Roi',
+    'HĐ': 'Hoành Đao', 'hđ': 'Hoành Đao',
+    'DT': 'Đao Thương', 'dt': 'Đao Thương',
+    // Discord role slugs phổ biến
+    'quat_du': 'Quạt Dù', 'rung_3000': 'Quạt Dù',
+    'song_dao': 'Song Đao', 'cuu_kiem': 'Cửu Kiếm',
+    'du_roi': 'Dù Roi', 'hoanh_dao': 'Hoành Đao',
+    'dao_thuong': 'Đao Thương', 'vo_danh': 'Vô Danh',
+    'thanh_kiem': 'Thanh Kiếm', 'truong_kiem': 'Trường Kiếm',
+    'phu_hieu': 'Phù Hiệu', 'bat_quai': 'Bát Quái',
+};
 
 async function fetchAndRenderProfile() {
     const pmLoading = document.getElementById('pmLoading');

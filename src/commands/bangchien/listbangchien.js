@@ -84,12 +84,14 @@ module.exports = {
         if (allSessions.length === 0) {
             overviewEmbed.setDescription('📅 Chưa có phiên Bang Chiến nào đang mở.');
         } else {
+            // Dynamic team names cho overview
+            const _ovNames = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
             for (const sessionItem of allSessions) {
                 const stats = getStats(sessionItem);
                 const dateStr = getDayNameWithDate(sessionItem.day).toUpperCase();
-                let line = `📅 **${dateStr}** (${stats.total}/30) - Đang diễn ra\n⚔️ Công: ${stats.attack}`;
-                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ Thủ: ${stats.defense}`;
-                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 Rừng: ${stats.forest}`;
+                let line = `📅 **${dateStr}** (${stats.total}/30) - Đang diễn ra\n⚔️ ${_ovNames.attack1}: ${stats.attack}`;
+                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ ${_ovNames.defense}: ${stats.defense}`;
+                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 ${_ovNames.forest}: ${stats.forest}`;
                 overviewEmbed.addFields({ name: '\u200b', value: line, inline: false });
             }
         }

@@ -6,13 +6,16 @@
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
 
-// Team config
-const TEAM_CONFIG = {
-    1: { name: 'TEAM CÔNG 1', emoji: '⚔️', field: 'team_attack1', leaderField: 'team1_leader_id', color: 0xE74C3C },
-    2: { name: 'TEAM CÔNG 2', emoji: '🗡️', field: 'team_attack2', leaderField: 'team2_leader_id', color: 0xC0392B },
-    3: { name: 'TEAM THỦ', emoji: '🛡️', field: 'team_defense', leaderField: 'team3_leader_id', color: 0x3498DB },
-    4: { name: 'TEAM RỪNG', emoji: '🌲', field: 'team_forest', leaderField: 'team4_leader_id', color: 0x27AE60 }
-};
+// Team config - dynamic names khởi tạo lại mỗi lần execute
+function getTeamConfig(db) {
+    const names = db.getTeamNames ? db.getTeamNames() : { attack1: 'CÔNG 1', attack2: 'CÔNG 2', defense: 'THỦ', forest: 'RỪNG' };
+    return {
+        1: { name: names.attack1, emoji: '⚔️', field: 'team_attack1', leaderField: 'team1_leader_id', color: 0xE74C3C },
+        2: { name: names.attack2, emoji: '🗡️', field: 'team_attack2', leaderField: 'team2_leader_id', color: 0xC0392B },
+        3: { name: names.defense, emoji: '🛡️', field: 'team_defense', leaderField: 'team3_leader_id', color: 0x3498DB },
+        4: { name: names.forest, emoji: '🌲', field: 'team_forest', leaderField: 'team4_leader_id', color: 0x27AE60 }
+    };
+}
 
 // Team sizes - Hàm lấy dynamic từ DB
 function getTeamSizes(db) {
@@ -110,6 +113,7 @@ module.exports = {
             return message.reply('❌ Team phải là 1, 2, 3 hoặc 4!');
         }
 
+        const TEAM_CONFIG = getTeamConfig(db);
         const teamConfig = TEAM_CONFIG[teamNum];
 
         // Lấy tất cả team data
@@ -185,7 +189,7 @@ module.exports = {
 
         // Kiểm tra người có thuộc đúng team không
         if (fromTeamField !== teamConfig.field) {
-            const fromTeamName = Object.values(TEAM_CONFIG).find(t => t.field === fromTeamField)?.name || fromTeamField;
+            const fromTeamName = Object.values(getTeamConfig(db)).find(t => t.field === fromTeamField)?.name || fromTeamField;
             return message.reply(`❌ Người này đang ở ${fromTeamName}, không thể set làm Leader ${teamConfig.name}!\nDùng \`?bcdoi\` để đổi chỗ trước.`);
         }
 
@@ -254,11 +258,12 @@ module.exports = {
             team_forest: isActiveSession ? session.team_forest : JSON.parse(session.team_forest || '[]')
         };
 
+        const TC = getTeamConfig(db);
         const teamOrder = [
-            { num: 1, config: TEAM_CONFIG[1], field: 'team_attack1' },
-            { num: 2, config: TEAM_CONFIG[2], field: 'team_attack2' },
-            { num: 3, config: TEAM_CONFIG[3], field: 'team_defense' },
-            { num: 4, config: TEAM_CONFIG[4], field: 'team_forest' }
+            { num: 1, config: TC[1], field: 'team_attack1' },
+            { num: 2, config: TC[2], field: 'team_attack2' },
+            { num: 3, config: TC[3], field: 'team_defense' },
+            { num: 4, config: TC[4], field: 'team_forest' }
         ];
 
         for (let i = 0; i < 4; i++) {
@@ -388,7 +393,8 @@ module.exports = {
             return null;
         }
 
-        const TEAM_EMOJI = { team_attack1: '⚔️ Công 1', team_attack2: '🗡️ Công 2', team_defense: '🛡️ Thủ', team_forest: '🌲 Rừng' };
+        const _tn = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
+        const TEAM_EMOJI = { team_attack1: `⚔️ ${_tn.attack1}`, team_attack2: `🗡️ ${_tn.attack2}`, team_defense: `🛡️ ${_tn.defense}`, team_forest: `🌲 ${_tn.forest}` };
         const expectedTeams = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
         const leaderIds = [null, null, null, null];
 

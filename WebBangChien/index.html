@@ -2092,7 +2092,7 @@ function renderTeams(data) {
     const teams = allTeams.filter(t => t.key === 'waiting_list' || (t.max ?? 0) > 0);
     const attackTeams = teams.filter(t => t.key === 'team_attack1' || t.key === 'team_attack2');
     if (attackTeams.length === 1) {
-        attackTeams[0].title = 'TEAM CÔNG';
+        // Giữ nguyên tên team gốc (dynamic), chỉ cộng max size
         attackTeams[0].max = (sizes.attack1 ?? 10) + (sizes.attack2 ?? 10);
     }
 
@@ -2163,7 +2163,9 @@ function updateStats(data) {
         players.forEach(p => { if (p.role === 'DPS') dps++; else if (p.role === 'Healer') healer++; else tanker++; });
     });
 
-    document.getElementById('statTotal').textContent = total + '/30';
+    const sizes = typeof data.team_sizes === 'string' ? JSON.parse(data.team_sizes || '{}') : (data.team_sizes || {});
+    const maxTotal = (sizes.attack1 ?? 10) + (sizes.attack2 ?? 10) + (sizes.defense ?? 5) + (sizes.forest ?? 5);
+    document.getElementById('statTotal').textContent = total + '/' + maxTotal;
     document.getElementById('statDPS').textContent = dps;
     document.getElementById('statHealer').textContent = healer;
     document.getElementById('statTanker').textContent = tanker;
@@ -2602,18 +2604,35 @@ function openTeamEditor() {
 }
 
 // ═══ TAB NHIỆM VỤ ═══
-const SCOPE_LABELS = {
+// Dynamic team names: đọc từ currentSessionData thay vì hardcoded
+function _getIndexTeamNames() {
+    const DEFAULTS = { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
+    if (!currentSessionData) return DEFAULTS;
+    try {
+        const raw = currentSessionData.team_names || {};
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return {
+            attack1: parsed.attack1 || DEFAULTS.attack1,
+            attack2: parsed.attack2 || DEFAULTS.attack2,
+            defense: parsed.defense || DEFAULTS.defense,
+            forest:  parsed.forest  || DEFAULTS.forest
+        };
+    } catch(e) { return DEFAULTS; }
+}
+const SCOPE_LABELS_STATIC = {
     'all|all': '🏴 Toàn đội',
-    'team|attack1': '⚔️ Công 1', 'team|attack2': '⚔️ Công 2',
-    'team|defense': '🛡️ Thủ', 'team|forest': '🌲 Rừng',
     'role|Healer': '💚 Healer', 'role|Tanker': '🧡 Tanker', 'role|DPS': '🔵 DPS',
     'weapon|QD': '🪭 Quạt Dù', 'weapon|SD': '⚔️ Song Đao', 'weapon|VD': '🗡️ Vô Danh',
     'weapon|9K': '🔱 Cửu Kiếm', 'weapon|DR': '🌂 Dù Roi', 'weapon|HD': '🔪 Hoành Đao'
 };
+const TEAM_ICONS_IDX = { attack1: '⚔️', attack2: '🗡️', defense: '🛡️', forest: '🌲' };
 function taskScopeLabel(scope, target) {
     if (scope === 'personal') return '👤 Cá nhân';
-    const key = scope + '|' + target;
-    return SCOPE_LABELS[key] || target;
+    if (scope === 'team') {
+        const tn = _getIndexTeamNames();
+        return (TEAM_ICONS_IDX[target] || '⚔️') + ' ' + (tn[target] || target);
+    }
+    return SCOPE_LABELS_STATIC[scope + '|' + target] || target;
 }
 function fmtTime(s) {
     if (!s && s !== 0) return '—';

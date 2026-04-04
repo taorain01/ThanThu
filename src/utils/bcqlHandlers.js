@@ -8,6 +8,16 @@ const db = require('../database/db');
 const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
 
+// Helper: Lấy tên team dynamic từ DB
+function getTeamEmojis() {
+    const names = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
+    return {
+        attack1: `⚔️ ${names.attack1}`, attack2: `🗡️ ${names.attack2}`,
+        defense: `🛡️ ${names.defense}`, forest: `🌲 ${names.forest}`,
+        waiting: '⏳ Chờ'
+    };
+}
+
 // Helper: Sync session lên Supabase sau khi SQLite thay đổi
 async function syncSessionToSupabase(guildId, partyKey, guild = null) {
     try {
@@ -136,11 +146,13 @@ async function handleBcqlButton(interaction) {
     // ========== NÚT LOẠI BỎ ==========
     if (customId.startsWith('bcql_kick_')) {
         const allMembers = [
-            ...session.team_attack1.map(p => ({ ...p, team: 'Công 1' })),
-            ...session.team_attack2.map(p => ({ ...p, team: 'Công 2' })),
-            ...session.team_defense.map(p => ({ ...p, team: 'Thủ' })),
-            ...session.team_forest.map(p => ({ ...p, team: 'Rừng' })),
-            ...session.waiting_list.map(p => ({ ...p, team: 'Chờ' }))
+            ...(() => { const n = getTeamEmojis(); return [
+                ...session.team_attack1.map(p => ({ ...p, team: n.attack1 })),
+                ...session.team_attack2.map(p => ({ ...p, team: n.attack2 })),
+                ...session.team_defense.map(p => ({ ...p, team: n.defense })),
+                ...session.team_forest.map(p => ({ ...p, team: n.forest })),
+                ...session.waiting_list.map(p => ({ ...p, team: n.waiting }))
+            ]; })()
         ].filter(p => p.id !== session.leader_id); // Không cho kick leader
 
         if (allMembers.length === 0) {
@@ -280,8 +292,10 @@ async function handleBcqlButton(interaction) {
             .setTitle('📋 CHỐT DS BANG CHIẾN LANG GIA!')
             .setDescription(`Leader: ${session.leader_name} | Tổng: **${total}** người`)
             .addFields(
-                { name: `⚔️ CÔNG 1 (${teamAttack1.length}/${attack1Size}) [${getStats(teamAttack1)}]`, value: formatTeam(teamAttack1, 1), inline: false },
-                { name: `🗡️ CÔNG 2 (${teamAttack2.length}/${attack2Size}) [${getStats(teamAttack2)}]`, value: formatTeam(teamAttack2, slotstartAtt2), inline: false }
+                ...(() => { const n = db.getTeamNames ? db.getTeamNames() : { attack1: 'CÔNG 1', attack2: 'CÔNG 2' }; return [
+                    { name: `⚔️ ${n.attack1} (${teamAttack1.length}/${attack1Size}) [${getStats(teamAttack1)}]`, value: formatTeam(teamAttack1, 1), inline: false },
+                    { name: `🗡️ ${n.attack2} (${teamAttack2.length}/${attack2Size}) [${getStats(teamAttack2)}]`, value: formatTeam(teamAttack2, slotstartAtt2), inline: false }
+                ]; })()
             );
 
         // Chỉ hiện team Thủ nếu size > 0
@@ -382,12 +396,14 @@ async function handleBcqlButton(interaction) {
             .setColor(0x3498DB)
             .setTitle('📏 Số lượng Team hiện tại')
             .addFields(
-                { name: '⚔️ Công 1', value: `**${attack1Size}**`, inline: true },
-                { name: '🗡️ Công 2', value: `**${attack2Size}**`, inline: true },
-                { name: '📊 Tổng', value: `${total}`, inline: true },
-                { name: '🛡️ Thủ', value: `**${defenseSize}**`, inline: true },
-                { name: '🌲 Rừng', value: `**${forestSize}**`, inline: true },
-                { name: '​', value: '\u200B', inline: true }
+                ...(() => { const n = getTeamEmojis(); return [
+                    { name: n.attack1, value: `**${attack1Size}**`, inline: true },
+                    { name: n.attack2, value: `**${attack2Size}**`, inline: true },
+                    { name: '📊 Tổng', value: `${total}`, inline: true },
+                    { name: n.defense, value: `**${defenseSize}**`, inline: true },
+                    { name: n.forest, value: `**${forestSize}**`, inline: true },
+                    { name: '\u200B', value: '\u200B', inline: true }
+                ]; })()
             )
             .setFooter({ text: '💡 VD: ?bcsize cong1 11 cong2 10 thu 5 rung 4' });
 
@@ -719,7 +735,7 @@ async function handleBcqlModal(interaction) {
             return null;
         }
 
-        const TEAM_EMOJI = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng', waiting: '⏳ Chờ' };
+        const TEAM_EMOJI = getTeamEmojis();
 
         // Swap in session
         const teams = {
@@ -928,7 +944,7 @@ async function handleBcqlModal(interaction) {
         await refreshOverviewEmbed(interaction.client, guildId);
         await syncSessionToSupabase(guildId, partyKey, interaction.guild);
 
-        const teamEmojis = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng', waiting: '⏳ Chờ' };
+        const teamEmojis = getTeamEmojis();
         await interaction.reply({ content: `✅ Đã thêm ${user.username} vào ${teamEmojis[result.team] || result.team}!`, flags: MessageFlags.Ephemeral });
 
         // Refresh ?listbc embed nếu có day
@@ -1068,7 +1084,7 @@ async function handleBcqlModal(interaction) {
             return null;
         }
 
-        const TEAM_EMOJI = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng' };
+        const TEAM_EMOJI = getTeamEmojis();
         const results = [];
 
         for (const slotNum of slotNumbers) {

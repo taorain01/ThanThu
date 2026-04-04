@@ -345,7 +345,8 @@ function createOverviewEmbed(guildId, guild = null) {
         return { total, attack, defense, forest, healer, tanker, dps };
     };
 
-    // Helper: render 1 ngày
+    // Helper: render 1 ngày — dùng dynamic team names
+    const _ovNames = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
     const renderDay = (dayKey, session) => {
         const dayConfig = DAY_CONFIG[dayKey];
         const stats = getSessionStats(session);
@@ -355,9 +356,9 @@ function createOverviewEmbed(guildId, guild = null) {
         const noteStr = session?.note ? ` — _${session.note}_` : '';
 
         if (session) {
-            let line = `📅 **${dateStr}** ⏰${timeStr}${noteStr} (${stats.total}/30)\n⚔️ Công: ${stats.attack}`;
-            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ Thủ: ${stats.defense}`;
-            if (db.getTeamSize('forest') > 0) line += ` | 🌲 Rừng: ${stats.forest}`;
+            let line = `📅 **${dateStr}** ⏰${timeStr}${noteStr} (${stats.total}/30)\n⚔️ ${_ovNames.attack1}: ${stats.attack}`;
+            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ ${_ovNames.defense}: ${stats.defense}`;
+            if (db.getTeamSize('forest') > 0) line += ` | 🌲 ${_ovNames.forest}: ${stats.forest}`;
             line += `\n🟢${stats.healer} 🟠${stats.tanker} 🔵${stats.dps}`;
             return line;
         }

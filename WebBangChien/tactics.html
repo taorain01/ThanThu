@@ -1060,6 +1060,27 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
   cursor: pointer; font-family: inherit; transition: all .2s }
 .lw-btn:hover { background: rgba(251,191,36,.2) }
 @keyframes rotateHint { 0%,100% { transform: rotate(0) } 50% { transform: rotate(90deg) } }
+/* Custom CSS mixed markers */
+.tl-mark.ev-mixed {
+  background: linear-gradient(to bottom, var(--color1, var(--dps)) 50%, var(--color2, var(--gold)) 50%);
+  width: 5px;
+}
+.tl-mark.ev-mixed::before { content: none; }
+.tl-mark .mixed-label {
+  display: flex !important;
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.mixed-label .ml-left, .mixed-label .ml-right { padding: 4px 8px; font-size: 11px; }
+.mixed-label .ml-left { background: rgba(10, 30, 45, 0.95); border-right: 1px solid rgba(255, 255, 255, 0.2); }
+.mixed-label .ml-right { background: rgba(15, 10, 5, 0.95); font-weight: 800; color: #fff; }
+.tl-mark-label, .tl-mark-time { transition: transform 0.2s ease, opacity 0.2s; }
+.tl-mark:hover .tl-mark-label, .tl-mark.active .tl-mark-label { transform: translateX(-50%) scale(1.15); z-index: 100; }
+.tl-mark:hover .tl-mark-time, .tl-mark.active .tl-mark-time { transform: translateX(-50%) scale(1.1); font-size:10px; color:#fff;}
 </style>
 </head>
 <body>
@@ -2572,22 +2593,27 @@ async function loadSessionData() {
     const DAY_LABELS = {mon:'Thứ 2',tue:'Thứ 3',wed:'Thứ 4',thu:'Thứ 5',fri:'Thứ 6',sat:'Thứ 7',sun:'Chủ Nhật'};
     document.getElementById('dayLabel').textContent = `${DAY_LABELS[currentDay] || currentDay} — ${data.time || '19:30'}`;
 
-    // Cập nhật tên team trong section headers từ team_names
+    // Cập nhật tên team + ẩn/hiện sections theo team_sizes
     try {
-        const rawNames = data.team_names;
-        const teamNames = typeof rawNames === 'string'
-            ? (() => { try { return JSON.parse(rawNames); } catch(e) { return {}; } })()
-            : (rawNames || {});
-        const TEAM_NAME_DEFAULTS = { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
-        const titleMap = {
-            secA1: '⚔️ ' + (teamNames.attack1 || TEAM_NAME_DEFAULTS.attack1),
-            secA2: '🗡️ ' + (teamNames.attack2 || TEAM_NAME_DEFAULTS.attack2),
-            secDF: '🛡️ ' + (teamNames.defense || TEAM_NAME_DEFAULTS.defense),
-            secFR: '🌲 ' + (teamNames.forest  || TEAM_NAME_DEFAULTS.forest)
+        const teamNames = getSessionTeamNames();
+        const teamSizes = getSessionTeamSizes();
+        const sectionMap = {
+            secA1: { icon: '⚔️', key: 'attack1' },
+            secA2: { icon: '🗡️', key: 'attack2' },
+            secDF: { icon: '🛡️', key: 'defense' },
+            secFR: { icon: '🌲', key: 'forest' }
         };
-        Object.entries(titleMap).forEach(([secId, title]) => {
-            const titleEl = document.querySelector(`#${secId} .ps-title`);
-            if (titleEl) titleEl.textContent = title;
+        Object.entries(sectionMap).forEach(([secId, cfg]) => {
+            const secEl = document.getElementById(secId);
+            if (!secEl) return;
+            const titleEl = secEl.querySelector('.ps-title');
+            if (titleEl) titleEl.textContent = cfg.icon + ' ' + teamNames[cfg.key];
+            // Ẩn section có size = 0
+            if ((teamSizes[cfg.key] ?? 0) <= 0) {
+                secEl.style.display = 'none';
+            } else {
+                secEl.style.display = '';
+            }
         });
     } catch (e) { /* bỏ qua lỗi parse team_names */ }
 
@@ -3257,6 +3283,21 @@ function renderTeamList() {
 }
 
 // ═══ RENDER TIMELINE ═══
+function getColorForMixedMark(type) {
+    if (type === 'start' || type === 'end') return 'var(--green-400)';
+    if (type === 'boss_minor' || type === 'boss_major') return 'var(--gold)';
+    if (type === 'solo') return '#f87171';
+    return 'var(--dps)';
+}
+
+function getMarkIconStr(type) {
+    if (type === 'start' || type === 'end') return '🏁';
+    if (type === 'boss_minor') return '☀️';
+    if (type === 'boss_major') return '🔥';
+    if (type === 'solo') return '⚔️';
+    return '📌';
+}
+
 function renderTimeline() {
     const track = document.getElementById('timelineTrack');
     track.querySelectorAll('.tl-mark').forEach(m => m.remove());
@@ -3275,18 +3316,47 @@ function renderTimeline() {
         ticksEl.appendChild(tick);
     }
 
+    const marksByTime = {};
     marks.forEach((mark, idx) => {
+        if (!marksByTime[mark.time]) marksByTime[mark.time] = [];
+        marksByTime[mark.time].push({ mark, idx });
+    });
+
+    Object.values(marksByTime).forEach(group => {
+        let mainItem = group.find(g => !g.mark.isSystem) || group[0];
+        let secItem = group.find(g => g !== mainItem);
+        const isMixed = group.length > 1 && secItem;
+
         const el = document.createElement('div');
-        const evClass = `ev-${mark.type || 'custom'}`;
-        el.className = `tl-mark ${evClass}${idx === activeMarkIdx ? ' active' : ''}`;
-        el.style.left = timeToPercent(mark.time) + '%';
-        el.innerHTML = `<span class="tl-mark-label">${mark.label}</span><span class="tl-mark-time">${formatTime(mark.time)}</span>`;
-        el.addEventListener('click', (e) => { e.stopPropagation(); selectMark(idx); });
+        const primType = mainItem.mark.type || 'custom';
+        const primClass = `ev-${primType}`;
+        let classNames = `tl-mark ${primClass}`;
+        
+        if (isMixed) {
+            classNames += ' ev-mixed';
+            const secType = secItem.mark.type || 'custom';
+            el.style.setProperty('--color1', getColorForMixedMark(primType));
+            el.style.setProperty('--color2', getColorForMixedMark(secType));
+        }
+        
+        if (group.some(g => g.idx === activeMarkIdx)) classNames += ' active';
+        el.className = classNames;
+        el.style.left = timeToPercent(mainItem.mark.time) + '%';
+        
+        if (isMixed) {
+            let icon1 = getMarkIconStr(primType);
+            let icon2 = getMarkIconStr(secItem.mark.type);
+            el.innerHTML = `<span class="tl-mark-label mixed-label"><span class="ml-left">${icon1}</span><span class="ml-right">${icon2} ${formatTime(mainItem.mark.time)}</span></span><span class="tl-mark-time mixed-time">${formatTime(mainItem.mark.time)}</span>`;
+        } else {
+            el.innerHTML = `<span class="tl-mark-label">${mainItem.mark.label}</span><span class="tl-mark-time">${formatTime(mainItem.mark.time)}</span>`;
+        }
+        
+        el.addEventListener('click', (e) => { e.stopPropagation(); selectMark(mainItem.idx); });
         if (isLeader) {
             el.addEventListener('contextmenu', e => {
                 e.preventDefault();
                 e.stopPropagation();
-                showTimelineMarkMenu(e, mark.time);
+                showTimelineMarkMenu(e, mainItem.mark.time);
             });
         }
         track.appendChild(el);
@@ -3305,8 +3375,11 @@ function getMarkPopulationStatus(mark = marks[activeMarkIdx]) {
         const diff = blueTotal < 30 ? `còn thiếu ${30 - blueTotal}` : `đang dư ${blueTotal - 30}`;
         return { ok: false, message: `⚠️ Phe xanh ${diff} người (${blueTotal}/30).` };
     }
-    const diff = redTotal < 30 ? `còn thiếu ${30 - redTotal}` : `đang dư ${redTotal - 30}`;
-    return { ok: false, message: `⚠️ Phe đỏ ${diff} người (${redTotal}/30).` };
+    if (redTotal !== 30) {
+        const diff = redTotal < 30 ? `còn thiếu ${30 - redTotal}` : `đang dư ${redTotal - 30}`;
+        return { ok: true, warn: true, message: `⚠️ Phe đỏ ${diff} người (${redTotal}/30).` };
+    }
+    return { ok: true };
 }
 
 function showTimelineHint(message) {
@@ -3328,13 +3401,18 @@ function canLeaveCurrentMark(targetTime) {
         return true;
     }
     const status = getMarkPopulationStatus(current);
-    if (status.ok) {
+    if (status.ok && !status.warn) {
         clearTimelineHint();
         return true;
     }
-    showTimelineHint(status.message + ' Kéo thêm từ panel hoặc gán vào trụ trước khi đổi mark.');
+    if (!status.ok) {
+        showTimelineHint(status.message + ' Kéo thêm từ panel hoặc gán vào trụ trước khi đổi mark.');
+        toast(status.message);
+        return false;
+    }
     toast(status.message);
-    return false;
+    clearTimelineHint();
+    return true;
 }
 
 function hasPlanningStarted() {
@@ -4599,23 +4677,77 @@ function clearJungleCleared(objId) {
     renderJungleTimeline();
 }
 
+// ═══ HELPER: DYNAMIC TEAM NAMES & SIZES ═══
+const TEAM_NAME_DEFAULTS = { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
+const TEAM_ICONS = { attack1: '⚔️', attack2: '🗡️', defense: '🛡️', forest: '🌲' };
+
+function getSessionTeamNames() {
+    if (!sessionData) return { ...TEAM_NAME_DEFAULTS };
+    try {
+        const raw = sessionData.team_names;
+        const parsed = typeof raw === 'string'
+            ? (() => { try { return JSON.parse(raw); } catch(e) { return {}; } })()
+            : (raw || {});
+        return {
+            attack1: parsed.attack1 || TEAM_NAME_DEFAULTS.attack1,
+            attack2: parsed.attack2 || TEAM_NAME_DEFAULTS.attack2,
+            defense: parsed.defense || TEAM_NAME_DEFAULTS.defense,
+            forest:  parsed.forest  || TEAM_NAME_DEFAULTS.forest
+        };
+    } catch(e) { return { ...TEAM_NAME_DEFAULTS }; }
+}
+
+function getSessionTeamSizes() {
+    if (!sessionData) return { attack1: 10, attack2: 10, defense: 5, forest: 5 };
+    try {
+        const raw = sessionData.team_sizes;
+        const parsed = typeof raw === 'string'
+            ? JSON.parse(raw || '{}')
+            : (raw || {});
+        return {
+            attack1: parsed.attack1 ?? 10,
+            attack2: parsed.attack2 ?? 10,
+            defense: parsed.defense ?? 5,
+            forest:  parsed.forest  ?? 5
+        };
+    } catch(e) { return { attack1: 10, attack2: 10, defense: 5, forest: 5 }; }
+}
+
+// Trả về danh sách team đang active (có size > 0)
+function getActiveTeamKeys() {
+    const sizes = getSessionTeamSizes();
+    return ['attack1', 'attack2', 'defense', 'forest'].filter(k => (sizes[k] ?? 0) > 0);
+}
+
 // ═══ PHASE 5: HỆ THỐNG NHIỆM VỤ CASCADE ═══
-const SCOPE_OPTIONS = [
-    { value: 'all|all', label: '🏴 Toàn đội', icon: '🏴' },
-    { value: 'team|attack1', label: '⚔️ Công 1', icon: '⚔️' },
-    { value: 'team|attack2', label: '⚔️ Công 2', icon: '⚔️' },
-    { value: 'team|defense', label: '🛡️ Thủ', icon: '🛡️' },
-    { value: 'team|forest', label: '🌲 Rừng', icon: '🌲' },
-    { value: 'role|Healer', label: '💚 Healer', icon: '💚' },
-    { value: 'role|Tanker', label: '🧡 Tanker', icon: '🧡' },
-    { value: 'role|DPS', label: '🔵 DPS (tất cả)', icon: '🔵' },
-    { value: 'weapon|QD', label: '🪭 Quạt Dù', icon: '🪭' },
-    { value: 'weapon|SD', label: '⚔️ Song Đao', icon: '⚔️' },
-    { value: 'weapon|VD', label: '🗡️ Vô Danh', icon: '🗡️' },
-    { value: 'weapon|9K', label: '🔱 Cửu Kiếm', icon: '🔱' },
-    { value: 'weapon|DR', label: '🌂 Dù Roi', icon: '🌂' },
-    { value: 'weapon|HD', label: '🔪 Hoành Đao', icon: '🔪' }
-];
+function getScopeOptions() {
+    const names = getSessionTeamNames();
+    const sizes = getSessionTeamSizes();
+    const totalMax = Object.values(sizes).reduce((s, v) => s + (v || 0), 0);
+    const opts = [
+        { value: 'all|all', label: `🏴 Toàn đội (${totalMax} người)`, icon: '🏴' }
+    ];
+    // Chỉ hiện team có size > 0
+    if (sizes.attack1 > 0) opts.push({ value: 'team|attack1', label: `⚔️ ${names.attack1}`, icon: '⚔️' });
+    if (sizes.attack2 > 0) opts.push({ value: 'team|attack2', label: `🗡️ ${names.attack2}`, icon: '🗡️' });
+    if (sizes.defense > 0) opts.push({ value: 'team|defense', label: `🛡️ ${names.defense}`, icon: '🛡️' });
+    if (sizes.forest > 0)  opts.push({ value: 'team|forest',  label: `🌲 ${names.forest}`,  icon: '🌲' });
+    // Vai trò + vũ khí (luôn có)
+    opts.push(
+        { value: 'role|Healer', label: '💚 Healer', icon: '💚' },
+        { value: 'role|Tanker', label: '🧡 Tanker', icon: '🧡' },
+        { value: 'role|DPS', label: '🔵 DPS (tất cả)', icon: '🔵' },
+        { value: 'weapon|QD', label: '🪭 Quạt Dù', icon: '🪭' },
+        { value: 'weapon|SD', label: '⚔️ Song Đao', icon: '⚔️' },
+        { value: 'weapon|VD', label: '🗡️ Vô Danh', icon: '🗡️' },
+        { value: 'weapon|9K', label: '🔱 Cửu Kiếm', icon: '🔱' },
+        { value: 'weapon|DR', label: '🌂 Dù Roi', icon: '🌂' },
+        { value: 'weapon|HD', label: '🔪 Hoành Đao', icon: '🔪' }
+    );
+    return opts;
+}
+// Backward-compat: đổi const → getter để code cũ dùng SCOPE_OPTIONS vẫn hoạt động
+Object.defineProperty(window, 'SCOPE_OPTIONS', { get: getScopeOptions });
 
 // Biến lưu global notes (ngoài timeline)
 let tacticsGlobalNotes = [];
@@ -4656,15 +4788,18 @@ function normalizeGlobalNotes(list) {
 }
 
 function populateScopeDropdowns() {
+    const names = getSessionTeamNames();
+    const sizes = getSessionTeamSizes();
+    const totalMax = Object.values(sizes).reduce((s, v) => s + (v || 0), 0);
     const GROUPS = [
         { label: '📋 Đối tượng', items: [
-            { value: 'all|all', text: '🏴 Toàn đội (30 người)' }
+            { value: 'all|all', text: `🏴 Toàn đội (${totalMax} người)` }
         ]},
         { label: '⚔️ Team', items: [
-            { value: 'team|attack1', text: 'Công 1' },
-            { value: 'team|attack2', text: 'Công 2' },
-            { value: 'team|defense', text: 'Thủ' },
-            { value: 'team|forest', text: 'Rừng' }
+            ...(sizes.attack1 > 0 ? [{ value: 'team|attack1', text: names.attack1 }] : []),
+            ...(sizes.attack2 > 0 ? [{ value: 'team|attack2', text: names.attack2 }] : []),
+            ...(sizes.defense > 0 ? [{ value: 'team|defense', text: names.defense }] : []),
+            ...(sizes.forest > 0  ? [{ value: 'team|forest',  text: names.forest }] : [])
         ]},
         { label: '🎭 Vai trò', items: [
             { value: 'role|Healer', text: 'Healer' },
@@ -7213,11 +7348,12 @@ function normalizeBotSlot(bot, index = 0) {
 function getRealPlayersFromSession() {
     if (!sessionData) return [];
     const parse = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+    const names = getSessionTeamNames();
     const teams = [
-        { key: 'team_attack1', label: 'Công 1' },
-        { key: 'team_attack2', label: 'Công 2' },
-        { key: 'team_defense', label: 'Thủ' },
-        { key: 'team_forest', label: 'Rừng' }
+        { key: 'team_attack1', label: names.attack1 },
+        { key: 'team_attack2', label: names.attack2 },
+        { key: 'team_defense', label: names.defense },
+        { key: 'team_forest', label: names.forest }
     ];
     const all = [];
     teams.forEach(t => {
@@ -7244,7 +7380,8 @@ function getRegisteredHumanCount() {
 function getAllPlayers() {
     if (!sessionData) return [];
     const all = getRealPlayersFromSession();
-    const teamLabels = { team_attack1: 'Công 1', team_attack2: 'Công 2', team_defense: 'Thủ', team_forest: 'Rừng' };
+    const names = getSessionTeamNames();
+    const teamLabels = { team_attack1: names.attack1, team_attack2: names.attack2, team_defense: names.defense, team_forest: names.forest };
     botSlots.map(normalizeBotSlot).forEach(bot => all.push({ ...bot, teamLabel: teamLabels[bot.team] || bot.team }));
     return all;
 }
@@ -7652,12 +7789,14 @@ document.getElementById('mapArea').addEventListener('contextmenu', function(e) {
     const flipSub = e.clientX > window.innerWidth * 0.55 ? ' flip-left' : '';
 
     // ── TEAM SUBMENU ──
+    const ctxTeamNames = getSessionTeamNames();
+    const ctxTeamSizes = getSessionTeamSizes();
     const teams = [
-        { key:'team_attack1', icon:'⚔️', label:'Công 1' },
-        { key:'team_attack2', icon:'🗡️', label:'Công 2' },
-        { key:'team_defense', icon:'🛡️', label:'Thủ' },
-        { key:'team_forest', icon:'🌲', label:'Rừng' }
-    ];
+        { key:'team_attack1', icon:'⚔️', label: ctxTeamNames.attack1 },
+        { key:'team_attack2', icon:'🗡️', label: ctxTeamNames.attack2 },
+        { key:'team_defense', icon:'🛡️', label: ctxTeamNames.defense },
+        { key:'team_forest', icon:'🌲', label: ctxTeamNames.forest }
+    ].filter(t => (ctxTeamSizes[t.key.replace('team_', '')] ?? 0) > 0);
     let teamSubHtml = '';
     teams.forEach(t => {
         const avail = getTeamAvailable(t.key).length;

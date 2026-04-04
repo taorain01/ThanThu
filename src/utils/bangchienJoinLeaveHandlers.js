@@ -142,11 +142,12 @@ async function handleButton(interaction, client) {
             }
 
             // 4-TEAM: Display team names correctly
-            const teamEmojis = { attack1: '⚔️ Công 1', attack2: '🗡️ Công 2', defense: '🛡️ Thủ', forest: '🌲 Rừng', waiting: '⏳ Chờ' };
+            const _tn = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
+            const teamEmojis = { attack1: `⚔️ ${_tn.attack1}`, attack2: `🗡️ ${_tn.attack2}`, defense: `🛡️ ${_tn.defense}`, forest: `🌲 ${_tn.forest}`, waiting: '⏳ Chờ' };
             const teamDisplay = teamEmojis[result.team] || result.team;
             const total = result.counts.attack1 + result.counts.attack2 + result.counts.defense + result.counts.forest + result.counts.waiting;
             await interaction.reply({
-                content: `✅ Đã vào ${teamDisplay}! (Công1: ${result.counts.attack1} | Công2: ${result.counts.attack2} | Thủ: ${result.counts.defense} | Rừng: ${result.counts.forest} | Chờ: ${result.counts.waiting})`,
+                content: `✅ Đã vào ${teamDisplay}! (${_tn.attack1}: ${result.counts.attack1} | ${_tn.attack2}: ${result.counts.attack2} | ${_tn.defense}: ${result.counts.defense} | ${_tn.forest}: ${result.counts.forest} | Chờ: ${result.counts.waiting})`,
                 flags: MessageFlags.Ephemeral
             });
             return true;
@@ -216,9 +217,10 @@ async function handleButton(interaction, client) {
             }
 
             // 4-TEAM: Display counts correctly
+            const _tn2 = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công 1', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
             const total = result.counts.attack1 + result.counts.attack2 + result.counts.defense + result.counts.forest + result.counts.waiting;
             await interaction.reply({
-                content: `✅ Đã hủy đăng ký! (Công1: ${result.counts.attack1} | Công2: ${result.counts.attack2} | Thủ: ${result.counts.defense} | Rừng: ${result.counts.forest} | Chờ: ${result.counts.waiting})`,
+                content: `✅ Đã hủy đăng ký! (${_tn2.attack1}: ${result.counts.attack1} | ${_tn2.attack2}: ${result.counts.attack2} | ${_tn2.defense}: ${result.counts.defense} | ${_tn2.forest}: ${result.counts.forest} | Chờ: ${result.counts.waiting})`,
                 flags: MessageFlags.Ephemeral
             });
             return true;

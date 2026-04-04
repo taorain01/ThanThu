@@ -5,7 +5,7 @@
 
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
-const { getExpInfo, getExpForLevel, getExpUserCount } = require('../../database/economy');
+const { getExpInfo, getExpForLevel, getAllExpLevels } = require('../../database/economy');
 const path = require('path');
 
 // Đăng ký font (nếu có)
@@ -52,7 +52,17 @@ module.exports = {
         }
 
         const info = getExpInfo(targetUser.id);
-        const totalUsers = getExpUserCount();
+        // Thay vì lấy toàn bộ count, ta sẽ filter theo server
+        const allRecords = getAllExpLevels();
+        await message.guild.members.fetch().catch(() => {});
+        const guildMembers = message.guild.members.cache;
+        
+        const filteredRecords = allRecords.filter(r => guildMembers.has(r.discord_id) && r.total_exp > 0);
+        filteredRecords.sort((a, b) => b.total_exp - a.total_exp);
+        
+        const totalUsers = filteredRecords.length;
+        const rankIndex = filteredRecords.findIndex(r => r.discord_id === targetUser.id);
+        info.rank = rankIndex !== -1 ? rankIndex + 1 : totalUsers + 1;
 
         // Tạo rank card bằng canvas
         const card = await createRankCard(targetUser, targetMember, info, totalUsers);
@@ -174,7 +184,17 @@ async function createRankCard(user, member, info, totalUsers) {
     // Username nhỏ hơn tên chút
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '34px sans-serif';
-    ctx.fillText(`@${user.username}`, textX, 118);
+    const usernameText = `@${user.username}`;
+    ctx.fillText(usernameText, textX, 118);
+
+    // Ngày bắt đầu tính điểm
+    if (info.createdAt) {
+        const startDate = new Date(info.createdAt).toLocaleDateString('vi-VN');
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '22px sans-serif';
+        const startX = textX + ctx.measureText(usernameText).width + 20;
+        ctx.fillText(`• Bắt đầu tính điểm: ${startDate}`, startX, 126);
+    }
 
     // ═══ BADGES - RANK & LEVEL ═══
     const badgeY = 45;

@@ -4097,40 +4097,40 @@ async function renderPmLevelTab(container, discordId) {
           <div class="pm-level-bar-wrap">
             <div class="pm-lbar-header">
               <div>
-                <div class="pm-lbar-name">\${window.currentUserName || 'Lang Gia Khách'}</div>
-                <div class="pm-lbar-sub">@\${discordUserName || 'discord_user'}</div>
+                <div class="pm-lbar-name">${window.currentUserName || 'Lang Gia Khách'}</div>
+                <div class="pm-lbar-sub">@${window.currentUserName || 'discord_user'}</div>
               </div>
               <div class="pm-lbar-badges">
-                <div class="pm-badge-rank">#\${rank} <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,.4)">/ \${totalUsers||1}</span></div>
-                <div class="pm-badge-lv">LV \${level}</div>
+                <div class="pm-badge-rank">#${rank} <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,.4)">/ ${totalUsers||1}</span></div>
+                <div class="pm-badge-lv">LV ${level}</div>
               </div>
             </div>
 
             <div class="pm-stats-grid">
               <div class="pm-stat-box">
                 <div class="pm-stat-label"><div class="pm-stat-dot" style="background:#667eea"></div>Text</div>
-                <div class="pm-stat-val">\${formatNumber(expData.text_exp)}</div>
-                <div class="pm-stat-sub">\${formatNumber(expData.total_messages)} tin nhắn</div>
+                <div class="pm-stat-val">${formatNumber(expData.text_exp)}</div>
+                <div class="pm-stat-sub">${formatNumber(expData.total_messages)} tin nhắn</div>
               </div>
               <div class="pm-stat-box">
                 <div class="pm-stat-label"><div class="pm-stat-dot" style="background:#f093fb"></div>Voice</div>
-                <div class="pm-stat-val">\${formatNumber(expData.voice_exp)}</div>
-                <div class="pm-stat-sub">\${formatVoice(expData.total_voice_minutes)}</div>
+                <div class="pm-stat-val">${formatNumber(expData.voice_exp)}</div>
+                <div class="pm-stat-sub">${formatVoice(expData.total_voice_minutes)}</div>
               </div>
             </div>
 
             <div class="pm-prog">
               <div class="pm-prog-header">
                 <div class="pm-prog-title">EXP Progress</div>
-                <div class="pm-prog-num">\${formatNumber(currentLevelExp)} / \${formatNumber(expForNext)}</div>
+                <div class="pm-prog-num">${formatNumber(currentLevelExp)} / ${formatNumber(expForNext)}</div>
               </div>
               <div class="pm-lbar">
-                <div class="pm-lbar-pct">\${progressPct}%</div>
+                <div class="pm-lbar-pct">${progressPct}%</div>
                 <div class="pm-lbar-fill" style="width:0%"></div>
               </div>
               <div class="pm-tier-row">
-                <div class="pm-tier-name bold-tier">\${tierName}</div>
-                <div class="pm-tier-info">Còn \${formatNumber(nextLevelLeft)} EXP → Level \${level+1}</div>
+                <div class="pm-tier-name bold-tier">${tierName}</div>
+                <div class="pm-tier-info">Còn ${formatNumber(nextLevelLeft)} EXP → Level ${level+1}</div>
               </div>
             </div>
           </div>

@@ -10,6 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="./anh/langgia_icon.png">
+<link rel="icon" type="image/png" href="./anh/langgia_icon.png">
+<link rel="shortcut icon" href="./anh/langgia_icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -1020,6 +1022,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 
 /* ═══ MOBILE RESPONSIVE — TACTICS ═══ */
 .landscape-warning { display: none }
+.mobile-tab-bar { display: none }
 
 /* Portrait trên mobile → hiện warning xoay ngang */
 @media (max-width: 768px) and (orientation: portrait) {
@@ -1034,12 +1037,76 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
   .auth-overlay p { font-size: 12px }
 }
 
-/* Landscape trên mobile → fullscreen map */
+/* ═══ MOBILE TAB BAR ═══ */
+.mobile-tab-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  height: 38px; display: flex; align-items: stretch;
+  background: rgba(7,18,9,.97);
+  border-bottom: 1px solid rgba(251,191,36,.18);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.mtb-tab {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  gap: 5px; font-size: 11px; font-weight: 700; color: var(--text2);
+  cursor: pointer; transition: all .18s; border: none; background: transparent;
+  font-family: 'Inter', sans-serif; border-bottom: 2px solid transparent;
+  letter-spacing: .3px;
+}
+.mtb-tab .mtb-icon { font-size: 14px }
+.mtb-tab:hover { color: var(--text); background: rgba(255,255,255,.04) }
+.mtb-tab.active { color: var(--gold); border-bottom-color: var(--gold); background: rgba(251,191,36,.06) }
+.mtb-tab.active-green { color: var(--green-400); border-bottom-color: var(--green-400); background: rgba(74,222,128,.06) }
+.mtb-sep { width: 1px; background: rgba(255,255,255,.06); margin: 6px 0 }
+
+/* Landscape trên mobile → fullscreen map + tab bar */
 @media (max-width: 960px) and (orientation: landscape) {
   .landscape-warning { display: none !important }
-  .t-header { display: none }
-  .t-layout { height: 100vh }
+  .t-header { display: none !important }
+  .mobile-tab-bar { display: flex !important }
+
+  /* Layout starts below tab bar */
+  .t-layout {
+    height: calc(100vh - 38px - 50px);
+    margin-top: 38px;
+    position: relative;
+  }
+
+  /* Panels ẩn mặc định, hiện khi tab tương ứng active */
   .panel-left, .panel-right { display: none }
+
+  /* Panel overlay khi active trên mobile */
+  .panel-left.mobile-active {
+    display: flex !important;
+    position: absolute; inset: 0; z-index: 40;
+    width: 100%; max-width: 320px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .panel-right.mobile-active {
+    display: flex !important;
+    position: absolute; inset: 0; left: auto; z-index: 40;
+    width: 100%; max-width: 320px;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 10px 12px;
+  }
+
+  /* Map area chiếm toàn bộ space còn lại */
+  .map-area {
+    height: 100%;
+    flex: 1;
+  }
+
+  /* Fix ảnh bản đồ — override max-height để dùng đúng không gian */
+  .map-container img.map-bg {
+    max-height: calc(100vh - 38px - 50px) !important;
+  }
+
+  /* Timeline cố định dưới cùng */
   .timeline-bar {
     height: auto; padding: 4px 8px;
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
@@ -1047,7 +1114,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
   }
   .timeline-track { min-height: 28px }
   .timeline-label { font-size: 9px; margin-bottom: 3px }
-  .map-area { height: calc(100vh - 50px) }
+  .timeline-label span:first-child { display: none } /* ẩn chữ "Timeline" */
+
+  /* Timeline hint / setup shell — compact hơn */
+  .timeline-setup-card { padding: 4px 8px }
+  .timeline-setup-hint { font-size: 10px }
+  .setup-random-btn, .setup-start-btn { font-size: 10px; padding: 4px 10px }
 }
 
 /* Landscape warning UI */
@@ -1737,6 +1809,8 @@ function restoreTacticsHistorySnapshot(snapshot) {
         ensureEnemyRoster();
         botSlots = Array.isArray(snapshot.botSlots) ? snapshot.botSlots.map(normalizeBotSlot) : [];
         botIdCounter = Number(snapshot.botIdCounter) || botSlots.length;
+        // Xóa bot thừa nếu roster đã thay đổi
+        reconcileBotsWithRoster();
 
         marks = normalizeMarks(snapshot.marks || []);
         tacticsGlobalNotes = normalizeGlobalNotes(snapshot.globalNotes || []);
@@ -2477,6 +2551,8 @@ function applySavedTacticsPayload(saved) {
     tacticsGlobalNotes = normalizeGlobalNotes(saved.global_notes);
     activeMarkIdx = 0;
     viewingTime = marks[0]?.time ?? TOTAL_SECONDS;
+    // Xóa bot thừa nếu người thật đã thay đổi kể từ lần lưu cuối
+    reconcileBotsWithRoster();
     return true;
 }
 
@@ -2544,6 +2620,8 @@ function applyRealtimeSessionData(data, options = {}) {
     }
     sessionData = data;
     ensureSessionDefaults();
+    // Sau khi cập nhật sessionData, xóa bot thừa nếu team bị quá tải
+    reconcileBotsWithRoster();
     refreshStorageButtons();
     startSessionRealtimeSync();
     fillMockTeams();
@@ -4056,7 +4134,7 @@ function removeTowerGuardAssignment(towerId, guardId) {
 }
 
 function startTowerGuardDrag(e, towerId, side, guardId) {
-    if (gamePhase === 'setup') return;
+    if (!isLeader) return;
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
@@ -4136,11 +4214,11 @@ function renderTowerGuardNames() {
         }
         namesEl.innerHTML = entries.map(entry => {
             const roleCls = entry.role === 'Healer' ? 'healer' : entry.role === 'Tanker' ? 'tanker' : '';
-            const dragCls = gamePhase !== 'setup' ? ' guard-draggable' : '';
+            const dragCls = isLeader ? ' guard-draggable' : '';
             return `<div class="tower-guard-line ${roleCls}${dragCls}" data-guard-id="${entry.id}" data-tower-id="${towerId}" data-guard-side="${side}"><span class="tg-role-dot"></span><span>${entry.name}</span></div>`;
         }).join('');
 
-        if (gamePhase !== 'setup' && isLeader) {
+        if (isLeader) {
             namesEl.querySelectorAll('.tower-guard-line[data-guard-id]').forEach(line => {
                 line.addEventListener('mousedown', event => {
                     startTowerGuardDrag(
@@ -7673,6 +7751,37 @@ function autoReplaceBots(oldRoster, newRoster) {
     commitTacticsHistory('bot-auto-replace');
 }
 
+// Sau khi load/restore botSlots + sessionData, kiểm tra team nào bị thừa bot → xóa bot
+function reconcileBotsWithRoster() {
+    if (!sessionData || !botSlots.length) return;
+    const sizes = typeof sessionData.team_sizes === 'string'
+        ? JSON.parse(sessionData.team_sizes || '{}') : (sessionData.team_sizes || {});
+    const realPlayers = getRealPlayersFromSession();
+    const teamConfigs = [
+        { key: 'team_attack1', max: sizes.attack1 || 10 },
+        { key: 'team_attack2', max: sizes.attack2 || 10 },
+        { key: 'team_defense', max: sizes.defense ?? 5 },
+        { key: 'team_forest', max: sizes.forest ?? 5 }
+    ];
+    let removed = 0;
+    teamConfigs.forEach(cfg => {
+        const realCount = realPlayers.filter(p => p.team === cfg.key).length;
+        const teamBots = botSlots.filter(b => b.team === cfg.key);
+        let excess = (realCount + teamBots.length) - cfg.max;
+        // Xóa bot thừa (từ cuối danh sách trước)
+        while (excess > 0 && teamBots.length > 0) {
+            const botToRemove = teamBots.pop();
+            purgeBotIdFromTactics(botToRemove.id);
+            botSlots = botSlots.filter(b => b.id !== botToRemove.id);
+            removed++;
+            excess--;
+        }
+    });
+    if (removed > 0) {
+        console.log(`[Tactics] 🧹 reconcileBotsWithRoster: đã xóa ${removed} bot thừa`);
+    }
+}
+
 function replaceBotManual(botId, realPlayerId) {
     const bot = botSlots.find(entry => entry.id === botId);
     const realPlayer = getAllPlayers().find(player => !player.isBot && player.id === realPlayerId);
@@ -9491,6 +9600,9 @@ document.addEventListener('mouseup', e => {
         toast('🗑️ Đã xóa khỏi map');
         }
     } else if (dragState.source === 'tower-guard') {
+        removeTowerGuardAssignment(dragState.towerId, dragState.guardId);
+        shouldCommitHistory = true;
+        toast('🗑️ Đã xóa khỏi map (trở về danh sách)');
         renderPlayersOnMap(); renderEnemiesOnMap(); syncPanelOnMap(); applyObjectiveStates(); renderTargeting();
         if (typeof refreshZoomModal === 'function') refreshZoomModal();
     } else if (dragState.source === 'enemy-panel' || dragState.source === 'enemy-multi-panel') {
@@ -12205,7 +12317,164 @@ function enterFullscreenLandscape() {
   try { screen.orientation.lock('landscape').catch(() => {}); } catch(e) {}
 }
 
+// ═══ MOBILE TAB BAR SWITCHER ═══
+let _mobileActiveTab = 'map';
+function switchMobileTab(tab) {
+  _mobileActiveTab = tab;
+  const panelLeft  = document.querySelector('.panel-left');
+  const panelRight = document.querySelector('.panel-right');
+  const mapArea    = document.getElementById('mapArea');
+  const tabs = document.querySelectorAll('.mtb-tab');
+
+  // Reset panels
+  if (panelLeft)  panelLeft.classList.remove('mobile-active');
+  if (panelRight) panelRight.classList.remove('mobile-active');
+
+  // Reset tab active states
+  tabs.forEach(t => { t.classList.remove('active', 'active-green'); });
+
+  if (tab === 'members') {
+    if (panelLeft) panelLeft.classList.add('mobile-active');
+    if (mapArea) mapArea.style.display = 'none';
+    document.getElementById('mtbMembers')?.classList.add('active-green');
+  } else if (tab === 'notes') {
+    if (panelRight) panelRight.classList.add('mobile-active');
+    if (mapArea) mapArea.style.display = 'none';
+    document.getElementById('mtbNotes')?.classList.add('active');
+  } else {
+    // map tab
+    if (mapArea) mapArea.style.display = '';
+    document.getElementById('mtbMap')?.classList.add('active');
+  }
+}
+
+// Khởi tạo tab map khi trang load
+document.addEventListener('DOMContentLoaded', () => {
+  const isMobileLandscape = () =>
+    window.innerWidth <= 960 && window.innerWidth > window.innerHeight;
+
+  function initMobileTab() {
+    if (isMobileLandscape()) {
+      switchMobileTab('map');
+    }
+  }
+  initMobileTab();
+  window.addEventListener('resize', initMobileTab);
+  window.addEventListener('orientationchange', () => setTimeout(initMobileTab, 300));
+});
+
+// ═══ MOBILE TOUCH: Long press = Chuột phải | Long press + kéo = Quét chọn nhiều ═══
+(function initTouchMap() {
+  function setup() {
+    const mapArea = document.getElementById('mapArea');
+    if (!mapArea) return;
+
+    let lpTimer    = null;
+    let t0x = 0, t0y = 0;
+    let tMoved     = false;
+    let rectMode   = false;   // đang quét chọn nhiều
+    const LP_MS    = 550;     // giữ bao lâu thì kích hoạt
+    const THRESH   = 10;      // pixel tối thiểu mới gọi là "đã di chuyển"
+
+    function cancelLP() { clearTimeout(lpTimer); lpTimer = null; }
+
+    mapArea.addEventListener('touchstart', e => {
+      if (e.touches.length > 1) { cancelLP(); return; }
+      const t = e.touches[0];
+      t0x = t.clientX; t0y = t.clientY;
+      tMoved = false; rectMode = false;
+
+      // Kiểm tra chạm vào dot người chơi / kẻ địch không
+      const el = document.elementFromPoint(t0x, t0y);
+      const onDot = el?.closest('.map-player,.map-enemy,.mg-badge,.z-player,.z-enemy,.map-icon');
+
+      lpTimer = setTimeout(() => {
+        if (tMoved) return;
+        if (navigator.vibrate) navigator.vibrate(38);
+
+        if (onDot) {
+          // Long press trên dot → context menu (chuột phải)
+          const ctxEvt = new MouseEvent('contextmenu', {
+            bubbles: true, cancelable: true,
+            clientX: t0x, clientY: t0y
+          });
+          onDot.dispatchEvent(ctxEvt);
+        } else {
+          // Long press trên vùng trống → bắt đầu quét chọn nhiều
+          rectMode = true;
+          const md = new MouseEvent('mousedown', {
+            bubbles: true, cancelable: true,
+            clientX: t0x, clientY: t0y, button: 0
+          });
+          mapArea.dispatchEvent(md);
+          if (navigator.vibrate) navigator.vibrate([30, 20, 30]); // double buzz = rect mode
+        }
+      }, LP_MS);
+    }, { passive: true });
+
+    mapArea.addEventListener('touchmove', e => {
+      if (e.touches.length > 1) { cancelLP(); return; }
+      const t = e.touches[0];
+      const dx = Math.abs(t.clientX - t0x);
+      const dy = Math.abs(t.clientY - t0y);
+
+      if (dx > THRESH || dy > THRESH) {
+        tMoved = true;
+        if (!rectMode) cancelLP(); // hủy long press nếu di chuyển trước 550ms
+      }
+
+      if (rectMode) {
+        e.preventDefault(); // chặn scroll trang khi đang quét chọn
+        const mm = new MouseEvent('mousemove', {
+          bubbles: true, cancelable: true,
+          clientX: t.clientX, clientY: t.clientY
+        });
+        mapArea.dispatchEvent(mm);
+      }
+    }, { passive: false });
+
+    mapArea.addEventListener('touchend', e => {
+      cancelLP();
+      if (rectMode) {
+        rectMode = false;
+        const t = e.changedTouches[0];
+        const mu = new MouseEvent('mouseup', {
+          bubbles: true, cancelable: true,
+          clientX: t.clientX, clientY: t.clientY
+        });
+        mapArea.dispatchEvent(mu);
+      }
+    }, { passive: true });
+
+    mapArea.addEventListener('touchcancel', () => {
+      cancelLP(); rectMode = false;
+    }, { passive: true });
+  }
+
+  // Đợi DOM sẵn sàng trước khi gán event
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
 </script>
+
+<!-- Mobile Tab Bar -->
+<div class="mobile-tab-bar" id="mobileTabBar">
+  <button class="mtb-tab active-green" id="mtbMembers" onclick="switchMobileTab('members')">
+    <span class="mtb-icon">👥</span> Thành Viên
+  </button>
+  <div class="mtb-sep"></div>
+  <button class="mtb-tab active" id="mtbMap" onclick="switchMobileTab('map')">
+    <span class="mtb-icon">🗺️</span> Bản Đồ
+  </button>
+  <div class="mtb-sep"></div>
+  <button class="mtb-tab" id="mtbNotes" onclick="switchMobileTab('notes')">
+    <span class="mtb-icon">📝</span> Ghi Chú
+  </button>
+</div>
 
 <!-- Mobile Landscape Warning -->
 <div class="landscape-warning" id="landscapeWarning">

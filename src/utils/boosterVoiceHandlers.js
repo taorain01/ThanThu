@@ -63,6 +63,7 @@ function createControlPanel(userId, room, member = null) {
     const row4 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`boostvc_rename_${userId}`).setLabel('Đổi tên').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`boostvc_region_${userId}`).setLabel('Đổi Server').setEmoji('🌏').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`boostvc_autolock_${userId}`).setLabel(`Tự khoá: ${room.auto_lock ? 'Bật' : 'Tắt'}`).setEmoji(room.auto_lock ? '🟢' : '🔴').setStyle(room.auto_lock ? ButtonStyle.Success : ButtonStyle.Secondary),
     );
 
     return { embeds: [embed], components: [row1, row2, row3, row4] };
@@ -78,6 +79,21 @@ const controlPanelMessages = new Map(); // Map<channelId, messageId>
 async function handleVoiceJoin(channel, userId) {
     const room = db.getBoosterRoomByChannelId(channel.id);
     if (!room || room.user_id !== userId) return;
+
+    // Tự động mở khoá nếu auto_lock = 1
+    if (room.auto_lock) {
+        try {
+            await channel.permissionOverwrites.edit(channel.guild.id, {
+                ViewChannel: true,
+                Connect: true
+            });
+            db.setBoosterRoomMode(userId, 'public');
+            // Cập nhật room object để hàm tạo panel lấy đúng mode
+            room.mode = 'public';
+        } catch (e) {
+            console.error('[BoostVC] Error unlocking room on join:', e.message);
+        }
+    }
 
     // Gửi bảng điều khiển
     try {
@@ -102,16 +118,42 @@ async function handleVoiceJoin(channel, userId) {
 
 async function handleVoiceLeave(channel, userId) {
     const room = db.getBoosterRoomByChannelId(channel.id);
-    if (!room || room.user_id !== userId) return;
+    if (!room) return;
 
-    // Xoá bảng điều khiển
-    const msgId = controlPanelMessages.get(channel.id);
-    if (msgId) {
-        try {
-            const msg = await channel.messages.fetch(msgId).catch(() => null);
-            if (msg) await msg.delete();
-        } catch (e) { /* ignore */ }
-        controlPanelMessages.delete(channel.id);
+    const isOwner = room.user_id === userId;
+
+    if (isOwner) {
+        // Xoá bảng điều khiển
+        const msgId = controlPanelMessages.get(channel.id);
+        if (msgId) {
+            try {
+                const msg = await channel.messages.fetch(msgId).catch(() => null);
+                if (msg) await msg.delete();
+            } catch (e) { /* ignore */ }
+            controlPanelMessages.delete(channel.id);
+        }
+    }
+
+    // Logic Tự Khoá Phòng
+    if (room.auto_lock) {
+        // Nếu chủ phòng không có mặt
+        const ownerInChannel = channel.members.has(room.user_id);
+        if (!ownerInChannel) {
+            // Đếm số người thật còn lại
+            const humanCount = channel.members.filter(m => !m.user.bot).size;
+            // Nếu không còn ai khác, khoá phòng lại
+            if (humanCount === 0) {
+                try {
+                    await channel.permissionOverwrites.edit(channel.guild.id, {
+                        ViewChannel: true,
+                        Connect: false
+                    });
+                    db.setBoosterRoomMode(room.user_id, 'locked');
+                } catch (e) {
+                    console.error('[BoostVC] Error auto-locking room:', e.message);
+                }
+            }
+        }
     }
 }
 
@@ -151,6 +193,7 @@ async function handleButton(interaction) {
         case 'rename': return await handleRename(interaction, ownerId);
         case 'clearchat': return await handleClearChat(interaction, ownerId);
         case 'region': return await handleRegionSelect(interaction, ownerId);
+        case 'autolock': return await handleAutoLock(interaction, ownerId);
         default: return false;
     }
 }
@@ -360,6 +403,27 @@ async function handleSetMode(interaction, ownerId, newMode) {
         await interaction.reply({ content: '❌ Lỗi khi thay đổi chế độ!', flags: MessageFlags.Ephemeral });
     }
 
+    return true;
+}
+
+// ── Bật Tắt Tự Động Khoá ──
+async function handleAutoLock(interaction, ownerId) {
+    const room = db.getBoosterRoom(ownerId);
+    if (!room) {
+        await interaction.reply({ content: '❌ Không tìm thấy room!', flags: MessageFlags.Ephemeral });
+        return true;
+    }
+
+    const newState = room.auto_lock ? false : true;
+    db.setBoosterRoomAutoLock(ownerId, newState);
+
+    await interaction.reply({
+        content: `✅ Đã **${newState ? 'Bật' : 'Tắt'}** tính năng Tự Động Khoá phòng!`,
+        flags: MessageFlags.Ephemeral
+    });
+
+    // Cập nhật lại control panel để hiện nút Xanh/Đỏ
+    await refreshControlPanel(interaction.channel, ownerId);
     return true;
 }
 

@@ -5,7 +5,7 @@
 
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
-const { getExpLeaderboard, getExpUserCount, getExpInfo } = require('../../database/economy');
+const { getAllExpLevels, getExpInfo } = require('../../database/economy');
 
 module.exports = {
     name: 'top',
@@ -32,9 +32,29 @@ module.exports = {
             }
         }
 
-        const leaderboard = getExpLeaderboard(type, 10);
-        const totalUsers = getExpUserCount();
+        // Thay thế logic lấy dữ liệu toàn cục bằng cách lọc members trong server
+        const allRecords = getAllExpLevels();
+        await message.guild.members.fetch().catch(() => {});
+        const guildMembers = message.guild.members.cache;
+
+        const sortKey = type === 'total' ? 'total_exp' : type === 'text' ? 'text_exp' : 'voice_exp';
+        const filteredRecords = allRecords.filter(r => guildMembers.has(r.discord_id) && r[sortKey] > 0);
+        filteredRecords.sort((a, b) => b[sortKey] - a[sortKey]);
+
+        const totalUsers = filteredRecords.length;
+        const leaderboard = filteredRecords.slice(0, 10);
         const myInfo = getExpInfo(message.author.id);
+        
+        // Cập nhật local rank cho bản thân
+        const rankIndex = filteredRecords.findIndex(r => r.discord_id === message.author.id);
+        myInfo.rank = rankIndex !== -1 ? rankIndex + 1 : totalUsers + 1;
+        
+        // Tính ngày bắt đầu từ người có record cũ nhất
+        let serverStartDateStr = '';
+        if (filteredRecords.length > 0) {
+            let earliest = filteredRecords.reduce((a, b) => (a.created_at < b.created_at ? a : b)).created_at;
+            if (earliest) Object.assign(myInfo, { earliestDate: new Date(earliest).toLocaleDateString('vi-VN') });
+        }
 
         if (leaderboard.length === 0) {
             return message.reply('Chua co ai co EXP! Hay bat dau tro chuyen de kiem EXP nhe.');
@@ -204,7 +224,15 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     ctx.font = '16px sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${totalUsers} nguoi choi`, width - 36, headerHeight / 2);
+    
+    if (myInfo.earliestDate) {
+        ctx.fillText(`${totalUsers} nguoi choi`, width - 36, headerHeight / 2 - 12);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(`Tu ngay: ${myInfo.earliestDate}`, width - 36, headerHeight / 2 + 12);
+    } else {
+        ctx.fillText(`${totalUsers} nguoi choi`, width - 36, headerHeight / 2);
+    }
 
     // ═══ DANH SÁCH TOP ═══
     const startY = headerHeight + topPadding;

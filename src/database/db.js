@@ -442,6 +442,12 @@ function initializeDatabase() {
         )
     `).run();
 
+    try {
+        db.prepare('ALTER TABLE booster_rooms ADD COLUMN auto_lock INTEGER DEFAULT 0').run();
+    } catch (e) {
+        // Column probably already exists
+    }
+
     db.prepare(`
         CREATE TABLE IF NOT EXISTS booster_room_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2087,6 +2093,7 @@ module.exports = {
     getBoosterRoomByChannelId,
     setBoosterRoomMode,
     setBoosterRoomName,
+    setBoosterRoomAutoLock,
     addBoosterRoomMember,
     removeBoosterRoomMember,
     getBoosterRoomMembers,
@@ -2365,6 +2372,11 @@ function setBoosterRoomMode(userId, mode) {
 
 function setBoosterRoomName(userId, roomName) {
     const result = db.prepare('UPDATE booster_rooms SET room_name = ? WHERE user_id = ?').run(roomName, userId);
+    return { success: result.changes > 0 };
+}
+
+function setBoosterRoomAutoLock(userId, state) {
+    const result = db.prepare('UPDATE booster_rooms SET auto_lock = ? WHERE user_id = ?').run(state ? 1 : 0, userId);
     return { success: result.changes > 0 };
 }
 

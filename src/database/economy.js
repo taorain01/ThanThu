@@ -1688,7 +1688,8 @@ function getExpInfo(discordId) {
         currentLevelExp,
         totalMessages: record.total_messages,
         totalVoiceMinutes: record.total_voice_minutes,
-        rank: rankResult.rank + 1
+        rank: rankResult.rank + 1,
+        createdAt: record.created_at
     };
 }
 

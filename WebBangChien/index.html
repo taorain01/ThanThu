@@ -107,26 +107,46 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 /* ═══ USER BADGE (góc phải header khi đã login) ═══ */
 /* ═══ USER BADGE REDESIGN ═══ */
 .user-badge{
-  display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;
-  border-radius:20px;background:rgba(34,197,94,.1);
-  border:1px solid rgba(34,197,94,.2);cursor:pointer;
-  transition:all .3s;position:relative;user-select:none;
+  display:flex;align-items:center;gap:10px;padding:5px 14px 5px 6px;
+  border-radius:12px;background:linear-gradient(135deg,rgba(20,20,20,.6),rgba(40,40,40,.8));
+  border:1px solid rgba(251,191,36,.3);cursor:pointer;
+  transition:all .3s;position:relative;user-select:none; margin-left:auto;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 4px 6px rgba(0,0,0,.4);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
-.user-badge:hover{background:rgba(34,197,94,.18);border-color:rgba(34,197,94,.4);
-  box-shadow:0 0 12px rgba(34,197,94,.15)}
-.user-badge img{width:28px;height:28px;border-radius:50%;
-  border:2px solid rgba(34,197,94,.4);flex-shrink:0}
-.user-badge .uname{font-size:12px;font-weight:700;color:var(--green-300);max-width:80px;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.user-badge .ub-arrow{font-size:9px;color:var(--text3);transition:transform .2s;margin-left:2px}
+.user-badge:hover{
+  background:linear-gradient(135deg,rgba(30,30,30,.8),rgba(50,50,50,.9));
+  border-color:rgba(251,191,36,.6);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 4px 10px rgba(0,0,0,.6), 0 0 15px rgba(251,191,36,.2);
+}
+.user-badge img{width:32px;height:32px;border-radius:50%;
+  border:2px solid rgba(251,191,36,.8);flex-shrink:0;
+  box-shadow:0 0 8px rgba(251,191,36,.4)}
+.user-badge .uname{
+  font-family:'Playfair Display',serif;font-size:16px;font-weight:900;
+  background:linear-gradient(to bottom, #fffdf2 0%, #fde68a 25%, #d9a036 50%, #f5c451 75%, #fffdf2 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:1px;max-width:140px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;
+  padding-bottom: 2px;
+}
+.user-badge .uname::after{
+  content:attr(data-text);position:absolute;left:0;top:-2px;width:100%;height:100%;
+  background:linear-gradient(110deg, transparent 15%, rgba(255,255,255,0) 40%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 60%, transparent 85%);
+  background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:shineSweep 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events:none;z-index:2;
+}
+.user-badge .ub-arrow{font-size:10px;color:rgba(251,191,36,.8);transition:transform .2s;margin-left:2px}
 .user-badge.open .ub-arrow{transform:rotate(180deg)}
 
 /* Dropdown menu */
 .user-dropdown{
   position:absolute;top:calc(100% + 8px);right:0;z-index:200;
-  background:rgba(8,18,12,.97);border:1px solid rgba(34,197,94,.2);
+  background:rgba(8,18,12,.97);border:1px solid rgba(251,191,36,.3);
   border-radius:14px;overflow:hidden;min-width:160px;
-  box-shadow:0 16px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03);
+  box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 0 1px rgba(251,191,36,.1);
   backdrop-filter:blur(16px);
   opacity:0;transform:translateY(-8px) scale(.97);
   pointer-events:none;transition:all .2s cubic-bezier(.25,.46,.45,.94);
@@ -140,7 +160,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   transition:background .15s;border:none;background:none;width:100%;text-align:left;
   font-family:inherit;
 }
-.ud-item:hover{background:rgba(34,197,94,.08);color:var(--green-300)}
+.ud-item:hover{background:rgba(251,191,36,.08);color:var(--gold)}
 .ud-item.danger{color:#fca5a5}
 .ud-item.danger:hover{background:rgba(255,80,80,.08)}
 .ud-sep{height:1px;background:rgba(255,255,255,.06);margin:2px 0}
@@ -213,20 +233,34 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .pm-ic-value.healer{color:var(--healer)}
 .pm-ic-value.tanker{color:var(--tanker)}
 
-/* Level progress bar */
-.pm-level-bar-wrap{margin-top:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px}
-.pm-lbar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.pm-lbar-lv{font-size:20px;font-weight:900;color:var(--gold)}
-.pm-lbar-exp{font-size:11px;color:var(--text3)}
-.pm-lbar{
-  height:8px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;
-}
-.pm-lbar-fill{
-  height:100%;border-radius:999px;transition:width .8s cubic-bezier(.25,.46,.45,.94);
-  background:linear-gradient(90deg,var(--green-600),var(--green-400));
-  box-shadow:0 0 8px rgba(74,222,128,.4);
-}
-.pm-lbar-rank{margin-top:8px;font-size:11px;color:var(--text3);text-align:right}
+/* Level progress bar (REDESIGN) */
+.pm-level-bar-wrap{margin-top:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px}
+.pm-lbar-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.05)}
+.pm-lbar-name{font-size:24px;font-weight:900;font-family:'Playfair Display',serif;color:var(--text);letter-spacing:1px}
+.pm-lbar-sub{font-size:13px;color:var(--text3);margin-top:2px}
+.pm-lbar-badges{display:flex;align-items:center;gap:8px}
+.pm-badge-rank{background:rgba(255,255,255,.08);color:var(--text2);padding:4px 10px;border-radius:20px;font-size:14px;font-weight:800;border:1px solid rgba(255,255,255,.1)}
+.pm-badge-lv{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:4px 12px;border-radius:20px;font-size:16px;font-weight:900;box-shadow:0 2px 10px rgba(118,75,162,.4)}
+
+.pm-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.pm-stat-box{background:rgba(255,255,255,.02);border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,.03)}
+.pm-stat-label{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.5);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.pm-stat-dot{width:6px;height:6px;border-radius:50%}
+.pm-stat-val{font-size:20px;font-weight:800;color:#e0e7ff}
+.pm-stat-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+
+.pm-prog-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px}
+.pm-prog-title{font-size:12px;color:rgba(255,255,255,.5)}
+.pm-prog-num{font-size:14px;font-weight:800;color:#e0e7ff}
+.pm-lbar{height:14px;background:rgba(255,255,255,.08);border-radius:999px;position:relative;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
+.pm-lbar-fill{height:100%;border-radius:999px;transition:width 1s cubic-bezier(.25,.46,.45,.94);background:linear-gradient(90deg,#667eea,#764ba2,#f093fb);position:relative}
+.pm-lbar-fill::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(255,255,255,.2) 0%,rgba(255,255,255,0) 50%);border-radius:999px}
+.pm-lbar-pct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10px;font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8);z-index:2}
+
+.pm-tier-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.pm-tier-name{font-size:14px;font-weight:700;color:var(--text3);font-family:'Playfair Display',serif;letter-spacing:1px}
+.pm-tier-name.bold-tier{color:var(--gold);font-weight:900;font-style:italic}
+.pm-tier-info{font-size:11px;color:rgba(255,255,255,.4)}
 
 /* Loading spinner trong modal */
 .pm-loading{text-align:center;padding:30px;color:var(--text3)}
@@ -1190,7 +1224,9 @@ async function checkAuth() {
 
     // Hiện thông tin user
     document.getElementById('userAvatar').src = avatarUrl;
-    document.getElementById('userName').textContent = userName;
+    const userNameEl = document.getElementById('userName');
+    userNameEl.textContent = userName;
+    userNameEl.dataset.text = userName;
 
     // Lưu discord provider_id để dùng cho đăng ký
     window.currentDiscordId = meta.provider_id;
@@ -3555,27 +3591,135 @@ async function fetchAndRenderProfile() {
 }
 
 async function renderPmLevelTab(container, discordId) {
-    // Thử fetch từ bảng exp_levels nếu có trên Supabase
-    // Bảng này là SQLite local – không có trên Supabase, nên hiển thị placeholder đẹp
+    if (!sb) {
+        container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3)">API Supabase chưa kết nối</div>`;
+        return;
+    }
+
     container.innerHTML = `
-      <div class="pm-level-bar-wrap">
-        <div class="pm-lbar-top">
-          <div class="pm-lbar-lv">LV ??</div>
-          <div class="pm-lbar-exp">EXP: Chưa có dữ liệu</div>
-        </div>
-        <div class="pm-lbar"><div class="pm-lbar-fill" style="width:0%"></div></div>
-        <div class="pm-lbar-rank">📊 Dữ liệu Level lưu trên bot Discord, chưa được đồng bộ lên web</div>
-      </div>
-      <div style="margin-top:12px;padding:12px 14px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:12px;font-size:12px;color:var(--text2);line-height:1.6">
-        🤖 Để xem Level/EXP chính xác, dùng lệnh <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;color:var(--gold)">/rank</code> hoặc <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;color:var(--gold)">@bot rank</code> trên Discord
+      <div style="padding:30px;text-align:center;color:var(--text3)">
+        <div class="spinner" style="margin:0 auto 16px;width:24px;height:24px;border-width:2px"></div>
+        Đang đồng bộ dữ liệu Level...
       </div>`;
 
-    // Thử fetch bc_users để xem có thêm data không
-    if (!sb) return;
     try {
-        // Tính thống kê từ sessions: tổng số BC đã tham gia lịch sử (chỉ current active sessions)
-        // Nếu sau này có bảng user_stats trên Supabase thì fetch ở đây
-    } catch(e) {}
+        // Fetch dữ liệu từ bc_exp_levels
+        const { data: expData, error } = await sb.from('bc_exp_levels').select('*').eq('discord_id', discordId).maybeSingle();
+        
+        if (error) throw error;
+
+        if (!expData) {
+            container.innerHTML = `
+              <div class="pm-level-bar-wrap" style="text-align:center;padding:40px 10px">
+                <div style="font-size:32px;margin-bottom:12px">🌱</div>
+                <div style="font-size:16px;font-weight:700;color:var(--text2);margin-bottom:4px">Chưa có thông tin EXP</div>
+                <div style="font-size:12px;color:var(--text3)">Hãy tham gia chat hoặc voice rên Discord Bang để nhận EXP nhé!</div>
+              </div>`;
+            return;
+        }
+
+        // Tính toán rank
+        const { count: rankCount } = await sb.from('bc_exp_levels')
+            .select('*', { count: 'exact', head: true })
+            .gt('total_exp', expData.total_exp);
+        const rank = (rankCount || 0) + 1;
+
+        const { count: totalUsers } = await sb.from('bc_exp_levels')
+            .select('*', { count: 'exact', head: true })
+            .gt('total_exp', 0);
+
+        // Helper functions
+        const getExpForLevel = (lv) => 5 * (lv * lv) + 50 * lv + 100;
+        const getTotalExpForLevel = (lv) => { let t=0; for(let i=0;i<lv;i++) t+=getExpForLevel(i); return t; };
+        const formatNumber = (n) => {
+            if(n>=1000000) return (n/1000000).toFixed(1)+'M';
+            if(n>=1000) return (n/1000).toFixed(1)+'K';
+            return (n||0).toString();
+        };
+        const formatVoice = (m) => {
+            if(!m) return '0 phút';
+            const h = Math.floor(m/60); const mins = m%60;
+            return h>0 ? \`\${h}h \${mins}m\` : \`\${mins} phút\`;
+        };
+        const getLevelTier = (lv) => {
+            if(lv>=50) return '~ Vô Song';
+            if(lv>=30) return '~ Đại Hiệp';
+            if(lv>=20) return '~ Kiếm Khách';
+            if(lv>=10) return '~ Lữ Khách';
+            if(lv>=5) return '~ Tân Thủ';
+            return '~ Luyện Tập Sinh';
+        };
+
+        const level = expData.level || 0;
+        const totalExp = expData.total_exp || 0;
+        const expForNext = getExpForLevel(level);
+        const totalExpForCurrent = getTotalExpForLevel(level);
+        const currentLevelExp = totalExp - totalExpForCurrent;
+        
+        let progress = currentLevelExp / expForNext;
+        if(progress > 1) progress = 1;
+        if(progress < 0) progress = 0;
+        const progressPct = Math.floor(progress * 100);
+        const nextLevelLeft = expForNext - currentLevelExp;
+
+        const tierName = getLevelTier(level);
+
+        container.innerHTML = \`
+          <div class="pm-level-bar-wrap">
+            <div class="pm-lbar-header">
+              <div>
+                <div class="pm-lbar-name">\${window.currentUserName || 'Lang Gia Khách'}</div>
+                <div class="pm-lbar-sub">@\${discordUserName || 'discord_user'}</div>
+              </div>
+              <div class="pm-lbar-badges">
+                <div class="pm-badge-rank">#\${rank} <span style="font-size:10px;font-weight:500;color:rgba(255,255,255,.4)">/ \${totalUsers||1}</span></div>
+                <div class="pm-badge-lv">LV \${level}</div>
+              </div>
+            </div>
+
+            <div class="pm-stats-grid">
+              <div class="pm-stat-box">
+                <div class="pm-stat-label"><div class="pm-stat-dot" style="background:#667eea"></div>Text</div>
+                <div class="pm-stat-val">\${formatNumber(expData.text_exp)}</div>
+                <div class="pm-stat-sub">\${formatNumber(expData.total_messages)} tin nhắn</div>
+              </div>
+              <div class="pm-stat-box">
+                <div class="pm-stat-label"><div class="pm-stat-dot" style="background:#f093fb"></div>Voice</div>
+                <div class="pm-stat-val">\${formatNumber(expData.voice_exp)}</div>
+                <div class="pm-stat-sub">\${formatVoice(expData.total_voice_minutes)}</div>
+              </div>
+            </div>
+
+            <div class="pm-prog">
+              <div class="pm-prog-header">
+                <div class="pm-prog-title">EXP Progress</div>
+                <div class="pm-prog-num">\${formatNumber(currentLevelExp)} / \${formatNumber(expForNext)}</div>
+              </div>
+              <div class="pm-lbar">
+                <div class="pm-lbar-pct">\${progressPct}%</div>
+                <div class="pm-lbar-fill" style="width:0%"></div>
+              </div>
+              <div class="pm-tier-row">
+                <div class="pm-tier-name bold-tier">\${tierName}</div>
+                <div class="pm-tier-info">Còn \${formatNumber(nextLevelLeft)} EXP → Level \${level+1}</div>
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-top:12px;padding:10px 14px;background:rgba(251,191,36,.05);border:1px dashed rgba(251,191,36,.2);border-radius:12px;font-size:11px;color:var(--text3);text-align:center">
+            Dữ liệu được đồng bộ từ Bot Discord ThanThu. 
+          </div>
+        \`;
+
+        // Animation fill
+        setTimeout(() => {
+            const fill = container.querySelector('.pm-lbar-fill');
+            if (fill) fill.style.width = progressPct + '%';
+        }, 50);
+
+    } catch (e) {
+        container.innerHTML = \`<div style="color:#fca5a5;padding:20px;text-align:center">⚠️ Không tải được Level: \${e.message}</div>\`;
+    }
 }
 
 </script>

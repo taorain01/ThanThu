@@ -635,11 +635,9 @@ module.exports = {
             console.error('[Supabase] Khong gui duoc thong bao luu chien thuat:', error.message);
           }
         });
-        // Sync sessions cho tất cả guilds (bỏ guard hasSessions)
-        for (const [, g] of client.guilds.cache) {
-          await supaSync.syncAllActiveSessions(db, g.id, g);
-        }
-        console.log('[Supabase] Đã sync sessions khi start');
+        // Chỉ sync sessions cho guild chính
+        await supaSync.syncAllActiveSessions(db, guild.id, guild);
+        console.log('[Supabase] Đã sync sessions khi start cho guild ' + guild.id);
 
         // Boot-pull: kéo sessions từ Supabase vào SQLite (cho hosting bot với SQLite trống)
         const supabaseClient = supaSync.getSupabaseClient();
@@ -654,6 +652,14 @@ module.exports = {
           }
         } catch (userSyncErr) {
           console.error('[Supabase] Lỗi sync users:', userSyncErr.message);
+        }
+
+        // Sync exp_levels lên Supabase (cho tab Level trên web profile)
+        try {
+          const economy = require('../../database/economy');
+          await supaSync.syncExpLevels(economy);
+        } catch (expSyncErr) {
+          console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
         }
 
         // Lắng nghe thay đổi từ web → sync ngược về SQLite + xoá role

@@ -835,6 +835,73 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SYNC EXP LEVELS (cho tab Level trên web profile)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Sync toàn bộ exp_levels lên Supabase (bàng bc_exp_levels)
+ * Gọi khi bot start
+ * @param {Object} db - Database module (economy)
+ */
+async function syncExpLevels(db) {
+    if (!isReady()) return;
+    try {
+        let allExp = [];
+        if (db && db.db) {
+            allExp = db.db.prepare(
+                'SELECT discord_id, level, total_exp, text_exp, voice_exp, total_messages, total_voice_minutes FROM exp_levels WHERE total_exp > 0'
+            ).all();
+        }
+        if (!allExp.length) return;
+
+        // Upsert từng batch 50
+        for (let i = 0; i < allExp.length; i += 50) {
+            const batch = allExp.slice(i, i + 50).map(r => ({
+                discord_id: r.discord_id,
+                level: r.level || 0,
+                total_exp: r.total_exp || 0,
+                text_exp: r.text_exp || 0,
+                voice_exp: r.voice_exp || 0,
+                total_messages: r.total_messages || 0,
+                total_voice_minutes: r.total_voice_minutes || 0
+            }));
+            const { error } = await supabase
+                .from('bc_exp_levels')
+                .upsert(batch, { onConflict: 'discord_id' });
+            if (error) { console.error('[Supabase] ❌ Sync exp_levels lỗi:', error.message); }
+        }
+        console.log(`[Supabase] ✅ Sync ${allExp.length} exp_levels thành công`);
+    } catch (err) {
+        console.error('[Supabase] ❌ syncExpLevels exception:', err.message);
+    }
+}
+
+/**
+ * Sync 1 user exp lên Supabase (gọi sau khi user lên level hoặc cập nhật exp)
+ * @param {string} discordId
+ * @param {Object} expRecord - { level, total_exp, text_exp, voice_exp, total_messages, total_voice_minutes }
+ */
+async function syncOneExpLevel(discordId, expRecord) {
+    if (!isReady()) return;
+    try {
+        const { error } = await supabase
+            .from('bc_exp_levels')
+            .upsert({
+                discord_id: discordId,
+                level: expRecord.level || 0,
+                total_exp: expRecord.total_exp || expRecord.totalExp || 0,
+                text_exp: expRecord.text_exp || expRecord.textExp || 0,
+                voice_exp: expRecord.voice_exp || expRecord.voiceExp || 0,
+                total_messages: expRecord.total_messages || expRecord.totalMessages || 0,
+                total_voice_minutes: expRecord.total_voice_minutes || expRecord.totalVoiceMinutes || 0
+            }, { onConflict: 'discord_id' });
+        if (error) { console.error('[Supabase] ❌ Sync exp user lỗi:', error.message); }
+    } catch (err) {
+        console.error('[Supabase] ❌ syncOneExpLevel exception:', err.message);
+    }
+}
+
 module.exports = {
     initSupabase,
     isReady,
@@ -852,5 +919,7 @@ module.exports = {
     listenForWebChanges,
     listenForTacticsHistoryChanges,
     formatActiveSession,
-    syncAllActiveSessions
+    syncAllActiveSessions,
+    syncExpLevels,
+    syncOneExpLevel
 };

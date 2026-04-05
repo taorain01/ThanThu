@@ -31,9 +31,8 @@
 </style>
 </head>
 <body>
-<div class="spinner"></div>
+<div class="spinner" id="spinner"></div>
 <div class="msg" id="msg">Đang xác minh danh tính với Discord...</div>
-<div class="err" id="err" style="display:none"></div>
 
 <script>
 // ══════════════════════════════════════════
@@ -46,60 +45,50 @@ const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function handleCallback() {
-  try {
-    // Supabase tự đọc hash/code từ URL và lưu session
-    const { data, error } = await sb.auth.getSession();
+// ── Supabase tự parse #access_token fragment khi khởi tạo ──
+// Dùng onAuthStateChange để bắt đúng lúc session sẵn sàng
+sb.auth.onAuthStateChange((event, session) => {
+  console.log('[Callback] Auth event:', event);
 
-    if (error || !data?.session) {
-      // Thử exchange code nếu có ?code= trên URL
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      if (code) {
-        const { data: d2, error: e2 } = await sb.auth.exchangeCodeForSession(code);
-        if (e2 || !d2?.session) throw e2 || new Error('Không lấy được session');
-        sendToOpener(d2.session);
-        return;
-      }
-      throw error || new Error('Không có session sau OAuth');
-    }
+  if (event === 'SIGNED_IN' && session) {
+    document.getElementById('msg').textContent = '✅ Đã xác thực! Đang quay về...';
 
-    sendToOpener(data.session);
-  } catch (e) {
-    document.getElementById('msg').style.display = 'none';
-    document.getElementById('err').style.display = 'block';
-    document.getElementById('err').textContent = '❌ Lỗi xác thực: ' + (e?.message || e);
-    // Gửi lỗi về opener để thông báo
     if (window.opener) {
-      window.opener.postMessage({ type: 'DISCORD_AUTH_ERROR', error: e?.message || String(e) }, window.location.origin);
+      // Gửi session về trang chính qua postMessage
+      window.opener.postMessage({
+        type: 'DISCORD_AUTH_SUCCESS',
+        session: {
+          access_token:  session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at:    session.expires_at,
+          user:          session.user
+        }
+      }, window.location.origin);
+      // Đóng popup
+      setTimeout(() => window.close(), 600);
+    } else {
+      // Không có opener (mở trực tiếp) → redirect về index
+      window.location.href = './index.html';
+    }
+  }
+});
+
+// Timeout 10s — nếu không nhận được SIGNED_IN thì báo lỗi
+setTimeout(() => {
+  const msgEl = document.getElementById('msg');
+  if (msgEl.textContent.includes('Đang xác minh')) {
+    document.getElementById('spinner').style.display = 'none';
+    msgEl.style.color = '#fca5a5';
+    msgEl.textContent = '❌ Hết thời gian xác thực. Vui lòng thử lại.';
+    if (window.opener) {
+      window.opener.postMessage({
+        type: 'DISCORD_AUTH_ERROR',
+        error: 'Timeout — không nhận được session'
+      }, window.location.origin);
     }
     setTimeout(() => window.close(), 3000);
   }
-}
-
-function sendToOpener(session) {
-  document.getElementById('msg').textContent = '✅ Đã xác thực! Đang quay về...';
-
-  if (window.opener) {
-    // Gửi session về trang chính
-    window.opener.postMessage({
-      type: 'DISCORD_AUTH_SUCCESS',
-      session: {
-        access_token:  session.access_token,
-        refresh_token: session.refresh_token,
-        expires_at:    session.expires_at,
-        user:          session.user
-      }
-    }, window.location.origin);
-    // Đóng popup sau 500ms (để trang chính xử lý kịp)
-    setTimeout(() => window.close(), 500);
-  } else {
-    // Nếu không có opener (mở thẳng tab), redirect về index
-    window.location.href = './index.html';
-  }
-}
-
-handleCallback();
+}, 10000);
 </script>
 </body>
 </html>

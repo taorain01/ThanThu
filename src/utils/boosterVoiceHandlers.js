@@ -350,17 +350,19 @@ async function handleSetMode(interaction, ownerId, newMode) {
         return true;
     }
 
+    // Defer NGAY để tránh lỗi Unknown Interaction (10062) — Discord timeout 3s
+    // Các bước edit permission bên dưới có thể mất > 3s nếu có nhiều member
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     const members = db.getBoosterRoomMembers(ownerId);
 
     try {
-        // Reset @everyone trước
         if (newMode === 'hidden') {
             // Ẩn: chỉ owner + danh sách thấy
             await channel.permissionOverwrites.edit(interaction.guild.id, {
                 ViewChannel: false,
                 Connect: false
             });
-            // Cập nhật danh sách
             for (const memberId of members) {
                 await channel.permissionOverwrites.edit(memberId, {
                     ViewChannel: true,
@@ -390,9 +392,9 @@ async function handleSetMode(interaction, ownerId, newMode) {
         db.setBoosterRoomMode(ownerId, newMode);
 
         const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
-        await interaction.reply({
-            content: `✅ Đã chuyển sang chế độ **${modeLabel[newMode]}**!`,
-            flags: MessageFlags.Ephemeral
+        // Dùng editReply thay vì reply vì đã deferReply ở trên
+        await interaction.editReply({
+            content: `✅ Đã chuyển sang chế độ **${modeLabel[newMode]}**!`
         });
 
         // Cập nhật control panel
@@ -400,7 +402,7 @@ async function handleSetMode(interaction, ownerId, newMode) {
 
     } catch (e) {
         console.error('[BoostVC] Error setting mode:', e.message);
-        await interaction.reply({ content: '❌ Lỗi khi thay đổi chế độ!', flags: MessageFlags.Ephemeral });
+        await interaction.editReply({ content: '❌ Lỗi khi thay đổi chế độ!' });
     }
 
     return true;

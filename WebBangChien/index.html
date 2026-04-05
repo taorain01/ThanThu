@@ -1849,28 +1849,27 @@ async function logout() {
 async function checkAuth() {
     if (!sb) { document.getElementById('landingPage').classList.remove('hidden'); return; }
 
-    // ── Xử lý URL hash trực tiếp (Fix lỗi Supabase v2 trên mobile) ──
-    const hash = window.location.hash;
-    if (hash) {
-        const hashParams = new URLSearchParams(hash.substring(1));
+    // ── Xử lý URL (Fix lỗi Supabase v2 trên mobile) ──
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const queryParams = new URLSearchParams(window.location.search);
         
-        // Nếu user từ chối đăng nhập
-        if (hashParams.has('error')) {
-            const errorMsg = hashParams.get('error_description') || hashParams.get('error') || 'Đăng nhập bị từ chối';
-            alert('❌ Lỗi từ Discord: ' + errorMsg);
-            // Dọn URL
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        }
-        // Có token đăng nhập
-        else if (hashParams.has('access_token')) {
-            console.log('[LangGia] Phát hiện access_token trên URL, đang xử lý trực tiếp...');
-            const access_token = hashParams.get('access_token');
-            const refresh_token = hashParams.get('refresh_token');
-            if (access_token && refresh_token) {
-                await sb.auth.setSession({ access_token, refresh_token });
-                // Xóa hash trên URL để URL sạch đẹp
-                window.history.replaceState(null, '', window.location.pathname + window.location.search);
-            }
+    // Nếu user từ chối đăng nhập
+    if (hashParams.has('error') || queryParams.has('error')) {
+        let errorMsg = hashParams.get('error_description') || hashParams.get('error') 
+                    || queryParams.get('error_description') || queryParams.get('error') || 'Đăng nhập bị từ chối';
+        errorMsg = decodeURIComponent(errorMsg).replace(/\+/g, ' ');
+        alert('❌ Lỗi từ Discord: ' + errorMsg);
+        // Dọn URL
+        window.history.replaceState(null, '', window.location.pathname);
+    }
+    // Có token đăng nhập (fallback setSession nếu getSession không tự xử lý)
+    else if (hashParams.has('access_token')) {
+        console.log('[LangGia] Phát hiện access_token trên URL, đang xử lý trực tiếp...');
+        const access_token = hashParams.get('access_token');
+        const refresh_token = hashParams.get('refresh_token');
+        if (access_token) {
+            await sb.auth.setSession({ access_token, refresh_token: refresh_token || '' }).catch(()=>{});
+            window.history.replaceState(null, '', window.location.pathname);
         }
     }
 

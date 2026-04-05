@@ -825,7 +825,8 @@ module.exports = {
             const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
 
             // Tìm ngày T7 hoặc CN tiếp theo
-            const targetDayOfWeek = day === 'sat' ? 6 : 0; // 6 = T7, 0 = CN
+            const { DAY_NUM } = require('../../utils/bangchienState');
+            const targetDayOfWeek = DAY_NUM[day] ?? 0; // Dùng DAY_NUM map cho tất cả ngày
             const todayDayOfWeek = vnNow.getDay();
 
             let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;

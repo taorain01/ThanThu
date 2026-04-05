@@ -246,7 +246,7 @@ function isSessionExpired(session) {
     const createdAt = new Date(session.created_at);
 
     // Tìm ngày T7/CN tính từ ngày tạo session
-    const targetDayOfWeek = day === 'sat' ? 6 : 0; // 6 = T7, 0 = CN
+    const targetDayOfWeek = DAY_NUM[day] ?? 0; // Dùng DAY_NUM map cho tất cả ngày
 
     // Convert createdAt sang VN timezone
     const vnCreated = new Date(createdAt.getTime() + (vnOffset + localOffset) * 60 * 1000);
@@ -404,6 +404,7 @@ module.exports = {
     // Multi-day config
     DAY_CONFIG,
     DAY_ALIASES,
+    DAY_NUM,
     PRIMARY_DAYS,
     // Helper functions
     parseDayArg,

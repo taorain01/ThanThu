@@ -2630,6 +2630,8 @@ function applyRealtimeSessionData(data, options = {}) {
     startSessionRealtimeSync();
     fillMockTeams();
     updateCurrentDayLabel();
+    // Đồng bộ tên team + ẩn/hiện sections khi Realtime update team_names/team_sizes
+    syncTeamSectionLabels();
     refreshStorageButtons();
     renderTeamList();
     renderPlayersOnMap();
@@ -2662,20 +2664,10 @@ function startSessionRealtimeSync() {
         });
 }
 
-async function loadSessionData() {
-    const guildId = getActiveGuildId();
-    const { data, error } = await sb.from('bc_sessions').select('*')
-        .eq('guild_id', guildId).eq('day', currentDay).single();
-    if (error || !data) {
-        document.getElementById('dayLabel').textContent = 'Không tìm thấy session';
-        return;
-    }
-    sessionData = data;
-    ensureSessionDefaults();
-    const DAY_LABELS = {mon:'Thứ 2',tue:'Thứ 3',wed:'Thứ 4',thu:'Thứ 5',fri:'Thứ 6',sat:'Thứ 7',sun:'Chủ Nhật'};
-    document.getElementById('dayLabel').textContent = `${DAY_LABELS[currentDay] || currentDay} — ${data.time || '19:30'}`;
-
-    // Cập nhật tên team + ẩn/hiện sections theo team_sizes
+// ═══ SYNC TÊN TEAM + ẨN/HIỆN SECTION THEO team_sizes ═══
+// Gọi mỗi khi sessionData thay đổi (load lần đầu hoặc Realtime update)
+function syncTeamSectionLabels() {
+    if (!sessionData) return;
     try {
         const teamNames = getSessionTeamNames();
         const teamSizes = getSessionTeamSizes();
@@ -2698,6 +2690,23 @@ async function loadSessionData() {
             }
         });
     } catch (e) { /* bỏ qua lỗi parse team_names */ }
+}
+
+async function loadSessionData() {
+    const guildId = getActiveGuildId();
+    const { data, error } = await sb.from('bc_sessions').select('*')
+        .eq('guild_id', guildId).eq('day', currentDay).single();
+    if (error || !data) {
+        document.getElementById('dayLabel').textContent = 'Không tìm thấy session';
+        return;
+    }
+    sessionData = data;
+    ensureSessionDefaults();
+    const DAY_LABELS = {mon:'Thứ 2',tue:'Thứ 3',wed:'Thứ 4',thu:'Thứ 5',fri:'Thứ 6',sat:'Thứ 7',sun:'Chủ Nhật'};
+    document.getElementById('dayLabel').textContent = `${DAY_LABELS[currentDay] || currentDay} — ${data.time || '19:30'}`;
+
+    // Cập nhật tên team + ẩn/hiện sections theo team_sizes
+    syncTeamSectionLabels();
 
     // Giả lập full team 30 người nếu session chưa đủ (DEBUG)
     fillMockTeams();

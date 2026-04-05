@@ -100,7 +100,7 @@ async function migrateDisplayRoles(client) {
         try {
           // Check if role has icon (display roles typically have icons)
           if (role.icon || role.unicodeEmoji) {
-            await role.setName(DISPLAY_ROLE_NAME, 'Migration: Đ"i tên display role sang S');
+            await role.setName(DISPLAY_ROLE_NAME, 'Migration: Đổi tên display role sang ⭐');
             migratedCount++;
             console.log(`[migrateDisplayRoles] Migrated role in ${guild.name}`);
           }
@@ -166,7 +166,8 @@ async function cleanupAndRescheduleBc(client) {
       const now = new Date();
       const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
 
-      const targetDayOfWeek = day === 'sat' ? 6 : 0;
+      const { DAY_NUM } = require('../../utils/bangchienState');
+      const targetDayOfWeek = DAY_NUM[day] ?? 0; // Dùng DAY_NUM map cho tất cả ngày
       const todayDayOfWeek = vnNow.getDay();
 
       let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;
@@ -185,7 +186,7 @@ async function cleanupAndRescheduleBc(client) {
 
         setTimeout(async () => {
           try {
-            // Gọi lại autoCleanupExpiredSessions (vì lúc này session ã hết hạn)
+            // Gọi lại autoCleanupExpiredSessions (vì lúc này session đã hết hạn)
             await autoCleanupExpiredSessions(client, guildId);
 
             // Gửi thông báo
@@ -195,8 +196,8 @@ async function cleanupAndRescheduleBc(client) {
               const dayName = DAY_CONFIG[day]?.name || day;
               const embed = new EmbedBuilder()
                 .setColor(0x2ECC71)
-                .setTitle(`S& BANG CHIẾN ${dayName.toUpperCase()} ĐÒ TỰ ĐNG KẾT THaC!`)
-                .setDescription(`⏰ Đã 23:00 - Bang Chiến **${dayName}** tự "ng kết thúc.`)
+                .setTitle(`✅ BANG CHIẾN ${dayName.toUpperCase()} ĐÃ TỰ ĐỘNG KẾT THÚC!`)
+                .setDescription(`⏰ Đã 23:00 - Bang Chiến **${dayName}** tự động kết thúc.`)
                 .setTimestamp();
               await channel.send({ embeds: [embed] });
             }

@@ -202,12 +202,55 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   overflow:hidden;
   transition: all .35s cubic-bezier(.25,.46,.45,.94);
 }
+/* ── Đóng hẳn player ── */
+.mp-wrap.mp-closed {
+  opacity:0; transform:scale(.7); pointer-events:none;
+  transition: opacity .3s, transform .3s;
+}
 /* ── Collapsed: thu gọn thành mini bar ── */
 .mp-wrap.collapsed {
   width: 88px;
   border-radius: 50px;
   overflow: hidden;
+  cursor: grab;
 }
+.mp-wrap.collapsed.mp-dragging { cursor: grabbing; transition: none !important; }
+/* ── Edge-docked: dính cạnh, siêu nhỏ ── */
+.mp-wrap.mp-edge {
+  min-width: 44px !important;
+  max-width: 44px !important;
+  border-radius: 50% !important;
+  padding: 0;
+  opacity: .7;
+  transition: all .3s cubic-bezier(.25,.46,.45,.94);
+}
+.mp-wrap.mp-edge:hover { opacity: 1; transform: scale(1.1); }
+.mp-wrap.mp-edge .mp-mini-info,
+.mp-wrap.mp-edge .mp-collapse-btn,
+.mp-wrap.mp-edge .mp-close-btn { display: none !important; }
+.mp-wrap.mp-edge .mp-mini-bar {
+  padding: 6px;
+  justify-content: center;
+}
+.mp-wrap.mp-edge .mp-mini-play {
+  width: 30px; height: 30px;
+  border: none;
+}
+/* Nút đóng player (X) */
+.mp-close-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.3);
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: all .25s;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 0;
+  margin-left: -2px;
+}
+.mp-close-btn:hover { color: #fca5a5; background: rgba(255,80,80,.15); }
+.mp-wrap.collapsed .mp-close-btn { display: none; }
 .mp-wrap.collapsed .mp-body {
   max-height: 0;
   overflow: hidden;
@@ -941,8 +984,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-pane{display:none;height:100%;padding:16px;overflow-y:auto;overflow-x:hidden}
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 
-.map-box{position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);flex:1;min-height:300px;
-  box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);background:#0a0a0a}
+.map-box{position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
+  aspect-ratio:43/24;width:100%;
+  box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
+  background:radial-gradient(ellipse at center, #0d1a10, #060d08)}
 .map-box>.map-bg{width:100%;height:100%;object-fit:cover;display:block}
 .map-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(26,10,4,.2),transparent 20%,transparent 80%,rgba(26,10,4,.3));pointer-events:none;z-index:2}
 .map-top{position:absolute;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;
@@ -1365,8 +1410,8 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .r-content { overflow: visible !important; }
   /* r-pane không cần scroll riêng trên mobile (cả trang đã scroll) */
   .r-pane { overflow-y: visible !important; height: auto !important; }
-  /* map-box: height rõ ràng */
-  .map-box { min-height: 50vh; height: 50vh; }
+  /* map-box: giữ aspect-ratio đúng, giới hạn chiều cao trên mobile */
+  .map-box { max-height: 50vh; width: 100%; }
   /* Timeline + controls hiện rõ sau map */
   .tactics-timeline-mini, .tactics-controls { position: relative; z-index: 10; }
 }
@@ -1375,7 +1420,6 @@ html, body { overflow-x: hidden; }
 .app { overflow-x: hidden; max-width: 100vw; }
 
 /* ═══ MAP ZOOM & PAN ═══ */
-.map-box { display: flex !important; align-items: center; justify-content: center; position: relative; overflow: hidden; }
 .map-box .map-zoom-wrapper {
     position: absolute; inset: 0;
     transform-origin: var(--zoom-ox, 50%) var(--zoom-oy, 50%);
@@ -1388,7 +1432,7 @@ html, body { overflow-x: hidden; }
 /* Ảnh nền trong zoom-wrapper */
 .map-box .map-zoom-wrapper > .map-bg {
     width: 100%; height: 100%; object-fit: cover; display: block;
-    /* Ảnh nền cover toàn bộ wrapper */
+    /* Ảnh nền cover khớp với calcCoverFit */
     position: absolute; inset: 0;
 }
 .map-box .map-zoom-wrapper > .map-bg-giay {
@@ -1696,7 +1740,7 @@ html, body { overflow-x: hidden; }
           <div class="map-box" id="mapBox">
             <!-- Container fill toàn bộ map-box, icon layer đồng bộ theo ảnh -->
             <div class="map-container" id="mapContainer" style="position:absolute;inset:0;overflow:hidden;">
-              <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;">
+              <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">
               <div class="map-icons" id="mapIcons" style="position:absolute;inset:0;width:100%;height:100%;">
               <!-- tower_blue -->
               <div class="map-icon tower" style="left:36%;top:15%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>
@@ -1857,6 +1901,7 @@ function createFireParticles() {
     }
 }
 createFireParticles();
+
 
 // ═══ LANDING PARTICLES ═══
 function createParticles() {
@@ -4749,11 +4794,8 @@ async function renderPmLevelTab(container, discordId) {
     const mapBg = mapContainer.querySelector('.map-bg');
     const mapBgGiay = mapContainer.querySelector('#mapBgGiay');
     
-    // Fix: Áp đặt aspect ratio cố định để mapContainer không bao giờ bị xẹp
-    // Đây là cách tối ưu nhất để khung chứa đồng bộ 100% ảnh nền 900x500
-    mapContainer.style.aspectRatio = '900 / 500';
-    mapContainer.style.width = '100%';
-    mapContainer.style.height = 'auto';
+    // mapContainer giữ nguyên position:absolute inset:0 để fill đầy mapBox
+    // aspect-ratio được đặt trên .map-box qua CSS (900/500) thay vì đây
     
     if (mapBg) wrapper.appendChild(mapBg);
     if (mapBgGiay) wrapper.appendChild(mapBgGiay);
@@ -5060,7 +5102,7 @@ document.addEventListener('keydown', (e) => {
 <div class="mp-wrap collapsed" id="mpWrap">
 
   <!-- ── Mini Bar (luôn hiện, kể cả khi thu gọn) ── -->
-  <div class="mp-mini-bar">
+  <div class="mp-mini-bar" id="mpMiniBar">
     <!-- Nút collapse: mũi tên lên/xuống -->
     <button class="mp-collapse-btn" id="mpCollapseBtn" onclick="mpToggleCollapse()" title="Mở/thu gọn player">
       <span class="mp-arrow">▲</span>
@@ -5072,6 +5114,10 @@ document.addEventListener('keydown', (e) => {
     <!-- Nút Play mini (luôn hiện kể cả thu gọn) -->
     <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay()" title="Play / Pause">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <!-- Nút đóng player (X) -->
+    <button class="mp-close-btn" id="mpCloseBtn" onclick="mpClosePlayer()" title="Tắt trình phát nhạc">
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
     </button>
   </div>
 
@@ -5458,8 +5504,156 @@ document.addEventListener('keydown', (e) => {
   window.mpToggleCollapse = function() {
     const wrap = $('mpWrap');
     if (!wrap) return;
+    const wasCollapsed = wrap.classList.contains('collapsed');
     wrap.classList.toggle('collapsed');
+    // Khi phóng to: bay về vị trí gốc + xóa edge state
+    if (wasCollapsed) {
+      wrap.classList.remove('mp-edge');
+      wrap.style.left = '20px';
+      wrap.style.top = '';
+      wrap.style.bottom = '20px';
+      wrap.style.right = '';
+    }
   };
+
+  // Đóng hẳn player (dừng nhạc, ẩn UI)
+  window.mpClosePlayer = function() {
+    audio.pause();
+    $('mpPlayBtn').innerHTML = SVG_PLAY;
+    $('mpDisc').classList.remove('spin');
+    setEQ(false);
+    syncMiniPlay(false);
+    const wrap = $('mpWrap');
+    if (wrap) wrap.classList.add('mp-closed');
+  };
+
+  // ═══ DRAG & DROP — Kéo thả player khi collapsed ═══
+  (function initMpDrag() {
+    const wrap = $('mpWrap');
+    const miniBar = $('mpMiniBar');
+    if (!wrap || !miniBar) return;
+
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    let hasMoved = false;
+    const DRAG_THRESHOLD = 5;
+    const EDGE_SNAP = 30; // px gần cạnh thì snap
+
+    function getWrapPos() {
+      const rect = wrap.getBoundingClientRect();
+      return { left: rect.left, top: rect.top };
+    }
+
+    function beginDrag(clientX, clientY) {
+      if (!wrap.classList.contains('collapsed')) return;
+      // Nếu đang edge, click/drag sẽ thoát edge trước
+      if (wrap.classList.contains('mp-edge')) {
+        wrap.classList.remove('mp-edge');
+      }
+      const pos = getWrapPos();
+      startX = clientX;
+      startY = clientY;
+      startLeft = pos.left;
+      startTop = pos.top;
+      isDragging = true;
+      hasMoved = false;
+    }
+
+    function moveDrag(clientX, clientY) {
+      if (!isDragging) return;
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+      if (!hasMoved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      hasMoved = true;
+      wrap.classList.add('mp-dragging');
+      // Khi khói động kéo, bỏ edge nếu đang có
+      wrap.classList.remove('mp-edge');
+
+      let newLeft = startLeft + dx;
+      let newTop = startTop + dy;
+
+      const rect = wrap.getBoundingClientRect();
+      const maxX = window.innerWidth - rect.width;
+      const maxY = window.innerHeight - rect.height;
+      newLeft = Math.max(0, Math.min(maxX, newLeft));
+      newTop = Math.max(0, Math.min(maxY, newTop));
+
+      wrap.style.left = newLeft + 'px';
+      wrap.style.top = newTop + 'px';
+      wrap.style.bottom = 'auto';
+      wrap.style.right = 'auto';
+    }
+
+    function endDrag() {
+      if (!isDragging) return;
+      isDragging = false;
+      wrap.classList.remove('mp-dragging');
+
+      if (!hasMoved) return; // click thường, không cần snap
+
+      // Kiểm tra snap cạnh
+      const rect = wrap.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let snapped = false;
+
+      // Cạnh trái
+      if (rect.left <= EDGE_SNAP) {
+        wrap.style.left = '0px';
+        wrap.style.top = rect.top + 'px';
+        wrap.style.bottom = 'auto';
+        wrap.classList.add('mp-edge');
+        snapped = true;
+      }
+      // Cạnh phải
+      else if (rect.right >= vw - EDGE_SNAP) {
+        wrap.style.left = (vw - 44) + 'px'; // 44 = edge width
+        wrap.style.top = rect.top + 'px';
+        wrap.style.bottom = 'auto';
+        wrap.classList.add('mp-edge');
+        snapped = true;
+      }
+      // Cạnh trên
+      if (rect.top <= EDGE_SNAP && !snapped) {
+        wrap.style.top = '0px';
+        wrap.style.bottom = 'auto';
+        wrap.classList.add('mp-edge');
+        snapped = true;
+      }
+      // Cạnh dưới
+      else if (rect.bottom >= vh - EDGE_SNAP && !snapped) {
+        wrap.style.top = (vh - 44) + 'px';
+        wrap.style.bottom = 'auto';
+        wrap.classList.add('mp-edge');
+        snapped = true;
+      }
+    }
+
+    // Mouse events
+    miniBar.addEventListener('mousedown', (e) => {
+      const isEdge = wrap.classList.contains('mp-edge');
+      if (!isEdge && e.target.closest('button')) return;
+      e.preventDefault();
+      beginDrag(e.clientX, e.clientY);
+    });
+    window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+    window.addEventListener('mouseup', endDrag);
+
+    // Touch events
+    miniBar.addEventListener('touchstart', (e) => {
+      const isEdge = wrap.classList.contains('mp-edge');
+      if (!isEdge && e.target.closest('button')) return;
+      const t = e.touches[0];
+      beginDrag(t.clientX, t.clientY);
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const t = e.touches[0];
+      moveDrag(t.clientX, t.clientY);
+      if (hasMoved) e.preventDefault();
+    }, { passive: false });
+    window.addEventListener('touchend', endDrag);
+  })();
   window.mpNext=function(){
     const len=PLAYLISTS[curPl].tracks.length;
     let next;

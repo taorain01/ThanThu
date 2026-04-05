@@ -917,9 +917,8 @@
       // team_names & team_sizes: auto-fallback nếu cột chưa tồn tại
       let supportsTeamNames = true;
       let supportsTeamSizes = true;
-      if (localState.team_names && Object.keys(localState.team_names).length > 0) {
-        payload.team_names = JSON.stringify(localState.team_names);
-      }
+      // Luôn gửi team_names để đảm bảo tên được đồng bộ mọi nơi
+      payload.team_names = JSON.stringify(localState.team_names || {});
 
       let query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
       if (currentSessionId) query = query.eq('id', currentSessionId);
@@ -1253,7 +1252,10 @@
     document.getElementById('btnResizeCancel').addEventListener('click', closeResizeModal);
     document.getElementById('btnResizeSave').addEventListener('click', applyResize);
     document.getElementById('btnLockToggle').addEventListener('click', toggleLocked);
-    document.getElementById('resizeModal').addEventListener('click', (event) => {
+    // Fix: Dùng mousedown thay vì click để tránh modal bị đóng khi người dùng
+    // giữ chuột quét chọn văn bản bên trong modal rồi thả chuột ra vùng backdrop.
+    // Với mousedown: chỉ đóng khi chuột BẮT ĐẦU nhấn trên backdrop (không phải từ bên trong).
+    document.getElementById('resizeModal').addEventListener('mousedown', (event) => {
       if (event.target.id === 'resizeModal') closeResizeModal();
     });
 

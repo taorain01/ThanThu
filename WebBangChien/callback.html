@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đang xác thực Discord...</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0a1a0f;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(34,197,94,.2);
+    border-top-color: #4ade80;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg { font-size: 14px; color: #94a3b8; }
+  .err { color: #fca5a5; font-size: 13px; max-width: 300px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="spinner"></div>
+<div class="msg" id="msg">Đang xác minh danh tính với Discord...</div>
+<div class="err" id="err" style="display:none"></div>
+
+<script>
+// ══════════════════════════════════════════
+//   CALLBACK PAGE — Nhận OAuth token từ
+//   Supabase Discord và gửi về opener (index.html)
+// ══════════════════════════════════════════
+const SUPABASE_URL  = 'https://bzmcxkgyfzpswmtxdxyl.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6bWN4a2d5Znpwc3dtdHhkeHlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM3NzU2NjEsImV4cCI6MjA1OTM1MTY2MX0.fVbt2tE5RBfItIBi2l3MBKJL_6DMDvBPFZzlkFjXHDY';
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function handleCallback() {
+  try {
+    // Supabase tự đọc hash/code từ URL và lưu session
+    const { data, error } = await sb.auth.getSession();
+
+    if (error || !data?.session) {
+      // Thử exchange code nếu có ?code= trên URL
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        const { data: d2, error: e2 } = await sb.auth.exchangeCodeForSession(code);
+        if (e2 || !d2?.session) throw e2 || new Error('Không lấy được session');
+        sendToOpener(d2.session);
+        return;
+      }
+      throw error || new Error('Không có session sau OAuth');
+    }
+
+    sendToOpener(data.session);
+  } catch (e) {
+    document.getElementById('msg').style.display = 'none';
+    document.getElementById('err').style.display = 'block';
+    document.getElementById('err').textContent = '❌ Lỗi xác thực: ' + (e?.message || e);
+    // Gửi lỗi về opener để thông báo
+    if (window.opener) {
+      window.opener.postMessage({ type: 'DISCORD_AUTH_ERROR', error: e?.message || String(e) }, window.location.origin);
+    }
+    setTimeout(() => window.close(), 3000);
+  }
+}
+
+function sendToOpener(session) {
+  document.getElementById('msg').textContent = '✅ Đã xác thực! Đang quay về...';
+
+  if (window.opener) {
+    // Gửi session về trang chính
+    window.opener.postMessage({
+      type: 'DISCORD_AUTH_SUCCESS',
+      session: {
+        access_token:  session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at:    session.expires_at,
+        user:          session.user
+      }
+    }, window.location.origin);
+    // Đóng popup sau 500ms (để trang chính xử lý kịp)
+    setTimeout(() => window.close(), 500);
+  } else {
+    // Nếu không có opener (mở thẳng tab), redirect về index
+    window.location.href = './index.html';
+  }
+}
+
+handleCallback();
+</script>
+</body>
+</html>

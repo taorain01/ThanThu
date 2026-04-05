@@ -272,26 +272,7 @@
   }
   #coinBack img { transform:scaleX(-1); }
 
-  /* Light sweep */
-  #coinFront::before {
-    content:'';
-    position:absolute; top:0; left:0; width:100%; height:100%;
-    background:linear-gradient(90deg,
-      transparent 0%,
-      transparent 30%,
-      rgba(255,255,255,.45) 50%,
-      transparent 70%,
-      transparent 100%
-    );
-    transform: translateX(-150%) skewX(-25deg);
-    animation: lightSweep 4s ease-in-out infinite;
-    z-index:4; pointer-events:none;
-  }
-  @keyframes lightSweep{
-    0%   { transform: translateX(-150%) skewX(-25deg); }
-    50%  { transform: translateX(150%) skewX(-25deg); }
-    100% { transform: translateX(150%) skewX(-25deg); }
-  }
+  /* Light sweep — được quản lý hoàn toàn bởi dynStyle bên dưới */
 
   /* AO ring */
   #coinFront::after {
@@ -840,7 +821,7 @@ function update() {
   perspective: ${persp}px;
 }
 #coin3d {
-  animation-duration: ${floatSpd}s;
+  animation: coinFloatDyn ${floatSpd}s ease-in-out infinite;
   animation-play-state: ${floatOn ? 'running' : 'paused'};
 }
 @keyframes coinFloatDyn {
@@ -1058,26 +1039,108 @@ function resetAll() {
 }
 
 // ══════════════════════════════════════
-//   DRAG TO SPIN COIN
+//   DRAG TO SPIN + INERTIA + SPRING RESET
 // ══════════════════════════════════════
 (function(){
   const scene = v('coinScene');
   const coin  = v('coin3d');
-  let drag=false, lastX=0, lastY=0, rotY=0, rotX=0, velX=0, velY=0;
+  let drag = false;
+  let lastX = 0, lastY = 0;
+  let rotY = 0, rotX = 0;
+  let velX = 0, velY = 0;
+  let rafId = null;
+  // Hệ số ma sát quán tính (0.88 = giảm nhanh, 0.95 = trơn dài hơn)
+  const FRICTION   = 0.90;
+  // Ngưỡng velocity coi là dừng
+  const STOP_THRESHOLD = 0.08;
+
+  function setTransform() {
+    coin.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  }
+
+  // Vòng lặp quán tính sau khi nhả chuột
+  function inertiaLoop() {
+    if (drag) return;
+    velX *= FRICTION;
+    velY *= FRICTION;
+    rotY += velX;
+    rotX -= velY;
+    setTransform();
+
+    if (Math.abs(velX) > STOP_THRESHOLD || Math.abs(velY) > STOP_THRESHOLD) {
+      // Tiếp tục quán tính
+      rafId = requestAnimationFrame(inertiaLoop);
+    } else {
+      // Velocity đủ nhỏ → spring-reset: bật lại float animation
+      velX = 0; velY = 0;
+      coin.style.transform = '';
+      coin.style.animation = '';
+    }
+  }
+
   scene.addEventListener('mousedown', e => {
     drag = true;
+    // Huỷ inertia đang chạy nếu có
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     lastX = e.clientX; lastY = e.clientY;
+    velX = 0; velY = 0;
+    // Tắt float animation để lấy control
     coin.style.animation = 'none';
   });
+
   document.addEventListener('mousemove', e => {
-    if(!drag) return;
-    const dx = e.clientX - lastX, dy = e.clientY - lastY;
-    velX = dx * 0.4; velY = dy * 0.4;
-    rotY += velX; rotX -= velY;
-    coin.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+    if (!drag) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    // Nhân hệ số sensitivity 0.5 để vừa tay
+    velX = dx * 0.5;
+    velY = dy * 0.5;
+    rotY += velX;
+    rotX -= velY;
+    // Giới hạn rotX để không lật ngược hoàn toàn (tuỳ chọn)
+    rotX = Math.max(-85, Math.min(85, rotX));
+    setTransform();
     lastX = e.clientX; lastY = e.clientY;
   });
-  document.addEventListener('mouseup', () => { drag = false; });
+
+  document.addEventListener('mouseup', () => {
+    if (!drag) return;
+    drag = false;
+    // Bắt đầu vòng lặp quán tính
+    rafId = requestAnimationFrame(inertiaLoop);
+  });
+
+  // Hỗ trợ touch (mobile)
+  scene.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    drag = true;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    lastX = t.clientX; lastY = t.clientY;
+    velX = 0; velY = 0;
+    coin.style.animation = 'none';
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    if (!drag) return;
+    const t = e.touches[0];
+    const dx = t.clientX - lastX;
+    const dy = t.clientY - lastY;
+    velX = dx * 0.5;
+    velY = dy * 0.5;
+    rotY += velX;
+    rotX -= velY;
+    rotX = Math.max(-85, Math.min(85, rotX));
+    setTransform();
+    lastX = t.clientX; lastY = t.clientY;
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    if (!drag) return;
+    drag = false;
+    rafId = requestAnimationFrame(inertiaLoop);
+  });
 })();
 
 // Init

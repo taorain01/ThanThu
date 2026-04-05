@@ -1766,14 +1766,77 @@ function createParticles() {
 createParticles();
 
 // ═══ AUTH ═══
+// ── Popup OAuth: mở tab mới để đăng nhập, trang cũ giữ nguyên (nhạc không mất) ──
+let _authPopup = null;
+
 async function loginDiscord() {
     if (!sb) { alert('Hệ thống chưa sẵn sàng, vui lòng refresh trang.'); return; }
-    const { error } = await sb.auth.signInWithOAuth({
+
+    // ── Mobile: dùng redirect thường (popup không phù hợp với điện thoại) ──
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    if (isMobile) {
+        const { error } = await sb.auth.signInWithOAuth({
+            provider: 'discord',
+            options: { redirectTo: window.location.origin + window.location.pathname }
+        });
+        if (error) alert('Lỗi đăng nhập: ' + error.message);
+        return;
+    }
+
+    // ── Desktop: dùng popup để giữ nhạc đang phát ──
+    const { data, error } = await sb.auth.signInWithOAuth({
         provider: 'discord',
-        options: { redirectTo: window.location.origin + window.location.pathname }
+        options: {
+            redirectTo: window.location.origin + window.location.pathname.replace('index.html','') + 'callback.html',
+            skipBrowserRedirect: true
+        }
     });
-    if (error) alert('Lỗi đăng nhập: ' + error.message);
+    if (error) { alert('Lỗi đăng nhập: ' + error.message); return; }
+
+    // Đóng popup cũ nếu còn sót
+    if (_authPopup && !_authPopup.closed) _authPopup.close();
+
+    // Mở popup căn giữa màn hình
+    const w = 480, h = 700;
+    const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
+    const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
+    _authPopup = window.open(
+        data.url,
+        'discord_auth',
+        `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!_authPopup) {
+        // Popup bị trình duyệt chặn → fallback redirect thường
+        console.warn('[LangGia] Popup bị chặn, fallback về redirect...');
+        const { error: e2 } = await sb.auth.signInWithOAuth({
+            provider: 'discord',
+            options: { redirectTo: window.location.origin + window.location.pathname }
+        });
+        if (e2) alert('Lỗi đăng nhập: ' + e2.message);
+    }
 }
+
+// ── Lắng nghe kết quả từ popup ──
+window.addEventListener('message', async (event) => {
+    // Chỉ nhận message từ cùng origin (bảo mật)
+    if (event.origin !== window.location.origin) return;
+
+    if (event.data?.type === 'DISCORD_AUTH_SUCCESS') {
+        const { session } = event.data;
+        // Set session vào Supabase client
+        await sb.auth.setSession({
+            access_token:  session.access_token,
+            refresh_token: session.refresh_token
+        });
+        // Chạy lại checkAuth để hiện UI đã đăng nhập
+        await checkAuth();
+    }
+
+    if (event.data?.type === 'DISCORD_AUTH_ERROR') {
+        alert('❌ Đăng nhập thất bại: ' + (event.data.error || 'Lỗi không xác định'));
+    }
+});
 
 async function logout() {
     await sb.auth.signOut();

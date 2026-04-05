@@ -1848,6 +1848,21 @@ async function logout() {
 // ═══ CHECK AUTH ON LOAD ═══
 async function checkAuth() {
     if (!sb) { document.getElementById('landingPage').classList.remove('hidden'); return; }
+
+    // ── Xử lý URL hash trực tiếp (Fix lỗi Supabase v2 trên mobile) ──
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token')) {
+        console.log('[LangGia] Phát hiện access_token trên URL, đang xử lý trực tiếp...');
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const access_token = hashParams.get('access_token');
+        const refresh_token = hashParams.get('refresh_token');
+        if (access_token && refresh_token) {
+            await sb.auth.setSession({ access_token, refresh_token });
+            // Xóa hash trên URL để URL sạch đẹp
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+    }
+
     const { data: { session } } = await sb.auth.getSession();
 
     if (!session) {

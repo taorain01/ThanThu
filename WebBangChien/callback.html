@@ -45,31 +45,51 @@ const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Supabase tự parse #access_token fragment khi khởi tạo ──
-// Dùng onAuthStateChange để bắt đúng lúc session sẵn sàng
+// ── Hàm xử lý khi có session ──
+function handleSession(session) {
+  if (window.hasHandledSession) return;
+  window.hasHandledSession = true;
+
+  document.getElementById('msg').textContent = '✅ Đã xác thực! Đang quay về...';
+
+  if (window.opener) {
+    window.opener.postMessage({
+      type: 'DISCORD_AUTH_SUCCESS',
+      session: {
+        access_token:  session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at:    session.expires_at,
+        user:          session.user
+      }
+    }, window.location.origin);
+    setTimeout(() => window.close(), 600);
+  } else {
+    window.location.href = './index.html';
+  }
+}
+
+// ── Xử lý URL hash trực tiếp (Fix lỗi onAuthStateChange không fire SIGNED_IN) ──
+const hash = window.location.hash;
+if (hash && hash.includes('access_token')) {
+  console.log('[Callback] Phát hiện access_token, xử lý hash trực tiếp...');
+  const hashParams = new URLSearchParams(hash.substring(1));
+  const access_token = hashParams.get('access_token');
+  const refresh_token = hashParams.get('refresh_token');
+  
+  if (access_token && refresh_token) {
+    sb.auth.setSession({ access_token, refresh_token }).then(({ data }) => {
+      if (data?.session) {
+        handleSession(data.session);
+      }
+    });
+  }
+}
+
+// ── Dùng listener phòng trường hợp dự phòng ──
 sb.auth.onAuthStateChange((event, session) => {
   console.log('[Callback] Auth event:', event);
-
-  if (event === 'SIGNED_IN' && session) {
-    document.getElementById('msg').textContent = '✅ Đã xác thực! Đang quay về...';
-
-    if (window.opener) {
-      // Gửi session về trang chính qua postMessage
-      window.opener.postMessage({
-        type: 'DISCORD_AUTH_SUCCESS',
-        session: {
-          access_token:  session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at:    session.expires_at,
-          user:          session.user
-        }
-      }, window.location.origin);
-      // Đóng popup
-      setTimeout(() => window.close(), 600);
-    } else {
-      // Không có opener (mở trực tiếp) → redirect về index
-      window.location.href = './index.html';
-    }
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+    handleSession(session);
   }
 });
 

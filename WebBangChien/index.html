@@ -55,13 +55,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
    → Specular highlight nhỏ + shadow vùng tối
 ════════════════════════════════════════════ */
 .coin-scene{
-  width:180px;height:180px;
-  perspective:900px;
-  margin:0 auto 20px;
-  cursor:grab;
-  /* Glow nhẹ, không chói */
-  filter:drop-shadow(0 6px 20px rgba(120,80,0,.7))
-         drop-shadow(0 0 40px rgba(200,162,44,.25));
+  width: 213px;
+  height: 213px;
+  perspective: 318px;
+  margin: 0 auto 20px;
+  cursor: grab;
+  filter:
+    drop-shadow(0 6px 20px rgba(120,80,0,.7))
+    drop-shadow(0 0 47px rgba(200,162,44,0.27));
 }
 .coin-scene:active{cursor:grabbing}
 
@@ -81,112 +82,95 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   overflow:hidden;
 }
 
-.coin-face-front{
-  /* Vàng bóng dịu — không đường sáng giữa */
-  background:
-    linear-gradient(
-      135deg,
-      #e8c84a 0%,
-      #bf953f 40%,
-      #8f6a10 70%,
-      #aa771c 100%
-    );
-  border:2px solid rgba(255,215,0,.8);
+.coin-face-front {
+  background: linear-gradient(223deg, #463401 0%, #c5ad7c 40%, #9a803c 70%, #a79576 100%);
+  border: 0px solid rgba(255,215,0,.8);
   box-shadow:
     inset 2px 2px 5px rgba(255,240,150,.4),
     inset -4px -4px 10px rgba(100,60,0,.6),
     0 4px 16px rgba(0,0,0,.5),
-    0 0 35px rgba(255,215,0,.3);
+    0 0 35px rgba(200,162,44,.3);
 }
 
-.coin-face-back{
-  background:
-    linear-gradient(
-      315deg,
-      #e8c84a 0%,
-      #bf953f 40%,
-      #8f6a10 70%,
-      #aa771c 100%
-    );
-  border:2px solid rgba(255,215,0,.8);
+.coin-face-back {
+  background: linear-gradient(403deg, #463401 0%, #c5ad7c 40%, #9a803c 70%, #a79576 100%);
+  border: 0px solid rgba(255,215,0,.8);
   box-shadow:
     inset 2px 2px 5px rgba(255,240,150,.4),
     inset -4px -4px 10px rgba(100,60,0,.6),
     0 4px 16px rgba(0,0,0,.5);
-  transform:rotateY(180deg);
+  transform: rotateY(180deg);
 }
 
 /* ── Hình sói — Rõ nét, không để lóa trắng mất chi tiết ── */
-.coin-face img{
-  width:100%;height:100%;
-  object-fit:cover;
-  mix-blend-mode:soft-light; 
-  opacity:.85;
-  filter:contrast(1.15);
+.coin-face img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  mix-blend-mode: normal;
+  opacity: 1;
+  filter: contrast(100%) brightness(112%);
 }
 .coin-face-back img{transform:scaleX(-1)}
 
 /* ── SPECULAR SWEEP: Ánh sáng quét từ trái sang phải ── */
-.coin-face-front::before{
-  content:'';
-  position:absolute;
-  top:0; left:0; width:100%; height:100%;
-  background:linear-gradient(
-    90deg,
+.coin-face-front::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(90deg,
     transparent 0%,
-    rgba(255,255,255,.0) 30%,
-    rgba(255,255,255,.45) 50%,
-    rgba(255,255,255,.0) 70%,
+    rgba(255,255,255,0) 25%,
+    rgba(255,255,255,0.5) 50%,
+    rgba(255,255,255,0) 75%,
     transparent 100%
   );
-  transform: translateX(-150%) skewX(-25deg);
-  animation: lightSweep 4s ease-in-out infinite;
-  z-index:4;
-  pointer-events:none;
+  transform: translateX(-150%) skewX(-33deg);
+  animation: lightSweep 3s ease-in-out infinite;
+  z-index: 4;
+  pointer-events: none;
 }
-@keyframes lightSweep{
-  0%   { transform: translateX(-150%) skewX(-25deg); }
-  50%  { transform: translateX(150%) skewX(-25deg); }
-  100% { transform: translateX(150%) skewX(-25deg); }
+@keyframes lightSweep {
+  0%   { transform: translateX(-150%) skewX(-33deg); }
+  50%  { transform: translateX(150%) skewX(-33deg); }
+  100% { transform: translateX(150%) skewX(-33deg); }
 }
 
 /* ── AMBIENT OCCLUSION: viền tối quanh rìa cho cảm giác khối ── */
-.coin-face-front::after{
-  content:'';
-  position:absolute;inset:0;
-  border-radius:50%;
-  background:radial-gradient(
-    circle at 50% 50%,
+.coin-face-front::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
     transparent 55%,
-    rgba(0,0,0,.25) 75%,
-    rgba(0,0,0,.55) 90%,
-    rgba(0,0,0,.7)  100%
+    rgba(0,0,0,0.22) 75%,
+    rgba(0,0,0,0.45) 90%,
+    rgba(0,0,0,0.56) 100%
   );
-  z-index:5;
-  pointer-events:none;
+  z-index: 5;
+  pointer-events: none;
 }
 
 /* ── EDGE RING: viền đồng xu — sáng trên, tối dưới ── */
-.coin-edge{
+.coin-edge {
   position:absolute;inset:0;
   border-radius:50%;
   backface-visibility:hidden;
   pointer-events:none;
   box-shadow:
-    0 0 0 2px #fde68a,
-    0 0 0 4px #d4af37,
-    0 0 0 6px #b8860b,
-    0 0 0 8px #8b6508;
+    0 0 0 2px rgba(68,68,39,0.18),
+    0 0 0 4px rgba(68,68,39,0.14),
+    0 0 0 6px rgba(68,68,39,0.09),
+    0 0 0 8px rgba(68,68,39,0.05);
 }
 
 /* ── Floating idle animation — nhẹ nhàng, không lắc nhiều ── */
-.coin-3d.idle{
-  animation:coinFloat 6s ease-in-out infinite;
+.coin-3d.idle {
+  animation: coinFloat 11.5s ease-in-out infinite;
 }
-@keyframes coinFloat{
-  0%  {transform:rotateX(8deg) rotateY(-15deg)}
-  50% {transform:rotateX(-5deg) rotateY(12deg)}
-  100%{transform:rotateX(8deg) rotateY(-15deg)}
+@keyframes coinFloat {
+  0%  { transform: rotateX(10deg) rotateY(-15deg) }
+  50% { transform: rotateX(-6deg) rotateY(12deg) }
+  100%{ transform: rotateX(10deg) rotateY(-15deg) }
 }
 
 /* ═══════════════════════════════════════════

@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪙 Coin Effect Editor — Lang Gia</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c8a22c;
+    --gold-light: #f0c84b;
+    --bg: #0a0f0d;
+    --panel: #111916;
+    --panel2: #162018;
+    --border: rgba(200,162,44,.18);
+    --text: #e8e0cc;
+    --text-muted: rgba(232,224,204,.5);
+    --accent: #3ecf8e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(90deg, rgba(10,20,14,.98), rgba(15,28,18,.98));
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 { font-size: 17px; font-weight: 600; color: var(--gold-light); letter-spacing: .5px; }
+  header span { font-size: 12px; color: var(--text-muted); }
+  .header-actions { margin-left: auto; display: flex; gap: 10px; }
+  .btn {
+    padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 500; transition: all .2s;
+  }
+  .btn-gold {
+    background: linear-gradient(135deg, #c8a22c, #f0c84b);
+    color: #1a1200;
+  }
+  .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(200,162,44,.4); }
+  .btn-ghost {
+    background: rgba(255,255,255,.06);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.1); }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr 300px;
+    height: calc(100vh - 53px);
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 0;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+  .panel-section {
+    border-bottom: 1px solid rgba(200,162,44,.1);
+  }
+  .panel-title {
+    padding: 13px 18px 11px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(200,162,44,.04);
+  }
+  .panel-title:hover { background: rgba(200,162,44,.08); }
+  .panel-title .arrow { margin-left: auto; transition: transform .2s; font-size: 9px; }
+  .panel-title.collapsed .arrow { transform: rotate(-90deg); }
+  .panel-body { padding: 14px 16px 18px; }
+  .panel-body.hidden { display: none; }
+
+  /* ── CONTROLS ── */
+  .ctrl { margin-bottom: 14px; }
+  .ctrl:last-child { margin-bottom: 0; }
+  .ctrl-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ctrl-label .val {
+    font-size: 11px;
+    color: var(--gold-light);
+    background: rgba(200,162,44,.12);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+    min-width: 44px;
+    text-align: center;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 4px;
+    background: rgba(255,255,255,.1);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--gold-light);
+    box-shadow: 0 0 6px rgba(200,162,44,.5);
+    transition: transform .15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+  input[type=color] {
+    -webkit-appearance: none;
+    width: 32px; height: 24px;
+    border: none; border-radius: 5px;
+    cursor: pointer; padding: 0;
+    background: none;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,.15); border-radius: 4px; }
+
+  .color-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .color-row input[type=range] { flex: 1; }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .toggle-label { font-size: 12px; color: var(--text); }
+
+  /* Toggle switch */
+  .toggle { position:relative; width:38px; height:20px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle-slider {
+    position:absolute; inset:0;
+    background: rgba(255,255,255,.1);
+    border-radius:10px;
+    cursor:pointer;
+    transition:.25s;
+  }
+  .toggle-slider::before {
+    content:'';
+    position:absolute;
+    width:14px; height:14px;
+    left:3px; top:3px;
+    background:#fff; border-radius:50%;
+    transition:.25s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--gold); }
+  .toggle input:checked + .toggle-slider::before { transform:translateX(18px); }
+
+  /* Color stops editor */
+  .gradient-stops { display:flex; flex-direction:column; gap:8px; }
+  .stop-row { display:flex; align-items:center; gap:8px; font-size:11px; }
+  .stop-row input[type=color] { width:26px; height:22px; }
+  .stop-row input[type=range] { flex:1; }
+  .stop-row .pct { color:var(--gold-light); min-width:30px; font-size:10px; }
+
+  select {
+    background: rgba(255,255,255,.07);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    width: 100%;
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: var(--gold); }
+
+  /* ── PREVIEW CENTER ── */
+  .preview {
+    background: radial-gradient(ellipse at center, #0f3020 0%, #071812 55%, #000 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .preview-bg-fog {
+    position:absolute; inset:0; overflow:hidden; pointer-events:none;
+  }
+  .fog-layer {
+    position:absolute; width:200%; height:100%;
+    background:linear-gradient(90deg,transparent,rgba(34,197,94,.05),transparent,rgba(251,191,36,.04),transparent);
+    animation:fogMove 15s linear infinite;
+  }
+  @keyframes fogMove{0%{transform:translateX(-50%)}100%{transform:translateX(0)}}
+
+  .preview-label {
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    font-size:10px; color:rgba(200,162,44,.4); letter-spacing:2px; text-transform:uppercase;
+  }
+
+  /* ── COIN ── */
+  #coinScene {
+    width:200px; height:200px;
+    perspective:900px;
+    cursor:grab;
+  }
+  #coinScene:active { cursor:grabbing; }
+  #coin3d {
+    width:100%; height:100%;
+    position:relative;
+    transform-style:preserve-3d;
+    will-change:transform;
+    animation:coinFloat 6s ease-in-out infinite;
+  }
+  @keyframes coinFloat{
+    0%  {transform:rotateX(8deg) rotateY(-15deg)}
+    50% {transform:rotateX(-5deg) rotateY(12deg)}
+    100%{transform:rotateX(8deg) rotateY(-15deg)}
+  }
+  #coin3d.paused { animation-play-state:paused; }
+
+  .coin-face {
+    position:absolute; inset:0;
+    border-radius:50%;
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    overflow:hidden;
+  }
+  #coinFront {
+    background: linear-gradient(135deg, #e8c84a 0%, #bf953f 40%, #8f6a10 70%, #aa771c 100%);
+    border:2px solid rgba(255,215,0,.8);
+    box-shadow:
+      inset 2px 2px 5px rgba(255,240,150,.4),
+      inset -4px -4px 10px rgba(100,60,0,.6),
+      0 4px 16px rgba(0,0,0,.5),
+      0 0 35px rgba(255,215,0,.3);
+  }
+  #coinBack {
+    background: linear-gradient(315deg, #e8c84a 0%, #bf953f 40%, #8f6a10 70%, #aa771c 100%);
+    border:2px solid rgba(255,215,0,.8);
+    box-shadow:
+      inset 2px 2px 5px rgba(255,240,150,.4),
+      inset -4px -4px 10px rgba(100,60,0,.6),
+      0 4px 16px rgba(0,0,0,.5);
+    transform:rotateY(180deg);
+  }
+  .coin-face img {
+    width:100%; height:100%; object-fit:cover;
+    mix-blend-mode:soft-light;
+    opacity:.85;
+    filter:contrast(1.15);
+  }
+  #coinBack img { transform:scaleX(-1); }
+
+  /* Light sweep */
+  #coinFront::before {
+    content:'';
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background:linear-gradient(90deg,
+      transparent 0%,
+      transparent 30%,
+      rgba(255,255,255,.45) 50%,
+      transparent 70%,
+      transparent 100%
+    );
+    transform: translateX(-150%) skewX(-25deg);
+    animation: lightSweep 4s ease-in-out infinite;
+    z-index:4; pointer-events:none;
+  }
+  @keyframes lightSweep{
+    0%   { transform: translateX(-150%) skewX(-25deg); }
+    50%  { transform: translateX(150%) skewX(-25deg); }
+    100% { transform: translateX(150%) skewX(-25deg); }
+  }
+
+  /* AO ring */
+  #coinFront::after {
+    content:''; position:absolute; inset:0; border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,
+      transparent 55%, rgba(0,0,0,.25) 75%, rgba(0,0,0,.55) 90%, rgba(0,0,0,.7) 100%);
+    z-index:5; pointer-events:none;
+  }
+
+  /* Edge ring */
+  .coin-edge {
+    position:absolute; inset:0; border-radius:50%;
+    backface-visibility:hidden; pointer-events:none;
+    box-shadow: 0 0 0 2px #fde68a, 0 0 0 4px #d4af37, 0 0 0 6px #b8860b, 0 0 0 8px #8b6508;
+  }
+
+  /* Outer glow */
+  .coin-glow-wrap {
+    filter: drop-shadow(0 6px 20px rgba(120,80,0,.7)) drop-shadow(0 0 40px rgba(200,162,44,.25));
+  }
+
+  /* ── CSS OUTPUT ── */
+  .css-output {
+    padding: 14px 16px;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    font-size: 10.5px;
+    line-height: 1.7;
+    color: #a8d8a8;
+    background: #0a0f0a;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-y: auto;
+    flex: 1;
+    height: 100%;
+    user-select: all;
+  }
+
+  .right-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .right-panel-header {
+    padding: 13px 18px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .copy-btn {
+    font-size: 10px; padding: 4px 10px;
+    background: rgba(200,162,44,.15);
+    border: 1px solid rgba(200,162,44,.3);
+    border-radius: 5px; color: var(--gold-light);
+    cursor: pointer; transition: all .2s;
+  }
+  .copy-btn:hover { background: rgba(200,162,44,.25); }
+  .copy-btn.copied { background: rgba(62,207,142,.2); border-color: rgba(62,207,142,.4); color: #3ecf8e; }
+
+  /* Preset buttons */
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .preset-btn {
+    padding: 5px 12px; font-size: 11px;
+    border-radius: 6px; border: 1px solid var(--border);
+    background: rgba(255,255,255,.05);
+    color: var(--text); cursor: pointer; transition: all .2s;
+  }
+  .preset-btn:hover { border-color: var(--gold); color: var(--gold-light); background: rgba(200,162,44,.08); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(200,162,44,.3); border-radius: 2px; }
+
+  .sep { height: 1px; background: rgba(255,255,255,.05); margin: 10px 0; }
+
+  .preview-size-note {
+    position:absolute; bottom:18px;
+    font-size:10px; color:rgba(200,162,44,.35); letter-spacing:1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>🪙</div>
+  <div>
+    <h1>Coin Effect Editor</h1>
+    <span>Lang Gia — WebBangChien</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="resetAll()">↺ Reset</button>
+    <button class="btn btn-gold" onclick="applyToMain()">⚡ Apply CSS</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ════ LEFT PANEL: CONTROLS ════ -->
+  <div class="panel" id="leftPanel">
+
+    <!-- PRESETS -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        🎨 Presets nhanh <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="presets">
+          <button class="preset-btn" onclick="applyPreset('classic')">Vàng Cổ Điển</button>
+          <button class="preset-btn" onclick="applyPreset('silver')">Bạch Kim</button>
+          <button class="preset-btn" onclick="applyPreset('copper')">Đồng Đỏ</button>
+          <button class="preset-btn" onclick="applyPreset('dark')">Vàng Đen</button>
+          <button class="preset-btn" onclick="applyPreset('jade')">Ngọc Bích</button>
+          <button class="preset-btn" onclick="applyPreset('blood')">Huyết Nguyệt</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KÍch thước & Perspective -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        📐 Kích Thước & 3D <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-label">Kích thước <span class="val" id="valSize">200px</span></div>
+          <input type="range" id="slSize" min="100" max="320" value="200" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Perspective 3D <span class="val" id="valPersp">900px</span></div>
+          <input type="range" id="slPersp" min="200" max="2000" value="900" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Độ dày viền <span class="val" id="valBorder">2px</span></div>
+          <input type="range" id="slBorder" min="0" max="8" value="2" oninput="update()">
+        </div>
+      </div>
+    </div>
+
+    <!-- GRADIENT NỀN -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        🎭 Gradient Nền <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-label">Góc gradient <span class="val" id="valGradAngle">135°</span></div>
+          <input type="range" id="slGradAngle" min="0" max="360" value="135" oninput="update()">
+        </div>
+        <div class="sep"></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">4 điểm màu gradient:</div>
+        <div class="gradient-stops">
+          <div class="stop-row">
+            <input type="color" id="c0" value="#e8c84a" oninput="update()">
+            <input type="range" id="p0" min="0" max="100" value="0" oninput="update()">
+            <span class="pct" id="vp0">0%</span>
+          </div>
+          <div class="stop-row">
+            <input type="color" id="c1" value="#bf953f" oninput="update()">
+            <input type="range" id="p1" min="0" max="100" value="40" oninput="update()">
+            <span class="pct" id="vp1">40%</span>
+          </div>
+          <div class="stop-row">
+            <input type="color" id="c2" value="#8f6a10" oninput="update()">
+            <input type="range" id="p2" min="0" max="100" value="70" oninput="update()">
+            <span class="pct" id="vp2">70%</span>
+          </div>
+          <div class="stop-row">
+            <input type="color" id="c3" value="#aa771c" oninput="update()">
+            <input type="range" id="p3" min="0" max="100" value="100" oninput="update()">
+            <span class="pct" id="vp3">100%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÁNH SÁNG QUÉT (SWEEP) -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        ✨ Ánh Sáng Quét <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="toggle-row">
+            <span class="toggle-label">Bật hiệu ứng quét</span>
+            <label class="toggle">
+              <input type="checkbox" id="chkSweep" checked onchange="update()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Độ sáng tia sáng <span class="val" id="valSweepOp">45%</span></div>
+          <input type="range" id="slSweepOp" min="0" max="100" value="45" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Độ rộng tia <span class="val" id="valSweepW">20%</span></div>
+          <input type="range" id="slSweepW" min="5" max="60" value="20" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Góc nghiêng <span class="val" id="valSweepSkew">-25°</span></div>
+          <input type="range" id="slSweepSkew" min="-60" max="60" value="-25" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Tốc độ (giây) <span class="val" id="valSweepSpd">4s</span></div>
+          <input type="range" id="slSweepSpd" min="1" max="12" value="4" step="0.5" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Màu tia sáng <span class="val" id="valSweepColor">#ffffff</span></div>
+          <div class="color-row">
+            <input type="color" id="colSweep" value="#ffffff" oninput="update()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIỀN AMBIENT OCCLUSION -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        🌑 Viền Bóng Tối (AO) <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="toggle-row">
+            <span class="toggle-label">Bật AO ring</span>
+            <label class="toggle">
+              <input type="checkbox" id="chkAO" checked onchange="update()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Điểm bắt đầu tối <span class="val" id="valAOStart">55%</span></div>
+          <input type="range" id="slAOStart" min="10" max="90" value="55" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Độ đậm viền <span class="val" id="valAOOp">70%</span></div>
+          <input type="range" id="slAOOp" min="0" max="100" value="70" oninput="update()">
+        </div>
+      </div>
+    </div>
+
+    <!-- GLOW NGOÀI -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        💛 Glow Ngoài <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="toggle-row">
+            <span class="toggle-label">Bật outer glow</span>
+            <label class="toggle">
+              <input type="checkbox" id="chkGlow" checked onchange="update()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Màu glow <span class="val" id="valGlowColor">#c8a22c</span></div>
+          <div class="color-row">
+            <input type="color" id="colGlow" value="#c8a22c" oninput="update()">
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Cường độ glow <span class="val" id="valGlowStr">40px</span></div>
+          <input type="range" id="slGlowStr" min="0" max="100" value="40" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Độ mờ glow <span class="val" id="valGlowOp">25%</span></div>
+          <input type="range" id="slGlowOp" min="0" max="100" value="25" oninput="update()">
+        </div>
+      </div>
+    </div>
+
+    <!-- VIỀN EDGE RING -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        💍 Viền Vành (Edge Ring) <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="toggle-row">
+            <span class="toggle-label">Bật edge ring</span>
+            <label class="toggle">
+              <input type="checkbox" id="chkEdge" checked onchange="update()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Màu chính viền</div>
+          <div class="color-row">
+            <input type="color" id="colEdge1" value="#d4af37" oninput="update()">
+            <input type="range" id="slEdgeOp" min="0" max="100" value="80" oninput="update()">
+            <span class="val" id="valEdgeOp">80%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANIMATION FLOAT -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        🌊 Animation Lơ Lửng <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="toggle-row">
+            <span class="toggle-label">Bật float animation</span>
+            <label class="toggle">
+              <input type="checkbox" id="chkFloat" checked onchange="update()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Tốc độ lơ lửng <span class="val" id="valFloatSpd">6s</span></div>
+          <input type="range" id="slFloatSpd" min="2" max="15" value="6" step="0.5" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Góc nghiêng X max <span class="val" id="valFloatX">8°</span></div>
+          <input type="range" id="slFloatX" min="0" max="30" value="8" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Góc nghiêng Y max <span class="val" id="valFloatY">15°</span></div>
+          <input type="range" id="slFloatY" min="0" max="45" value="15" oninput="update()">
+        </div>
+      </div>
+    </div>
+
+    <!-- HÌNH SÓI (LOGO) -->
+    <div class="panel-section">
+      <div class="panel-title" onclick="toggleSection(this)">
+        🐺 Hình Sói (Logo) <span class="arrow">▾</span>
+      </div>
+      <div class="panel-body">
+        <div class="ctrl">
+          <div class="ctrl-label">Blend Mode</div>
+          <select id="selBlend" onchange="update()">
+            <option value="soft-light" selected>soft-light</option>
+            <option value="multiply">multiply</option>
+            <option value="overlay">overlay</option>
+            <option value="screen">screen</option>
+            <option value="luminosity">luminosity</option>
+            <option value="normal">normal</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Độ trong suốt <span class="val" id="valImgOp">85%</span></div>
+          <input type="range" id="slImgOp" min="10" max="100" value="85" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Contrast <span class="val" id="valContrast">115%</span></div>
+          <input type="range" id="slContrast" min="50" max="200" value="115" oninput="update()">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-label">Brightness <span class="val" id="valBright">100%</span></div>
+          <input type="range" id="slBright" min="30" max="200" value="100" oninput="update()">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ CENTER: PREVIEW ════ -->
+  <div class="preview" id="previewArea">
+    <div class="preview-bg-fog">
+      <div class="fog-layer"></div>
+    </div>
+    <div class="preview-label">PREVIEW — REAL TIME</div>
+
+    <div class="coin-glow-wrap" id="glowWrap">
+      <div id="coinScene">
+        <div id="coin3d">
+          <div class="coin-face" id="coinFront">
+            <img src="./anh/langgia_icon.png" alt="Lang Gia" id="coinImgFront">
+          </div>
+          <div class="coin-face" id="coinBack">
+            <img src="./anh/langgia_icon.png" alt="Lang Gia" id="coinImgBack">
+          </div>
+          <div class="coin-edge" id="coinEdge"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-size-note" id="sizeNote">200 × 200 px</div>
+  </div>
+
+  <!-- ════ RIGHT PANEL: CSS OUTPUT ════ -->
+  <div class="panel right-panel" id="rightPanel">
+    <div class="right-panel-header">
+      📋 CSS Output
+      <button class="copy-btn" id="copyBtn" onclick="copyCSS()">Copy CSS</button>
+    </div>
+    <pre class="css-output" id="cssOutput"></pre>
+  </div>
+
+</div>
+
+<!-- Inject dynamic styles -->
+<style id="dynStyle"></style>
+
+<script>
+// ══════════════════════════════════════
+//   PRESETS
+// ══════════════════════════════════════
+const PRESETS = {
+  classic: { c0:'#e8c84a', c1:'#bf953f', c2:'#8f6a10', c3:'#aa771c', angle:135, glow:'#c8a22c' },
+  silver:  { c0:'#f0f0f0', c1:'#a8a8a8', c2:'#606060', c3:'#909090', angle:135, glow:'#aaaaaa' },
+  copper:  { c0:'#f4a460', c1:'#cd7f32', c2:'#8b4513', c3:'#a0522d', angle:135, glow:'#cd7f32' },
+  dark:    { c0:'#bda535', c1:'#6b5a10', c2:'#2a2200', c3:'#4a3a08', angle:135, glow:'#bda535' },
+  jade:    { c0:'#52d48a', c1:'#1a8c5a', c2:'#0a4a2a', c3:'#1a6a40', angle:135, glow:'#1a8c5a' },
+  blood:   { c0:'#ff6060', c1:'#cc2020', c2:'#6a0000', c3:'#990000', angle:135, glow:'#cc2020' }
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  document.getElementById('c0').value = p.c0;
+  document.getElementById('c1').value = p.c1;
+  document.getElementById('c2').value = p.c2;
+  document.getElementById('c3').value = p.c3;
+  document.getElementById('slGradAngle').value = p.angle;
+  document.getElementById('colGlow').value = p.glow;
+  document.getElementById('colEdge1').value = p.glow;
+  update();
+}
+
+// ══════════════════════════════════════
+//   PANEL COLLAPSE
+// ══════════════════════════════════════
+function toggleSection(el) {
+  el.classList.toggle('collapsed');
+  el.nextElementSibling.classList.toggle('hidden');
+}
+
+// ══════════════════════════════════════
+//   MAIN UPDATE FUNCTION
+// ══════════════════════════════════════
+function v(id) { return document.getElementById(id); }
+function val(id) { return parseFloat(v(id).value); }
+function col(id) { return v(id).value; }
+function chk(id) { return v(id).checked; }
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+
+function update() {
+  // Đọc values
+  const size       = val('slSize');
+  const persp      = val('slPersp');
+  const border     = val('slBorder');
+  const gradAngle  = val('slGradAngle');
+  const g0 = col('c0'), g1 = col('c1'), g2 = col('c2'), g3 = col('c3');
+  const p0 = val('p0'), p1 = val('p1'), p2 = val('p2'), p3 = val('p3');
+
+  const sweepOn    = chk('chkSweep');
+  const sweepOp    = val('slSweepOp') / 100;
+  const sweepW     = val('slSweepW');
+  const sweepSkew  = val('slSweepSkew');
+  const sweepSpd   = val('slSweepSpd');
+  const sweepCol   = col('colSweep');
+
+  const aoOn       = chk('chkAO');
+  const aoStart    = val('slAOStart');
+  const aoOp       = val('slAOOp') / 100;
+
+  const glowOn     = chk('chkGlow');
+  const glowCol    = col('colGlow');
+  const glowStr    = val('slGlowStr');
+  const glowOp     = val('slGlowOp') / 100;
+  const gc         = hexToRgb(glowCol);
+
+  const edgeOn     = chk('chkEdge');
+  const edgeCol    = col('colEdge1');
+  const edgeOp     = val('slEdgeOp') / 100;
+  const ec         = hexToRgb(edgeCol);
+
+  const floatOn    = chk('chkFloat');
+  const floatSpd   = val('slFloatSpd');
+  const floatX     = val('slFloatX');
+  const floatY     = val('slFloatY');
+
+  const blend      = v('selBlend').value;
+  const imgOp      = val('slImgOp') / 100;
+  const contrast   = val('slContrast');
+  const bright     = val('slBright');
+
+  // Cập nhật UI labels
+  v('valSize').textContent     = size + 'px';
+  v('valPersp').textContent    = persp + 'px';
+  v('valBorder').textContent   = border + 'px';
+  v('valGradAngle').textContent = gradAngle + '°';
+  v('vp0').textContent = p0 + '%'; v('vp1').textContent = p1 + '%';
+  v('vp2').textContent = p2 + '%'; v('vp3').textContent = p3 + '%';
+  v('valSweepOp').textContent  = val('slSweepOp') + '%';
+  v('valSweepW').textContent   = sweepW + '%';
+  v('valSweepSkew').textContent = sweepSkew + '°';
+  v('valSweepSpd').textContent  = sweepSpd + 's';
+  v('valSweepColor').textContent = sweepCol;
+  v('valAOStart').textContent  = aoStart + '%';
+  v('valAOOp').textContent     = val('slAOOp') + '%';
+  v('valGlowColor').textContent = glowCol;
+  v('valGlowStr').textContent  = glowStr + 'px';
+  v('valGlowOp').textContent   = val('slGlowOp') + '%';
+  v('valEdgeOp').textContent   = val('slEdgeOp') + '%';
+  v('valFloatSpd').textContent = floatSpd + 's';
+  v('valFloatX').textContent   = floatX + '°';
+  v('valFloatY').textContent   = floatY + '°';
+  v('valImgOp').textContent    = val('slImgOp') + '%';
+  v('valContrast').textContent = contrast + '%';
+  v('valBright').textContent   = bright + '%';
+
+  // Gradient string
+  const gradBg = `linear-gradient(${gradAngle}deg, ${g0} ${p0}%, ${g1} ${p1}%, ${g2} ${p2}%, ${g3} ${p3}%)`;
+  const gradBgBack = `linear-gradient(${gradAngle+180}deg, ${g0} ${p0}%, ${g1} ${p1}%, ${g2} ${p2}%, ${g3} ${p3}%)`;
+
+  // Sweep gradient
+  const hw = sweepW / 2;
+  const s50  = (50 - hw) + '%';
+  const sctr = '50%';
+  const e50  = (50 + hw) + '%';
+  const sc   = hexToRgb(sweepCol);
+  const sweepBg = `linear-gradient(90deg,
+    transparent 0%,
+    rgba(${sc.r},${sc.g},${sc.b},0) ${s50},
+    rgba(${sc.r},${sc.g},${sc.b},${sweepOp}) ${sctr},
+    rgba(${sc.r},${sc.g},${sc.b},0) ${e50},
+    transparent 100%)`;
+
+  // Edge ring
+  const edgeA = edgeOp;
+
+  const dynCSS = `
+/* ═══ DYNAMIC COIN STYLES ═══ */
+#coinScene {
+  width: ${size}px;
+  height: ${size}px;
+  perspective: ${persp}px;
+}
+#coin3d {
+  animation-duration: ${floatSpd}s;
+  animation-play-state: ${floatOn ? 'running' : 'paused'};
+}
+@keyframes coinFloatDyn {
+  0%  { transform: rotateX(${floatX}deg) rotateY(-${floatY}deg) }
+  50% { transform: rotateX(-${Math.round(floatX*.6)}deg) rotateY(${Math.round(floatY*.8)}deg) }
+  100%{ transform: rotateX(${floatX}deg) rotateY(-${floatY}deg) }
+}
+#coinFront {
+  background: ${gradBg};
+  border: ${border}px solid rgba(255,215,0,.8);
+  box-shadow:
+    inset 2px 2px 5px rgba(255,240,150,.4),
+    inset -4px -4px 10px rgba(100,60,0,.6),
+    0 4px 16px rgba(0,0,0,.5),
+    0 0 35px rgba(${gc.r},${gc.g},${gc.b},.3);
+}
+#coinBack {
+  background: ${gradBgBack};
+  border: ${border}px solid rgba(255,215,0,.8);
+  box-shadow:
+    inset 2px 2px 5px rgba(255,240,150,.4),
+    inset -4px -4px 10px rgba(100,60,0,.6),
+    0 4px 16px rgba(0,0,0,.5);
+}
+.coin-face img {
+  mix-blend-mode: ${blend};
+  opacity: ${imgOp};
+  filter: contrast(${contrast}%) brightness(${bright}%);
+}
+#coinFront::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: ${sweepBg};
+  transform: translateX(-150%) skewX(${sweepSkew}deg);
+  animation: lightSweepDyn ${sweepSpd}s ease-in-out infinite;
+  z-index: 4;
+  pointer-events: none;
+  display: ${sweepOn ? 'block' : 'none'};
+}
+@keyframes lightSweepDyn {
+  0%   { transform: translateX(-150%) skewX(${sweepSkew}deg); }
+  50%  { transform: translateX(150%) skewX(${sweepSkew}deg); }
+  100% { transform: translateX(150%) skewX(${sweepSkew}deg); }
+}
+#coinFront::after {
+  display: ${aoOn ? 'block' : 'none'};
+  background: radial-gradient(circle at 50% 50%,
+    transparent ${aoStart}%,
+    rgba(0,0,0,${(aoOp*.4).toFixed(2)}) ${Math.round(aoStart+20)}%,
+    rgba(0,0,0,${(aoOp*.8).toFixed(2)}) ${Math.round(aoStart+35)}%,
+    rgba(0,0,0,${aoOp.toFixed(2)}) 100%);
+}
+#coinEdge {
+  display: ${edgeOn ? 'block' : 'none'};
+  box-shadow:
+    0 0 0 2px rgba(${ec.r},${ec.g},${ec.b},${edgeA.toFixed(2)}),
+    0 0 0 4px rgba(${ec.r},${ec.g},${ec.b},${(edgeA*.8).toFixed(2)}),
+    0 0 0 6px rgba(${ec.r},${ec.g},${ec.b},${(edgeA*.5).toFixed(2)}),
+    0 0 0 8px rgba(${ec.r},${ec.g},${ec.b},${(edgeA*.3).toFixed(2)});
+}
+#glowWrap {
+  filter: ${glowOn
+    ? `drop-shadow(0 6px 20px rgba(120,80,0,.7)) drop-shadow(0 0 ${glowStr}px rgba(${gc.r},${gc.g},${gc.b},${glowOp.toFixed(2)}))`
+    : 'none'};
+}
+#sizeNote { content: '${size} × ${size} px'; }
+`;
+
+  v('dynStyle').textContent = dynCSS;
+  v('sizeNote').textContent = size + ' × ' + size + ' px';
+
+  // Generate CSS output
+  const output = `/* ══ .coin-scene ══ */
+.coin-scene {
+  width: ${size}px;
+  height: ${size}px;
+  perspective: ${persp}px;
+  margin: 0 auto 20px;
+  cursor: grab;
+  filter:
+    drop-shadow(0 6px 20px rgba(120,80,0,.7))
+    ${glowOn ? `drop-shadow(0 0 ${glowStr}px rgba(${gc.r},${gc.g},${gc.b},${glowOp.toFixed(2)}))` : ''};
+}
+
+/* ══ .coin-3d ══ */
+.coin-3d.idle {
+  animation: coinFloat ${floatSpd}s ease-in-out infinite;
+  ${!floatOn ? 'animation: none;' : ''}
+}
+@keyframes coinFloat {
+  0%  { transform: rotateX(${floatX}deg) rotateY(-${floatY}deg) }
+  50% { transform: rotateX(-${Math.round(floatX*.6)}deg) rotateY(${Math.round(floatY*.8)}deg) }
+  100%{ transform: rotateX(${floatX}deg) rotateY(-${floatY}deg) }
+}
+
+/* ══ .coin-face-front ══ */
+.coin-face-front {
+  background: ${gradBg.replace(/\s+/g,' ')};
+  border: ${border}px solid rgba(255,215,0,.8);
+  box-shadow:
+    inset 2px 2px 5px rgba(255,240,150,.4),
+    inset -4px -4px 10px rgba(100,60,0,.6),
+    0 4px 16px rgba(0,0,0,.5),
+    0 0 35px rgba(${gc.r},${gc.g},${gc.b},.3);
+}
+
+/* ══ .coin-face-back ══ */
+.coin-face-back {
+  background: ${gradBgBack.replace(/\s+/g,' ')};
+  border: ${border}px solid rgba(255,215,0,.8);
+  box-shadow:
+    inset 2px 2px 5px rgba(255,240,150,.4),
+    inset -4px -4px 10px rgba(100,60,0,.6),
+    0 4px 16px rgba(0,0,0,.5);
+  transform: rotateY(180deg);
+}
+
+/* ══ Logo image ══ */
+.coin-face img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  mix-blend-mode: ${blend};
+  opacity: ${imgOp};
+  filter: contrast(${contrast}%) brightness(${bright}%);
+}
+
+/* ══ Specular Sweep ══ */
+${sweepOn ? `.coin-face-front::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(${sc.r},${sc.g},${sc.b},0) ${s50},
+    rgba(${sc.r},${sc.g},${sc.b},${sweepOp}) 50%,
+    rgba(${sc.r},${sc.g},${sc.b},0) ${e50},
+    transparent 100%
+  );
+  transform: translateX(-150%) skewX(${sweepSkew}deg);
+  animation: lightSweep ${sweepSpd}s ease-in-out infinite;
+  z-index: 4;
+  pointer-events: none;
+}
+@keyframes lightSweep {
+  0%   { transform: translateX(-150%) skewX(${sweepSkew}deg); }
+  50%  { transform: translateX(150%) skewX(${sweepSkew}deg); }
+  100% { transform: translateX(150%) skewX(${sweepSkew}deg); }
+}` : '/* Sweep: OFF */'}
+
+/* ══ Ambient Occlusion ══ */
+${aoOn ? `.coin-face-front::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    transparent ${aoStart}%,
+    rgba(0,0,0,${(aoOp*.4).toFixed(2)}) ${Math.round(aoStart+20)}%,
+    rgba(0,0,0,${(aoOp*.8).toFixed(2)}) ${Math.round(aoStart+35)}%,
+    rgba(0,0,0,${aoOp.toFixed(2)}) 100%
+  );
+  z-index: 5;
+  pointer-events: none;
+}` : '/* AO: OFF */'}
+
+/* ══ Edge Ring ══ */
+${edgeOn ? `.coin-edge {
+  box-shadow:
+    0 0 0 2px rgba(${ec.r},${ec.g},${ec.b},${edgeA.toFixed(2)}),
+    0 0 0 4px rgba(${ec.r},${ec.g},${ec.b},${(edgeA*.8).toFixed(2)}),
+    0 0 0 6px rgba(${ec.r},${ec.g},${ec.b},${(edgeA*.5).toFixed(2)}),
+    0 0 0 8px rgba(${ec.r},${ec.g},${ec.b},${(edgeA*.3).toFixed(2)});
+}` : '/* Edge: OFF */'}`;
+
+  v('cssOutput').textContent = output;
+}
+
+// ══════════════════════════════════════
+//   COPY CSS
+// ══════════════════════════════════════
+function copyCSS() {
+  navigator.clipboard.writeText(v('cssOutput').textContent).then(() => {
+    const btn = v('copyBtn');
+    btn.textContent = '✓ Đã Copy!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy CSS'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ══════════════════════════════════════
+//   APPLY TO MAIN INDEX.HTML
+// ══════════════════════════════════════
+function applyToMain() {
+  alert('💡 Hãy copy CSS (nút Copy CSS) và paste vào block .coin-face-front trong file index.html\n\nHoặc mở Coin Editor → Antigravity sẽ tự apply cho bạn sau khi xác nhận!');
+}
+
+// ══════════════════════════════════════
+//   RESET
+// ══════════════════════════════════════
+function resetAll() {
+  applyPreset('classic');
+  ['slSize','slPersp','slBorder','slGradAngle',
+   'slSweepOp','slSweepW','slSweepSkew','slSweepSpd',
+   'slAOStart','slAOOp','slGlowStr','slGlowOp','slEdgeOp',
+   'slFloatSpd','slFloatX','slFloatY','slImgOp','slContrast','slBright'
+  ].forEach(id => {
+    const el = v(id);
+    el.value = el.defaultValue;
+  });
+  ['chkSweep','chkAO','chkGlow','chkEdge','chkFloat'].forEach(id => {
+    v(id).checked = true;
+  });
+  v('selBlend').value = 'soft-light';
+  update();
+}
+
+// ══════════════════════════════════════
+//   DRAG TO SPIN COIN
+// ══════════════════════════════════════
+(function(){
+  const scene = v('coinScene');
+  const coin  = v('coin3d');
+  let drag=false, lastX=0, lastY=0, rotY=0, rotX=0, velX=0, velY=0;
+  scene.addEventListener('mousedown', e => {
+    drag = true;
+    lastX = e.clientX; lastY = e.clientY;
+    coin.style.animation = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if(!drag) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    velX = dx * 0.4; velY = dy * 0.4;
+    rotY += velX; rotX -= velY;
+    coin.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  document.addEventListener('mouseup', () => { drag = false; });
+})();
+
+// Init
+update();
+</script>
+</body>
+</html>

@@ -926,6 +926,19 @@ module.exports = {
               if (nextSizes.attack2 !== undefined) db.setTeamSize('attack2', nextSizes.attack2);
               if (nextSizes.defense !== undefined) db.setTeamSize('defense', nextSizes.defense);
               if (nextSizes.forest !== undefined) db.setTeamSize('forest', nextSizes.forest);
+
+              // Sync team_names ngược về SQLite để embed Discord hiện đúng tên custom
+              const nextNames = (() => {
+                try {
+                  return typeof newData.team_names === 'string'
+                    ? JSON.parse(newData.team_names || '{}')
+                    : (newData.team_names || {});
+                } catch (e) { return {}; }
+              })();
+              if (Object.keys(nextNames).length > 0 && db.setTeamNames) {
+                db.setTeamNames(nextNames);
+                console.log(`[Supabase] ✅ Đã sync team_names về SQLite:`, nextNames);
+              }
             }
 
             const localAllIds = new Set([

@@ -1203,19 +1203,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
   <div class="panel-left">
     <!-- Team list -->
     <div class="panel-section" id="secA1">
-      <div class="panel-section-header" onclick="toggleSection('secA1')"><span class="ps-chevron">▼</span><span class="ps-title">⚔️ Công 1</span><span class="ps-count" id="a1Count">0</span></div>
+      <div class="panel-section-header" onclick="toggleSection('secA1')"><span class="ps-chevron">▼</span><span class="ps-title" id="titleA1">⚔️ Công 1</span><span class="ps-count" id="a1Count">0</span></div>
       <div class="panel-section-body" id="teamA1"></div>
     </div>
     <div class="panel-section collapsed" id="secA2">
-      <div class="panel-section-header" onclick="toggleSection('secA2')"><span class="ps-chevron">▼</span><span class="ps-title">🗡️ Công 2</span><span class="ps-count" id="a2Count">0</span></div>
+      <div class="panel-section-header" onclick="toggleSection('secA2')"><span class="ps-chevron">▼</span><span class="ps-title" id="titleA2">🗡️ Công 2</span><span class="ps-count" id="a2Count">0</span></div>
       <div class="panel-section-body" id="teamA2"></div>
     </div>
     <div class="panel-section collapsed" id="secDF">
-      <div class="panel-section-header" onclick="toggleSection('secDF')"><span class="ps-chevron">▼</span><span class="ps-title">🛡️ Thủ</span><span class="ps-count" id="dfCount">0</span></div>
+      <div class="panel-section-header" onclick="toggleSection('secDF')"><span class="ps-chevron">▼</span><span class="ps-title" id="titleDF">🛡️ Thủ</span><span class="ps-count" id="dfCount">0</span></div>
       <div class="panel-section-body" id="teamDF"></div>
     </div>
     <div class="panel-section collapsed" id="secFR">
-      <div class="panel-section-header" onclick="toggleSection('secFR')"><span class="ps-chevron">▼</span><span class="ps-title">🌲 Rừng</span><span class="ps-count" id="frCount">0</span></div>
+      <div class="panel-section-header" onclick="toggleSection('secFR')"><span class="ps-chevron">▼</span><span class="ps-title" id="titleFR">🌲 Rừng</span><span class="ps-count" id="frCount">0</span></div>
       <div class="panel-section-body" id="teamFR"></div>
     </div>
     <!-- Bot Slots -->
@@ -3329,16 +3329,32 @@ function disableLeaderUI() {
 function renderTeamList() {
     if (!sessionData) return;
     const parseTeam = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+    // Đọc team_names từ session để hiện tên custom (từ Resize)
+    const rawNames = (() => {
+        try {
+            return typeof sessionData.team_names === 'string'
+                ? JSON.parse(sessionData.team_names || '{}')
+                : (sessionData.team_names || {});
+        } catch(e) { return {}; }
+    })();
     const teams = [
-        { key: 'team_attack1', el: 'teamA1', countEl: 'a1Count' },
-        { key: 'team_attack2', el: 'teamA2', countEl: 'a2Count' },
-        { key: 'team_defense', el: 'teamDF', countEl: 'dfCount' },
-        { key: 'team_forest', el: 'teamFR', countEl: 'frCount' }
+        { key: 'team_attack1', el: 'teamA1', countEl: 'a1Count', titleEl: 'titleA1', emoji: '⚔️', defaultName: 'Công 1' },
+        { key: 'team_attack2', el: 'teamA2', countEl: 'a2Count', titleEl: 'titleA2', emoji: '🗡️', defaultName: 'Công 2' },
+        { key: 'team_defense', el: 'teamDF', countEl: 'dfCount', titleEl: 'titleDF', emoji: '🛡️', defaultName: 'Thủ' },
+        { key: 'team_forest', el: 'teamFR', countEl: 'frCount', titleEl: 'titleFR', emoji: '🌲', defaultName: 'Rừng' }
     ];
+    // Map key names: attack1→attack1, defense→defense...
+    const nameKeyMap = { team_attack1: 'attack1', team_attack2: 'attack2', team_defense: 'defense', team_forest: 'forest' };
     teams.forEach(t => {
         const players = parseTeam(sessionData[t.key]);
         const teamBots = botSlots.filter(bot => bot.team === t.key).map(normalizeBotSlot);
         document.getElementById(t.countEl).textContent = players.length + teamBots.length;
+        // Cập nhật tiêu đề panel theo team_names
+        const titleEl = document.getElementById(t.titleEl);
+        if (titleEl) {
+            const customName = rawNames[nameKeyMap[t.key]];
+            titleEl.textContent = `${t.emoji} ${customName || t.defaultName}`;
+        }
         const container = document.getElementById(t.el);
         container.innerHTML = '';
         players.forEach(p => {

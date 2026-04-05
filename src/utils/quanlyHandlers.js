@@ -89,14 +89,25 @@ async function handleButton(interaction, client) {
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // Xử lý listbc_view buttons (xem chi tiết T7/CN)
+        // Xử lý listbc_view buttons (xem chi tiết tất cả ngày)
         // ═══════════════════════════════════════════════════════════════
-        if (customId.startsWith('listbc_view_sat_') || customId.startsWith('listbc_view_sun_')) {
-            const day = customId.includes('_sat_') ? 'sat' : 'sun';
+        if (customId.startsWith('listbc_view_')) {
+            // Parse day từ customId: listbc_view_{day}_{guildId}
+            const parts = customId.split('_');
+            const day = parts[2]; // mon, tue, wed, thu, fri, sat, sun
             const guildId = interaction.guild.id;
             const db = require('../database/db');
             const { DAY_CONFIG, listbcDetailMessages } = require('./bangchienState');
             const listbcCommand = require('../commands/bangchien/listbangchien');
+
+            // Validate day hợp lệ
+            if (!day || !DAY_CONFIG[day]) {
+                await interaction.reply({
+                    content: `❌ Ngày không hợp lệ!`,
+                    flags: MessageFlags.Ephemeral
+                });
+                return true;
+            }
 
             const session = db.getActiveBangchienByDay(guildId, day);
             if (!session) {

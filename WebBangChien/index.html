@@ -200,7 +200,106 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
     0 0 40px rgba(200,162,44,.07);
   backdrop-filter:blur(24px) saturate(1.3);
   overflow:hidden;
-  /* Thêm border trên sáng hơn */
+  transition: all .35s cubic-bezier(.25,.46,.45,.94);
+}
+/* ── Collapsed: thu gọn thành mini bar ── */
+.mp-wrap.collapsed {
+  width: auto;
+  border-radius: 50px;
+  overflow: hidden;
+}
+.mp-wrap.collapsed .mp-body {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height .35s cubic-bezier(.25,.46,.45,.94), opacity .25s ease;
+}
+.mp-wrap:not(.collapsed) .mp-body {
+  max-height: 600px;
+  opacity: 1;
+  transition: max-height .4s cubic-bezier(.25,.46,.45,.94), opacity .3s ease .1s;
+}
+/* Mini bar — luôn hiện kể cả khi expanded */
+.mp-mini-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: default;
+  position: relative;
+}
+/* Nút collapse toggle */
+.mp-collapse-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(200,162,44,.7);
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  transition: all .25s;
+  flex-shrink: 0;
+  font-size: 13px;
+  padding: 0;
+}
+.mp-collapse-btn:hover { color: var(--gold); background: rgba(200,162,44,.12); }
+/* Arrow xoay khi mở/đóng */
+.mp-collapse-btn .mp-arrow {
+  display: inline-block;
+  transition: transform .3s cubic-bezier(.25,.46,.45,.94);
+  line-height: 1;
+}
+.mp-wrap:not(.collapsed) .mp-collapse-btn .mp-arrow { transform: rotate(180deg); }
+/* Info track nhỏ trên mini bar */
+.mp-mini-info {
+  flex: 1; min-width: 0;
+  overflow: hidden;
+}
+.mp-mini-track {
+  font-size: 10.5px; font-weight: 700;
+  color: rgba(240,220,160,.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mp-wrap.collapsed .mp-mini-info { display: none; }
+/* Nút play mini */
+.mp-mini-play {
+  background: none; border: 1px solid rgba(200,162,44,.4);
+  width: 32px; height: 32px;
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,245,210,.8);
+  transition: all .25s;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+}
+.mp-mini-play:hover {
+  background: rgba(200,162,44,.15);
+  border-color: rgba(200,162,44,.8);
+  transform: scale(1.1);
+}
+/* PLAYING state: nút sáng rực, thu hút chú ý */
+.mp-mini-play.playing {
+  background: linear-gradient(135deg, rgba(220,180,60,.4), rgba(150,90,0,.3));
+  border-color: rgba(220,180,60,.9);
+  color: #fff9c4;
+  animation: mpPlayGlow 1.8s ease-in-out infinite;
+  box-shadow:
+    0 0 8px rgba(220,180,60,.6),
+    0 0 16px rgba(220,180,60,.3),
+    inset 0 1px 2px rgba(255,255,255,.3);
+}
+@keyframes mpPlayGlow {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(220,180,60,.5), 0 0 14px rgba(220,180,60,.2), inset 0 1px 2px rgba(255,255,255,.3);
+    filter: drop-shadow(0 0 4px rgba(220,180,60,.5));
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(220,180,60,.9), 0 0 28px rgba(220,180,60,.5), inset 0 1px 2px rgba(255,255,255,.4);
+    filter: drop-shadow(0 0 10px rgba(220,180,60,.8)) drop-shadow(0 0 20px rgba(255,215,0,.4));
+  }
+}
+/* Stop mini btn */
+.mp-mini-stop {
+  display: none;
 }
 /* Dải sáng trên cùng */
 .mp-wrap::before{
@@ -947,7 +1046,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .map-box>.map-bg.hidden-map,.map-box .map-zoom-wrapper>.map-bg.hidden-map{display:none}
 
 /* ═══ MAP ICONS INTERACTIVE ═══ */
-.map-icons{position:absolute;z-index:1}
+/* map-icons phủ đúng trên ảnh bản đồ (tầng icon align 1:1 với tầng ảnh) */
+.map-icons{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
 .map-icon{position:absolute;cursor:pointer;transition:transform .25s ease, filter .25s ease;
   transform:translate(-50%,-50%);
   filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
@@ -1595,9 +1695,9 @@ html, body { overflow-x: hidden; }
         <div class="r-pane active" id="pane-map">
           <div class="map-box" id="mapBox">
             <!-- Container ôm sát tỉ lệ thực của ảnh để đồng bộ tọa độ -->
-            <div class="map-container" id="mapContainer" style="position:relative; display:inline-block; max-width:100%; max-height:100%;">
-              <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map" style="display:block; max-width:100%; max-height:100%; width:100%; height:auto; object-fit:contain; pointer-events:none;">
-              <div class="map-icons" id="mapIcons" style="position:absolute; inset:0;">
+            <div class="map-container" id="mapContainer" style="position:relative; width:100%; aspect-ratio:900/500; overflow:hidden;">
+              <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map" style="display:block; position:absolute; inset:0; width:100%; height:100%; object-fit:fill; pointer-events:none;">
+              <div class="map-icons" id="mapIcons" style="position:absolute; inset:0; width:100%; height:100%;">
               <!-- tower_blue -->
               <div class="map-icon tower" style="left:36%;top:15%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>
               <div class="map-icon tower" style="left:36%;top:50.5%" data-type="tower_blue" data-name="Tháp Xanh Trung"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Trung</span></div>
@@ -4957,70 +5057,90 @@ document.addEventListener('keydown', (e) => {
 
 <!-- ═══ MUSIC PLAYER — Embedded luôn hiện ═══ -->
 <audio id="mpAudio"></audio>
-<div class="mp-wrap" id="mpWrap">
-  <!-- Playlist tabs -->
-  <div class="mp-tabs">
-    <div class="mp-tab active" id="mpTab0" onclick="mpSwitchPl(0)">
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px; vertical-align:-2px"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg> Lang Gia OST
-    </div>
-    <div class="mp-tab" id="mpTab1" onclick="mpSwitchPl(1)">
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px; vertical-align:-2px"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg> EDM Drop
-    </div>
-  </div>
-  <!-- Art + Track info -->
-  <div class="mp-art-row">
-    <div class="mp-disc" id="mpDisc">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
-    </div>
-    <div class="mp-tinfo">
-      <div class="mp-tname" id="mpTname">Chọn nhạc...</div>
-      <div class="mp-tpl" id="mpTpl">Lang Gia OST</div>
-      <div class="mp-tidx" id="mpTidx"></div>
-    </div>
-  </div>
-  <!-- EQ bars -->
-  <div class="mp-eq" id="mpEq"></div>
-  <!-- Progress bar -->
-  <div class="mp-prog-wrap">
-    <div class="mp-prog-track" id="mpProgTrack">
-      <div class="mp-prog-fill" id="mpProgFill"></div>
-    </div>
-    <div class="mp-time-row">
-      <span id="mpTcur">0:00</span>
-      <span id="mpTtot">0:00</span>
-    </div>
-  </div>
-  <!-- Controls -->
-  <div class="mp-ctrls">
-    <button class="mp-cbtn" id="mpShuf" onclick="mpToggleShuf()" title="Shuffle">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+<div class="mp-wrap collapsed" id="mpWrap">
+
+  <!-- ── Mini Bar (luôn hiện, kể cả khi thu gọn) ── -->
+  <div class="mp-mini-bar">
+    <!-- Nút collapse: mũi tên lên/xuống -->
+    <button class="mp-collapse-btn" id="mpCollapseBtn" onclick="mpToggleCollapse()" title="Mở/thu gọn player">
+      <span class="mp-arrow">▲</span>
     </button>
-    <button class="mp-cbtn" onclick="mpPrev()" title="Bài trước">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-    </button>
-    <button class="mp-cbtn mp-play" id="mpPlayBtn" onclick="mpTogglePlay()">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-    </button>
-    <button class="mp-cbtn" onclick="mpNext()" title="Bài tiếp">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-    </button>
-    <button class="mp-cbtn" id="mpRep" onclick="mpToggleRep()" title="Lặp lại">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+    <!-- Tên bài (ẩn khi collapsed) -->
+    <div class="mp-mini-info">
+      <div class="mp-mini-track" id="mpMiniTrack">♪  Nhạc Lang Gia...</div>
+    </div>
+    <!-- Nút Play mini (luôn hiện kể cả thu gọn) -->
+    <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay()" title="Play / Pause">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
     </button>
   </div>
-  <!-- Volume -->
-  <div class="mp-vol">
-    <span class="mp-vol-lbl" id="mpVolLbl">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-    </span>
-    <input type="range" class="mp-vol-sl" id="mpVolSl" min="0" max="100" value="65"
-      oninput="mpSetVol(this.value)">
-  </div>
-  <!-- Playlist dropdown -->
-  <button class="mp-list-btn" onclick="mpToggleList()">
-    <span id="mpListArrow"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg></span> Danh sách (<span id="mpListCnt">0</span> bài)
-  </button>
-  <div class="mp-list" id="mpList"></div>
+
+  <!-- ── Full body (ẩn khi thu gọn) ── -->
+  <div class="mp-body">
+    <!-- Playlist tabs -->
+    <div class="mp-tabs">
+      <div class="mp-tab active" id="mpTab0" onclick="mpSwitchPl(0)">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px; vertical-align:-2px"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg> Lang Gia OST
+      </div>
+      <div class="mp-tab" id="mpTab1" onclick="mpSwitchPl(1)">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:2px; vertical-align:-2px"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg> EDM Drop
+      </div>
+    </div>
+    <!-- Art + Track info -->
+    <div class="mp-art-row">
+      <div class="mp-disc" id="mpDisc">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
+      </div>
+      <div class="mp-tinfo">
+        <div class="mp-tname" id="mpTname">Chọn nhạc...</div>
+        <div class="mp-tpl" id="mpTpl">Lang Gia OST</div>
+        <div class="mp-tidx" id="mpTidx"></div>
+      </div>
+    </div>
+    <!-- EQ bars -->
+    <div class="mp-eq" id="mpEq"></div>
+    <!-- Progress bar -->
+    <div class="mp-prog-wrap">
+      <div class="mp-prog-track" id="mpProgTrack">
+        <div class="mp-prog-fill" id="mpProgFill"></div>
+      </div>
+      <div class="mp-time-row">
+        <span id="mpTcur">0:00</span>
+        <span id="mpTtot">0:00</span>
+      </div>
+    </div>
+    <!-- Controls -->
+    <div class="mp-ctrls">
+      <button class="mp-cbtn" id="mpShuf" onclick="mpToggleShuf()" title="Shuffle">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+      </button>
+      <button class="mp-cbtn" onclick="mpPrev()" title="Bài trước">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
+      <button class="mp-cbtn mp-play" id="mpPlayBtn" onclick="mpTogglePlay()">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="mp-cbtn" onclick="mpNext()" title="Bài tiếp">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+      <button class="mp-cbtn" id="mpRep" onclick="mpToggleRep()" title="Lặp lại">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+      </button>
+    </div>
+    <!-- Volume -->
+    <div class="mp-vol">
+      <span class="mp-vol-lbl" id="mpVolLbl">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      </span>
+      <input type="range" class="mp-vol-sl" id="mpVolSl" min="0" max="100" value="65"
+        oninput="mpSetVol(this.value)">
+    </div>
+    <!-- Playlist dropdown -->
+    <button class="mp-list-btn" onclick="mpToggleList()">
+      <span id="mpListArrow"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg></span> Danh sách (<span id="mpListCnt">0</span> bài)
+    </button>
+    <div class="mp-list" id="mpList"></div>
+  </div><!-- /.mp-body -->
 </div>
 
 <script>
@@ -5261,6 +5381,9 @@ document.addEventListener('keydown', (e) => {
     $('mpTname').textContent=disp;
     $('mpTpl').textContent=pl.name;
     $('mpTidx').textContent='Bài '+(tIdx+1)+' / '+pl.tracks.length;
+    // Sync tên bài lên mini bar
+    const miniTrack = $('mpMiniTrack');
+    if (miniTrack) miniTrack.textContent = '♪  ' + disp;
     document.querySelectorAll('.mp-tab').forEach((t,i)=>t.classList.toggle('active',i===plIdx));
     renderList();
     if(play){
@@ -5268,6 +5391,7 @@ document.addEventListener('keydown', (e) => {
         $('mpPlayBtn').innerHTML=SVG_PAUSE;
         $('mpDisc').classList.add('spin');
         setEQ(true);
+        syncMiniPlay(true);
       }).catch(()=>{});
     }
   }
@@ -5298,6 +5422,16 @@ document.addEventListener('keydown', (e) => {
     buildShuf(PLAYLISTS[idx].tracks.length);
     loadTrack(idx, shuffle?shufOrder[0]:0, false);
   };
+  // Sync trạng thái nút mini play (playing/paused)
+  function syncMiniPlay(playing) {
+    const miniBtn = $('mpMiniPlay');
+    if (!miniBtn) return;
+    const SVG_PLAY_MINI = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+    const SVG_PAUSE_MINI = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+    miniBtn.innerHTML = playing ? SVG_PAUSE_MINI : SVG_PLAY_MINI;
+    miniBtn.classList.toggle('playing', playing);
+  }
+
   window.mpTogglePlay=function(){
     if(audio.paused){
       if(curIdx<0){
@@ -5309,13 +5443,22 @@ document.addEventListener('keydown', (e) => {
         $('mpPlayBtn').innerHTML=SVG_PAUSE;
         $('mpDisc').classList.add('spin');
         setEQ(true);
+        syncMiniPlay(true);
       }).catch(()=>{});
     } else {
       audio.pause();
       $('mpPlayBtn').innerHTML=SVG_PLAY;
       $('mpDisc').classList.remove('spin');
       setEQ(false);
+      syncMiniPlay(false);
     }
+  };
+
+  // Toggle collapse/expand player
+  window.mpToggleCollapse = function() {
+    const wrap = $('mpWrap');
+    if (!wrap) return;
+    wrap.classList.toggle('collapsed');
   };
   window.mpNext=function(){
     const len=PLAYLISTS[curPl].tracks.length;

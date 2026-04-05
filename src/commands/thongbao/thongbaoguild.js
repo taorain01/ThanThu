@@ -184,7 +184,7 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
 
         // Tìm ngày tương ứng trong tuần
         // notif.thu: 2=T2, 3=T3, ..., 7=T7, 8=CN
-        const targetDayOfWeek = notif.thu === 8 ? 0 : notif.thu; // Convert 8 to 0 for Sunday
+        const targetDayOfWeek = notif.thu === 8 ? 0 : notif.thu - 1; // Convert thu (2=T2/Mon→1, 7=T7/Sat→6) to JS getDay()
         const weekDay = weekDays.find(wd => wd.dayOfWeek === targetDayOfWeek);
         if (weekDay) {
             const timeStr = `${notif.hours.toString().padStart(2, '0')}:${notif.minutes.toString().padStart(2, '0')}`;

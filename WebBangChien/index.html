@@ -1722,8 +1722,15 @@ try {
     // CDN v2 export: window.supabase hoặc window.supabase.createClient
     const createFn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
     if (createFn) {
-        sb = createFn(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('[LangGia] ✅ Supabase client khởi tạo thành công');
+        sb = createFn(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                flowType: 'implicit',        // bypass PKCE server-side exchange (fix upstream timeout)
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: true
+            }
+        });
+        console.log('[LangGia] ✅ Supabase client khởi tạo thành công (implicit flow)');
     } else {
         console.error('[LangGia] ❌ Supabase CDN chưa load - window.supabase =', window.supabase);
     }

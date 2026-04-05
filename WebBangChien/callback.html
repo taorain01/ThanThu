@@ -70,18 +70,41 @@ function handleSession(session) {
 
 // ── Xử lý URL hash trực tiếp (Fix lỗi onAuthStateChange không fire SIGNED_IN) ──
 const hash = window.location.hash;
-if (hash && hash.includes('access_token')) {
-  console.log('[Callback] Phát hiện access_token, xử lý hash trực tiếp...');
+if (hash) {
   const hashParams = new URLSearchParams(hash.substring(1));
-  const access_token = hashParams.get('access_token');
-  const refresh_token = hashParams.get('refresh_token');
   
-  if (access_token && refresh_token) {
-    sb.auth.setSession({ access_token, refresh_token }).then(({ data }) => {
-      if (data?.session) {
-        handleSession(data.session);
-      }
-    });
+  // Bắt lỗi nếu user ấn Hủy / Cancel trên Discord (tránh bị timeout 10s)
+  if (hashParams.has('error')) {
+    const errorMsg = hashParams.get('error_description') || hashParams.get('error') || 'Đăng nhập bị từ chối';
+    console.warn('[Callback] Lỗi từ OAuth:', errorMsg);
+    document.getElementById('spinner').style.display = 'none';
+    const msgEl = document.getElementById('msg');
+    msgEl.style.color = '#fca5a5';
+    msgEl.textContent = '❌ Lỗi: ' + errorMsg;
+
+    if (window.opener) {
+      window.opener.postMessage({
+        type: 'DISCORD_AUTH_ERROR',
+        error: errorMsg
+      }, window.location.origin);
+      setTimeout(() => window.close(), 3000);
+    } else {
+      setTimeout(() => window.location.href = './index.html', 3000);
+    }
+  } 
+  // Xử lý access_token bình thường
+  else if (hashParams.has('access_token')) {
+    console.log('[Callback] Phát hiện access_token, xử lý hash trực tiếp...');
+    const access_token = hashParams.get('access_token');
+    const refresh_token = hashParams.get('refresh_token');
+    
+    if (access_token && refresh_token) {
+      sb.auth.setSession({ access_token, refresh_token }).then(({ data }) => {
+        if (data?.session) {
+          handleSession(data.session);
+        }
+      });
+    }
   }
 }
 

@@ -1851,15 +1851,26 @@ async function checkAuth() {
 
     // ── Xử lý URL hash trực tiếp (Fix lỗi Supabase v2 trên mobile) ──
     const hash = window.location.hash;
-    if (hash && hash.includes('access_token')) {
-        console.log('[LangGia] Phát hiện access_token trên URL, đang xử lý trực tiếp...');
+    if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1));
-        const access_token = hashParams.get('access_token');
-        const refresh_token = hashParams.get('refresh_token');
-        if (access_token && refresh_token) {
-            await sb.auth.setSession({ access_token, refresh_token });
-            // Xóa hash trên URL để URL sạch đẹp
+        
+        // Nếu user từ chối đăng nhập
+        if (hashParams.has('error')) {
+            const errorMsg = hashParams.get('error_description') || hashParams.get('error') || 'Đăng nhập bị từ chối';
+            alert('❌ Lỗi từ Discord: ' + errorMsg);
+            // Dọn URL
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        // Có token đăng nhập
+        else if (hashParams.has('access_token')) {
+            console.log('[LangGia] Phát hiện access_token trên URL, đang xử lý trực tiếp...');
+            const access_token = hashParams.get('access_token');
+            const refresh_token = hashParams.get('refresh_token');
+            if (access_token && refresh_token) {
+                await sb.auth.setSession({ access_token, refresh_token });
+                // Xóa hash trên URL để URL sạch đẹp
+                window.history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
         }
     }
 

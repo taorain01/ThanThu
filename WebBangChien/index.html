@@ -1048,20 +1048,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 /* ═══ MAP ICONS INTERACTIVE ═══ */
 /* map-icons phủ đúng trên ảnh bản đồ (tầng icon align 1:1 với tầng ảnh) */
 .map-icons{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
-/* Icon dùng % tương đối theo container → không bị lệch khi zoom/responsive
-   Bản đồ gốc 900×500: tower/goose/tree=72px→8%, boss=60px→6.67%, dot=52px→5.78% */
 .map-icon{position:absolute;cursor:pointer;transition:transform .25s ease, filter .25s ease;
   transform:translate(-50%,-50%);
   filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
 .map-icon:hover{transform:translate(-50%,-50%) scale(1.4);
   filter:drop-shadow(0 0 2px rgba(255,255,255,1)) drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(4px 5px 12px rgba(0,0,0,.85)) brightness(1.15)}
-.map-icon.tower{width:8%;aspect-ratio:1;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.56)}
+.map-icon.tower{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.56)}
 .map-icon.tower[data-type="tower_red"]{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.09)}
-.map-icon.goose{width:8%;aspect-ratio:1;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.63)}
+.map-icon.goose{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.63)}
 .map-icon.goose[data-type="goose_red"]{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.14)}
-.map-icon.boss{width:6.67%;aspect-ratio:1;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
-.map-icon.dot{width:5.78%;aspect-ratio:1;filter:drop-shadow(0 0 1.3px rgba(255,255,255,.9)) drop-shadow(0 0 0.8px rgba(255,255,255,.8)) drop-shadow(3px 4px 1px rgba(0,0,0,.8)) brightness(1.97) saturate(1.1) hue-rotate(54deg)}
-.map-icon.tree{width:8%;aspect-ratio:1;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.58)}
+.map-icon.boss{width:calc(60px * var(--map-scale,1));height:calc(60px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
+.map-icon.dot{width:calc(52px * var(--map-scale,1));height:calc(55px * var(--map-scale,1));filter:drop-shadow(0 0 1.3px rgba(255,255,255,.9)) drop-shadow(0 0 0.8px rgba(255,255,255,.8)) drop-shadow(3px 4px 1px rgba(0,0,0,.8)) brightness(1.97) saturate(1.1) hue-rotate(54deg)}
+.map-icon.tree{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1));filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.58)}
 .map-icon.tree[data-type="tree_red"]{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.11)}
 .map-icon-tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:4px 10px;
   background:rgba(0,0,0,.85);color:#fff;font-size:11px;font-weight:600;border-radius:6px;white-space:nowrap;
@@ -1701,33 +1699,33 @@ html, body { overflow-x: hidden; }
               <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map" style="display:block; position:absolute; inset:0; width:100%; height:100%; object-fit:fill; pointer-events:none;">
               <div class="map-icons" id="mapIcons" style="position:absolute; inset:0; width:100%; height:100%;">
               <!-- tower_blue -->
-              <div class="map-icon tower" style="left:36%;top:15%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>
-              <div class="map-icon tower" style="left:36%;top:50.5%" data-type="tower_blue" data-name="Tháp Xanh Trung"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Trung</span></div>
-              <div class="map-icon tower" style="left:36%;top:84.5%" data-type="tower_blue" data-name="Tháp Xanh Nam"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Nam</span></div>
+              <div class="map-icon tower" style="left:37.5%;top:17.5%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>
+              <div class="map-icon tower" style="left:37.5%;top:52.5%" data-type="tower_blue" data-name="Tháp Xanh Trung"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Trung</span></div>
+              <div class="map-icon tower" style="left:37.5%;top:87%" data-type="tower_blue" data-name="Tháp Xanh Nam"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Nam</span></div>
               <!-- tower_red -->
-              <div class="map-icon tower" style="left:62.5%;top:15%" data-type="tower_red" data-name="Tháp Đỏ Bắc"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Bắc</span></div>
-              <div class="map-icon tower" style="left:62.5%;top:50.5%" data-type="tower_red" data-name="Tháp Đỏ Trung"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Trung</span></div>
-              <div class="map-icon tower" style="left:62.5%;top:84.5%" data-type="tower_red" data-name="Tháp Đỏ Nam"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Nam</span></div>
+              <div class="map-icon tower" style="left:64%;top:17.5%" data-type="tower_red" data-name="Tháp Đỏ Bắc"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Bắc</span></div>
+              <div class="map-icon tower" style="left:64%;top:52.5%" data-type="tower_red" data-name="Tháp Đỏ Trung"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Trung</span></div>
+              <div class="map-icon tower" style="left:64%;top:87%" data-type="tower_red" data-name="Tháp Đỏ Nam"><img src="./anh/icons/tower_red.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Đỏ Nam</span></div>
               <!-- boss -->
-              <div class="map-icon boss" style="left:50%;top:30.5%" data-type="boss" data-name="Boss Bắc"><img src="./anh/icons/sun_boss.png" width="100%"><span class="map-icon-tooltip">☀ Boss Bắc</span></div>
-              <div class="map-icon boss" style="left:50%;top:70.5%" data-type="boss" data-name="Boss Nam"><img src="./anh/icons/sun_boss.png" width="100%"><span class="map-icon-tooltip">☀ Boss Nam</span></div>
+              <div class="map-icon boss" style="left:50.5%;top:33%" data-type="boss" data-name="Boss Bắc"><img src="./anh/icons/sun_boss.png" width="100%"><span class="map-icon-tooltip">☀ Boss Bắc</span></div>
+              <div class="map-icon boss" style="left:50.5%;top:72.5%" data-type="boss" data-name="Boss Nam"><img src="./anh/icons/sun_boss.png" width="100%"><span class="map-icon-tooltip">☀ Boss Nam</span></div>
               <!-- goose_blue -->
-              <div class="map-icon goose" style="left:8.5%;top:51.5%" data-type="goose_blue" data-name="Ngỗng Xanh"><img src="./anh/icons/goose_blue.png" width="100%"><span class="map-icon-tooltip">🦆 Ngỗng Xanh</span></div>
+              <div class="map-icon goose" style="left:10%;top:54%" data-type="goose_blue" data-name="Ngỗng Xanh"><img src="./anh/icons/goose_blue.png" width="100%"><span class="map-icon-tooltip">🦆 Ngỗng Xanh</span></div>
               <!-- goose_red -->
-              <div class="map-icon goose" style="left:90.5%;top:50%" data-type="goose_red" data-name="Ngỗng Đỏ"><img src="./anh/icons/goose_red.png" width="100%"><span class="map-icon-tooltip">🦆 Ngỗng Đỏ</span></div>
+              <div class="map-icon goose" style="left:91.5%;top:52.5%" data-type="goose_red" data-name="Ngỗng Đỏ"><img src="./anh/icons/goose_red.png" width="100%"><span class="map-icon-tooltip">🦆 Ngỗng Đỏ</span></div>
               <!-- tree_blue -->
-              <div class="map-icon tree" style="left:4%;top:51%" data-type="tree_blue" data-name="Cây Xanh"><img src="./anh/icons/tree_blue.png" width="100%"><span class="map-icon-tooltip">🌳 Cây Xanh</span></div>
+              <div class="map-icon tree" style="left:5.5%;top:53.5%" data-type="tree_blue" data-name="Cây Xanh"><img src="./anh/icons/tree_blue.png" width="100%"><span class="map-icon-tooltip">🌳 Cây Xanh</span></div>
               <!-- tree_red -->
-              <div class="map-icon tree" style="left:95.5%;top:50%" data-type="tree_red" data-name="Cây Đỏ"><img src="./anh/icons/tree_red.png" width="100%"><span class="map-icon-tooltip">🌳 Cây Đỏ</span></div>
+              <div class="map-icon tree" style="left:96.5%;top:52.5%" data-type="tree_red" data-name="Cây Đỏ"><img src="./anh/icons/tree_red.png" width="100%"><span class="map-icon-tooltip">🌳 Cây Đỏ</span></div>
               <!-- dot -->
-              <div class="map-icon dot" style="left:29.5%;top:37.5%" data-type="dot" data-name="Điểm B1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B1</span></div>
-              <div class="map-icon dot" style="left:40.5%;top:37%" data-type="dot" data-name="Điểm B2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B2</span></div>
-              <div class="map-icon dot" style="left:57.5%;top:27.5%" data-type="dot" data-name="Điểm B4"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B4</span></div>
-              <div class="map-icon dot" style="left:69%;top:37.5%" data-type="dot" data-name="Điểm C3"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C3</span></div>
-              <div class="map-icon dot" style="left:29%;top:64.5%" data-type="dot" data-name="Điểm C1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C1</span></div>
-              <div class="map-icon dot" style="left:69.5%;top:65%" data-type="dot" data-name="Điểm C2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C2</span></div>
-              <div class="map-icon dot" style="left:40.5%;top:74%" data-type="dot" data-name="Điểm D1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm D1</span></div>
-              <div class="map-icon dot" style="left:58.5%;top:65.5%" data-type="dot" data-name="Điểm D2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm D2</span></div>
+              <div class="map-icon dot" style="left:31%;top:40%" data-type="dot" data-name="Điểm B1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B1</span></div>
+              <div class="map-icon dot" style="left:42%;top:39.5%" data-type="dot" data-name="Điểm B2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B2</span></div>
+              <div class="map-icon dot" style="left:59%;top:30%" data-type="dot" data-name="Điểm B4"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm B4</span></div>
+              <div class="map-icon dot" style="left:70.5%;top:40%" data-type="dot" data-name="Điểm C3"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C3</span></div>
+              <div class="map-icon dot" style="left:30.5%;top:67%" data-type="dot" data-name="Điểm C1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C1</span></div>
+              <div class="map-icon dot" style="left:71%;top:67.5%" data-type="dot" data-name="Điểm C2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm C2</span></div>
+              <div class="map-icon dot" style="left:42%;top:76.5%" data-type="dot" data-name="Điểm D1"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm D1</span></div>
+              <div class="map-icon dot" style="left:60%;top:68%" data-type="dot" data-name="Điểm D2"><img src="./anh/icons/dot_red.png" width="100%"><span class="map-icon-tooltip">● Điểm D2</span></div>
             </div>
             <!-- Map giấy (background-image, chỉ đổi ảnh nền, icon giữ nguyên) -->
             <div class="map-bg-giay" id="mapBgGiay"></div>

@@ -106,7 +106,7 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         }
 
         const nameDisplay = gameName ? `<@${r.id}> (${gameName})` : `<@${r.id}>`;
-        const leaderIcon = r.isLeader || r.isTeamLeader ? ' 👑' : '';
+        const leaderIcon = r.isTeamLeader ? ' 👑' : '';
         return `${index}. ${roleDisplay}${subTypeTag} ${nameDisplay}${leaderIcon}`;
     }
 

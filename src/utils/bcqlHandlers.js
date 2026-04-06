@@ -261,7 +261,7 @@ async function handleBcqlButton(interaction) {
             return team.map((p, i) => {
                 const role = getMemberRole(p.id);
                 const icon = roleEmojis[role] || '❓';
-                const leader = p.isLeader || p.isTeamLeader ? ' 👑' : '';
+                const leader = p.isTeamLeader ? ' 👑' : '';
                 return `${startNum + i}. ${icon} <@${p.id}>${leader}`;
             }).join('\n');
         }

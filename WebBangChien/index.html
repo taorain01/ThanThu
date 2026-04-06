@@ -2247,10 +2247,10 @@ async function checkAuth() {
     try {
         const { data: uData } = await sb
             .from('bc_users')
-            .select('position')
+            .select('position, lang_gia_member')
             .eq('discord_id', meta.provider_id)
             .maybeSingle(); // trả null nếu không tìm thấy (không throw error)
-        if (uData) {
+        if (uData && uData.lang_gia_member === true) {
             isLangGiaMember = true;
             if (uData.position) window.currentUserPosition = uData.position;
         }

@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS bc_users (
     position TEXT DEFAULT 'mem',
     sub_role TEXT,
     guild_id TEXT,
+    lang_gia_member BOOLEAN DEFAULT false,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

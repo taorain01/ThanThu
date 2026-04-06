@@ -655,7 +655,7 @@ module.exports = {
         try {
           const allUsers = db.getAllUsers ? db.getAllUsers() : [];
           if (allUsers.length > 0) {
-            await supaSync.syncUsers(allUsers, guild.id);
+            await supaSync.syncUsers(allUsers, guild.id, guild);
             console.log(`[Supabase] Đã sync ${allUsers.length} users khi start`);
           }
         } catch (userSyncErr) {

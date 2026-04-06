@@ -241,23 +241,41 @@ async function deleteAllBCSessions(guildId) {
 /**
  * Sync danh sách users lên Supabase (batch)
  * Gọi khi bot start hoặc khi có thay đổi thành viên
- * @param {Array} users - Mảng user objects từ SQLite
+ * @param {Array} users - Mang user objects tu SQLite
  * @param {string} guildId - Guild ID
+ * @param {Object} guild - Discord guild object (de kiem tra role LangGia)
  */
-async function syncUsers(users, guildId) {
+async function syncUsers(users, guildId, guild = null) {
     if (!isReady()) return;
     try {
-        const records = users.map(u => ({
-            discord_id: u.discord_id,
-            discord_name: u.discord_name,
-            game_username: u.game_username,
-            game_uid: u.game_uid,
-            position: u.position || 'mem',
-            sub_role: u.sub_role || null,
-            guild_id: guildId
-        }));
+        // Tim role LangGia trong Discord guild
+        const langGiaRole = guild?.roles?.cache?.find(r => r.name === 'LangGia');
 
-        // Upsert từng batch 50 records
+        const records = [];
+        for (const u of users) {
+            let hasLangGia = false;
+            if (langGiaRole && guild) {
+                try {
+                    const member = guild.members.cache.get(u.discord_id);
+                    if (member) {
+                        hasLangGia = member.roles.cache.has(langGiaRole.id);
+                    }
+                } catch (e) {}
+            }
+
+            records.push({
+                discord_id: u.discord_id,
+                discord_name: u.discord_name,
+                game_username: u.game_username,
+                game_uid: u.game_uid,
+                position: u.position || 'mem',
+                sub_role: u.sub_role || null,
+                guild_id: guildId,
+                lang_gia_member: hasLangGia
+            });
+        }
+
+        // Upsert tung batch 50 records
         for (let i = 0; i < records.length; i += 50) {
             const batch = records.slice(i, i + 50);
             const { error } = await supabase
@@ -265,23 +283,39 @@ async function syncUsers(users, guildId) {
                 .upsert(batch, { onConflict: 'discord_id' });
 
             if (error) {
-                console.error(`[Supabase] ❌ Sync users batch ${i} lỗi:`, error.message);
+                console.error(`[Supabase] Sync users batch ${i} loi:`, error.message);
             }
         }
-        console.log(`[Supabase] ✅ Sync ${records.length} users thành công`);
+
+        const memberCount = records.filter(r => r.lang_gia_member).length;
+        console.log(`[Supabase] Sync ${records.length} users (${memberCount} co role LangGia)`);
     } catch (err) {
-        console.error('[Supabase] ❌ syncUsers exception:', err.message);
+        console.error('[Supabase] syncUsers exception:', err.message);
     }
 }
 
 /**
- * Sync 1 user duy nhất
- * @param {Object} user - User object từ SQLite
+ * Sync 1 user duy nhat
+ * @param {Object} user - User object tu SQLite
  * @param {string} guildId - Guild ID
+ * @param {Object} guild - Discord guild object (de kiem tra role LangGia)
  */
-async function syncOneUser(user, guildId) {
+async function syncOneUser(user, guildId, guild = null) {
     if (!isReady()) return;
     try {
+        // Kiem tra role LangGia
+        let hasLangGia = false;
+        if (guild) {
+            const langGiaRole = guild.roles?.cache?.find(r => r.name === 'LangGia');
+            if (langGiaRole) {
+                try {
+                    const member = guild.members.cache.get(user.discord_id)
+                        || await guild.members.fetch(user.discord_id).catch(() => null);
+                    if (member) hasLangGia = member.roles.cache.has(langGiaRole.id);
+                } catch (e) {}
+            }
+        }
+
         const { error } = await supabase
             .from('bc_users')
             .upsert({
@@ -291,11 +325,12 @@ async function syncOneUser(user, guildId) {
                 game_uid: user.game_uid,
                 position: user.position || 'mem',
                 sub_role: user.sub_role || null,
-                guild_id: guildId
+                guild_id: guildId,
+                lang_gia_member: hasLangGia
             }, { onConflict: 'discord_id' });
 
         if (error) {
-            console.error('[Supabase] ❌ Sync user lỗi:', error.message);
+            console.error('[Supabase] Sync user loi:', error.message);
         }
     } catch (err) {
         console.error('[Supabase] ❌ syncOneUser exception:', err.message);

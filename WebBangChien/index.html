@@ -3843,7 +3843,7 @@ function buildSmartPlayerTimeline(playerId, sortedMarks, globalNotes, roster) {
                     : `Được set đứng tại ${currentLane}`;
                 events.push({
                     time: markTime, type: 'position', icon: '📍',
-                    text: posText, lane: currentLane, markIdx: i
+                    text: posText, lane: currentLane, markIdx: i, linkToMap: true
                 });
                 inheritedLane = currentLane;
                 firstAppearance = false;
@@ -3870,7 +3870,7 @@ function buildSmartPlayerTimeline(playerId, sortedMarks, globalNotes, roster) {
             const icon = t.scope === 'all' ? '📢' : t.scope === 'role' ? '🎭' : t.scope === 'team' ? '👥' : t.scope === 'weapon' ? '⚔️' : '📝';
             events.push({
                 time: taskTime, type: 'note', icon,
-                text: t.text, markIdx: i, taskScope: t.scope
+                text: t.text, markIdx: i, taskScope: t.scope, linkToMap: true
             });
         });
     }
@@ -3894,7 +3894,7 @@ function buildSmartPlayerTimeline(playerId, sortedMarks, globalNotes, roster) {
             events.push({
                 time: bossTime, type: 'boss', icon: '👑',
                 text: `Hỗ trợ clear ${SMART_BOSS_LABELS[eventType]}`,
-                markIdx: i
+                markIdx: i, linkToMap: true
             });
         });
     });

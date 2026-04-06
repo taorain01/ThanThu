@@ -3969,18 +3969,19 @@ async function loadTasksTab() {
     let parsed = null;
 
     if (sb) {
-        // Fetch tactics data từ Supabase
-        const { data, error } = await sb.from('bc_tactics')
+        // Fetch tactics data từ Supabase (dùng limit(1) thay vì maybeSingle để tránh lỗi khi có nhiều rows)
+        const { data: rows, error } = await sb.from('bc_tactics')
             .select('markers')
             .eq('guild_id', GUILD_ID)
             .eq('day', currentDay)
-            .maybeSingle();
+            .limit(1);
 
-        if (error || !data?.markers) {
+        const tacticsRow = Array.isArray(rows) ? rows[0] : rows;
+        if (error || !tacticsRow?.markers) {
             container.innerHTML = '<div class="task-empty"><div style="font-size:28px;opacity:.3;margin-bottom:8px">📋</div>Chưa có chiến thuật cho ngày này</div>';
             return;
         }
-        parsed = data.markers;
+        parsed = tacticsRow.markers;
         if (typeof parsed === 'string') try { parsed = JSON.parse(parsed); } catch(e) { parsed = null; }
         if (parsed?.markers) parsed = parsed.markers;
     } else {
@@ -4355,21 +4356,22 @@ async function loadTacticsForViewer() {
 
     try {
         console.log('[TV-DEBUG] 🐛 Đang query bc_tactics... guild:', GUILD_ID, 'day:', currentDay);
-        const { data, error } = await sb.from('bc_tactics')
+        const { data: rows, error } = await sb.from('bc_tactics')
             .select('markers')
             .eq('guild_id', GUILD_ID)
             .eq('day', currentDay)
-            .maybeSingle();
+            .limit(1);
 
-        console.log('[TV-DEBUG] 🐛 Query result: error=', error, '| data=', data ? 'EXISTS' : 'NULL', '| markers=', data?.markers ? typeof data.markers : 'undefined');
+        const tacticsRow = Array.isArray(rows) ? rows[0] : rows;
+        console.log('[TV-DEBUG] 🐛 Query result: error=', error, '| rows=', rows?.length || 0, '| tacticsRow=', tacticsRow ? 'EXISTS' : 'NULL', '| markers=', tacticsRow?.markers ? typeof tacticsRow.markers : 'undefined');
 
-        if (error || !data?.markers) {
+        if (error || !tacticsRow?.markers) {
             console.warn('[TV-DEBUG] ❌ HIDDEN: error hoặc không có markers →', error?.message || 'no markers');
             tvHideAll();
             return;
         }
 
-        let parsed = data.markers;
+        let parsed = tacticsRow.markers;
         if (typeof parsed === 'string') try { parsed = JSON.parse(parsed); } catch(e) { parsed = null; }
         if (parsed?.markers) parsed = parsed.markers;
 

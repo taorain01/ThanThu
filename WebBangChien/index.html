@@ -1684,6 +1684,7 @@ html, body { overflow-x: hidden; }
 /* ═══ GUEST SCREEN ═══ */
 .guest-screen{position:fixed;inset:0;z-index:900;background:linear-gradient(135deg,#060a08,#0a1a0f 45%,#0d1f14);display:none;flex-direction:column;align-items:center;justify-content:center;overflow-y:auto;animation:gsFadeIn .6s ease}
 .guest-screen.active{display:flex}
+.gs-bg{position:fixed;top:-10%;left:-10%;width:120%;height:120%;background:url('./anh/bg_thien_van_cung_sang.png') center/cover no-repeat;filter:blur(24px) brightness(0.7) saturate(1.2);z-index:-1;transition:transform 0.1s ease-out;pointer-events:none}
 @keyframes gsFadeIn{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:scale(1)}}
 .gs-body{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;padding:40px;gap:80px;width:100%;max-width:1100px}
 .gs-left{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:24px;width:100%;max-width:440px}
@@ -1787,14 +1788,17 @@ html, body { overflow-x: hidden; }
 
 <!-- ═══ GUEST SCREEN (đăng nhập nhưng không có role LangGia) ═══ -->
 <div class="guest-screen" id="guestScreen">
+  <div class="gs-bg" id="gsBg"></div>
   <!-- Body -->
   <div class="gs-body">
     <!-- UI Game (Bên Trái) -->
     <div class="gs-left">
       <!-- Tiêu đề -->
-      <div>
-        <div class="gs-main-title">THIÊN VẬN CUNG</div>
-        <div class="gs-sub-title">「 Trắc Thiên Cơ • Nhận Bộc Lộc 」</div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 5px;">
+        <div class="guild-name-wrapper" style="transform: scale(1.4); margin-bottom: 5px;">
+          <div class="guild-name" data-text="LANG GIA" style="font-size: 26px;">LANG GIA</div>
+        </div>
+        <div class="gs-sub-title" style="margin-top: 5px; font-weight: 700; color: var(--gold); background: rgba(251,191,36,0.1); padding: 5px 14px; border-radius: 20px; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; user-select: none;">MINIGAME</div>
       </div>
       <!-- Stats -->
       <div class="gs-stats-row">
@@ -1808,8 +1812,8 @@ html, body { overflow-x: hidden; }
         <div class="gs-game-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>ĐỒNG XU TIÊN TRI</div>
         <div class="gs-game-hint">Đặt cược 1/5 xu hiện có · Thắng streak ×3 nhận thêm 50% bonus</div>
         <div class="gs-choices">
-          <button class="gs-cbtn h" id="gsBtnH" onclick="gsFlipCoin('h')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg></span><span class="ct">Ngửa</span></button>
-          <button class="gs-cbtn t" id="gsBtnT" onclick="gsFlipCoin('t')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg></span><span class="ct">Sấp</span></button>
+          <button class="gs-cbtn h" id="gsBtnH" onclick="gsFlipCoin('h')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg></span><span class="ct">Sói Phải</span></button>
+          <button class="gs-cbtn t" id="gsBtnT" onclick="gsFlipCoin('t')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg></span><span class="ct">Sói Trái</span></button>
         </div>
         <div class="gs-rbox" id="gsRbox"><div class="gs-rtxt" style="color:var(--text3)">Chọn mặt đồng xu để bắt đầu ✨</div></div>
       </div>
@@ -1823,8 +1827,8 @@ html, body { overflow-x: hidden; }
     <div class="gs-right">
       <div class="gs-coin-wrap">
         <div class="coin-3d idle" id="gsCoin3d">
-          <div class="coin-face coin-face-front"><img src="./anh/langgia_icon.png" alt="Lang Gia"></div>
-          <div class="coin-face coin-face-back"><img src="./anh/langgia_icon.png" alt="Lang Gia"></div>
+          <div class="coin-face coin-face-front"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;"></div>
+          <div class="coin-face coin-face-back"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;"></div>
         </div>
       </div>
     </div>
@@ -2286,6 +2290,17 @@ let gsFlipping = false;
 
 function initGuestScreen() {
     gsUpdateStats();
+    const bg = document.getElementById('gsBg');
+    if (bg) {
+        document.addEventListener('mousemove', (e) => {
+            const gs = document.getElementById('guestScreen');
+            if (gs && gs.classList.contains('active')) {
+                const x = (e.clientX / window.innerWidth - 0.5) * 35;
+                const y = (e.clientY / window.innerHeight - 0.5) * 35;
+                bg.style.transform = `translate(${-x}px, ${-y}px) scale(1.05)`;
+            }
+        });
+    }
 }
 
 function gsUpdateStats() {
@@ -2327,7 +2342,7 @@ function gsFlipCoin(choice) {
         if (coin) coin.className = 'coin-3d ' + (result === 'h' ? 'gs-land-h' : 'gs-land-t');
         setTimeout(() => {
             const rb = document.getElementById('gsRbox');
-            const resLabel = r => r === 'h' ? '🌕 NGỬA' : '🌑 SẤP';
+            const resLabel = r => r === 'h' ? '🐺 SÓI PHẢI' : '🐺 SÓI TRÁI';
             if (won) {
                 const bonus = gsStreak >= 2 ? Math.floor(bet * 0.5) : 0;
                 gsXu += bet + bonus; gsWins++;

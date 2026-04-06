@@ -421,7 +421,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 
 /* ═══ PANEL PHẢI — Nhiệm Vụ ═══ */
 .panel-right{width:var(--panel-w);background:var(--bg2);border-left:1px solid var(--border);
-  display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;overflow-x:hidden;padding-bottom:0}
+.panel-right::-webkit-scrollbar{width:4px}
+.panel-right::-webkit-scrollbar-thumb{background:rgba(34,197,94,.2);border-radius:2px}
+.panel-right::-webkit-scrollbar-thumb:hover{background:rgba(34,197,94,.3)}
 .note-section{padding:10px 12px;border-bottom:1px solid var(--border)}
 .note-section-title{font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;
   letter-spacing:.8px;margin-bottom:6px;display:flex;align-items:center;gap:4px}
@@ -8189,7 +8192,6 @@ function initMapRectSelect() {
     if (!container || !isLeader) return;
 
     container.addEventListener('mousedown', e => {
-        if (gamePhase === 'setup') return;
         if (e.button !== 0) return;
         // Chỉ bắt khi click vào vùng trống (không phải player/badge)
         if (e.target.closest('.map-player, .map-enemy, .mg-badge')) return;
@@ -8240,7 +8242,6 @@ function initMapRectSelect() {
 
     // Ctrl+Click trên map-player/badge đã selected → bỏ chọn
     container.addEventListener('click', e => {
-        if (gamePhase === 'setup') return;
         if (!(e.ctrlKey || e.metaKey)) {
             // Click thường không trên player → bỏ chọn tất cả
             if (!window._rectJustFinished && !e.target.closest('.map-player, .map-enemy, .mg-badge') && (mapSelectedIds.size > 0 || enemyMapSelectedIds.size > 0)) {
@@ -8679,7 +8680,6 @@ function renderSinglePlayer(layer, p) {
     // Kéo thả trên map
     if (isLeader) {
         el.addEventListener('mousedown', e => {
-            if (gamePhase === 'setup') return;
             if (e.button !== 0) return;
             // Ctrl+Click: toggle chọn trên map
             if (e.ctrlKey || e.metaKey) {
@@ -8698,7 +8698,6 @@ function renderSinglePlayer(layer, p) {
         });
         // Chuột phải trên player
         el.addEventListener('contextmenu', e => {
-            if (gamePhase === 'setup') return;
             e.preventDefault(); e.stopPropagation();
             // Nếu player thuộc nhóm đang selected → hiện menu nhóm
             if (mapSelectedIds.size > 1 && mapSelectedIds.has(p.id)) {

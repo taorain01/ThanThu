@@ -3823,43 +3823,55 @@ function buildSmartPlayerTimeline(playerId, sortedMarks, globalNotes, roster) {
     let firstAppearance = true;
     const markLaneMap = {};
 
+    // Set theo dõi taskId đã xử lý để chống lặp
+    const addedTaskIds = new Set();
+
     for (let i = 0; i < sortedMarks.length; i++) {
         const mark = sortedMarks[i];
         const markTime = normalizeTaskTimeValue(mark.time);
         const playerInMark = (mark.players || []).find(p => p.id === playerId);
-        if (!playerInMark) continue;
 
-        const currentLane = positionToLane(playerInMark.x, playerInMark.y);
-        markLaneMap[markTime] = currentLane;
+        // === Xử lý vị trí (chỉ khi player có trên map) ===
+        if (playerInMark) {
+            const currentLane = positionToLane(playerInMark.x, playerInMark.y);
+            markLaneMap[markTime] = currentLane;
 
-        if (firstAppearance) {
-            const tower = findPlayerTowerGuard(mark, playerId);
-            const posText = tower
-                ? `Được set đứng trên trụ để phòng thủ trụ ${tower.label}`
-                : `Được set đứng tại ${currentLane}`;
-            events.push({
-                time: markTime, type: 'position', icon: '📍',
-                text: posText, lane: currentLane, markIdx: i
-            });
-            inheritedLane = currentLane;
-            firstAppearance = false;
-        } else if (currentLane !== inheritedLane) {
-            events.push({
-                time: markTime, type: 'move', icon: '🚶',
-                text: `Di chuyển sang ${currentLane}`,
-                lane: currentLane, markIdx: i, linkToMap: true
-            });
-            inheritedLane = currentLane;
+            if (firstAppearance) {
+                const tower = findPlayerTowerGuard(mark, playerId);
+                const posText = tower
+                    ? `Được set đứng trên trụ để phòng thủ trụ ${tower.label}`
+                    : `Được set đứng tại ${currentLane}`;
+                events.push({
+                    time: markTime, type: 'position', icon: '📍',
+                    text: posText, lane: currentLane, markIdx: i
+                });
+                inheritedLane = currentLane;
+                firstAppearance = false;
+            } else if (currentLane !== inheritedLane) {
+                events.push({
+                    time: markTime, type: 'move', icon: '🚶',
+                    text: `Di chuyển sang ${currentLane}`,
+                    lane: currentLane, markIdx: i, linkToMap: true
+                });
+                inheritedLane = currentLane;
+            }
         }
 
-        // Tasks thủ công cho player ở mark này
+        // === Xử lý tasks thủ công — TẤT CẢ scopes, không phụ thuộc vào vị trí map ===
+        // Dùng t.time (thời gian thực của task) để hiện đúng mốc
         (mark.tasks || []).forEach(t => {
-            if (taskMatchesPlayer(t, player, playerId) && t.scope !== 'all') {
-                events.push({
-                    time: markTime, type: 'note', icon: '📝',
-                    text: t.text, markIdx: i
-                });
-            }
+            if (!taskMatchesPlayer(t, player, playerId)) return;
+            // Chống lặp: nếu cùng taskId đã add rồi thì bỏ qua
+            const taskKey = t.id || `${markTime}|${t.text}|${t.scope}`;
+            if (addedTaskIds.has(taskKey)) return;
+            addedTaskIds.add(taskKey);
+            // Dùng t.time nếu có (time được lưu khi add task), fallback về markTime
+            const taskTime = (t.time && Number.isFinite(Number(t.time))) ? normalizeTaskTimeValue(t.time) : markTime;
+            const icon = t.scope === 'all' ? '📢' : t.scope === 'role' ? '🎭' : t.scope === 'team' ? '👥' : t.scope === 'weapon' ? '⚔️' : '📝';
+            events.push({
+                time: taskTime, type: 'note', icon,
+                text: t.text, markIdx: i, taskScope: t.scope
+            });
         });
     }
 
@@ -3904,18 +3916,7 @@ function buildSmartPlayerTimeline(playerId, sortedMarks, globalNotes, roster) {
     const jungleEvents = buildPlayerJungleSchedule(playerId, sortedMarks, getInheritedLane);
     events.push(...jungleEvents);
 
-    // === PHASE 5: Tasks từ marks (scope all) ===
-    sortedMarks.forEach((mark, i) => {
-        const markTime = normalizeTaskTimeValue(mark.time);
-        (mark.tasks || []).forEach(t => {
-            if (t.scope === 'all' && taskMatchesPlayer(t, player, playerId)) {
-                events.push({
-                    time: markTime, type: 'note', icon: '📢',
-                    text: t.text, markIdx: i
-                });
-            }
-        });
-    });
+    // === PHASE 5: Tasks đã xử lý toàn bộ ở PHASE 1 (bao gồm scope all) ===
 
     // === PHASE 6: Sort descending + dedup ===
     events.sort((a, b) => b.time - a.time || (a.type === 'position' ? -1 : 0));
@@ -4098,15 +4099,32 @@ async function loadTasksTab() {
                     });
                 }
                 if (timeline.globalInline.length) {
-                    const scopeTitle = timeline.globalInline[0].scope === 'role'
-                        ? `📌 Lưu ý ${player.role}`
-                        : timeline.globalInline[0].scope === 'team'
-                        ? '📌 Lưu ý Team'
-                        : '📌 Lưu ý';
-                    html += `<div class="st-gb-title" style="margin-top:6px">${scopeTitle}</div>`;
+                    // Nhóm notes theo scope để hiển thị header đúng
+                    const scopeGroups = {};
                     timeline.globalInline.forEach(note => {
-                        const icon = note.scope === 'role' ? '💚' : '📝';
-                        html += `<div class="st-gb-item"><span class="st-gb-icon">${icon}</span><span>${escHtml(note.text)}</span></div>`;
+                        const scopeKey = note.scope === 'role' ? `role|${note.target}`
+                            : note.scope === 'team' ? `team|${note.target}`
+                            : note.scope === 'weapon' ? `weapon|${note.target}`
+                            : 'other';
+                        if (!scopeGroups[scopeKey]) scopeGroups[scopeKey] = { note, items: [] };
+                        scopeGroups[scopeKey].items.push(note);
+                    });
+                    Object.entries(scopeGroups).forEach(([key, group]) => {
+                        const firstNote = group.note;
+                        const scopeTitle = firstNote.scope === 'role'
+                            ? `📌 Lưu ý ${firstNote.target}`
+                            : firstNote.scope === 'team' ? '📌 Lưu ý Team bạn'
+                            : firstNote.scope === 'weapon' ? `📌 Lưu ý ${firstNote.target}`
+                            : '📌 Lưu ý';
+                        html += `<div class="st-gb-title" style="margin-top:6px">${scopeTitle}</div>`;
+                        group.items.forEach(note => {
+                            const icon = note.scope === 'role'
+                                ? (note.target === 'Healer' ? '💚' : note.target === 'Tanker' ? '🧡' : '💙')
+                                : note.scope === 'team' ? '⚔️'
+                                : note.scope === 'weapon' ? '🗡️'
+                                : '📝';
+                            html += `<div class="st-gb-item"><span class="st-gb-icon">${icon}</span><span>${escHtml(note.text)}</span></div>`;
+                        });
                     });
                 }
                 html += '</div>';
@@ -4158,7 +4176,7 @@ window.filterTasksTab = function(query) {
         if (!query) {
             card.style.display = 'block';
             allLines.forEach(line => line.style.display = 'flex');
-            countSpan.textContent = totalLines + ' nhiệm vụ';
+            countSpan.textContent = totalLines + ' sự kiện';
             return;
         }
         
@@ -6181,7 +6199,8 @@ document.addEventListener('keydown', (e) => {
   buildShuf(PLAYLISTS[0].tracks.length);
   loadTrack(0, shufOrder[0], false);
 
-  // Auto-play khi tương tác (click bất kỳ đâu trên trang)
+  // Auto-play khi tương tác (đã tắt theo yêu cầu)
+  /*
   let hasInteracted = false;
   function handleAutoPlay() {
     if(!hasInteracted && audio.paused) {
@@ -6196,6 +6215,7 @@ document.addEventListener('keydown', (e) => {
     sceneElem.addEventListener('mousedown', handleAutoPlay, {once: true});
     sceneElem.addEventListener('touchstart', handleAutoPlay, {once: true});
   }
+  */
 
   // Shuffle ON mặc định, Repeat OFF
   $('mpShuf').classList.add('on');

@@ -13,7 +13,7 @@
 const db = require('../../database/db');
 const { EmbedBuilder } = require('discord.js');
 const { getRoleMappings, DISPLAY_ROLE_NAME } = require('../../commands/quanly/subrole/addrole');
-const { syncStoredPositionForMember } = require('../../utils/discordPositionSync');
+const { syncStoredPositionForMember, ensureTrackedMemberFromDiscord, resolveStoredPositionFromDiscord } = require('../../utils/discordPositionSync');
 const supaSync = require('../../utils/supabaseSync');
 
 // ID role Server Booster (Discord cấp tự động)
@@ -60,7 +60,16 @@ module.exports = {
                                     || removedRoles.some(r => r.name === 'LangGia');
             if (langGiaRoleChanged) {
                 try {
-                    const user = db.getUserByDiscordId(newMember.id);
+                    let user = db.getUserByDiscordId(newMember.id);
+
+                    // Nếu user chưa có trong DB hoặc đã rời bang (left_at) → tạo/rejoin để sync được
+                    if ((!user || user.left_at) && addedRoles.some(r => r.name === 'LangGia')) {
+                        const position = resolveStoredPositionFromDiscord(newMember, 'mem');
+                        await ensureTrackedMemberFromDiscord(newMember, position, guildId);
+                        user = db.getUserByDiscordId(newMember.id);
+                        console.log(`[guildMemberUpdate] 🆕 Tạo/rejoin user trong DB cho ${newMember.user.tag} (position: ${position})`);
+                    }
+
                     if (user) {
                         await supaSync.syncOneUser(user, guildId, newMember.guild);
                         const hasRole = newMember.roles.cache.some(r => r.name === 'LangGia');

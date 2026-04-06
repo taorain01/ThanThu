@@ -4331,24 +4331,40 @@ function tvCheckParticipant() {
 
 // Load tactics data từ Supabase cho ngày hiện tại
 async function loadTacticsForViewer() {
-    if (!sb || !currentDay) return;
+    console.log('[TV-DEBUG] 🐛 === loadTacticsForViewer START ===');
+    console.log('[TV-DEBUG] 🐛 sb:', !!sb, '| currentDay:', currentDay);
+    console.log('[TV-DEBUG] 🐛 currentDiscordId:', window.currentDiscordId);
+    console.log('[TV-DEBUG] 🐛 currentSessionData:', currentSessionData ? 'EXISTS (day=' + currentSessionData.day + ')' : 'NULL');
+    
+    if (!sb || !currentDay) {
+        console.warn('[TV-DEBUG] ❌ EARLY RETURN: sb hoặc currentDay không có');
+        return;
+    }
+    
     _tvIsParticipant = tvCheckParticipant();
     const _tvIsLeaderView = canEditTeamRoster(currentSessionData);
+    console.log('[TV-DEBUG] 🐛 isParticipant:', _tvIsParticipant, '| isLeaderView:', _tvIsLeaderView);
+    console.log('[TV-DEBUG] 🐛 position:', window.currentUserPosition, '| hasElevated:', hasElevatedRosterRole());
 
     // Ẩn tất cả nếu chưa tham gia VÀ không phải leader/admin
     if (!_tvIsParticipant && !_tvIsLeaderView) {
+        console.warn('[TV-DEBUG] ❌ HIDDEN: Không phải participant VÀ không phải leader → tvHideAll()');
         tvHideAll();
         return;
     }
 
     try {
+        console.log('[TV-DEBUG] 🐛 Đang query bc_tactics... guild:', GUILD_ID, 'day:', currentDay);
         const { data, error } = await sb.from('bc_tactics')
             .select('markers')
             .eq('guild_id', GUILD_ID)
             .eq('day', currentDay)
             .maybeSingle();
 
+        console.log('[TV-DEBUG] 🐛 Query result: error=', error, '| data=', data ? 'EXISTS' : 'NULL', '| markers=', data?.markers ? typeof data.markers : 'undefined');
+
         if (error || !data?.markers) {
+            console.warn('[TV-DEBUG] ❌ HIDDEN: error hoặc không có markers →', error?.message || 'no markers');
             tvHideAll();
             return;
         }
@@ -4357,7 +4373,14 @@ async function loadTacticsForViewer() {
         if (typeof parsed === 'string') try { parsed = JSON.parse(parsed); } catch(e) { parsed = null; }
         if (parsed?.markers) parsed = parsed.markers;
 
+        console.log('[TV-DEBUG] 🐛 Parsed result:', parsed ? 'OK' : 'NULL', '| marks:', Array.isArray(parsed?.marks) ? parsed.marks.length + ' marks' : 'NOT ARRAY');
+        if (parsed?.marks?.[0]) {
+            const m0 = parsed.marks[0];
+            console.log('[TV-DEBUG] 🐛 Mark[0]: time=', m0.time, '| players=', (m0.players||[]).length, '| tasks=', (m0.tasks||[]).length);
+        }
+
         if (!parsed || !Array.isArray(parsed.marks) || parsed.marks.length === 0) {
+            console.warn('[TV-DEBUG] ❌ HIDDEN: parsed không hợp lệ hoặc marks rỗng');
             tvHideAll();
             return;
         }
@@ -4369,14 +4392,21 @@ async function loadTacticsForViewer() {
         _tvTacticsData.marks.sort((a, b) => tvNormalizeTime(b.time) - tvNormalizeTime(a.time));
 
         // Hiện controls + timeline
+        console.log('[TV-DEBUG] ✅ Gọi tvShowAll + tvRenderTimeline + tvRenderMark(0)');
         tvShowAll();
         tvRenderTimeline();
         tvRenderMark(_tvActiveMarkIdx);
-        console.log('[TacticsViewer] ✅ Đã load chiến thuật:', _tvTacticsData.marks.length, 'marks');
+        
+        // Debug: kiểm tra player dots đã render chưa
+        const viewLayer = document.getElementById('tacticsViewLayer');
+        const playerDots = viewLayer ? viewLayer.querySelectorAll('.tv-player').length : 0;
+        console.log('[TV-DEBUG] ✅ Đã load chiến thuật:', _tvTacticsData.marks.length, 'marks |', playerDots, 'player dots rendered');
+        console.log('[TV-DEBUG] 🐛 viewLayer display:', viewLayer?.style.display, '| visible:', viewLayer?.offsetParent !== null);
     } catch(e) {
-        console.warn('[TacticsViewer] Load failed:', e);
+        console.warn('[TV-DEBUG] ❌ EXCEPTION:', e);
         tvHideAll();
     }
+    console.log('[TV-DEBUG] 🐛 === loadTacticsForViewer END ===');
 }
 
 function tvHideAll() {

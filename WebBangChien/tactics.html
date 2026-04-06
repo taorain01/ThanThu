@@ -7709,6 +7709,12 @@ function remapBotIdAcrossTactics(oldId, replacementPlayer) {
     tacticsGlobalNotes.forEach(note => {
         if (note?.scope === 'personal' && note.target === oldId) note.target = replacementPlayer.id;
     });
+    // Cập nhật jungle_default_player_ids nếu bot từng được gán làm người ăn rừng mặc định
+    if (Array.isArray(sessionData?.jungle_default_player_ids)) {
+        sessionData.jungle_default_player_ids = sessionData.jungle_default_player_ids.map(
+            id => id === oldId ? replacementPlayer.id : id
+        );
+    }
 }
 
 function purgeBotIdFromTactics(botId) {
@@ -7743,6 +7749,8 @@ function removeBotSlot(id, options = {}) {
     if (!botSlots.some(bot => bot.id === id)) return;
     botSlots = botSlots.filter(bot => bot.id !== id);
     purgeBotIdFromTactics(id);
+    // Rebuild marks kế thừa sau khi xóa bot
+    if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
     renderTeamList();
     renderPlayersOnMap();
     syncPanelOnMap();
@@ -7757,6 +7765,8 @@ function clearAllBots() {
     botSlots.forEach(bot => purgeBotIdFromTactics(bot.id));
     botSlots = [];
     botIdCounter = 0;
+    // Rebuild marks kế thừa sau khi xóa hết bot
+    if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
     renderTeamList();
     renderPlayersOnMap();
     syncPanelOnMap();
@@ -7844,6 +7854,11 @@ function autoReplaceBots(oldRoster, newRoster) {
         toast(crossTeam ? `🔄 ${bot.name} → ${displayName} (kiểm tra vị trí)` : `🔄 ${bot.name} → ${displayName}`);
     });
     if (!replaced) return;
+    // Rebuild lại tất cả marks kế thừa tự động (_autoInherit)
+    // để boss vàng / ăn rừng / PVP dùng ID người thật thay vì ID bot cũ
+    if (typeof refreshAutoInheritedSystemMarks === 'function') {
+        refreshAutoInheritedSystemMarks();
+    }
     renderTeamList();
     renderPlayersOnMap();
     syncPanelOnMap();

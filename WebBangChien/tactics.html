@@ -2639,21 +2639,52 @@ function stopSessionRealtimeSync() {
 
 function applyRealtimeSessionData(data, options = {}) {
     if (!data) return;
-    if (botSlots.length > 0 && sessionData) {
-        const oldRoster = getAllPlayers().filter(player => !player.isBot);
-        const parse = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+    const parse = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+
+    // === BƯỚC 1: So sánh old vs new roster để tìm joined/departed ===
+    let rosterChanged = false;
+    if (sessionData) {
+        const oldRoster = getRealPlayersFromSession();
         const newRoster = [
-            ...parse(data.team_attack1).map(player => ({ ...player, team: 'team_attack1' })),
-            ...parse(data.team_attack2).map(player => ({ ...player, team: 'team_attack2' })),
-            ...parse(data.team_defense).map(player => ({ ...player, team: 'team_defense' })),
-            ...parse(data.team_forest).map(player => ({ ...player, team: 'team_forest' }))
+            ...parse(data.team_attack1).map(p => ({ ...p, team: 'team_attack1' })),
+            ...parse(data.team_attack2).map(p => ({ ...p, team: 'team_attack2' })),
+            ...parse(data.team_defense).map(p => ({ ...p, team: 'team_defense' })),
+            ...parse(data.team_forest).map(p => ({ ...p, team: 'team_forest' }))
         ];
-        autoReplaceBots(oldRoster, newRoster);
+        const oldIds = new Set(oldRoster.map(p => p.id));
+        const newIds = new Set(newRoster.map(p => p.id));
+        const joined = newRoster.filter(p => !oldIds.has(p.id));
+        const departed = oldRoster.filter(p => !newIds.has(p.id));
+
+        // === BƯỚC 2: Xử lý người MỚI đăng ký → thay bot ===
+        if (joined.length > 0 && botSlots.length > 0) {
+            autoReplaceBots(oldRoster, newRoster);
+            rosterChanged = true;
+        }
+
+        // === BƯỚC 3: Xử lý người HUỶ đăng ký → tạo bot thay thế ===
+        if (departed.length > 0) {
+            const replacedCount = autoHandleDepartedPlayers(departed);
+            if (replacedCount > 0) rosterChanged = true;
+        }
     }
+
+    // === BƯỚC 4: Cập nhật sessionData ===
     sessionData = data;
     ensureSessionDefaults();
-    // Sau khi cập nhật sessionData, xóa bot thừa nếu team bị quá tải
+
+    // === BƯỚC 5: Reconcile bots (xóa thừa + thêm thiếu) ===
     reconcileBotsWithRoster();
+
+    // === BƯỚC 6: Rebuild marks kế thừa nếu roster thay đổi ===
+    if (rosterChanged) {
+        if (typeof refreshAutoInheritedSystemMarks === 'function') {
+            refreshAutoInheritedSystemMarks();
+        }
+        // Cập nhật markSnapshot để tránh stale dirty (Bug 3)
+        captureMarkSnapshot();
+    }
+
     refreshStorageButtons();
     startSessionRealtimeSync();
     fillMockTeams();
@@ -2666,6 +2697,7 @@ function applyRealtimeSessionData(data, options = {}) {
     renderEnemiesOnMap();
     syncPanelOnMap();
     renderTargeting();
+    if (typeof refreshZoomModal === 'function') refreshZoomModal();
     if (options.toastMessage) toast(options.toastMessage);
 }
 
@@ -7720,6 +7752,91 @@ function remapBotIdAcrossTactics(oldId, replacementPlayer) {
     }
 }
 
+// Remap ngược: thay entry người thật bằng bot mới khi người đó huỷ đăng ký
+function remapPlayerToBotInTactics(oldPlayerId, botSlot) {
+    if (!oldPlayerId || !botSlot) return;
+    marks.forEach(mark => {
+        (mark.players || []).forEach(player => {
+            if (player.id === oldPlayerId) {
+                player.id = botSlot.id;
+                player.name = botSlot.name;
+                player.role = botSlot.role;
+                player.sub = botSlot.sub || '';
+                player.team = botSlot.team;
+                player.isBot = true;
+            }
+        });
+        Object.keys(mark.tower_guards || {}).forEach(towerId => {
+            mark.tower_guards[towerId] = (mark.tower_guards[towerId] || []).map(id => id === oldPlayerId ? botSlot.id : id);
+        });
+        (mark.targeting || []).forEach(target => {
+            if (target.playerId === oldPlayerId) target.playerId = botSlot.id;
+            if (target.from === oldPlayerId) target.from = botSlot.id;
+        });
+        (mark.icon_targets || []).forEach(target => {
+            if (target.playerId === oldPlayerId) target.playerId = botSlot.id;
+            if (target.from === oldPlayerId) target.from = botSlot.id;
+        });
+        if (mark.pvp_fighters?.blue === oldPlayerId) mark.pvp_fighters.blue = botSlot.id;
+        Object.values(mark.boss_assignments || {}).forEach(entry => {
+            if (entry?.blue) entry.blue = entry.blue.map(id => id === oldPlayerId ? botSlot.id : id);
+        });
+        Object.values(mark.tree_carriers || {}).forEach(entry => {
+            if (entry?.main === oldPlayerId) entry.main = botSlot.id;
+            if (Array.isArray(entry?.support)) entry.support = entry.support.map(id => id === oldPlayerId ? botSlot.id : id);
+        });
+        Object.values(mark.jungle_assignments || {}).forEach(entry => {
+            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map(id => id === oldPlayerId ? botSlot.id : id);
+            Object.values(entry?.windows || {}).forEach(windowEntry => {
+                if (Array.isArray(windowEntry?.blue)) windowEntry.blue = windowEntry.blue.map(id => id === oldPlayerId ? botSlot.id : id);
+            });
+        });
+        (mark.tasks || []).forEach(task => {
+            if (task?.scope === 'personal' && task.target === oldPlayerId) task.target = botSlot.id;
+        });
+    });
+    tacticsGlobalNotes.forEach(note => {
+        if (note?.scope === 'personal' && note.target === oldPlayerId) note.target = botSlot.id;
+    });
+    if (Array.isArray(sessionData?.jungle_default_player_ids)) {
+        sessionData.jungle_default_player_ids = sessionData.jungle_default_player_ids.map(
+            id => id === oldPlayerId ? botSlot.id : id
+        );
+    }
+}
+
+// Tạo bot mới kế thừa team/role của người rời đi
+function createReplacementBotForPlayer(player) {
+    const seq = ++botIdCounter;
+    return normalizeBotSlot({
+        id: `bot_${seq}`,
+        seq,
+        name: `Bot ${String(seq).padStart(2, '0')}`,
+        role: player.role || 'DPS',
+        sub: player.sub || '',
+        team: player.team || 'team_attack1',
+        isBot: true
+    });
+}
+
+// Xử lý khi có người huỷ đăng ký: tạo bot thay thế + remap tất cả entries
+function autoHandleDepartedPlayers(departed) {
+    if (!Array.isArray(departed) || !departed.length) return 0;
+    let replaced = 0;
+    departed.forEach(player => {
+        const newBot = createReplacementBotForPlayer(player);
+        botSlots.push(newBot);
+        remapPlayerToBotInTactics(player.id, newBot);
+        replaced++;
+        const displayName = player.gn || player.name || player.username || 'Unknown';
+        toast(`🔄 ${displayName} rời → ${newBot.name} (đã thay thế)`);
+    });
+    if (replaced > 0) {
+        console.log(`[Tactics] 🤖 autoHandleDepartedPlayers: đã tạo ${replaced} bot thay thế`);
+    }
+    return replaced;
+}
+
 function purgeBotIdFromTactics(botId) {
     if (!botId) return;
     marks.forEach(mark => {
@@ -7872,7 +7989,7 @@ function autoReplaceBots(oldRoster, newRoster) {
 
 // Sau khi load/restore botSlots + sessionData, kiểm tra team nào bị thừa bot → xóa bot
 function reconcileBotsWithRoster() {
-    if (!sessionData || !botSlots.length) return;
+    if (!sessionData) return;
     const sizes = typeof sessionData.team_sizes === 'string'
         ? JSON.parse(sessionData.team_sizes || '{}') : (sessionData.team_sizes || {});
     const realPlayers = getRealPlayersFromSession();
@@ -7883,11 +8000,11 @@ function reconcileBotsWithRoster() {
         { key: 'team_forest', max: sizes.forest ?? 5 }
     ];
     let removed = 0;
+    // Bước 1: Xóa bot thừa theo từng team
     teamConfigs.forEach(cfg => {
         const realCount = realPlayers.filter(p => p.team === cfg.key).length;
         const teamBots = botSlots.filter(b => b.team === cfg.key);
         let excess = (realCount + teamBots.length) - cfg.max;
-        // Xóa bot thừa (từ cuối danh sách trước)
         while (excess > 0 && teamBots.length > 0) {
             const botToRemove = teamBots.pop();
             purgeBotIdFromTactics(botToRemove.id);
@@ -7899,6 +8016,51 @@ function reconcileBotsWithRoster() {
     if (removed > 0) {
         console.log(`[Tactics] 🧹 reconcileBotsWithRoster: đã xóa ${removed} bot thừa`);
     }
+
+    // Bước 2: Thêm bot nếu tổng < 30 (đảm bảo luôn đủ 30)
+    const totalNow = realPlayers.length + botSlots.length;
+    if (totalNow < 30) {
+        const need = 30 - totalNow;
+        // Phân bổ bot mới vào team còn thiếu chỗ
+        const teamSlots = teamConfigs.map(cfg => {
+            const realCount = realPlayers.filter(p => p.team === cfg.key).length;
+            const botCount = botSlots.filter(b => b.team === cfg.key).length;
+            return { key: cfg.key, max: cfg.max, free: Math.max(0, cfg.max - realCount - botCount) };
+        });
+        let added = 0;
+        for (let i = 0; i < need; i++) {
+            // Tìm team có chỗ trống nhiều nhất
+            const bestTeam = teamSlots.reduce((best, t) => t.free > best.free ? t : best, teamSlots[0]);
+            if (bestTeam.free <= 0) break; // Tất cả team đã đầy
+            const seq = ++botIdCounter;
+            const roles = distributeRoles(1);
+            const newBot = normalizeBotSlot({
+                id: `bot_${seq}`,
+                seq,
+                name: `Bot ${String(seq).padStart(2, '0')}`,
+                role: roles[0] || 'DPS',
+                sub: '',
+                team: bestTeam.key,
+                isBot: true
+            });
+            botSlots.push(newBot);
+            bestTeam.free--;
+            added++;
+        }
+        if (added > 0) {
+            // Seed bot mới vào setup mark (30:00) nếu có
+            const setupMark = marks.find(m => m.time === TOTAL_SECONDS);
+            if (setupMark) {
+                seedSetupMark(setupMark);
+            }
+            console.log(`[Tactics] 🤖 reconcileBotsWithRoster: đã thêm ${added} bot để đủ 30`);
+        }
+    }
+
+    // Bước 3: Rebuild marks kế thừa nếu có thay đổi
+    if (removed > 0) {
+        if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+    }
 }
 
 function replaceBotManual(botId, realPlayerId) {
@@ -7907,6 +8069,9 @@ function replaceBotManual(botId, realPlayerId) {
     if (!bot || !realPlayer) return;
     remapBotIdAcrossTactics(botId, realPlayer);
     botSlots = botSlots.filter(entry => entry.id !== botId);
+    // Rebuild marks kế thừa + cập nhật snapshot tránh stale dirty
+    if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+    captureMarkSnapshot();
     renderTeamList();
     renderPlayersOnMap();
     syncPanelOnMap();
@@ -7914,7 +8079,7 @@ function replaceBotManual(botId, realPlayerId) {
     if (typeof refreshZoomModal === 'function') refreshZoomModal();
     closeCtx();
     commitTacticsHistory('bot-manual-replace');
-    toast(`?? ${bot.name} ? ${realPlayer.gn || realPlayer.name || 'Unknown'}`);
+    toast(`🔄 ${bot.name} → ${realPlayer.gn || realPlayer.name || 'Unknown'}`);
 }
 
 // CONTEXT MENU

@@ -1286,7 +1286,24 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .day-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px }
   .day-tab { white-space: nowrap; font-size: 12px; padding: 6px 14px }
   .day-sep, .day-add { flex-shrink: 0 }
-  .bc-signup-bar { display: none !important } /* Ẩn trên mobile, dùng bottom nav */
+  
+  /* Thay vì ẩn signup-bar, hiển thị dạng nút Nổi (FAB) trên Mobile */
+  .bc-signup-bar {
+      position: fixed !important;
+      bottom: 80px !important;
+      right: 16px !important;
+      margin-left: 0 !important;
+      background: linear-gradient(135deg, rgba(8, 22, 14, 0.95), rgba(12, 28, 18, 0.95)) !important;
+      padding: 8px !important;
+      border-radius: 14px !important;
+      border: 1px solid rgba(200, 162, 44, 0.4) !important;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+      z-index: 1000 !important;
+  }
   .progress-chip { display: none }
 
   /* Main layout: 1 cột */

@@ -1714,9 +1714,10 @@ html, body { overflow-x: hidden; }
 .gs-left{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:24px;width:100%;max-width:440px}
 .gs-right{flex:1;display:flex;align-items:center;justify-content:center}
 @media (max-width: 768px) {
-  .gs-body{flex-direction:column;gap:20px;padding:20px 16px 24px;width:100%;border-radius:20px;margin:8px auto}
-  .gs-right{transform:scale(0.65);margin:-20px 0}
-  .gs-left{gap:16px}
+  .gs-body{flex-direction:column;gap:16px;padding:20px 16px 24px;width:92%;border-radius:20px;margin:8px auto}
+  /* Mobile: đồng xu lên trên, game xuống dưới */
+  .gs-right{order:-1;transform:scale(0.75);margin:-10px 0}
+  .gs-left{order:1;gap:14px}
   .gs-main-title{font-size:20px;letter-spacing:3px}
   .gs-game-card{padding:18px 16px}
   .gs-choices{gap:10px}
@@ -1822,7 +1823,7 @@ html, body { overflow-x: hidden; }
   <div class="gs-bg" id="gsBg"></div>
   <!-- Body -->
   <div class="gs-body">
-    <!-- UI Game (Bên Trái) -->
+    <!-- UI Game (Bên Trái / Mobile: Dưới) -->
     <div class="gs-left">
       <!-- Tiêu đề -->
       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 5px;">
@@ -1854,7 +1855,7 @@ html, body { overflow-x: hidden; }
         <button class="gs-logout-btn" onclick="logout()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:4px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Đăng xuất</button>
       </div>
     </div>
-    <!-- Đồng xu (Bên Phải) -->
+    <!-- Đồng xu (Bên Phải / Mobile: Trên) -->
     <div class="gs-right">
       <div class="gs-coin-wrap">
         <div class="coin-3d idle" id="gsCoin3d">
@@ -5551,7 +5552,7 @@ document.addEventListener('keydown', (e) => {
 
 <!-- ═══ MUSIC PLAYER — Embedded luôn hiện ═══ -->
 <audio id="mpAudio"></audio>
-<div class="mp-wrap collapsed" id="mpWrap">
+<div class="mp-wrap collapsed mp-edge" id="mpWrap">
 
   <!-- ── Mini Bar (luôn hiện, kể cả khi thu gọn) ── -->
   <div class="mp-mini-bar" id="mpMiniBar">
@@ -6182,6 +6183,22 @@ document.addEventListener('keydown', (e) => {
   // Shuffle ON mặc định, Repeat OFF
   $('mpShuf').classList.add('on');
   $('mpRep').style.opacity='.4';
+
+  // ── Vị trí mặc định trên mobile: dán cạnh trái, giữa màn hình ──
+  (function initMobileEdgePos() {
+    const wrap = $('mpWrap');
+    if (!wrap) return;
+    const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window);
+    if (isMobile) {
+      // Đặt vị trí giữa chiều dọc, dán cạnh trái
+      wrap.style.left = '0px';
+      wrap.style.top = Math.round(window.innerHeight * 0.45) + 'px';
+      wrap.style.bottom = 'auto';
+      wrap.style.right = 'auto';
+      // Đảm bảo ở trạng thái collapsed + edge
+      wrap.classList.add('collapsed', 'mp-edge');
+    }
+  })();
 })();
 </script>
 </body>

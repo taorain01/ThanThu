@@ -3561,16 +3561,18 @@ function renderTimeline() {
 
 function getMarkPopulationStatus(mark = marks[activeMarkIdx]) {
     if (!mark || mark.time === TOTAL_SECONDS) return { ok: true };
+    const sizes = getSessionTeamSizes();
+    const totalMax = Object.values(sizes).reduce((s, v) => s + (v || 0), 0) || 30;
     const blueTotal = (mark.players?.length || 0) + getGuardIds('blue', mark).length;
     const redTotal = (mark.enemies?.length || 0) + getGuardIds('red', mark).length;
-    if (blueTotal === 30 && redTotal === 30) return { ok: true };
-    if (blueTotal !== 30) {
-        const diff = blueTotal < 30 ? `còn thiếu ${30 - blueTotal}` : `đang dư ${blueTotal - 30}`;
-        return { ok: false, message: `⚠️ Phe xanh ${diff} người (${blueTotal}/30).` };
+    if (blueTotal === totalMax && redTotal === totalMax) return { ok: true };
+    if (blueTotal !== totalMax) {
+        const diff = blueTotal < totalMax ? `còn thiếu ${totalMax - blueTotal}` : `đang dư ${blueTotal - totalMax}`;
+        return { ok: false, message: `⚠️ Phe xanh ${diff} người (${blueTotal}/${totalMax}).` };
     }
-    if (redTotal !== 30) {
-        const diff = redTotal < 30 ? `còn thiếu ${30 - redTotal}` : `đang dư ${redTotal - 30}`;
-        return { ok: true, warn: true, message: `⚠️ Phe đỏ ${diff} người (${redTotal}/30).` };
+    if (redTotal !== totalMax) {
+        const diff = redTotal < totalMax ? `còn thiếu ${totalMax - redTotal}` : `đang dư ${redTotal - totalMax}`;
+        return { ok: true, warn: true, message: `⚠️ Phe đỏ ${diff} người (${redTotal}/${totalMax}).` };
     }
     return { ok: true };
 }
@@ -8017,10 +8019,11 @@ function reconcileBotsWithRoster() {
         console.log(`[Tactics] 🧹 reconcileBotsWithRoster: đã xóa ${removed} bot thừa`);
     }
 
-    // Bước 2: Thêm bot nếu tổng < 30 (đảm bảo luôn đủ 30)
+    // Bước 2: Thêm bot nếu tổng < totalMax (đảm bảo luôn đủ theo team_sizes)
+    const totalMax = teamConfigs.reduce((s, c) => s + c.max, 0) || 30;
     const totalNow = realPlayers.length + botSlots.length;
-    if (totalNow < 30) {
-        const need = 30 - totalNow;
+    if (totalNow < totalMax) {
+        const need = totalMax - totalNow;
         // Phân bổ bot mới vào team còn thiếu chỗ
         const teamSlots = teamConfigs.map(cfg => {
             const realCount = realPlayers.filter(p => p.team === cfg.key).length;

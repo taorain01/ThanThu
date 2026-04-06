@@ -3337,15 +3337,41 @@ function renderTeamList() {
                 : (sessionData.team_names || {});
         } catch(e) { return {}; }
     })();
+    // Đọc team_sizes để đồng bộ với team_editor (ẩn team có max=0)
+    const rawSizes = (() => {
+        try {
+            return typeof sessionData.team_sizes === 'string'
+                ? JSON.parse(sessionData.team_sizes || '{}')
+                : (sessionData.team_sizes || {});
+        } catch(e) { return {}; }
+    })();
+    const sz = {
+        attack1: rawSizes.attack1 ?? 10,
+        attack2: rawSizes.attack2 ?? 10,
+        defense: rawSizes.defense ?? 5,
+        forest:  rawSizes.forest  ?? 5
+    };
+    // Nếu chỉ có 1 team tấn công (attack2=0): gộp vào attack1 (hiện "⚔️ Công"), ẩn secA2
+    const onlyOneAttack = sz.attack2 === 0;
     const teams = [
-        { key: 'team_attack1', el: 'teamA1', countEl: 'a1Count', titleEl: 'titleA1', emoji: '⚔️', defaultName: 'Công 1' },
-        { key: 'team_attack2', el: 'teamA2', countEl: 'a2Count', titleEl: 'titleA2', emoji: '🗡️', defaultName: 'Công 2' },
-        { key: 'team_defense', el: 'teamDF', countEl: 'dfCount', titleEl: 'titleDF', emoji: '🛡️', defaultName: 'Thủ' },
-        { key: 'team_forest', el: 'teamFR', countEl: 'frCount', titleEl: 'titleFR', emoji: '🌲', defaultName: 'Rừng' }
+        { key: 'team_attack1', el: 'teamA1', countEl: 'a1Count', titleEl: 'titleA1', secEl: 'secA1',
+          emoji: '⚔️', defaultName: onlyOneAttack ? 'Công' : 'Công 1', sizeKey: 'attack1' },
+        { key: 'team_attack2', el: 'teamA2', countEl: 'a2Count', titleEl: 'titleA2', secEl: 'secA2',
+          emoji: '🗡️', defaultName: 'Công 2', sizeKey: 'attack2' },
+        { key: 'team_defense', el: 'teamDF', countEl: 'dfCount', titleEl: 'titleDF', secEl: 'secDF',
+          emoji: '🛡️', defaultName: 'Thủ', sizeKey: 'defense' },
+        { key: 'team_forest',  el: 'teamFR', countEl: 'frCount', titleEl: 'titleFR', secEl: 'secFR',
+          emoji: '🌲', defaultName: 'Rừng', sizeKey: 'forest' }
     ];
     // Map key names: attack1→attack1, defense→defense...
     const nameKeyMap = { team_attack1: 'attack1', team_attack2: 'attack2', team_defense: 'defense', team_forest: 'forest' };
     teams.forEach(t => {
+        // Ẩn/hiện section dựa vào team_sizes (đồng bộ với team_editor)
+        const secEl = document.getElementById(t.secEl);
+        const isVisible = sz[t.sizeKey] > 0;
+        if (secEl) secEl.style.display = isVisible ? '' : 'none';
+        if (!isVisible) return; // Bỏ qua render nếu team ẩn
+
         const players = parseTeam(sessionData[t.key]);
         const teamBots = botSlots.filter(bot => bot.team === t.key).map(normalizeBotSlot);
         document.getElementById(t.countEl).textContent = players.length + teamBots.length;

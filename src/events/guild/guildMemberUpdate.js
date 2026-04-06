@@ -14,6 +14,7 @@ const db = require('../../database/db');
 const { EmbedBuilder } = require('discord.js');
 const { getRoleMappings, DISPLAY_ROLE_NAME } = require('../../commands/quanly/subrole/addrole');
 const { syncStoredPositionForMember } = require('../../utils/discordPositionSync');
+const supaSync = require('../../utils/supabaseSync');
 
 // ID role Server Booster (Discord cấp tự động)
 const BOOSTER_ROLE_ID = '740457614470545408';
@@ -50,6 +51,24 @@ module.exports = {
                 }
             } catch (e) {
                 console.error('[guildMemberUpdate] Position sync error:', e.message);
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // ROLE LANGGIA THAY ĐỔI → Sync lang_gia_member lên Supabase
+            // ═══════════════════════════════════════════════════════════════
+            const langGiaRoleChanged = addedRoles.some(r => r.name === 'LangGia')
+                                    || removedRoles.some(r => r.name === 'LangGia');
+            if (langGiaRoleChanged) {
+                try {
+                    const user = db.getUserByDiscordId(newMember.id);
+                    if (user) {
+                        await supaSync.syncOneUser(user, guildId, newMember.guild);
+                        const hasRole = newMember.roles.cache.some(r => r.name === 'LangGia');
+                        console.log(`[guildMemberUpdate] 🔄 Role LangGia ${hasRole ? 'ADDED' : 'REMOVED'} → synced lang_gia_member=${hasRole} cho ${newMember.user.tag}`);
+                    }
+                } catch (e) {
+                    console.error('[guildMemberUpdate] LangGia role sync error:', e.message);
+                }
             }
 
             // ═══════════════════════════════════════════════════════════════

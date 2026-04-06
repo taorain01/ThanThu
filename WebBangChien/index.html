@@ -1686,7 +1686,7 @@ html, body { overflow-x: hidden; }
 .guest-screen.active{display:flex}
 .gs-bg{position:fixed;top:-10%;left:-10%;width:120%;height:120%;background:url('./anh/bg_thien_van_cung_sang.png') center/cover no-repeat;filter:blur(24px) brightness(0.7) saturate(1.2);z-index:-1;transition:transform 0.1s ease-out;pointer-events:none}
 @keyframes gsFadeIn{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:scale(1)}}
-.gs-body{flex:1;display:flex;flex-direction:row;align-items:center;justify-content:center;padding:40px;gap:80px;width:100%;max-width:1100px}
+.gs-body{display:flex;flex-direction:row;align-items:center;justify-content:center;padding:60px 50px;gap:80px;width:95%;max-width:1100px;background:rgba(4,20,12,0.65);backdrop-filter:blur(12px);border:1px solid rgba(251,191,36,0.1);border-radius:30px;box-shadow:0 20px 60px rgba(0,0,0,0.6);margin:auto}
 .gs-left{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:24px;width:100%;max-width:440px}
 .gs-right{flex:1;display:flex;align-items:center;justify-content:center}
 @media (max-width: 768px) {
@@ -1810,10 +1810,10 @@ html, body { overflow-x: hidden; }
       <!-- Minigame -->
       <div class="gs-game-card">
         <div class="gs-game-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>ĐỒNG XU TIÊN TRI</div>
-        <div class="gs-game-hint">Đặt cược 1/5 xu hiện có · Thắng streak ×3 nhận thêm 50% bonus</div>
+        <div class="gs-game-hint">Đoán hướng mặt sói (Ngửa = Trái • Sấp = Phải).<br>Thắng streak ×3 nhận thêm 50% bonus.</div>
         <div class="gs-choices">
-          <button class="gs-cbtn h" id="gsBtnH" onclick="gsFlipCoin('h')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg></span><span class="ct">Sói Phải</span></button>
-          <button class="gs-cbtn t" id="gsBtnT" onclick="gsFlipCoin('t')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg></span><span class="ct">Sói Trái</span></button>
+          <button class="gs-cbtn h" id="gsBtnH" onclick="gsFlipCoin('h')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg></span><span class="ct">Ngửa (Trái)</span></button>
+          <button class="gs-cbtn t" id="gsBtnT" onclick="gsFlipCoin('t')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg></span><span class="ct">Sấp (Phải)</span></button>
         </div>
         <div class="gs-rbox" id="gsRbox"><div class="gs-rtxt" style="color:var(--text3)">Chọn mặt đồng xu để bắt đầu ✨</div></div>
       </div>
@@ -1827,8 +1827,8 @@ html, body { overflow-x: hidden; }
     <div class="gs-right">
       <div class="gs-coin-wrap">
         <div class="coin-3d idle" id="gsCoin3d">
-          <div class="coin-face coin-face-front"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;"></div>
-          <div class="coin-face coin-face-back"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;"></div>
+          <div class="coin-face coin-face-front"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;transform:scaleX(-1);"></div>
+          <div class="coin-face coin-face-back"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;transform:scaleX(-1);"></div>
         </div>
       </div>
     </div>
@@ -2263,6 +2263,9 @@ async function checkAuth() {
 
     document.getElementById('loadingScreen').classList.add('hidden');
 
+    // Luôn bật Realtime watch cho role LangGia (cả guest lẫn member)
+    setupLangGiaRoleWatch(meta.provider_id);
+
     if (!isLangGiaMember) {
         // Khách ghé web — không phải thành viên LangGia
         console.log('[LangGia] 👤 Khách ghé web → hiện Guest Screen');
@@ -2276,6 +2279,111 @@ async function checkAuth() {
     await loadAllSessions();
     setupRealtimeSubscription();
 }
+
+// ═══════════════════════════════════════════════════
+// REALTIME: Theo dõi thay đổi role LangGia trên Supabase
+// Khi bot cập nhật lang_gia_member → web tự chuyển màn hình
+// ═══════════════════════════════════════════════════
+let _langGiaWatchChannel = null;
+
+function setupLangGiaRoleWatch(discordId) {
+    if (!sb || !discordId) return;
+    // Hủy subscription cũ nếu có
+    if (_langGiaWatchChannel) {
+        sb.removeChannel(_langGiaWatchChannel);
+        _langGiaWatchChannel = null;
+    }
+
+    _langGiaWatchChannel = sb
+        .channel('langgia-role-watch')
+        .on('postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'bc_users',
+                filter: `discord_id=eq.${discordId}`
+            },
+            (payload) => {
+                const newData = payload.new;
+                const oldData = payload.old;
+                const newMember = newData?.lang_gia_member;
+                const oldMember = oldData?.lang_gia_member;
+
+                // Chỉ xử lý khi lang_gia_member thực sự thay đổi
+                if (newMember === oldMember) return;
+
+                console.log(`[LangGia] 🔔 Realtime: lang_gia_member thay đổi ${oldMember} → ${newMember}`);
+
+                if (newMember === true) {
+                    // Vừa được thêm role → chuyển từ Guest sang Main App
+                    const guestScreen = document.getElementById('guestScreen');
+                    if (guestScreen?.classList.contains('active')) {
+                        console.log('[LangGia] ✅ Role LangGia được thêm → chuyển sang Main App');
+                        // Dừng nhạc guest nếu đang phát
+                        if (typeof gsAudio !== 'undefined' && gsAudio) {
+                            gsAudio.pause(); gsAudio.src = ''; gsIsPlaying = false;
+                        }
+                        // Cập nhật position nếu có
+                        if (newData.position) window.currentUserPosition = newData.position;
+                        updateEditorButtonVisibility();
+                        // Chuyển màn hình
+                        guestScreen.classList.remove('active');
+                        document.getElementById('mainApp').classList.add('active');
+                        // Load dữ liệu bang chiến
+                        loadAllSessions();
+                        setupRealtimeSubscription();
+                        // Thông báo nhẹ
+                        showRoleToast('🎉 Chào mừng gia nhập Lang Gia!', 'success');
+                    }
+                } else if (newMember === false) {
+                    // Role bị xóa → chuyển từ Main App sang Guest
+                    const mainApp = document.getElementById('mainApp');
+                    if (mainApp?.classList.contains('active')) {
+                        console.log('[LangGia] ⚠️ Role LangGia bị xóa → chuyển sang Guest Screen');
+                        mainApp.classList.remove('active');
+                        initGuestScreen();
+                        document.getElementById('guestScreen').classList.add('active');
+                        showRoleToast('⚠️ Role LangGia đã bị xóa', 'warning');
+                    }
+                }
+            }
+        )
+        .subscribe((status) => {
+            console.log(`[LangGia] 📡 Role watch subscription: ${status}`);
+        });
+}
+
+// Toast thông báo nhẹ khi role thay đổi
+function showRoleToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+        padding: 12px 24px; border-radius: 12px; z-index: 99999;
+        font-size: 14px; font-weight: 600; color: #fff;
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        animation: roleToastIn .4s ease;
+        ${type === 'success'
+            ? 'background: linear-gradient(135deg, rgba(74,222,128,.9), rgba(34,197,94,.9)); box-shadow: 0 4px 20px rgba(34,197,94,.4);'
+            : 'background: linear-gradient(135deg, rgba(251,191,36,.9), rgba(245,158,11,.9)); box-shadow: 0 4px 20px rgba(245,158,11,.4);'
+        }
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.animation = 'roleToastOut .4s ease forwards';
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
+// CSS animation cho toast
+(function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes roleToastIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+        @keyframes roleToastOut { from { opacity:1; transform:translateX(-50%) translateY(0); } to { opacity:0; transform:translateX(-50%) translateY(-20px); } }
+    `;
+    document.head.appendChild(style);
+})();
 
 // ═══════════════════════════════════════════════════
 // GUEST SCREEN — Music Player + Coin Flip Minigame
@@ -2342,7 +2450,7 @@ function gsFlipCoin(choice) {
         if (coin) coin.className = 'coin-3d ' + (result === 'h' ? 'gs-land-h' : 'gs-land-t');
         setTimeout(() => {
             const rb = document.getElementById('gsRbox');
-            const resLabel = r => r === 'h' ? '🐺 SÓI PHẢI' : '🐺 SÓI TRÁI';
+            const resLabel = r => r === 'h' ? '🐺 NGỬA (TRÁI)' : '🐺 SẤP (PHẢI)';
             if (won) {
                 const bonus = gsStreak >= 2 ? Math.floor(bet * 0.5) : 0;
                 gsXu += bet + bonus; gsWins++;

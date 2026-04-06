@@ -7,7 +7,7 @@ const dpsSubTypes = {
     'songdao': { name: 'Song Đao', color: 0xE74C3C, emoji: '⚔️', aliases: ['sd', 'song dao', 'songdao'] },
     'cuukiem': { name: 'Cửu Kiếm', color: 0xF39C12, emoji: '🔱', aliases: ['9k', 'cuukiem', 'ck', 'cuu kiem'] },
     'duroi': { name: 'Dù Roi', color: 0xE91E63, emoji: '🌂', aliases: ['dr', 'du roi', 'duroi'] },
-    'hoanhdao': { name: 'Hoành Đao/Mđ', color: 0xD35400, emoji: '🔪', aliases: ['hd', 'hoanhdao', 'hoang dao', 'md', 'mđ', 'hoanh dao'] }
+    'hoanhdao': { name: 'Hoành Đao/Mở', color: 0xD35400, emoji: '🔪', aliases: ['hd', 'hoanhdao', 'hoang dao', 'md', 'mđ', 'hoanh dao', 'mo', 'mở'] }
 };
 
 // Helper function: Tìm DPS sub-type từ input
@@ -120,7 +120,24 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
                 flags: MessageFlags.Ephemeral
             });
 
+            // Lưu sub_role vào DB + sync Supabase ngay
+            try {
+                const _db = require('../../database/db');
+                const subRoleShortMap = {
+                    'quatdu': 'QD', 'vodanh': 'VD', 'songdao': 'SD',
+                    'cuukiem': '9K', 'duroi': 'DR', 'hoanhdao': 'HD'
+                };
+                const shortCode = subRoleShortMap[dpsSubConfig.key] || dpsSubConfig.key?.toUpperCase() || 'DPS';
+                _db.setUserSubRole(member.id, shortCode);
+                const _user = _db.getUserByDiscordId(member.id);
+                if (_user) {
+                    const _supaSync = require('../../utils/supabaseSync');
+                    if (_supaSync.isReady()) await _supaSync.syncOneUser(_user, interaction.guild.id, interaction.guild);
+                }
+            } catch(e) { console.error('[pickrole] Lưu sub_role lỗi:', e.message); }
+
             // Auto-refresh bangchien embed + sync Supabase cho TẤT CẢ ngày
+
             try {
                 const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys, getDayFromPartyKey } = require('../../utils/bangchienState');
                 const { createBangchienEmbed, createBangchienButtons } = require('../../commands/bangchien/bangchien');
@@ -405,7 +422,7 @@ module.exports = {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId('pickrole_dps_hoanhdao')
-                    .setLabel('Hoành Đao/Mđ')
+                    .setLabel('Hoành Đao/Mở')
                     .setEmoji('🔪')
                     .setStyle(ButtonStyle.Primary)
             );

@@ -122,6 +122,13 @@ function initializeDatabase() {
         // Column already exists, ignore
     }
 
+    // Add sub_role column for DPS weapon sub-type (QD, VD, SD, 9K, DR, HD)
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN sub_role TEXT').run();
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
     // Create bangchien_history table for storing bang chien session history
     const createBangchienHistoryTable = db.prepare(`
         CREATE TABLE IF NOT EXISTS bangchien_history (

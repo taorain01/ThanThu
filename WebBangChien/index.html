@@ -1690,9 +1690,16 @@ html, body { overflow-x: hidden; }
 .gs-left{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:24px;width:100%;max-width:440px}
 .gs-right{flex:1;display:flex;align-items:center;justify-content:center}
 @media (max-width: 768px) {
-  .gs-body{flex-direction:column-reverse;gap:40px;padding:30px 20px 60px}
-  .gs-right{transform:scale(0.8)}
+  .gs-body{flex-direction:column;gap:20px;padding:20px 16px 24px;width:100%;border-radius:20px;margin:8px auto}
+  .gs-right{transform:scale(0.65);margin:-20px 0}
+  .gs-left{gap:16px}
+  .gs-main-title{font-size:20px;letter-spacing:3px}
+  .gs-game-card{padding:18px 16px}
+  .gs-choices{gap:10px}
+  .gs-cbtn{padding:12px 6px}
+  .gs-stats-row{gap:8px}
 }
+
 .gs-coin-wrap{position:relative;display:flex;align-items:center;justify-content:center;perspective:800px;filter:drop-shadow(0 15px 40px rgba(0,0,0,.6))}
 .gs-coin-wrap .coin-3d{width:260px;height:260px;filter:drop-shadow(0 0 45px rgba(251,191,36,.4));cursor:pointer}
 .gs-coin-wrap .coin-3d:hover{filter:drop-shadow(0 0 65px rgba(251,191,36,.6))}
@@ -4901,14 +4908,16 @@ const POS_LABELS = {
 const ROLE_CLASS = { 'Healer': 'healer', 'Tanker': 'tanker', 'DPS': 'dps' };
 // Map: sub_role code (từ bot) → tên hiển thị đẹp
 const SUB_LABELS = {
-    // Short tags
+    // Short tags (từ bot lưu vào DB)
     'QD': 'Quạt Dù', 'qd': 'Quạt Dù',
     'VD': 'Vô Danh', 'vd': 'Vô Danh',
     'SD': 'Song Đao', 'sd': 'Song Đao',
     '9K': 'Cửu Kiếm', '9k': 'Cửu Kiếm',
     'DR': 'Dù Roi', 'dr': 'Dù Roi',
-    'HĐ': 'Hoành Đao', 'hđ': 'Hoành Đao',
+    'HD': 'Hoành Đao/Mở', 'hd': 'Hoành Đao/Mở',
+    'HĐ': 'Hoành Đao/Mở', 'hđ': 'Hoành Đao/Mở',
     'DT': 'Đao Thương', 'dt': 'Đao Thương',
+
     // Discord role slugs phổ biến
     'quat_du': 'Quạt Dù', 'rung_3000': 'Quạt Dù',
     'song_dao': 'Song Đao', 'cuu_kiem': 'Cửu Kiếm',

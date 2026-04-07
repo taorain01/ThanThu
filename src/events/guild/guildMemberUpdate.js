@@ -164,6 +164,12 @@ module.exports = {
                 for (const [, removedRole] of removedRoles) {
                     if (removedRole.id === BOOSTER_ROLE_ID) {
                         // User mất Server Booster role
+                        const vipUsers = db.getBoosterVipUsers ? db.getBoosterVipUsers() : [];
+                        if (vipUsers.includes(newMember.id)) {
+                            console.log(`[guildMemberUpdate] User ${newMember.user.tag} lost Booster role, nhưng nằm trong VIP list nên không xoá room.`);
+                            break;
+                        }
+
                         const room = db.getBoosterRoom(newMember.id);
                         if (room) {
                             console.log(`[guildMemberUpdate] User ${newMember.user.tag} lost Booster role, deleting room`);

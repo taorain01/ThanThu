@@ -2502,3 +2502,51 @@ function setLevelUpChannelId(channelId) {
 function getLevelUpChannelId() {
     return getConfig('levelup_channel_id');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BOOSTER VIP USERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Lấy danh sách ID user được sử dụng phòng VIP mà không cần nạp thẻ BOOST
+ * @returns {string[]} Danh sách user IDs
+ */
+function getBoosterVipUsers() {
+    const vips = getConfig('booster_vip_users');
+    return vips ? JSON.parse(vips) : [];
+}
+
+/**
+ * Thêm 1 user vào danh sách VIP của Booster Room
+ * @param {string} userId user ID
+ * @returns {Object} Result object
+ */
+function addBoosterVipUser(userId) {
+    const current = getBoosterVipUsers();
+    if (!current.includes(userId)) {
+        current.push(userId);
+        setConfig('booster_vip_users', JSON.stringify(current));
+        return { success: true, changes: 1 };
+    }
+    return { success: false, reason: 'already_exists' };
+}
+
+/**
+ * Gỡ 1 user khỏi danh sách VIP của Booster Room
+ * @param {string} userId user ID
+ * @returns {Object} Result object
+ */
+function removeBoosterVipUser(userId) {
+    const current = getBoosterVipUsers();
+    if (current.includes(userId)) {
+        const updated = current.filter(id => id !== userId);
+        setConfig('booster_vip_users', JSON.stringify(updated));
+        return { success: true, changes: 1 };
+    }
+    return { success: false, reason: 'not_found' };
+}
+
+module.exports.getBoosterVipUsers = getBoosterVipUsers;
+module.exports.addBoosterVipUser = addBoosterVipUser;
+module.exports.removeBoosterVipUser = removeBoosterVipUser;
+

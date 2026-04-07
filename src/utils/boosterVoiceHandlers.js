@@ -968,8 +968,9 @@ async function handlePanelButton(interaction) {
     const guild = interaction.guild;
     const guildId = guild.id;
 
-    // Kiểm tra role Server Booster (bypass cho owner)
-    const isBooster = member.roles.cache.has(BOOSTER_ROLE_ID) || userId === OWNER_BYPASS_ID;
+    // Kiểm tra role Server Booster (bypass cho owner và user trong list VIP)
+    const vipUsers = db.getBoosterVipUsers ? db.getBoosterVipUsers() : [];
+    const isBooster = member.roles.cache.has(BOOSTER_ROLE_ID) || userId === OWNER_BYPASS_ID || vipUsers.includes(userId);
     if (!isBooster) {
         await interaction.reply({
             content: '❌ Chỉ **Server Booster** mới được sử dụng tính năng này!',

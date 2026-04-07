@@ -467,9 +467,17 @@ function initializeDatabase() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             room_owner_id TEXT NOT NULL,
             member_id TEXT NOT NULL,
-            UNIQUE(room_owner_id, member_id)
+            type TEXT DEFAULT 'whitelist',
+            UNIQUE(room_owner_id, member_id, type)
         )
     `).run();
+
+    // Migration: thêm cột type cho bảng cũ (nếu chưa có)
+    try {
+        db.prepare("ALTER TABLE booster_room_members ADD COLUMN type TEXT DEFAULT 'whitelist'").run();
+    } catch (e) {
+        // Column probably already exists
+    }
 
     console.log('✅ Database initialized successfully');
 }
@@ -2112,6 +2120,7 @@ module.exports = {
     addBoosterRoomMember,
     removeBoosterRoomMember,
     getBoosterRoomMembers,
+    getAllBoosterRoomMembers,
     isBoosterRoomMember,
     getBoostCategoryId,
     setBoostCategoryId,
@@ -2395,26 +2404,63 @@ function setBoosterRoomAutoLock(userId, state) {
     return { success: result.changes > 0 };
 }
 
-function addBoosterRoomMember(ownerId, memberId) {
+/**
+ * Thêm member vào danh sách (whitelist hoặc blacklist)
+ * @param {string} ownerId - Owner ID
+ * @param {string} memberId - Member ID cần thêm
+ * @param {'whitelist'|'blacklist'} type - Kiểu danh sách
+ */
+function addBoosterRoomMember(ownerId, memberId, type = 'whitelist') {
     try {
-        db.prepare('INSERT OR IGNORE INTO booster_room_members (room_owner_id, member_id) VALUES (?, ?)').run(ownerId, memberId);
+        db.prepare('INSERT OR IGNORE INTO booster_room_members (room_owner_id, member_id, type) VALUES (?, ?, ?)').run(ownerId, memberId, type);
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
     }
 }
 
-function removeBoosterRoomMember(ownerId, memberId) {
-    const result = db.prepare('DELETE FROM booster_room_members WHERE room_owner_id = ? AND member_id = ?').run(ownerId, memberId);
+/**
+ * Xóa member khỏi danh sách (whitelist hoặc blacklist)
+ * @param {string} ownerId - Owner ID
+ * @param {string} memberId - Member ID cần xóa
+ * @param {'whitelist'|'blacklist'} type - Kiểu danh sách
+ */
+function removeBoosterRoomMember(ownerId, memberId, type = 'whitelist') {
+    const result = db.prepare('DELETE FROM booster_room_members WHERE room_owner_id = ? AND member_id = ? AND type = ?').run(ownerId, memberId, type);
     return { success: result.changes > 0 };
 }
 
-function getBoosterRoomMembers(ownerId) {
-    return db.prepare('SELECT member_id FROM booster_room_members WHERE room_owner_id = ?').all(ownerId).map(r => r.member_id);
+/**
+ * Lấy danh sách thành viên theo kiểu (whitelist hoặc blacklist)
+ * @param {string} ownerId - Owner ID
+ * @param {'whitelist'|'blacklist'} type - Kiểu danh sách
+ * @returns {string[]} Mảng ID thành viên
+ */
+function getBoosterRoomMembers(ownerId, type = 'whitelist') {
+    return db.prepare('SELECT member_id FROM booster_room_members WHERE room_owner_id = ? AND type = ?').all(ownerId, type).map(r => r.member_id);
 }
 
-function isBoosterRoomMember(ownerId, memberId) {
-    const row = db.prepare('SELECT 1 FROM booster_room_members WHERE room_owner_id = ? AND member_id = ?').get(ownerId, memberId);
+/**
+ * Lấy cả 2 danh sách whitelist + blacklist cùng lúc
+ * @param {string} ownerId - Owner ID
+ * @returns {{ whitelist: string[], blacklist: string[] }}
+ */
+function getAllBoosterRoomMembers(ownerId) {
+    const rows = db.prepare('SELECT member_id, type FROM booster_room_members WHERE room_owner_id = ?').all(ownerId);
+    const whitelist = rows.filter(r => r.type === 'whitelist').map(r => r.member_id);
+    const blacklist = rows.filter(r => r.type === 'blacklist').map(r => r.member_id);
+    return { whitelist, blacklist };
+}
+
+/**
+ * Kiểm tra member có trong danh sách không (theo type)
+ * @param {string} ownerId - Owner ID
+ * @param {string} memberId - Member ID
+ * @param {'whitelist'|'blacklist'} type - Kiểu danh sách
+ * @returns {boolean}
+ */
+function isBoosterRoomMember(ownerId, memberId, type = 'whitelist') {
+    const row = db.prepare('SELECT 1 FROM booster_room_members WHERE room_owner_id = ? AND member_id = ? AND type = ?').get(ownerId, memberId, type);
     return !!row;
 }
 

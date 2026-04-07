@@ -28,87 +28,59 @@ const EMOJI = {
  * Cập nhật permission cho voice channel theo mode + list_mode hiện tại.
  * @param {VoiceChannel} channel - Discord voice channel
  * @param {Object} room - Dữ liệu phòng từ DB (mode, list_mode, user_id)
- * @param {string[]} members - Danh sách ID người trong black/whitelist
+ * @param {{ whitelist: string[], blacklist: string[] }} allMembers - Cả 2 danh sách
  */
-async function updateRoomPermissions(channel, room, members) {
+async function updateRoomPermissions(channel, room, allMembers) {
     const mode = room.mode || 'hidden';
     const listMode = room.list_mode || 'whitelist';
     const guildId = channel.guild.id;
     const ownerId = room.user_id;
 
+    const whitelist = allMembers.whitelist || [];
+    const blacklist = allMembers.blacklist || [];
+
+    // Danh sách active (list đang áp dụng)
+    const activeList = listMode === 'blacklist' ? blacklist : whitelist;
+    // Tất cả member cần reset overwrite trước
+    const allIds = [...new Set([...whitelist, ...blacklist])];
+
     try {
+        // Bước 1: Đặt quyền @everyone theo mode
         if (mode === 'hidden') {
-            // Ẩn: @everyone không thấy kênh
-            await channel.permissionOverwrites.edit(guildId, {
-                ViewChannel: false,
-                Connect: false
-            });
-
-            if (listMode === 'whitelist') {
-                // Whitelist + Ẩn: Người trong DS thấy và vào được
-                for (const id of members) {
-                    await channel.permissionOverwrites.edit(id, {
-                        ViewChannel: true,
-                        Connect: true
-                    }).catch(() => {});
-                }
-            } else {
-                // Blacklist + Ẩn: DS bị chặn hoàn toàn (không thấy, không vào) — đã bị bởi @everyone
-                // Xóa overwrite riêng của từng blacklist member (nếu còn)
-                for (const id of members) {
-                    await channel.permissionOverwrites.delete(id).catch(() => {});
-                }
-            }
-
+            await channel.permissionOverwrites.edit(guildId, { ViewChannel: false, Connect: false });
         } else if (mode === 'public') {
-            // Công khai: @everyone thấy và vào được
-            await channel.permissionOverwrites.edit(guildId, {
-                ViewChannel: true,
-                Connect: true
-            });
-
-            if (listMode === 'whitelist') {
-                // Whitelist + Công khai: mọi người vào được, xóa overwrite riêng của whitelist (không cần thiết)
-                for (const id of members) {
-                    await channel.permissionOverwrites.delete(id).catch(() => {});
-                }
-            } else {
-                // Blacklist + Công khai: DS không thấy kênh luôn
-                for (const id of members) {
-                    await channel.permissionOverwrites.edit(id, {
-                        ViewChannel: false,
-                        Connect: false
-                    }).catch(() => {});
-                }
-            }
-
+            await channel.permissionOverwrites.edit(guildId, { ViewChannel: true, Connect: true });
         } else if (mode === 'locked') {
-            // Khoá: @everyone thấy nhưng không vào được
-            await channel.permissionOverwrites.edit(guildId, {
-                ViewChannel: true,
-                Connect: false
-            });
+            await channel.permissionOverwrites.edit(guildId, { ViewChannel: true, Connect: false });
+        }
 
-            if (listMode === 'whitelist') {
-                // Whitelist + Khoá: DS thấy và vào được (mục đích chính của whitelist)
-                for (const id of members) {
-                    await channel.permissionOverwrites.edit(id, {
-                        ViewChannel: true,
-                        Connect: true
-                    }).catch(() => {});
+        // Bước 2: Xóa sạch overwrite của tất cả member trong cả 2 list
+        // (tránh chồng đè giữa 2 list khi toggle)
+        for (const id of allIds) {
+            await channel.permissionOverwrites.delete(id).catch(() => {});
+        }
+
+        // Bước 3: Áp dụng list active
+        if (listMode === 'whitelist') {
+            // Whitelist: người trong DS được uu tiên
+            for (const id of activeList) {
+                if (mode === 'hidden') {
+                    // Whitelist + Ẩn: thấy và vào được
+                    await channel.permissionOverwrites.edit(id, { ViewChannel: true, Connect: true }).catch(() => {});
+                } else if (mode === 'locked') {
+                    // Whitelist + Khoá: vào được trong khi người ngoài không thể
+                    await channel.permissionOverwrites.edit(id, { ViewChannel: true, Connect: true }).catch(() => {});
                 }
-            } else {
-                // Blacklist + Khoá: DS không thấy kênh luôn (mạnh hơn @everyone)
-                for (const id of members) {
-                    await channel.permissionOverwrites.edit(id, {
-                        ViewChannel: false,
-                        Connect: false
-                    }).catch(() => {});
-                }
+                // Whitelist + Công khai: không cần overwrite (mọi người đều vào được rồi)
+            }
+        } else {
+            // Blacklist: người trong DS bị chặn hoàn toàn (mọi chế độ)
+            for (const id of activeList) {
+                await channel.permissionOverwrites.edit(id, { ViewChannel: false, Connect: false }).catch(() => {});
             }
         }
 
-        // Đảm bảo owner luôn có full quyền (bất kể chế độ nào)
+        // Bước 4: Đảm bảo owner luôn có full quyền
         await channel.permissionOverwrites.edit(ownerId, {
             ViewChannel: true,
             Connect: true,
@@ -254,8 +226,8 @@ async function handleVoiceJoin(channel, userId) {
         try {
             room.mode = 'public';
             db.setBoosterRoomMode(userId, 'public');
-            const members = db.getBoosterRoomMembers(userId);
-            await updateRoomPermissions(channel, room, members);
+            const allMembers = db.getAllBoosterRoomMembers(userId);
+            await updateRoomPermissions(channel, room, allMembers);
         } catch (e) {
             console.error('[BoostVC] Error unlocking room on join:', e.message);
         }
@@ -306,8 +278,8 @@ async function handleVoiceLeave(channel, userId) {
                 try {
                     room.mode = 'locked';
                     db.setBoosterRoomMode(room.user_id, 'locked');
-                    const members = db.getBoosterRoomMembers(room.user_id);
-                    await updateRoomPermissions(channel, room, members);
+                    const allMembers = db.getAllBoosterRoomMembers(room.user_id);
+                    await updateRoomPermissions(channel, room, allMembers);
                 } catch (e) {
                     console.error('[BoostVC] Error auto-locking room:', e.message);
                 }
@@ -380,9 +352,13 @@ async function handleAdd(interaction, ownerId) {
 
 // ── Trừ người ──
 async function handleRemove(interaction, ownerId) {
-    const members = db.getBoosterRoomMembers(ownerId);
+    const room = db.getBoosterRoom(ownerId);
+    const listMode = room.list_mode || 'whitelist';
+    const isBlacklist = listMode === 'blacklist';
+
+    const members = db.getBoosterRoomMembers(ownerId, listMode);
     if (members.length === 0) {
-        await interaction.reply({ content: '📋 Chưa có ai trong danh sách!', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `📋 Chưa có ai trong **${isBlacklist ? 'Blacklist' : 'Whitelist'}**!`, flags: MessageFlags.Ephemeral });
         return true;
     }
 
@@ -400,39 +376,45 @@ async function handleRemove(interaction, ownerId) {
     const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`boostvc_remove_select_${ownerId}`)
-            .setPlaceholder('Chọn người để xoá khỏi danh sách...')
+            .setPlaceholder(`Chọn người để xóa khỏi ${isBlacklist ? 'Blacklist' : 'Whitelist'}...`)
             .setMinValues(1)
             .setMaxValues(Math.min(options.length, 10))
             .addOptions(options)
     );
 
-    await interaction.reply({ content: '➖ Chọn người muốn **xoá khỏi danh sách**:', components: [row], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: `➖ Chọn người muốn **xóa khỏi ${isBlacklist ? '⛔ Blacklist' : '✅ Whitelist'}**:`, components: [row], flags: MessageFlags.Ephemeral });
     return true;
 }
 
 // ── Danh sách (chỉ owner thấy - Ephemeral) ──
 async function handleList(interaction, ownerId) {
-    const members = db.getBoosterRoomMembers(ownerId);
     const room = db.getBoosterRoom(ownerId);
-    const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
     const listMode = room.list_mode || 'whitelist';
     const isBlacklist = listMode === 'blacklist';
+    const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
+
+    // Lấy đúng list theo list_mode hiện tại
+    const members = db.getBoosterRoomMembers(ownerId, listMode);
+    // Lấy cả 2 list để hiện số lượng
+    const allMembers = db.getAllBoosterRoomMembers(ownerId);
 
     let desc;
     if (members.length === 0) {
-        desc = '*Chưa có ai trong danh sách.*';
+        desc = '*Chưa có ai trong danh sách này.*';
     } else {
         desc = members.map((id, i) => `${i + 1}. <@${id}>`).join('\n');
     }
 
     const embed = new EmbedBuilder()
         .setColor(isBlacklist ? '#EF4444' : '#8B5CF6')
-        .setTitle(`${isBlacklist ? '⛔ Blacklist' : '✅ Whitelist'} — Danh sách phòng`)
+        .setTitle(`${isBlacklist ? '⛔ Blacklist' : '✅ Whitelist'} — Hiện đang áp dụng`)
         .setDescription(desc)
         .addFields(
             { name: 'Chế độ kênh', value: modeLabel[room.mode] || '👻 Ẩn', inline: true },
             { name: 'Kiểu DS', value: isBlacklist ? '⛔ Blacklist' : '✅ Whitelist', inline: true },
             { name: 'Số người', value: `${members.length}`, inline: true },
+            { name: '✅ Whitelist có', value: `${allMembers.whitelist.length} người`, inline: true },
+            { name: '⛔ Blacklist có', value: `${allMembers.blacklist.length} người`, inline: true },
         );
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
@@ -561,11 +543,11 @@ async function handleSetMode(interaction, ownerId, newMode) {
     // Defer NGAY để tránh lỗi Unknown Interaction (10062) — Discord timeout 3s
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const members = db.getBoosterRoomMembers(ownerId);
+    const allMembers = db.getAllBoosterRoomMembers(ownerId);
     room.mode = newMode;
 
     try {
-        await updateRoomPermissions(channel, room, members);
+        await updateRoomPermissions(channel, room, allMembers);
         db.setBoosterRoomMode(ownerId, newMode);
 
         const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
@@ -599,17 +581,26 @@ async function handleToggleListMode(interaction, ownerId) {
     db.setBoosterRoomListMode(ownerId, newMode);
     room.list_mode = newMode;
 
-    // Áp dụng permission mới ngay lập tức
+    // Áp dụng permission mới với cả 2 list (reset và áp dụng list mới)
     if (channel) {
-        const members = db.getBoosterRoomMembers(ownerId);
-        await updateRoomPermissions(channel, room, members);
+        const allMembers = db.getAllBoosterRoomMembers(ownerId);
+        await updateRoomPermissions(channel, room, allMembers);
     }
 
-    const label = newMode === 'blacklist'
-        ? '⛔ **Blacklist** — Người trong DS sẽ **không thấy kênh** này!'
-        : '✅ **Whitelist** — Người trong DS được **ưu tiên vào phòng**!';
+    // Hiện số người trong list mới được kích hoạt
+    const allMembers = db.getAllBoosterRoomMembers(ownerId);
+    const activeCount = newMode === 'blacklist' ? allMembers.blacklist.length : allMembers.whitelist.length;
+    const otherCount = newMode === 'blacklist' ? allMembers.whitelist.length : allMembers.blacklist.length;
+    const otherLabel = newMode === 'blacklist' ? 'Whitelist' : 'Blacklist';
 
-    await interaction.editReply({ content: `✅ Đã chuyển danh sách sang chế độ ${label}` });
+    const label = newMode === 'blacklist'
+        ? `⛔ **Blacklist** đang áp dụng (${activeCount} người bị chặn)`
+        : `✅ **Whitelist** đang áp dụng (${activeCount} người được ưu tiên)`;
+
+    await interaction.editReply({
+        content: `✅ Đã chuyển sang **${label}**\n\n` +
+            `*${otherLabel} cũ vẫn được lưu riêng (${otherCount} người), chỉ không áp dụng.*`
+    });
     await refreshControlPanel(interaction.channel, ownerId);
     return true;
 }
@@ -898,17 +889,17 @@ async function handleModal(interaction) {
             return true;
         }
 
-        // Thêm vào DB
-        db.addBoosterRoomMember(ownerId, targetMember.id);
+        // Thêm vào đúng danh sách theo list_mode hiện tại
+        const listMode = room.list_mode || 'whitelist';
+        db.addBoosterRoomMember(ownerId, targetMember.id, listMode);
 
-        // Cập nhật permission theo list_mode + mode hiện tại
+        // Cập nhật permission với cả 2 list
         const channel = guild.channels.cache.get(room.channel_id);
         if (channel) {
-            const updatedMembers = db.getBoosterRoomMembers(ownerId);
-            await updateRoomPermissions(channel, room, updatedMembers);
+            const allMembers = db.getAllBoosterRoomMembers(ownerId);
+            await updateRoomPermissions(channel, room, allMembers);
         }
 
-        const listMode = room.list_mode || 'whitelist';
         const addedLabel = listMode === 'blacklist'
             ? `⛔ Đã thêm **${targetMember.displayName}** vào **Blacklist** — họ sẽ không thấy kênh này!`
             : `✅ Đã thêm **${targetMember.displayName}** vào **Whitelist**!`;

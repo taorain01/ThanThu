@@ -455,6 +455,13 @@ function initializeDatabase() {
         // Column probably already exists
     }
 
+    // Thêm list_mode: 'whitelist' (mặc định) hoặc 'blacklist'
+    try {
+        db.prepare("ALTER TABLE booster_rooms ADD COLUMN list_mode TEXT DEFAULT 'whitelist'").run();
+    } catch (e) {
+        // Column probably already exists
+    }
+
     db.prepare(`
         CREATE TABLE IF NOT EXISTS booster_room_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2101,6 +2108,7 @@ module.exports = {
     setBoosterRoomMode,
     setBoosterRoomName,
     setBoosterRoomAutoLock,
+    setBoosterRoomListMode,
     addBoosterRoomMember,
     removeBoosterRoomMember,
     getBoosterRoomMembers,
@@ -2416,6 +2424,16 @@ function getBoostCategoryId(guildId) {
 
 function setBoostCategoryId(guildId, categoryId) {
     return setConfig(`boost_category_${guildId}`, categoryId);
+}
+
+/**
+ * Cập nhật chế độ danh sách (whitelist/blacklist) cho VIP Room
+ * @param {string} userId - Owner ID
+ * @param {'whitelist'|'blacklist'} listMode - Chế độ danh sách
+ */
+function setBoosterRoomListMode(userId, listMode) {
+    const result = db.prepare("UPDATE booster_rooms SET list_mode = ? WHERE user_id = ?").run(listMode, userId);
+    return { success: result.changes > 0 };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ Bang Chiến Timer — Lang Gia</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050a14;
+  --bg2: #080f1e;
+  --glass: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.08);
+  --cyan: #00e5ff;
+  --cyan-dim: rgba(0,229,255,0.15);
+  --gold: #ffd700;
+  --gold-dim: rgba(255,215,0,0.15);
+  --red: #ff3d5a;
+  --red-dim: rgba(255,61,90,0.15);
+  --orange: #ff8c00;
+  --orange-dim: rgba(255,140,0,0.15);
+  --green: #00ff9d;
+  --purple: #b44fff;
+  --text: #e0e8ff;
+  --text-dim: rgba(224,232,255,0.5);
+  --ring-size: 280px;
+  --ring-stroke: 14;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* === BACKGROUND PARTICLES === */
+.bg-grid {
+  position: fixed; inset:0; z-index:0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events:none;
+}
+
+.bg-glow {
+  position: fixed; z-index:0; pointer-events:none;
+  border-radius: 50%; filter: blur(80px); opacity:0.12;
+}
+.bg-glow-1 { width:500px; height:500px; background:var(--cyan); top:-100px; left:-100px; }
+.bg-glow-2 { width:400px; height:400px; background:var(--purple); bottom:-80px; right:-80px; }
+
+/* === LAYOUT === */
+#app {
+  position: relative; z-index:1;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  padding: 0;
+}
+
+header {
+  display: flex; align-items:center; justify-content:space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(5,10,20,0.8);
+  backdrop-filter: blur(10px);
+}
+
+.logo {
+  display: flex; align-items: center; gap:10px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem; font-weight:700;
+  color: var(--cyan);
+  text-shadow: 0 0 20px var(--cyan);
+  letter-spacing: 2px;
+}
+.logo span { color: var(--gold); }
+
+.header-toggles {
+  display: flex; gap:12px; align-items:center;
+}
+
+.toggle-group {
+  display:flex; align-items:center; gap:8px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.toggle-group:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+.toggle-group.active { border-color: var(--cyan); background: var(--cyan-dim); }
+.toggle-group.active .toggle-dot { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+
+.toggle-icon { font-size:1rem; }
+.toggle-label { font-size:0.75rem; color: var(--text-dim); font-family:'Rajdhani'; font-weight:600; letter-spacing:1px; }
+.toggle-dot {
+  width:10px; height:10px; border-radius:50%;
+  background: rgba(255,255,255,0.2);
+  transition: all 0.3s;
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 0;
+  height: calc(100vh - 57px);
+}
+
+/* === LEFT PANEL: TIMER === */
+.timer-panel {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px 32px;
+  gap: 24px;
+}
+
+/* Timer ring */
+.timer-ring-wrap {
+  position: relative;
+  width: var(--ring-size); height: var(--ring-size);
+  display: flex; align-items:center; justify-content:center;
+}
+
+.ring-svg {
+  position: absolute; top:0; left:0;
+  width:100%; height:100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: rgba(255,255,255,0.06);
+  stroke-width: var(--ring-stroke);
+}
+
+.ring-prog {
+  fill: none;
+  stroke: url(#ring-gradient);
+  stroke-width: var(--ring-stroke);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+  filter: drop-shadow(0 0 6px var(--cyan));
+}
+
+.ring-inner {
+  position: relative; z-index:2;
+  text-align: center;
+}
+
+.time-display {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 3.8rem; font-weight:900;
+  color: #fff;
+  text-shadow: 0 0 30px var(--cyan), 0 0 60px rgba(0,229,255,0.3);
+  letter-spacing: 4px;
+  line-height: 1;
+}
+
+.time-label {
+  font-family: 'Rajdhani'; font-size:0.75rem;
+  color: var(--text-dim); letter-spacing:3px;
+  margin-top:6px;
+}
+
+/* Pulse animation for ring when warning */
+@keyframes ring-pulse {
+  0%,100% { filter: drop-shadow(0 0 6px var(--cyan)); }
+  50% { filter: drop-shadow(0 0 20px var(--cyan)) drop-shadow(0 0 40px var(--cyan)); }
+}
+.ring-prog.warning { animation: ring-pulse 0.5s ease-in-out infinite; stroke: url(#ring-gradient-warn); }
+
+/* Start time config */
+.time-config {
+  display: flex; align-items:center; gap:10px;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 12px; padding: 10px 16px;
+}
+.time-config label { font-size:0.75rem; color:var(--text-dim); font-family:'Rajdhani'; letter-spacing:1px; }
+.time-config input {
+  width: 60px;
+  background: rgba(0,229,255,0.06);
+  border: 1px solid rgba(0,229,255,0.2);
+  border-radius:8px; padding: 4px 8px;
+  color: var(--cyan); font-family:'Orbitron'; font-size:1rem; text-align:center;
+  outline: none;
+}
+.time-config input:focus { border-color: var(--cyan); box-shadow: 0 0 8px var(--cyan-dim); }
+.config-unit { font-size:0.75rem; color:var(--text-dim); }
+
+/* Controls */
+.controls {
+  display: flex; gap:12px;
+}
+
+.btn {
+  padding: 12px 28px;
+  border: none; border-radius: 10px;
+  font-family: 'Rajdhani'; font-weight:700; font-size:1rem; letter-spacing:1.5px;
+  cursor: pointer; transition: all 0.2s;
+  position: relative; overflow: hidden;
+}
+.btn::after {
+  content:''; position:absolute; inset:0;
+  background: rgba(255,255,255,0.1);
+  opacity:0; transition:opacity 0.2s;
+}
+.btn:hover::after { opacity:1; }
+.btn:active { transform: scale(0.97); }
+
+.btn-start {
+  background: linear-gradient(135deg, #00b4d8, var(--cyan));
+  color: #000; min-width:120px;
+  box-shadow: 0 0 20px rgba(0,229,255,0.4);
+}
+.btn-start:hover { box-shadow: 0 0 30px rgba(0,229,255,0.6); }
+
+.btn-reset {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--text-dim);
+}
+
+/* Event markers row */
+.event-markers {
+  display: flex; gap:10px; flex-wrap:wrap; justify-content:center;
+}
+
+.event-chip {
+  display:flex; align-items:center; gap:6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family:'Rajdhani'; font-size:0.8rem; font-weight:600; letter-spacing:1px;
+  border: 1px solid;
+  transition: all 0.3s;
+  cursor: default;
+}
+.event-chip.boss { border-color:var(--red); color:var(--red); background:var(--red-dim); }
+.event-chip.pvp { border-color:var(--orange); color:var(--orange); background:var(--orange-dim); }
+.event-chip.passed { opacity:0.3; }
+.event-chip.active { animation: chip-glow 0.5s ease-in-out infinite alternate; }
+@keyframes chip-glow {
+  from { box-shadow: 0 0 0 rgba(255,61,90,0); }
+  to { box-shadow: 0 0 12px var(--red); }
+}
+
+/* === ALERT OVERLAY === */
+#alert-overlay {
+  position: fixed; top:0; left:0; right:0; z-index:1000;
+  pointer-events: none;
+  display:flex; flex-direction:column; align-items:center;
+  gap:8px; padding-top:70px;
+}
+
+.alert-toast {
+  display: flex; align-items:center; gap:12px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  border: 1px solid;
+  font-family:'Rajdhani'; font-weight:600; font-size:1rem;
+  animation: toast-in 0.3s ease, toast-out 0.3s ease 3.7s forwards;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+@keyframes toast-in {
+  from { opacity:0; transform: translateY(-20px) scale(0.9); }
+  to { opacity:1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity:1; transform: translateY(0) scale(1); }
+  to { opacity:0; transform: translateY(-20px) scale(0.9); }
+}
+.alert-toast.boss { background:rgba(255,61,90,0.2); border-color:var(--red); color:#fff; }
+.alert-toast.pvp { background:rgba(255,140,0,0.2); border-color:var(--orange); color:#fff; }
+.alert-toast.event { background:rgba(255,215,0,0.2); border-color:var(--gold); color:var(--gold); }
+.alert-toast .toast-icon { font-size:1.5rem; }
+.alert-toast .toast-text strong { display:block; font-size:1.1rem; }
+.alert-toast .toast-text span { font-size:0.8rem; opacity:0.7; }
+
+/* === RIGHT PANEL === */
+.right-panel {
+  border-left: 1px solid var(--glass-border);
+  display: flex; flex-direction:column;
+  background: rgba(5,10,20,0.6);
+  overflow: hidden;
+}
+
+.panel-tabs {
+  display:flex;
+  border-bottom: 1px solid var(--glass-border);
+}
+.panel-tab {
+  flex:1; padding:12px; text-align:center;
+  font-family:'Rajdhani'; font-size:0.8rem; font-weight:600; letter-spacing:1px;
+  color:var(--text-dim); cursor:pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.panel-tab.active { color:var(--cyan); border-bottom-color: var(--cyan); }
+
+.panel-content { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+.tab-pane { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.tab-pane.active { display:flex; }
+
+/* === EVENTS TAB === */
+.events-list {
+  padding: 16px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex:1;
+}
+
+.event-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: all 0.3s;
+  position: relative; overflow:hidden;
+}
+.event-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:3px 0 0 3px;
+}
+.event-card.boss { border-color: rgba(255,61,90,0.3); }
+.event-card.boss::before { background: var(--red); }
+.event-card.pvp { border-color: rgba(255,140,0,0.3); }
+.event-card.pvp::before { background: var(--orange); }
+.event-card.passed { opacity:0.4; }
+.event-card.current { animation: card-pulse 1s ease-in-out infinite; }
+@keyframes card-pulse {
+  0%,100% { box-shadow: 0 0 0 rgba(255,61,90,0); }
+  50% { box-shadow: 0 0 16px rgba(255,61,90,0.4); }
+}
+
+.event-card-header {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:6px;
+}
+.event-name { font-family:'Rajdhani'; font-weight:700; font-size:1rem; }
+.event-card.boss .event-name { color:var(--red); }
+.event-card.pvp .event-name { color:var(--orange); }
+.event-at { font-family:'Orbitron'; font-size:0.8rem; color:var(--text-dim); }
+
+.event-countdown {
+  font-family:'Orbitron'; font-size:1.3rem; font-weight:700; color:#fff;
+}
+.event-status {
+  font-size:0.7rem; color:var(--text-dim); font-family:'Rajdhani'; letter-spacing:1px;
+}
+.event-warnings {
+  display:flex; gap:4px; margin-top:8px;
+}
+.warn-pip {
+  width:6px; height:6px; border-radius:50%;
+  background:rgba(255,255,255,0.1);
+  transition: all 0.3s;
+}
+.warn-pip.fired { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+
+/* === LOG TAB === */
+.log-list {
+  flex:1; overflow-y:auto;
+  padding: 12px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.log-item {
+  display:flex; gap:10px; align-items:flex-start;
+  padding: 8px 10px;
+  background:var(--glass); border-radius:8px;
+  font-size:0.8rem;
+  animation: log-in 0.3s ease;
+}
+@keyframes log-in {
+  from { opacity:0; transform: translateX(10px); }
+  to { opacity:1; transform: translateX(0); }
+}
+.log-time { color:var(--text-dim); font-family:'Orbitron'; font-size:0.7rem; flex-shrink:0; margin-top:1px; }
+.log-msg { color:var(--text); }
+.log-msg.warn { color:var(--gold); }
+.log-msg.event-boss { color:var(--red); font-weight:600; }
+.log-msg.event-pvp { color:var(--orange); font-weight:600; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,0.3); }
+
+/* Responsive */
+@media(max-width: 768px) {
+  .main-content { grid-template-columns:1fr; }
+  .right-panel { height: 300px; border-left:none; border-top: 1px solid var(--glass-border); }
+  :root { --ring-size: 220px; }
+  .time-display { font-size:2.8rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow bg-glow-1"></div>
+<div class="bg-glow bg-glow-2"></div>
+
+<div id="alert-overlay"></div>
+
+<div id="app">
+  <header>
+    <div class="logo">⚔️ LANG&nbsp;<span>GIA</span>&nbsp;TIMER</div>
+    <div class="header-toggles">
+      <div class="toggle-group active" id="toggle-sound" onclick="toggleSetting('sound')">
+        <span class="toggle-icon">🔊</span>
+        <span class="toggle-label">ÂM THANH</span>
+        <div class="toggle-dot"></div>
+      </div>
+      <div class="toggle-group active" id="toggle-notif" onclick="toggleSetting('notif')">
+        <span class="toggle-icon">🔔</span>
+        <span class="toggle-label">THÔNG BÁO</span>
+        <div class="toggle-dot"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <!-- LEFT: Timer -->
+    <div class="timer-panel">
+
+      <!-- Ring Timer -->
+      <div class="timer-ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 280 280">
+          <defs>
+            <linearGradient id="ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#00e5ff"/>
+              <stop offset="100%" style="stop-color:#0077ff"/>
+            </linearGradient>
+            <linearGradient id="ring-gradient-warn" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ff3d5a"/>
+              <stop offset="100%" style="stop-color:#ff8c00"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="140" cy="140" r="126"/>
+          <circle class="ring-prog" id="ring" cx="140" cy="140" r="126"
+            stroke-dasharray="791.7" stroke-dashoffset="0"/>
+        </svg>
+        <div class="ring-inner">
+          <div class="time-display" id="timer-display">30:00</div>
+          <div class="time-label">THỜI GIAN</div>
+        </div>
+      </div>
+
+      <!-- Start time config -->
+      <div class="time-config">
+        <label>BẮT ĐẦU TỪ</label>
+        <input type="number" id="start-min" value="30" min="1" max="99"/>
+        <span class="config-unit">PHÚT</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-start" id="btn-start" onclick="toggleTimer()">▶ BẮT ĐẦU</button>
+        <button class="btn btn-reset" onclick="resetTimer()">↺ ĐẶT LẠI</button>
+      </div>
+
+      <!-- Event chips -->
+      <div class="event-markers" id="event-chips"></div>
+
+    </div>
+
+    <!-- RIGHT: Events + Log -->
+    <div class="right-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab active" onclick="switchTab('events')">📋 SỰ KIỆN</div>
+        <div class="panel-tab" onclick="switchTab('log')">📜 NHẬT KÝ</div>
+      </div>
+      <div class="panel-content">
+        <div class="tab-pane active" id="tab-events">
+          <div class="events-list" id="events-list"></div>
+        </div>
+        <div class="tab-pane" id="tab-log">
+          <div class="log-list" id="log-list">
+            <div class="log-item"><span class="log-time">--:--</span><span class="log-msg">Nhật ký sự kiện sẽ hiện ở đây...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const EVENTS = [
+  { id:'boss-25', name:'Boss', emoji:'👹', type:'boss', minute:25, color:'#ff3d5a' },
+  { id:'pvp-20',  name:'PVP',  emoji:'⚔️', type:'pvp',  minute:20, color:'#ff8c00' },
+  { id:'boss-15', name:'Boss', emoji:'👹', type:'boss', minute:15, color:'#ff3d5a' },
+];
+const WARN_SECONDS = [30, 15, 5];
+
+// ===== STATE =====
+let totalSeconds = 30 * 60;
+let currentSeconds = 30 * 60;
+let running = false;
+let interval = null;
+let settings = { sound: true, notif: true };
+let firedWarnings = {}; // { 'boss-25_30': true, ... }
+let audioCtx = null;
+
+// ===== AUDIO =====
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, duration, type='sine', gain=0.3) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    g.gain.setValueAtTime(gain, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+function playWarning(warnSecs) {
+  if (!settings.sound) return;
+  if (warnSecs === 30) {
+    playTone(440, 0.3); // 1 beep
+  } else if (warnSecs === 15) {
+    playTone(550, 0.2);
+    setTimeout(() => playTone(550, 0.2), 300); // 2 beeps
+  } else if (warnSecs === 5) {
+    [0, 200, 400].forEach(d => setTimeout(() => playTone(880, 0.15, 'square'), d)); // 3 rapid
+  }
+}
+
+function playEventArrival(type) {
+  if (!settings.sound) return;
+  if (type === 'boss') {
+    [0, 200, 400, 600].forEach(d => setTimeout(() => playTone(200 + d, 0.4, 'sawtooth', 0.4), d));
+  } else {
+    playTone(660, 0.15); setTimeout(() => playTone(880, 0.3), 200);
+  }
+}
+
+// ===== NOTIFICATIONS =====
+async function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+
+function sendNotification(title, body, icon='⚔️') {
+  if (!settings.notif) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  new Notification(title, { body, icon: 'data:text/plain,' + icon, silent: true });
+}
+
+// ===== TIMER LOGIC =====
+function toggleTimer() {
+  if (running) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  if (running) return;
+  if (currentSeconds <= 0) return;
+
+  // Request permission on first start
+  requestNotifPermission();
+
+  running = true;
+  document.getElementById('btn-start').textContent = '⏸ TẠM DỪNG';
+  document.getElementById('start-min').disabled = true;
+
+  interval = setInterval(() => {
+    currentSeconds--;
+    if (currentSeconds <= 0) {
+      currentSeconds = 0;
+      clearInterval(interval);
+      running = false;
+      document.getElementById('btn-start').textContent = '▶ BẮT ĐẦU';
+      addLog('HẾT GIỜ! Bang Chiến kết thúc! 🏁', 'warn');
+      playTone(220, 2, 'sawtooth', 0.5);
+    }
+    updateDisplay();
+    checkEvents();
+  }, 1000);
+}
+
+function pauseTimer() {
+  running = false;
+  clearInterval(interval);
+  document.getElementById('btn-start').textContent = '▶ TIẾP TỤC';
+}
+
+function resetTimer() {
+  clearInterval(interval);
+  running = false;
+  const min = parseInt(document.getElementById('start-min').value) || 30;
+  totalSeconds = min * 60;
+  currentSeconds = min * 60;
+  firedWarnings = {};
+  document.getElementById('btn-start').textContent = '▶ BẮT ĐẦU';
+  document.getElementById('start-min').disabled = false;
+  updateDisplay();
+  renderEvents();
+  clearLog();
+}
+
+function updateDisplay() {
+  const m = Math.floor(currentSeconds / 60).toString().padStart(2,'0');
+  const s = (currentSeconds % 60).toString().padStart(2,'0');
+  document.getElementById('timer-display').textContent = `${m}:${s}`;
+
+  // Ring progress
+  const ring = document.getElementById('ring');
+  const circumference = 2 * Math.PI * 126;
+  const progress = currentSeconds / totalSeconds;
+  ring.style.strokeDashoffset = circumference * (1 - progress);
+
+  // Warning ring color
+  const isWarning = EVENTS.some(e => {
+    const diff = currentSeconds - e.minute * 60;
+    return diff >= 0 && diff <= 5;
+  });
+  ring.classList.toggle('warning', isWarning);
+
+  renderEvents();
+}
+
+function checkEvents() {
+  EVENTS.forEach(ev => {
+    const evSecs = ev.minute * 60;
+
+    // Check warnings
+    WARN_SECONDS.forEach(w => {
+      const key = `${ev.id}_${w}`;
+      if (!firedWarnings[key] && currentSeconds === evSecs + w) {
+        firedWarnings[key] = true;
+        triggerWarning(ev, w);
+      }
+    });
+
+    // Check event arrival
+    const arrKey = `${ev.id}_arrive`;
+    if (!firedWarnings[arrKey] && currentSeconds === evSecs) {
+      firedWarnings[arrKey] = true;
+      triggerEventArrival(ev);
+    }
+  });
+}
+
+function triggerWarning(ev, warnSecs) {
+  const msg = `${ev.emoji} ${ev.name} xuất hiện sau ${warnSecs} giây!`;
+  showToast(msg, '', ev.type, false);
+  addLog(msg, 'warn');
+  playWarning(warnSecs);
+  sendNotification(`⚠️ ${ev.name} — ${warnSecs}s`, msg);
+}
+
+function triggerEventArrival(ev) {
+  const msg = `${ev.emoji} ${ev.name.toUpperCase()} ĐÃ XUẤT HIỆN!`;
+  showToast(msg, `Phút ${ev.minute} — Hành động ngay!`, ev.type, true);
+  addLog(msg, `event-${ev.type}`);
+  playEventArrival(ev.type);
+  sendNotification(`🚨 ${ev.name} BÂY GIỜ!`, msg);
+}
+
+// ===== TOAST =====
+function showToast(title, sub, type, isEvent) {
+  const overlay = document.getElementById('alert-overlay');
+  const div = document.createElement('div');
+  div.className = `alert-toast ${isEvent ? 'event' : type}`;
+  div.innerHTML = `
+    <span class="toast-icon">${isEvent ? '🚨' : '⚠️'}</span>
+    <div class="toast-text">
+      <strong>${title}</strong>
+      ${sub ? `<span>${sub}</span>` : ''}
+    </div>
+  `;
+  overlay.appendChild(div);
+  setTimeout(() => div.remove(), 4200);
+}
+
+// ===== RENDER EVENTS =====
+function renderEvents() {
+  // Event cards
+  const list = document.getElementById('events-list');
+  list.innerHTML = '';
+  EVENTS.forEach(ev => {
+    const evSecs = ev.minute * 60;
+    const diff = currentSeconds - evSecs;
+    const passed = diff < 0;
+    const isCurrent = !passed && diff <= 5;
+
+    const secsLeft = Math.max(0, diff);
+    const m = Math.floor(secsLeft / 60).toString().padStart(2,'0');
+    const s = (secsLeft % 60).toString().padStart(2,'0');
+
+    // Check which warnings fired
+    const warnsFired = WARN_SECONDS.filter(w => firedWarnings[`${ev.id}_${w}`]);
+
+    const card = document.createElement('div');
+    card.className = `event-card ${ev.type}${passed ? ' passed' : ''}${isCurrent ? ' current' : ''}`;
+    card.innerHTML = `
+      <div class="event-card-header">
+        <span class="event-name">${ev.emoji} ${ev.name}</span>
+        <span class="event-at">Phút ${ev.minute}:00</span>
+      </div>
+      <div class="event-countdown">${passed ? 'ĐÃ QUA' : `${m}:${s}`}</div>
+      <div class="event-status">${passed ? 'Đã kết thúc' : isCurrent ? '🔴 ĐANG DIỄN RA' : 'Đang đếm ngược...'}</div>
+      <div class="event-warnings">
+        ${WARN_SECONDS.map(w => `<div class="warn-pip ${warnsFired.includes(w) ? 'fired' : ''}" title="Cảnh báo ${w}s"></div>`).join('')}
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Event chips
+  const chips = document.getElementById('event-chips');
+  chips.innerHTML = '';
+  EVENTS.forEach(ev => {
+    const passed = currentSeconds < ev.minute * 60;
+    const chip = document.createElement('div');
+    chip.className = `event-chip ${ev.type}${passed ? ' passed' : ''}`;
+    chip.innerHTML = `${ev.emoji} ${ev.name} ${ev.minute}:00`;
+    chips.appendChild(chip);
+  });
+}
+
+// ===== LOG =====
+function addLog(msg, cls='') {
+  const m = Math.floor(currentSeconds / 60).toString().padStart(2,'0');
+  const s = (currentSeconds % 60).toString().padStart(2,'0');
+  const log = document.getElementById('log-list');
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  item.innerHTML = `<span class="log-time">${m}:${s}</span><span class="log-msg ${cls}">${msg}</span>`;
+  log.insertBefore(item, log.firstChild);
+}
+
+function clearLog() {
+  document.getElementById('log-list').innerHTML =
+    '<div class="log-item"><span class="log-time">--:--</span><span class="log-msg">Nhật ký sự kiện sẽ hiện ở đây...</span></div>';
+}
+
+// ===== TAB =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ===== TOGGLES =====
+function toggleSetting(key) {
+  settings[key] = !settings[key];
+  document.getElementById(`toggle-${key}`).classList.toggle('active', settings[key]);
+  if (key === 'notif' && settings[key]) requestNotifPermission();
+}
+
+// ===== START MIN INPUT =====
+document.getElementById('start-min').addEventListener('change', () => {
+  if (!running) resetTimer();
+});
+
+// ===== INIT =====
+renderEvents();
+updateDisplay();
+</script>
+</body>
+</html>

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>⚔️ Bang Chiến Timer — Lang Gia</title>
+<meta name="theme-color" content="#0a1a0f">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#fbbf24;--gold-deep:#f59e0b;--gold-dark:#d97706;--gold-glow:#fde68a;
+  --green-300:#86efac;--green-400:#4ade80;--green-500:#22c55e;
+  --red:#f87171;--red-deep:#ef4444;
+  --orange:#fb923c;
+  --bg:#0a1a0f;--bg2:rgba(10,26,15,.92);--bg3:rgba(10,26,15,.7);
+  --card:rgba(12,30,18,.85);--card2:rgba(16,36,22,.9);
+  --border:rgba(251,191,36,.18);--border2:rgba(34,197,94,.15);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --shadow:0 8px 32px rgba(0,0,0,.6);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;-webkit-user-select:none;user-select:none}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
+  background-image:radial-gradient(ellipse at 15% 0%,rgba(34,197,94,.07) 0%,transparent 55%),
+    radial-gradient(ellipse at 85% 100%,rgba(251,191,36,.05) 0%,transparent 55%);
+  min-height:100vh;overflow-x:hidden}
+
+/* ── Particles ── */
+#pts{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.pt{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.7),transparent);animation:ptFloat linear infinite}
+@keyframes ptFloat{0%{transform:translateY(105vh);opacity:0}10%{opacity:.8}90%{opacity:.3}100%{transform:translateY(-5vh);opacity:0}}
+
+/* ── LAYOUT DESKTOP ── */
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:16px;
+  display:grid;grid-template-columns:1fr 360px;grid-template-rows:auto 1fr;gap:14px;min-height:100vh}
+
+/* ── HEADER ── */
+.hdr{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;background:var(--card);border:1px solid var(--border);
+  border-radius:14px;backdrop-filter:blur(20px)}
+.hdr-logo{display:flex;align-items:center;gap:12px}
+.hdr-logo svg{width:36px;height:36px;filter:drop-shadow(0 0 8px rgba(251,191,36,.7));flex-shrink:0}
+.hdr-title h1{font-family:'Cinzel Decorative',serif;font-size:18px;
+  background:linear-gradient(135deg,#fde68a,#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:2px}
+.hdr-title p{font-size:10px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-top:1px}
+.hdr-right{display:flex;gap:8px;align-items:center}
+
+/* Toggle pill */
+.tog{display:flex;align-items:center;gap:7px;padding:6px 14px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:20px;cursor:pointer;font-size:12px;color:var(--text3);
+  transition:all .2s;user-select:none}
+.tog.on{border-color:rgba(251,191,36,.5);color:var(--gold);background:rgba(251,191,36,.08)}
+.tog svg{width:14px;height:14px;flex-shrink:0}
+.dot{width:26px;height:14px;background:rgba(255,255,255,.08);border-radius:7px;position:relative;flex-shrink:0;transition:background .3s}
+.dot::after{content:'';position:absolute;width:10px;height:10px;border-radius:50%;background:var(--text3);top:2px;left:2px;transition:all .3s}
+.tog.on .dot{background:rgba(251,191,36,.3)}
+.tog.on .dot::after{background:var(--gold);transform:translateX(12px);box-shadow:0 0 6px var(--gold)}
+
+/* ── MAIN PANEL ── */
+.main{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  backdrop-filter:blur(24px);padding:24px;display:flex;flex-direction:column;align-items:center;gap:18px}
+
+/* Ring */
+.ring-wrap{position:relative;width:270px;height:270px}
+.ring-svg{width:270px;height:270px;transform:rotate(-90deg);filter:drop-shadow(0 0 14px rgba(251,191,36,.35))}
+.r-bg{fill:none;stroke:rgba(255,255,255,.04);stroke-width:8}
+.r-glow{fill:none;stroke:rgba(34,197,94,.12);stroke-width:16;stroke-dasharray:691;stroke-dashoffset:0;animation:rGlow 2s ease-in-out infinite}
+@keyframes rGlow{0%,100%{opacity:.3}50%{opacity:.8}}
+.r-track{fill:none;stroke:url(#rg1);stroke-width:8;stroke-linecap:round;
+  stroke-dasharray:691;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke .5s}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.r-lbl{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3)}
+.r-time{font-family:'Orbitron',sans-serif;font-size:54px;font-weight:900;
+  background:linear-gradient(135deg,var(--gold-glow),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1;filter:drop-shadow(0 0 10px rgba(251,191,36,.5));transition:all .3s}
+.r-time.warn{background:linear-gradient(135deg,#fb923c,#ef4444);-webkit-background-clip:text;animation:tblink .5s ease-in-out infinite}
+.r-time.crit{background:linear-gradient(135deg,#f87171,#dc2626);-webkit-background-clip:text;animation:tblink .25s ease-in-out infinite}
+@keyframes tblink{0%,100%{opacity:1}50%{opacity:.5}}
+.r-status{font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase}
+
+/* Progress bar mini */
+.prog-bar{width:100%;height:3px;background:rgba(255,255,255,.05);border-radius:2px}
+.prog-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green-500),var(--gold));
+  transition:width 1s linear;box-shadow:0 0 8px rgba(251,191,36,.4)}
+
+/* Config */
+.cfg{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.cfg-title{font-size:10px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.cfg-title svg{width:13px;height:13px}
+.cfg-row{display:flex;gap:8px;align-items:flex-end}
+.cfg-field{display:flex;flex-direction:column;gap:4px;flex:1}
+.cfg-field label{font-size:10px;color:var(--text3)}
+.cfg-input{background:rgba(0,0,0,.5);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;color:var(--text);font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;
+  width:100%;text-align:center;transition:border-color .2s}
+.cfg-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 10px rgba(251,191,36,.2)}
+.cfg-input::-webkit-inner-spin-button,.cfg-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.cfg-input[type=number]{-moz-appearance:textfield}
+.cfg-sep{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--gold);padding-bottom:8px}
+.cfg-apply{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:8px;
+  padding:8px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
+  cursor:pointer;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:5px}
+.cfg-apply:hover{background:rgba(251,191,36,.2);box-shadow:0 0 12px rgba(251,191,36,.2)}
+.cfg-apply svg{width:13px;height:13px}
+
+/* Buttons */
+.btn-row{display:flex;gap:10px;width:100%}
+.btn{flex:1;padding:13px 16px;border:none;border-radius:11px;font-family:'Inter',sans-serif;
+  font-weight:700;font-size:14px;cursor:pointer;transition:all .25s;
+  display:flex;align-items:center;justify-content:center;gap:7px;position:relative;overflow:hidden}
+.btn svg{width:16px;height:16px;flex-shrink:0}
+.btn-start{background:linear-gradient(135deg,#d97706,#92400e);color:#fff;
+  box-shadow:0 4px 16px rgba(217,119,6,.4);border:1px solid rgba(251,191,36,.3)}
+.btn-start:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 24px rgba(251,191,36,.5)}
+.btn-start:disabled{opacity:.5;cursor:not-allowed}
+.btn-pause{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);flex:.6}
+.btn-pause:hover:not(:disabled){border-color:var(--gold);background:rgba(251,191,36,.08)}
+.btn-pause:disabled{opacity:.4;cursor:not-allowed}
+.btn-reset{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--red);flex:.4}
+.btn-reset:hover{background:rgba(239,68,68,.18);box-shadow:0 0 12px rgba(239,68,68,.25)}
+
+/* Milestones */
+.ms-section{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.ms-title{font-size:10px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.ms-title svg{width:13px;height:13px}
+.ms-list{display:flex;flex-direction:column;gap:7px}
+.ms-item{display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:rgba(0,0,0,.3);border-radius:9px;border-left:3px solid transparent;transition:all .3s}
+.ms-item.boss{border-left-color:var(--red-deep)}
+.ms-item.pvp{border-left-color:var(--green-400)}
+.ms-item.lit{background:rgba(251,191,36,.08);border-left-color:var(--gold);box-shadow:inset 0 0 20px rgba(251,191,36,.05)}
+.ms-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ms-icon.boss{background:rgba(239,68,68,.15)}
+.ms-icon.pvp{background:rgba(74,222,128,.12)}
+.ms-icon svg{width:16px;height:16px}
+.ms-info{flex:1}
+.ms-info strong{font-size:13px;display:block;color:var(--text)}
+.ms-info span{font-size:10px;color:var(--text3)}
+.badges{display:flex;gap:4px}
+.badge{font-size:9px;padding:2px 7px;border-radius:8px;font-weight:700;letter-spacing:.3px}
+.b30{background:rgba(251,191,36,.12);color:var(--gold);border:1px solid rgba(251,191,36,.25)}
+.b15{background:rgba(251,115,0,.12);color:var(--orange);border:1px solid rgba(251,115,0,.25)}
+.b5{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)}
+
+/* ── SIDE PANEL ── */
+.side{display:flex;flex-direction:column;gap:14px}
+
+/* Notif */
+.notif-box{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  backdrop-filter:blur(24px);padding:18px;flex:1;display:flex;flex-direction:column;min-height:0}
+.notif-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.notif-hdr h2{font-size:12px;font-weight:700;color:var(--green-400);letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:7px}
+.notif-hdr h2 svg{width:14px;height:14px}
+.ncnt{background:var(--green-500);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px;min-width:20px;text-align:center}
+.nlist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;max-height:300px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.ni{padding:10px 12px;border-radius:8px;background:rgba(0,0,0,.3);
+  border:1px solid transparent;animation:niIn .35s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden}
+@keyframes niIn{from{opacity:0;transform:translateX(16px) scale(.96)}to{opacity:1;transform:none}}
+.ni::before{content:'';position:absolute;left:0;inset-block:0;width:3px}
+.ni.tboss{border-color:rgba(239,68,68,.25)}.ni.tboss::before{background:var(--red-deep)}
+.ni.tpvp{border-color:rgba(74,222,128,.25)}.ni.tpvp::before{background:var(--green-400)}
+.ni.twarn{border-color:rgba(251,191,36,.2)}.ni.twarn::before{background:var(--gold)}
+.ni.tcrit{border-color:rgba(239,68,68,.4)}.ni.tcrit::before{background:var(--red);box-shadow:0 0 6px var(--red)}
+.ni.tstart{border-color:rgba(34,197,94,.2)}.ni.tstart::before{background:var(--green-500)}
+.ni-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.ni-title{font-weight:700;font-size:12px;color:var(--text)}
+.ni-time{font-size:9px;color:var(--text3);font-family:'Orbitron',sans-serif;white-space:nowrap}
+.ni-body{font-size:11px;color:var(--text2);margin-top:3px}
+.n-empty{text-align:center;color:var(--text3);padding:24px;font-size:12px;line-height:1.8}
+
+/* Tasks */
+.task-box{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  backdrop-filter:blur(24px);padding:18px}
+.task-box h2{font-size:12px;font-weight:700;color:var(--green-400);letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.task-box h2 svg{width:14px;height:14px}
+.tlist{display:flex;flex-direction:column;gap:6px}
+.ti{display:flex;align-items:center;gap:9px;padding:9px 11px;
+  background:rgba(0,0,0,.3);border-radius:8px;border:1px solid rgba(255,255,255,.04);
+  font-size:12px;cursor:pointer;transition:all .2s;color:var(--text2)}
+.ti:hover{background:rgba(251,191,36,.06);border-color:rgba(251,191,36,.15);color:var(--text)}
+.ti.done{opacity:.45;text-decoration:line-through;color:var(--text3)}
+.tck{width:17px;height:17px;border-radius:50%;border:1.5px solid rgba(251,191,36,.4);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.ti.done .tck{background:var(--green-500);border-color:var(--green-500)}
+.ti.done .tck svg{display:block}
+.tck svg{display:none;width:9px;height:9px}
+
+/* ── ALERT OVERLAY ── */
+.al-ov{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.al-box{background:linear-gradient(160deg,rgba(10,22,14,.97),rgba(6,14,9,.99));
+  border:1.5px solid var(--gold);border-radius:18px;padding:28px 44px;text-align:center;
+  box-shadow:0 0 40px rgba(251,191,36,.4),0 20px 60px rgba(0,0,0,.6);
+  animation:alIn .4s cubic-bezier(.34,1.56,.64,1);backdrop-filter:blur(30px)}
+@keyframes alIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+.al-box.boss{border-color:var(--red-deep);box-shadow:0 0 40px rgba(239,68,68,.5),0 20px 60px rgba(0,0,0,.6)}
+.al-box.pvp{border-color:var(--green-400);box-shadow:0 0 40px rgba(74,222,128,.4),0 20px 60px rgba(0,0,0,.6)}
+.al-box.hide{display:none}
+.al-ico{display:flex;justify-content:center;margin-bottom:10px}
+.al-ico svg{width:52px;height:52px}
+.al-title{font-family:'Cinzel Decorative',serif;font-size:22px;
+  background:linear-gradient(135deg,var(--gold-glow),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.al-box.boss .al-title{background:linear-gradient(135deg,#fca5a5,var(--red-deep));-webkit-background-clip:text}
+.al-box.pvp .al-title{background:linear-gradient(135deg,var(--green-300),var(--green-500));-webkit-background-clip:text}
+.al-sub{font-size:14px;color:var(--text2);margin-top:6px}
+
+/* Screen flash */
+.flash{position:fixed;inset:0;z-index:850;pointer-events:none;opacity:0;transition:opacity .08s}
+.flash.fb{background:rgba(239,68,68,.12)}
+.flash.fp{background:rgba(74,222,128,.08)}
+.flash.fw{background:rgba(251,191,36,.08)}
+
+/* Panel glow on milestone */
+.main.gboss{animation:gboss .6s ease-in-out 3}
+.main.gpvp{animation:gpvp .6s ease-in-out 3}
+@keyframes gboss{0%,100%{box-shadow:none}50%{box-shadow:0 0 50px rgba(239,68,68,.4)}}
+@keyframes gpvp{0%,100%{box-shadow:none}50%{box-shadow:0 0 50px rgba(74,222,128,.35)}}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .wrap{grid-template-columns:1fr;grid-template-rows:auto auto auto;padding:10px;gap:10px;min-height:auto}
+  .hdr{padding:10px 14px}
+  .hdr-title h1{font-size:14px;letter-spacing:1px}
+  .hdr-title p{font-size:9px}
+  .hdr-right{gap:6px}
+  .tog{padding:5px 10px;font-size:11px}
+  .main{padding:16px;gap:14px}
+  .ring-wrap{width:220px;height:220px}
+  .ring-svg{width:220px;height:220px}
+  .r-time{font-size:44px}
+  .side{grid-row:3}
+  .nlist{max-height:200px}
+  .ms-info strong{font-size:12px}
+}
+@media(max-width:480px){
+  .hdr-title p{display:none}
+  .tog span{display:none}
+  .ring-wrap{width:190px;height:190px}
+  .ring-svg{width:190px;height:190px}
+  .r-time{font-size:38px}
+  .btn{padding:11px 10px;font-size:13px}
+  .al-box{padding:20px 28px}
+  .al-title{font-size:17px}
+}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="pts"></div>
+<div class="flash" id="flash"></div>
+<div class="al-ov" id="alOv">
+  <div class="al-box hide" id="alBox">
+    <div class="al-ico" id="alIco"></div>
+    <div class="al-title" id="alTitle">BOSS</div>
+    <div class="al-sub" id="alSub">Chuẩn bị!</div>
+  </div>
+</div>
+
+<!-- SVG Defs (hidden) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Sword -->
+    <symbol id="ico-sword" viewBox="0 0 24 24"><path fill="currentColor" d="m14.5 2.5 7 7-10 10-1.4-1.4 8.6-8.6-4.2-4.2L6.1 14h-2L2 16.1 7.9 22l2.1-2.1v-2l8.6-8.6-1.4-1.4 1.3-1.3-3.5-3.1 1.3-1.3Z"/></symbol>
+    <!-- Shield -->
+    <symbol id="ico-shield" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L4 5v6c0 5.25 3.5 10.15 8 11.35C16.5 21.15 20 16.25 20 11V5L12 2zm-2 13-3-3 1.4-1.4L10 12.2l4.6-4.6L16 9l-6 6z"/></symbol>
+    <!-- Bell -->
+    <symbol id="ico-bell" viewBox="0 0 24 24"><path fill="currentColor" d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></symbol>
+    <!-- Sound -->
+    <symbol id="ico-vol" viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></symbol>
+    <!-- Play -->
+    <symbol id="ico-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></symbol>
+    <!-- Pause -->
+    <symbol id="ico-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></symbol>
+    <!-- Reset -->
+    <symbol id="ico-reset" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></symbol>
+    <!-- Settings -->
+    <symbol id="ico-settings" viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.01 7.01 0 0 0-1.62-.94l-.36-2.54A.484.484 0 0 0 14 2h-4a.484.484 0 0 0-.48.41l-.36 2.54a7.28 7.28 0 0 0-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.36 1.04.67 1.62.94l.36 2.54c.05.24.27.41.49.41h4c.22 0 .44-.17.47-.41l.36-2.54a7.28 7.28 0 0 0 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></symbol>
+    <!-- Check -->
+    <symbol id="ico-check" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></symbol>
+    <!-- Target -->
+    <symbol id="ico-target" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V18h2v1.93c-3.94-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.06 7.44-7 7.93zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm1-11.93V5h-2V3.07C7.06 3.56 4 6.92 4 11h2c0-3.31 2.69-6 6-6s6 2.69 6 6h2c0-4.08-3.06-7.44-7-7.93z"/></symbol>
+    <!-- Skull (boss) -->
+    <symbol id="ico-skull" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a9 9 0 0 0-9 9c0 3.03 1.5 5.7 3.81 7.34L7 20v2h10v-2l-.81-1.66C18.5 16.7 20 14.03 20 11A9 9 0 0 0 12 2zm-3.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm7 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></symbol>
+    <!-- Clipboard -->
+    <symbol id="ico-clip" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="hdr-logo">
+      <svg viewBox="0 0 36 36"><use href="#ico-sword" color="#fbbf24"/></svg>
+      <div class="hdr-title">
+        <h1>BANG CHIẾN TIMER</h1>
+        <p>Lang Gia · Tactical System</p>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="tog on" id="togMsg" onclick="toggleOpt('msg')">
+        <svg viewBox="0 0 14 14"><use href="#ico-bell" color="currentColor"/></svg>
+        <div class="dot"></div>
+        <span>Tin nhắn</span>
+      </div>
+      <div class="tog on" id="togSnd" onclick="toggleOpt('snd')">
+        <svg viewBox="0 0 14 14"><use href="#ico-vol" color="currentColor"/></svg>
+        <div class="dot"></div>
+        <span>Âm thanh</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN TIMER -->
+  <main class="main" id="mainPanel">
+    <div class="ring-wrap">
+      <svg class="ring-svg" viewBox="0 0 240 240">
+        <defs>
+          <linearGradient id="rg1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="100%" stop-color="#d97706"/>
+          </linearGradient>
+          <linearGradient id="rg-boss" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#fca5a5"/>
+            <stop offset="100%" stop-color="#dc2626"/>
+          </linearGradient>
+          <linearGradient id="rg-pvp" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#86efac"/>
+            <stop offset="100%" stop-color="#16a34a"/>
+          </linearGradient>
+        </defs>
+        <circle class="r-bg" cx="120" cy="120" r="110"/>
+        <circle class="r-glow" cx="120" cy="120" r="110"/>
+        <circle class="r-track" id="rTrack" cx="120" cy="120" r="110"/>
+      </svg>
+      <div class="ring-center">
+        <div class="r-lbl">Thời Gian Còn Lại</div>
+        <div class="r-time" id="rTime">30:00</div>
+        <div class="r-status" id="rStatus">⏸ Sẵn Sàng</div>
+      </div>
+    </div>
+
+    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:100%"></div></div>
+
+    <!-- Config -->
+    <div class="cfg">
+      <div class="cfg-title">
+        <svg width="13" height="13" viewBox="0 0 24 24"><use href="#ico-settings" color="#64748b"/></svg>
+        Cấu hình thời gian bắt đầu
+      </div>
+      <div class="cfg-row">
+        <div class="cfg-field"><label>Phút</label><input class="cfg-input" id="inpMin" type="number" value="30" min="0" max="99"></div>
+        <div class="cfg-sep">:</div>
+        <div class="cfg-field"><label>Giây</label><input class="cfg-input" id="inpSec" type="number" value="0" min="0" max="59"></div>
+        <button class="cfg-apply" onclick="applyConfig()">
+          <svg width="13" height="13" viewBox="0 0 24 24"><use href="#ico-check" color="currentColor"/></svg>
+          Áp dụng
+        </button>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn btn-start" id="btnStart" onclick="startTimer()">
+        <svg viewBox="0 0 24 24"><use href="#ico-play" color="white"/></svg>
+        <span id="btnStartTxt">Bắt Đầu</span>
+      </button>
+      <button class="btn btn-pause" id="btnPause" onclick="pauseTimer()" disabled>
+        <svg viewBox="0 0 24 24"><use href="#ico-pause" color="currentColor"/></svg>
+        Tạm Dừng
+      </button>
+      <button class="btn btn-reset" onclick="resetTimer()">
+        <svg viewBox="0 0 24 24"><use href="#ico-reset" color="currentColor"/></svg>
+      </button>
+    </div>
+
+    <!-- Milestones -->
+    <div class="ms-section">
+      <div class="ms-title">
+        <svg width="13" height="13" viewBox="0 0 24 24"><use href="#ico-target" color="#64748b"/></svg>
+        Các Mốc Quan Trọng
+      </div>
+      <div class="ms-list" id="msList"></div>
+    </div>
+  </main>
+
+  <!-- SIDE -->
+  <aside class="side">
+    <div class="notif-box">
+      <div class="notif-hdr">
+        <h2>
+          <svg viewBox="0 0 24 24"><use href="#ico-bell" color="currentColor"/></svg>
+          Nhật Ký Thông Báo
+        </h2>
+        <span class="ncnt" id="nCnt">0</span>
+      </div>
+      <div class="nlist" id="nList">
+        <div class="n-empty">Chưa có thông báo.<br>Bấm <strong>Bắt Đầu</strong> để khởi chạy!</div>
+      </div>
+    </div>
+    <div class="task-box">
+      <h2>
+        <svg viewBox="0 0 24 24"><use href="#ico-clip" color="currentColor"/></svg>
+        Nhiệm Vụ Bang Chiến
+      </h2>
+      <div class="tlist" id="tList"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// ── CẤU HÌNH MỐC THỜI GIAN ──
+const MS = [
+  {id:'b25',type:'boss',name:'Boss Thứ Nhất',desc:'Phút 25 · Chuẩn bị đội hình',min:25,warns:[30,15,5]},
+  {id:'p20',type:'pvp', name:'PVP Zone Mở',  desc:'Phút 20 · Giao tranh bắt đầu', min:20,warns:[30,15,5]},
+  {id:'b15',type:'boss',name:'Boss Thứ Hai', desc:'Phút 15 · Toàn lực tấn công',  min:15,warns:[30,15,5]},
+];
+const TASKS=[
+  {id:1,text:'Chuẩn bị đội hình trước Boss 25',done:false},
+  {id:2,text:'Phân công Tank chặn Boss phút 25',done:false},
+  {id:3,text:'Chuẩn bị lực lượng PVP phút 20',done:false},
+  {id:4,text:'Kiểm tra buff/skill trước Boss 15',done:false},
+  {id:5,text:'Báo cáo vị trí cho Leader',done:false},
+];
+
+// ── STATE ──
+const CIRC=2*Math.PI*110;
+let total=1800,remain=1800,tasks=[...TASKS];
+let iv=null,running=false,paused=false;
+let fired=new Set(),nCnt=0;
+let optMsg=true,optSnd=true;
+let alertTO=null,audioCtx=null;
+
+// ── INIT ──
+initParticles();
+renderMS();
+renderTasks();
+updateDisplay();
+
+// ── PARTICLES ──
+function initParticles(){
+  const c=document.getElementById('pts');
+  for(let i=0;i<20;i++){
+    const p=document.createElement('div');p.className='pt';
+    const s=Math.random()*3+2;
+    p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;`+
+      `animation-duration:${Math.random()*14+8}s;animation-delay:${Math.random()*12}s;opacity:${Math.random()*.5+.2}`;
+    c.appendChild(p);
+  }
+}
+
+// ── RENDER MILESTONES ──
+function renderMS(){
+  document.getElementById('msList').innerHTML=MS.map(m=>`
+    <div class="ms-item ${m.type}" id="ms-${m.id}">
+      <div class="ms-icon ${m.type}">
+        <svg viewBox="0 0 24 24" style="color:${m.type==='boss'?'#f87171':'#4ade80'}">
+          <use href="${m.type==='boss'?'#ico-skull':'#ico-sword'}"/>
+        </svg>
+      </div>
+      <div class="ms-info"><strong>${m.name}</strong><span>${m.desc}</span></div>
+      <div class="badges"><span class="badge b30">-30s</span><span class="badge b15">-15s</span><span class="badge b5">-5s</span></div>
+    </div>`).join('');
+}
+
+// ── RENDER TASKS ──
+function renderTasks(){
+  document.getElementById('tList').innerHTML=tasks.map(t=>`
+    <div class="ti${t.done?' done':''}" onclick="toggleTask(${t.id})">
+      <div class="tck"><svg viewBox="0 0 24 24" color="white"><use href="#ico-check"/></svg></div>
+      <span>${t.text}</span>
+    </div>`).join('');
+}
+function toggleTask(id){tasks=tasks.map(t=>t.id===id?{...t,done:!t.done}:t);renderTasks();}
+
+// ── TIMER ──
+function applyConfig(){
+  if(running&&!paused)return;
+  const m=Math.max(0,Math.min(99,+document.getElementById('inpMin').value||0));
+  const s=Math.max(0,Math.min(59,+document.getElementById('inpSec').value||0));
+  total=m*60+s;remain=total;fired.clear();updateDisplay();
+  addN('⚙','Cấu hình',`Đặt ${pad(m)}:${pad(s)}`,'tstart');
+}
+function startTimer(){
+  if(running&&!paused)return;
+  if(remain<=0){resetTimer();return;}
+  running=true;paused=false;
+  document.getElementById('btnStart').disabled=true;
+  document.getElementById('btnPause').disabled=false;
+  document.getElementById('inpMin').disabled=true;
+  document.getElementById('inpSec').disabled=true;
+  document.getElementById('rStatus').textContent='▶ Đang Chạy';
+  if(iv)clearInterval(iv);
+  iv=setInterval(tick,1000);
+  addN('▶','Bắt đầu!',`Timer từ ${fmtT(remain)}`,'tstart');
+  playS('start');
+}
+function pauseTimer(){
+  if(!running||paused)return;
+  paused=true;clearInterval(iv);iv=null;
+  document.getElementById('btnStart').disabled=false;
+  document.getElementById('btnStartTxt').textContent='Tiếp Tục';
+  document.getElementById('rStatus').textContent='⏸ Tạm Dừng';
+  addN('⏸','Tạm dừng',`Còn ${fmtT(remain)}`,'twarn');
+}
+function resetTimer(){
+  clearInterval(iv);iv=null;running=false;paused=false;fired.clear();remain=total;
+  document.getElementById('btnStart').disabled=false;
+  document.getElementById('btnStartTxt').textContent='Bắt Đầu';
+  document.getElementById('btnPause').disabled=true;
+  document.getElementById('inpMin').disabled=false;
+  document.getElementById('inpSec').disabled=false;
+  document.getElementById('rStatus').textContent='⏸ Sẵn Sàng';
+  updateDisplay();MS.forEach(m=>document.getElementById(`ms-${m.id}`)?.classList.remove('lit'));
+  addN('↺','Reset','Timer đã reset','tstart');
+}
+function tick(){
+  if(remain<=0){
+    clearInterval(iv);iv=null;running=false;
+    document.getElementById('rStatus').textContent='✅ Kết Thúc';
+    document.getElementById('btnStart').disabled=true;
+    document.getElementById('btnPause').disabled=true;
+    addN('🏆','Kết thúc!','Bang chiến kết thúc!','tstart');
+    playS('end');showAl('','KẾT THÚC!','Bang chiến đã kết thúc!','','',5000);
+    return;
+  }
+  remain--;updateDisplay();checkMS();
+}
+function checkMS(){
+  MS.forEach(m=>{
+    const at=m.min*60;
+    m.warns.forEach(w=>{
+      const k=`${m.id}-${w}`;
+      if(remain===at+w&&!fired.has(k)){fired.add(k);fireWarn(m,w);}
+    });
+    const ek=`${m.id}-x`;
+    if(remain===at&&!fired.has(ek)){fired.add(ek);fireMilestone(m);}
+  });
+}
+function fireWarn(m,w){
+  const el=document.getElementById(`ms-${m.id}`);el?.classList.add('lit');
+  if(optMsg)addN(m.type==='boss'?'💀':'⚔','Cảnh báo · '+m.name,`Còn ${w} giây!`,w===5?'tcrit':'twarn');
+  if(optSnd){if(w===30)playS('w30');else if(w===15)playS('w15');else playS('w5');}
+  flashSc(m.type==='boss'?'fb':'fp');
+  showAl(m.type==='boss'?'#ico-skull':'#ico-sword',m.name,`Còn ${w} giây!`,m.type==='boss'?'boss':'pvp',m.type==='boss'?'#f87171':'#4ade80',3000);
+}
+function fireMilestone(m){
+  if(optMsg)addN('🔴',m.name+' ĐÃ XUẤT HIỆN!',m.desc+' — CHIẾN ĐẤU!',m.type==='boss'?'tboss':'tpvp');
+  if(optSnd)playS('ms');
+  flashSc(m.type==='boss'?'fb':'fp');
+  showAl(m.type==='boss'?'#ico-skull':'#ico-sword',m.name.toUpperCase()+'!','XUẤT HIỆN! HÀNH ĐỘNG NGAY!',m.type==='boss'?'boss':'pvp',m.type==='boss'?'#f87171':'#4ade80',4000);
+  const panel=document.getElementById('mainPanel');
+  panel.classList.add(m.type==='boss'?'gboss':'gpvp');
+  setTimeout(()=>panel.classList.remove('gboss','gpvp'),2000);
+}
+
+// ── DISPLAY ──
+function updateDisplay(){
+  const el=document.getElementById('rTime');
+  el.textContent=fmtT(remain);
+  el.className='r-time'+(remain<=30?' crit':remain<=60?' warn':'');
+  const pct=total>0?remain/total:1;
+  const off=CIRC*(1-pct);
+  const tr=document.getElementById('rTrack');
+  tr.style.strokeDasharray=CIRC;tr.style.strokeDashoffset=off;
+  tr.setAttribute('stroke',remain<=30?'url(#rg-boss)':remain<=120?'url(#rg-pvp)':'url(#rg1)');
+  document.getElementById('progFill').style.width=(pct*100)+'%';
+}
+function fmtT(s){return`${pad(Math.floor(s/60))}:${pad(s%60)}`;}
+function pad(n){return String(n).padStart(2,'0');}
+
+// ── NOTIFICATIONS ──
+function addN(icon,title,body,type){
+  nCnt++;document.getElementById('nCnt').textContent=nCnt;
+  const list=document.getElementById('nList');
+  const emp=list.querySelector('.n-empty');if(emp)emp.remove();
+  const el=document.createElement('div');el.className=`ni ${type}`;
+  const now=new Date();
+  el.innerHTML=`<div class="ni-top"><div class="ni-title">${icon} ${title}</div><div class="ni-time">${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}</div></div><div class="ni-body">${body}</div>`;
+  list.insertBefore(el,list.firstChild);
+  while(list.children.length>50)list.removeChild(list.lastChild);
+}
+
+// ── ALERT ──
+function showAl(icoHref,title,sub,cls,icoColor,dur){
+  const box=document.getElementById('alBox');
+  box.className=`al-box${cls?' '+cls:''}`;
+  document.getElementById('alIco').innerHTML=icoHref?`<svg width="52" height="52" viewBox="0 0 24 24" style="color:${icoColor}"><use href="${icoHref}"/></svg>`:'';
+  document.getElementById('alTitle').textContent=title;
+  document.getElementById('alSub').textContent=sub;
+  if(alertTO)clearTimeout(alertTO);
+  alertTO=setTimeout(()=>box.classList.add('hide'),dur);
+}
+
+// ── FLASH ──
+function flashSc(c){
+  const f=document.getElementById('flash');
+  f.className=`flash ${c}`;f.style.opacity='1';
+  setTimeout(()=>{f.style.opacity='0';},250);
+}
+
+// ── AUDIO ──
+function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function tone(f,d,t='sine',v=.28){
+  try{const c=getAC(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.type=t;
+    o.frequency.setValueAtTime(f,c.currentTime);
+    g.gain.setValueAtTime(v,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);
+    o.start();o.stop(c.currentTime+d);}catch(e){}
+}
+function playS(t){
+  if(!optSnd)return;
+  ({
+    start:()=>{tone(523,.12);setTimeout(()=>tone(659,.12),130);setTimeout(()=>tone(784,.25),260)},
+    w30:()=>{tone(880,.18,'square',.18);setTimeout(()=>tone(880,.18,'square',.18),280)},
+    w15:()=>{[0,180,360].forEach(d=>setTimeout(()=>tone(1100,.12,'square',.22),d))},
+    w5:()=>{[0,130,260,390,520].forEach(d=>setTimeout(()=>tone(1320,.1,'sawtooth',.28),d))},
+    ms:()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.28,'triangle',.32),i*130))},
+    end:()=>{[784,659,523,440].forEach((f,i)=>setTimeout(()=>tone(f,.35,'sine',.3),i*180))},
+  }[t]||function(){})();
+}
+
+// ── TOGGLES ──
+function toggleOpt(k){
+  if(k==='msg'){optMsg=!optMsg;document.getElementById('togMsg').classList.toggle('on',optMsg);}
+  else{optSnd=!optSnd;document.getElementById('togSnd').classList.toggle('on',optSnd);if(optSnd)try{getAC().resume();}catch(e){}}
+}
+document.addEventListener('click',()=>{try{getAC().resume();}catch(e){}},{once:true});
+</script>
+</body>
+</html>

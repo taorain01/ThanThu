@@ -37,11 +37,13 @@ async function syncSessionToSupabase(guildId, partyKey, guild = null) {
 
 /**
  * Parse day từ customId format: bcql_action_partyKey_day
+ * Hỗ trợ tất cả ngày: mon, tue, wed, thu, fri, sat, sun
  */
 function parseDayFromCustomId(customId) {
+    const validDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     const parts = customId.split('_');
     const lastPart = parts[parts.length - 1];
-    if (lastPart === 'sat' || lastPart === 'sun' || lastPart === 'custom') {
+    if (validDays.includes(lastPart)) {
         return lastPart;
     }
     return null;

@@ -1,6 +1,11 @@
 /**
  * Booster Voice Room Handlers
  * Xử lý tất cả button/select/modal có prefix "boostvc_"
+ * 
+ * --- BLACKLIST MODE ---
+ * Danh sách người trong room hoạt động theo 2 chế độ:
+ *   - whitelist: Người trong DS được ưu tiên vào khi phòng Khoá / thấy khi Ẩn
+ *   - blacklist: Người trong DS bị chặn xem kênh (Public) hoặc chặn connect (Locked/Hidden)
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits, MessageFlags } = require('discord.js');
@@ -15,14 +20,118 @@ const EMOJI = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// HÀM TỔNG HỢP — Cập nhật toàn bộ permission dựa trên mode + list_mode
+// Đây là nguồn chân lý duy nhất cho việc cấp quyền kênh VIP Room
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Cập nhật permission cho voice channel theo mode + list_mode hiện tại.
+ * @param {VoiceChannel} channel - Discord voice channel
+ * @param {Object} room - Dữ liệu phòng từ DB (mode, list_mode, user_id)
+ * @param {string[]} members - Danh sách ID người trong black/whitelist
+ */
+async function updateRoomPermissions(channel, room, members) {
+    const mode = room.mode || 'hidden';
+    const listMode = room.list_mode || 'whitelist';
+    const guildId = channel.guild.id;
+    const ownerId = room.user_id;
+
+    try {
+        if (mode === 'hidden') {
+            // Ẩn: @everyone không thấy kênh
+            await channel.permissionOverwrites.edit(guildId, {
+                ViewChannel: false,
+                Connect: false
+            });
+
+            if (listMode === 'whitelist') {
+                // Whitelist + Ẩn: Người trong DS thấy và vào được
+                for (const id of members) {
+                    await channel.permissionOverwrites.edit(id, {
+                        ViewChannel: true,
+                        Connect: true
+                    }).catch(() => {});
+                }
+            } else {
+                // Blacklist + Ẩn: DS bị chặn hoàn toàn (không thấy, không vào) — đã bị bởi @everyone
+                // Xóa overwrite riêng của từng blacklist member (nếu còn)
+                for (const id of members) {
+                    await channel.permissionOverwrites.delete(id).catch(() => {});
+                }
+            }
+
+        } else if (mode === 'public') {
+            // Công khai: @everyone thấy và vào được
+            await channel.permissionOverwrites.edit(guildId, {
+                ViewChannel: true,
+                Connect: true
+            });
+
+            if (listMode === 'whitelist') {
+                // Whitelist + Công khai: mọi người vào được, xóa overwrite riêng của whitelist (không cần thiết)
+                for (const id of members) {
+                    await channel.permissionOverwrites.delete(id).catch(() => {});
+                }
+            } else {
+                // Blacklist + Công khai: DS không thấy kênh luôn
+                for (const id of members) {
+                    await channel.permissionOverwrites.edit(id, {
+                        ViewChannel: false,
+                        Connect: false
+                    }).catch(() => {});
+                }
+            }
+
+        } else if (mode === 'locked') {
+            // Khoá: @everyone thấy nhưng không vào được
+            await channel.permissionOverwrites.edit(guildId, {
+                ViewChannel: true,
+                Connect: false
+            });
+
+            if (listMode === 'whitelist') {
+                // Whitelist + Khoá: DS thấy và vào được (mục đích chính của whitelist)
+                for (const id of members) {
+                    await channel.permissionOverwrites.edit(id, {
+                        ViewChannel: true,
+                        Connect: true
+                    }).catch(() => {});
+                }
+            } else {
+                // Blacklist + Khoá: DS không thấy kênh luôn (mạnh hơn @everyone)
+                for (const id of members) {
+                    await channel.permissionOverwrites.edit(id, {
+                        ViewChannel: false,
+                        Connect: false
+                    }).catch(() => {});
+                }
+            }
+        }
+
+        // Đảm bảo owner luôn có full quyền (bất kể chế độ nào)
+        await channel.permissionOverwrites.edit(ownerId, {
+            ViewChannel: true,
+            Connect: true,
+            MuteMembers: true,
+            MoveMembers: true
+        }).catch(() => {});
+
+    } catch (e) {
+        console.error('[BoostVC] updateRoomPermissions error:', e.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CONTROL PANEL — Gửi khi booster vào room
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Tạo embed + buttons cho bảng điều khiển
+ * Tạo embed + buttons cho bảng điều khiển VIP Room (4 hàng gọn gàng)
  */
 function createControlPanel(userId, room, member = null) {
     const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
+    const listMode = room.list_mode || 'whitelist';
+    const isBlacklist = listMode === 'blacklist';
     const displayName = member ? member.displayName : (room.room_name || 'Booster');
     const avatarURL = member ? member.user.displayAvatarURL({ size: 128 }) : null;
 
@@ -31,39 +140,99 @@ function createControlPanel(userId, room, member = null) {
         .setTitle(`${EMOJI.booster} Bảng Điều Khiển VIP Room`)
         .setDescription(
             `${EMOJI.tenlua} **Chào mừng, ${displayName}!**\n\n` +
-            `${EMOJI.kimcuong} **Chế độ:** ${modeLabel[room.mode] || '👻 Ẩn'}\n\n` +
+            `${EMOJI.kimcuong} **Chế độ:** ${modeLabel[room.mode] || '👻 Ẩn'} ` +
+            `| **Danh sách:** ${isBlacklist ? '⛔ Blacklist' : '✅ Whitelist'}\n\n` +
             `Dùng các nút bên dưới để quản lý room.\n\n` +
-            `💡 *Cần mở lại bảng điều khiển? Tag bot hoặc gọi tên: đại ngỗng, ngỗng,...*`
+            `💡 *Cần mở lại bảng? Tag bot hoặc gọi tên: đại ngỗng, ngỗng,...*`
         )
         .setFooter({ text: `${displayName} • VIP Room • Chỉ owner nhìn thấy` });
 
-    // Hiển thị avatar booster nếu có
-    if (avatarURL) {
-        embed.setThumbnail(avatarURL);
-    }
+    if (avatarURL) embed.setThumbnail(avatarURL);
 
+    // ── Hàng 1: Chế độ kênh ──
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`boostvc_add_${userId}`).setLabel('Thêm người').setEmoji('➕').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`boostvc_remove_${userId}`).setLabel('Trừ người').setEmoji('➖').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId(`boostvc_list_${userId}`).setLabel('Danh sách').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_hidden_${userId}`)
+            .setLabel('Ẩn')
+            .setEmoji('👻')
+            .setStyle(room.mode === 'hidden' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_public_${userId}`)
+            .setLabel('Công khai')
+            .setEmoji('🌐')
+            .setStyle(room.mode === 'public' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_lock_${userId}`)
+            .setLabel('Khoá')
+            .setEmoji('🔒')
+            .setStyle(room.mode === 'locked' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_help_${userId}`)
+            .setLabel('Hướng dẫn')
+            .setEmoji('❓')
+            .setStyle(ButtonStyle.Secondary),
     );
 
+    // ── Hàng 2: Quản lý danh sách ──
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`boostvc_mute_${userId}`).setLabel('Tắt mic').setEmoji('🔇').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`boostvc_unmute_${userId}`).setLabel('Mở mic').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`boostvc_clearchat_${userId}`).setLabel('Xoá chat').setEmoji('🧹').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_togglelist_${userId}`)
+            .setLabel(isBlacklist ? 'DS: Blacklist' : 'DS: Whitelist')
+            .setEmoji(isBlacklist ? '⛔' : '✅')
+            .setStyle(isBlacklist ? ButtonStyle.Danger : ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_add_${userId}`)
+            .setLabel('Thêm')
+            .setEmoji('➕')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_remove_${userId}`)
+            .setLabel('Trừ')
+            .setEmoji('➖')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_list_${userId}`)
+            .setLabel('Danh sách')
+            .setEmoji('📋')
+            .setStyle(ButtonStyle.Secondary),
     );
 
+    // ── Hàng 3: Tương tác mic & chat ──
     const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`boostvc_hidden_${userId}`).setLabel('Ẩn').setEmoji('👻').setStyle(room.mode === 'hidden' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`boostvc_public_${userId}`).setLabel('Công khai').setEmoji('🌐').setStyle(room.mode === 'public' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`boostvc_lock_${userId}`).setLabel('Khoá').setEmoji('🔒').setStyle(room.mode === 'locked' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_mute_${userId}`)
+            .setLabel('Tắt mic')
+            .setEmoji('🔇')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_unmute_${userId}`)
+            .setLabel('Mở mic')
+            .setEmoji('🔊')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_clearchat_${userId}`)
+            .setLabel('Xoá chat')
+            .setEmoji('🧹')
+            .setStyle(ButtonStyle.Danger),
     );
 
+    // ── Hàng 4: Cấu hình kênh ──
     const row4 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`boostvc_rename_${userId}`).setLabel('Đổi tên').setEmoji('✏️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`boostvc_region_${userId}`).setLabel('Đổi Server').setEmoji('🌏').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`boostvc_autolock_${userId}`).setLabel(`Tự khoá: ${room.auto_lock ? 'Bật' : 'Tắt'}`).setEmoji(room.auto_lock ? '🟢' : '🔴').setStyle(room.auto_lock ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_rename_${userId}`)
+            .setLabel('Đổi tên')
+            .setEmoji('✏️')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_region_${userId}`)
+            .setLabel('Đổi Server')
+            .setEmoji('🌏')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`boostvc_autolock_${userId}`)
+            .setLabel(`Tự khoá: ${room.auto_lock ? 'Bật' : 'Tắt'}`)
+            .setEmoji(room.auto_lock ? '🟢' : '🔴')
+            .setStyle(room.auto_lock ? ButtonStyle.Success : ButtonStyle.Secondary),
     );
 
     return { embeds: [embed], components: [row1, row2, row3, row4] };
@@ -83,13 +252,10 @@ async function handleVoiceJoin(channel, userId) {
     // Tự động mở khoá nếu auto_lock = 1
     if (room.auto_lock) {
         try {
-            await channel.permissionOverwrites.edit(channel.guild.id, {
-                ViewChannel: true,
-                Connect: true
-            });
-            db.setBoosterRoomMode(userId, 'public');
-            // Cập nhật room object để hàm tạo panel lấy đúng mode
             room.mode = 'public';
+            db.setBoosterRoomMode(userId, 'public');
+            const members = db.getBoosterRoomMembers(userId);
+            await updateRoomPermissions(channel, room, members);
         } catch (e) {
             console.error('[BoostVC] Error unlocking room on join:', e.message);
         }
@@ -97,7 +263,6 @@ async function handleVoiceJoin(channel, userId) {
 
     // Gửi bảng điều khiển
     try {
-        // Xoá panel cũ nếu có
         const oldMsgId = controlPanelMessages.get(channel.id);
         if (oldMsgId) {
             try {
@@ -106,7 +271,6 @@ async function handleVoiceJoin(channel, userId) {
             } catch (e) { /* ignore */ }
         }
 
-        // Lấy member object để hiển thị tên + avatar
         const member = await channel.guild.members.fetch(userId).catch(() => null);
         const panel = createControlPanel(userId, room, member);
         const sent = await channel.send(panel);
@@ -123,7 +287,6 @@ async function handleVoiceLeave(channel, userId) {
     const isOwner = room.user_id === userId;
 
     if (isOwner) {
-        // Xoá bảng điều khiển
         const msgId = controlPanelMessages.get(channel.id);
         if (msgId) {
             try {
@@ -136,19 +299,15 @@ async function handleVoiceLeave(channel, userId) {
 
     // Logic Tự Khoá Phòng
     if (room.auto_lock) {
-        // Nếu chủ phòng không có mặt
         const ownerInChannel = channel.members.has(room.user_id);
         if (!ownerInChannel) {
-            // Đếm số người thật còn lại
             const humanCount = channel.members.filter(m => !m.user.bot).size;
-            // Nếu không còn ai khác, khoá phòng lại
             if (humanCount === 0) {
                 try {
-                    await channel.permissionOverwrites.edit(channel.guild.id, {
-                        ViewChannel: true,
-                        Connect: false
-                    });
+                    room.mode = 'locked';
                     db.setBoosterRoomMode(room.user_id, 'locked');
+                    const members = db.getBoosterRoomMembers(room.user_id);
+                    await updateRoomPermissions(channel, room, members);
                 } catch (e) {
                     console.error('[BoostVC] Error auto-locking room:', e.message);
                 }
@@ -166,7 +325,7 @@ async function handleButton(interaction) {
     if (!customId.startsWith('boostvc_')) return false;
 
     const parts = customId.split('_');
-    const action = parts[1]; // add, remove, list, mute, unmute, hidden, public, lock, rename, clearchat
+    const action = parts[1];
     const ownerId = parts[2];
 
     // Chỉ owner mới được dùng
@@ -182,19 +341,21 @@ async function handleButton(interaction) {
     }
 
     switch (action) {
-        case 'add': return await handleAdd(interaction, ownerId);
-        case 'remove': return await handleRemove(interaction, ownerId);
-        case 'list': return await handleList(interaction, ownerId);
-        case 'mute': return await handleMuteSelect(interaction, ownerId);
-        case 'unmute': return await handleUnmuteSelect(interaction, ownerId);
-        case 'hidden': return await handleSetMode(interaction, ownerId, 'hidden');
-        case 'public': return await handleSetMode(interaction, ownerId, 'public');
-        case 'lock': return await handleSetMode(interaction, ownerId, 'locked');
-        case 'rename': return await handleRename(interaction, ownerId);
-        case 'clearchat': return await handleClearChat(interaction, ownerId);
-        case 'region': return await handleRegionSelect(interaction, ownerId);
-        case 'autolock': return await handleAutoLock(interaction, ownerId);
-        default: return false;
+        case 'add':        return await handleAdd(interaction, ownerId);
+        case 'remove':     return await handleRemove(interaction, ownerId);
+        case 'list':       return await handleList(interaction, ownerId);
+        case 'mute':       return await handleMuteSelect(interaction, ownerId);
+        case 'unmute':     return await handleUnmuteSelect(interaction, ownerId);
+        case 'hidden':     return await handleSetMode(interaction, ownerId, 'hidden');
+        case 'public':     return await handleSetMode(interaction, ownerId, 'public');
+        case 'lock':       return await handleSetMode(interaction, ownerId, 'locked');
+        case 'rename':     return await handleRename(interaction, ownerId);
+        case 'clearchat':  return await handleClearChat(interaction, ownerId);
+        case 'region':     return await handleRegionSelect(interaction, ownerId);
+        case 'autolock':   return await handleAutoLock(interaction, ownerId);
+        case 'togglelist': return await handleToggleListMode(interaction, ownerId);
+        case 'help':       return await handleHelp(interaction, ownerId);
+        default:           return false;
     }
 }
 
@@ -202,7 +363,7 @@ async function handleButton(interaction) {
 async function handleAdd(interaction, ownerId) {
     const modal = new ModalBuilder()
         .setCustomId(`boostvc_modal_add_${ownerId}`)
-        .setTitle('➕ Thêm người vào room')
+        .setTitle('➕ Thêm người vào danh sách')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
@@ -239,35 +400,82 @@ async function handleRemove(interaction, ownerId) {
     const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`boostvc_remove_select_${ownerId}`)
-            .setPlaceholder('Chọn người để xoá...')
+            .setPlaceholder('Chọn người để xoá khỏi danh sách...')
             .setMinValues(1)
             .setMaxValues(Math.min(options.length, 10))
             .addOptions(options)
     );
 
-    await interaction.reply({ content: '➖ Chọn người muốn **xoá khỏi room**:', components: [row], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: '➖ Chọn người muốn **xoá khỏi danh sách**:', components: [row], flags: MessageFlags.Ephemeral });
     return true;
 }
 
-// ── Danh sách ──
+// ── Danh sách (chỉ owner thấy - Ephemeral) ──
 async function handleList(interaction, ownerId) {
     const members = db.getBoosterRoomMembers(ownerId);
     const room = db.getBoosterRoom(ownerId);
     const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
+    const listMode = room.list_mode || 'whitelist';
+    const isBlacklist = listMode === 'blacklist';
 
     let desc;
     if (members.length === 0) {
-        desc = '*Chưa có ai được thêm.*';
+        desc = '*Chưa có ai trong danh sách.*';
     } else {
         desc = members.map((id, i) => `${i + 1}. <@${id}>`).join('\n');
     }
 
     const embed = new EmbedBuilder()
-        .setColor('#8B5CF6')
-        .setTitle('📋 Danh sách người trong room')
+        .setColor(isBlacklist ? '#EF4444' : '#8B5CF6')
+        .setTitle(`${isBlacklist ? '⛔ Blacklist' : '✅ Whitelist'} — Danh sách phòng`)
         .setDescription(desc)
-        .addFields({ name: 'Chế độ', value: modeLabel[room.mode] || '👻 Ẩn', inline: true })
-        .addFields({ name: 'Số người', value: `${members.length}`, inline: true });
+        .addFields(
+            { name: 'Chế độ kênh', value: modeLabel[room.mode] || '👻 Ẩn', inline: true },
+            { name: 'Kiểu DS', value: isBlacklist ? '⛔ Blacklist' : '✅ Whitelist', inline: true },
+            { name: 'Số người', value: `${members.length}`, inline: true },
+        );
+
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    return true;
+}
+
+// ── Hướng dẫn chi tiết (chỉ owner thấy) ──
+async function handleHelp(interaction, ownerId) {
+    const room = db.getBoosterRoom(ownerId);
+    const listMode = room.list_mode || 'whitelist';
+    const isBlacklist = listMode === 'blacklist';
+
+    const embed = new EmbedBuilder()
+        .setColor('#FF73FA')
+        .setTitle('❓ Hướng Dẫn Sử Dụng VIP Room')
+        .setDescription(
+            `${EMOJI.booster} Cảm ơn bạn đã Boost server! Đây là đặc quyền riêng dành cho bạn 💖\n\n` +
+            `**━━━ 🎛️ CÁC CHẾ ĐỘ KÊNH ━━━**\n` +
+            `👻 **Ẩn** — Kênh bí mật, chỉ bạn (và Whitelist) thấy\n` +
+            `🌐 **Công khai** — Mọi người đều thấy và vào được\n` +
+            `🔒 **Khoá** — Mọi người thấy kênh, nhưng chỉ người được phép mới vào được\n\n` +
+            `**━━━ 📋 DANH SÁCH THÀNH VIÊN ━━━**\n` +
+            `✅ **Whitelist** *(mặc định)* — Người trong DS được ưu tiên:\n` +
+            `　• **Ẩn:** Thấy kênh & vào được\n` +
+            `　• **Khoá:** Vào được trong khi người ngoài không thể\n` +
+            `　• **Công khai:** Bình thường như mọi người\n\n` +
+            `⛔ **Blacklist** *(chế độ hiện tại của bạn${isBlacklist ? ' ← đang bật' : ''})* — Người trong DS bị cấm:\n` +
+            `　• **Tất cả chế độ:** Không thấy kênh, không vào được\n\n` +
+            `**━━━ 🔧 CÁC NÚT CHỨC NĂNG ━━━**\n` +
+            `⚡ **DS: Whitelist/Blacklist** — Chuyển đổi chế độ danh sách\n` +
+            `➕ **Thêm** — Thêm người vào danh sách\n` +
+            `➖ **Trừ** — Xoá người khỏi danh sách\n` +
+            `📋 **Danh sách** — Xem DS hiện tại (chỉ bạn thấy)\n\n` +
+            `🔇 **Tắt mic** — Tắt mic người trong phòng\n` +
+            `🔊 **Mở mic** — Mở lại mic người bị tắt\n` +
+            `🧹 **Xoá chat** — Xoá toàn bộ tin nhắn trong kênh\n\n` +
+            `✏️ **Đổi tên** — Đặt tên mới cho kênh\n` +
+            `🌏 **Đổi Server** — Chọn vùng server (SG, HK, JP...)\n` +
+            `🔴/🟢 **Tự khoá** — Tự động khoá phòng khi bạn rời đi\n\n` +
+            `**━━━ 💡 MẸO HAY ━━━**\n` +
+            `Tag bot hoặc gọi tên *"đại ngỗng"* trong kênh để triệu hồi lại bảng điều khiển nếu bị trôi!`
+        )
+        .setFooter({ text: 'VIP Room • Đặc quyền Server Booster' });
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     return true;
@@ -351,60 +559,58 @@ async function handleSetMode(interaction, ownerId, newMode) {
     }
 
     // Defer NGAY để tránh lỗi Unknown Interaction (10062) — Discord timeout 3s
-    // Các bước edit permission bên dưới có thể mất > 3s nếu có nhiều member
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const members = db.getBoosterRoomMembers(ownerId);
+    room.mode = newMode;
 
     try {
-        if (newMode === 'hidden') {
-            // Ẩn: chỉ owner + danh sách thấy
-            await channel.permissionOverwrites.edit(interaction.guild.id, {
-                ViewChannel: false,
-                Connect: false
-            });
-            for (const memberId of members) {
-                await channel.permissionOverwrites.edit(memberId, {
-                    ViewChannel: true,
-                    Connect: true
-                }).catch(() => { });
-            }
-        } else if (newMode === 'public') {
-            // Công khai: ai cũng thấy + vào được
-            await channel.permissionOverwrites.edit(interaction.guild.id, {
-                ViewChannel: true,
-                Connect: true
-            });
-        } else if (newMode === 'locked') {
-            // Khoá: ai cũng thấy nhưng chỉ danh sách vào được
-            await channel.permissionOverwrites.edit(interaction.guild.id, {
-                ViewChannel: true,
-                Connect: false
-            });
-            for (const memberId of members) {
-                await channel.permissionOverwrites.edit(memberId, {
-                    ViewChannel: true,
-                    Connect: true
-                }).catch(() => { });
-            }
-        }
-
+        await updateRoomPermissions(channel, room, members);
         db.setBoosterRoomMode(ownerId, newMode);
 
         const modeLabel = { hidden: '👻 Ẩn', public: '🌐 Công khai', locked: '🔒 Khoá' };
-        // Dùng editReply thay vì reply vì đã deferReply ở trên
         await interaction.editReply({
             content: `✅ Đã chuyển sang chế độ **${modeLabel[newMode]}**!`
         });
 
-        // Cập nhật control panel
         await refreshControlPanel(interaction.channel, ownerId);
-
     } catch (e) {
         console.error('[BoostVC] Error setting mode:', e.message);
         await interaction.editReply({ content: '❌ Lỗi khi thay đổi chế độ!' });
     }
 
+    return true;
+}
+
+// ── Toggle Whitelist ↔ Blacklist ──
+async function handleToggleListMode(interaction, ownerId) {
+    const room = db.getBoosterRoom(ownerId);
+    if (!room) {
+        await interaction.reply({ content: '❌ Không tìm thấy room!', flags: MessageFlags.Ephemeral });
+        return true;
+    }
+
+    const channel = interaction.guild.channels.cache.get(room.channel_id);
+    const currentMode = room.list_mode || 'whitelist';
+    const newMode = currentMode === 'whitelist' ? 'blacklist' : 'whitelist';
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    db.setBoosterRoomListMode(ownerId, newMode);
+    room.list_mode = newMode;
+
+    // Áp dụng permission mới ngay lập tức
+    if (channel) {
+        const members = db.getBoosterRoomMembers(ownerId);
+        await updateRoomPermissions(channel, room, members);
+    }
+
+    const label = newMode === 'blacklist'
+        ? '⛔ **Blacklist** — Người trong DS sẽ **không thấy kênh** này!'
+        : '✅ **Whitelist** — Người trong DS được **ưu tiên vào phòng**!';
+
+    await interaction.editReply({ content: `✅ Đã chuyển danh sách sang chế độ ${label}` });
+    await refreshControlPanel(interaction.channel, ownerId);
     return true;
 }
 
@@ -416,7 +622,7 @@ async function handleAutoLock(interaction, ownerId) {
         return true;
     }
 
-    const newState = room.auto_lock ? false : true;
+    const newState = !room.auto_lock;
     db.setBoosterRoomAutoLock(ownerId, newState);
 
     await interaction.reply({
@@ -424,7 +630,6 @@ async function handleAutoLock(interaction, ownerId) {
         flags: MessageFlags.Ephemeral
     });
 
-    // Cập nhật lại control panel để hiện nút Xanh/Đỏ
     await refreshControlPanel(interaction.channel, ownerId);
     return true;
 }
@@ -451,13 +656,8 @@ async function handleRegionSelect(interaction, ownerId) {
         return true;
     }
 
-    // Hiển thị region hiện tại
     const currentRegion = channel.rtcRegion || 'auto';
-
-    const options = VOICE_REGIONS.map(r => ({
-        ...r,
-        default: r.value === currentRegion
-    }));
+    const options = VOICE_REGIONS.map(r => ({ ...r, default: r.value === currentRegion }));
 
     const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -467,7 +667,7 @@ async function handleRegionSelect(interaction, ownerId) {
     );
 
     await interaction.reply({
-        content: `🌏 **Chọn server khu vực cho voice channel:**\nServer hiện tại: **${VOICE_REGIONS.find(r => r.value === currentRegion)?.label || '🔄 Tự động'}**`,
+        content: `🌏 **Chọn server khu vực:**\nHiện tại: **${VOICE_REGIONS.find(r => r.value === currentRegion)?.label || '🔄 Tự động'}**`,
         components: [row],
         flags: MessageFlags.Ephemeral
     });
@@ -509,19 +709,16 @@ async function handleClearChat(interaction, ownerId) {
         let totalDeleted = 0;
         let fetched;
 
-        // Xoá tin nhắn theo batch (tối đa 100/lần)
         do {
             fetched = await channel.messages.fetch({ limit: 100 });
             if (fetched.size === 0) break;
 
-            // bulkDelete chỉ xoá được tin nhắn < 14 ngày
             const recent = fetched.filter(m => Date.now() - m.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
             if (recent.size > 0) {
                 await channel.bulkDelete(recent, true);
                 totalDeleted += recent.size;
             }
 
-            // Nếu tất cả tin nhắn đều > 14 ngày → dừng
             if (recent.size < fetched.size) break;
         } while (fetched.size === 100);
 
@@ -556,8 +753,7 @@ async function handleSelectMenu(interaction) {
     if (!customId.startsWith('boostvc_')) return false;
 
     const parts = customId.split('_');
-    // boostvc_remove_select_ownerId, boostvc_mute_select_ownerId, boostvc_unmute_select_ownerId
-    const action = parts[1]; // remove, mute, unmute
+    const action = parts[1]; // remove, mute, unmute, region
     const ownerId = parts[3];
 
     if (interaction.user.id !== ownerId) {
@@ -575,7 +771,7 @@ async function handleSelectMenu(interaction) {
     const channel = interaction.guild.channels.cache.get(room.channel_id);
 
     if (action === 'remove') {
-        // Xoá người khỏi danh sách + permission
+        // Xoá người khỏi danh sách + xoá permission overwrite
         const removed = [];
         for (const id of selectedIds) {
             db.removeBoosterRoomMember(ownerId, id);
@@ -586,8 +782,15 @@ async function handleSelectMenu(interaction) {
             }
             removed.push(`<@${id}>`);
         }
+
+        // Cập nhật lại permission với danh sách mới
+        if (channel) {
+            const updatedMembers = db.getBoosterRoomMembers(ownerId);
+            await updateRoomPermissions(channel, room, updatedMembers);
+        }
+
         await interaction.update({
-            content: `✅ Đã xoá ${removed.join(', ')} khỏi room!`,
+            content: `✅ Đã xoá ${removed.join(', ')} khỏi danh sách!`,
             components: []
         });
     } else if (action === 'mute') {
@@ -621,8 +824,7 @@ async function handleSelectMenu(interaction) {
             components: []
         });
     } else if (action === 'region') {
-        // Đổi server region cho voice channel
-        const selectedRegion = selectedIds[0]; // Chỉ chọn 1
+        const selectedRegion = selectedIds[0];
         const rtcRegion = selectedRegion === 'auto' ? null : selectedRegion;
         try {
             await channel.setRTCRegion(rtcRegion, 'VIP Room owner đổi server');
@@ -652,8 +854,7 @@ async function handleModal(interaction) {
     if (!customId.startsWith('boostvc_modal_')) return false;
 
     const parts = customId.split('_');
-    // boostvc_modal_add_ownerId, boostvc_modal_rename_ownerId
-    const action = parts[2]; // add, rename
+    const action = parts[2];
     const ownerId = parts[3];
 
     if (interaction.user.id !== ownerId) {
@@ -671,21 +872,17 @@ async function handleModal(interaction) {
         const input = interaction.fields.getTextInputValue('user_input').trim();
         const guild = interaction.guild;
 
-        // Tìm user: mention, ID, hoặc tên
         let targetMember = null;
 
-        // Check mention format <@123...>
         const mentionMatch = input.match(/^<@!?(\d+)>$/);
         if (mentionMatch) {
             targetMember = await guild.members.fetch(mentionMatch[1]).catch(() => null);
         }
 
-        // Check ID
         if (!targetMember && /^\d{17,20}$/.test(input)) {
             targetMember = await guild.members.fetch(input).catch(() => null);
         }
 
-        // Search by name
         if (!targetMember) {
             const allMembers = await guild.members.fetch({ query: input, limit: 1 });
             targetMember = allMembers.first() || null;
@@ -701,21 +898,22 @@ async function handleModal(interaction) {
             return true;
         }
 
-        // Thêm vào DB + cấp permission
+        // Thêm vào DB
         db.addBoosterRoomMember(ownerId, targetMember.id);
 
+        // Cập nhật permission theo list_mode + mode hiện tại
         const channel = guild.channels.cache.get(room.channel_id);
         if (channel) {
-            await channel.permissionOverwrites.edit(targetMember.id, {
-                ViewChannel: true,
-                Connect: true
-            }).catch(() => { });
+            const updatedMembers = db.getBoosterRoomMembers(ownerId);
+            await updateRoomPermissions(channel, room, updatedMembers);
         }
 
-        await interaction.reply({
-            content: `✅ Đã thêm **${targetMember.displayName}** vào room!`,
-            flags: MessageFlags.Ephemeral
-        });
+        const listMode = room.list_mode || 'whitelist';
+        const addedLabel = listMode === 'blacklist'
+            ? `⛔ Đã thêm **${targetMember.displayName}** vào **Blacklist** — họ sẽ không thấy kênh này!`
+            : `✅ Đã thêm **${targetMember.displayName}** vào **Whitelist**!`;
+
+        await interaction.reply({ content: addedLabel, flags: MessageFlags.Ephemeral });
 
     } else if (action === 'rename') {
         const newName = interaction.fields.getTextInputValue('room_name').trim();
@@ -726,7 +924,7 @@ async function handleModal(interaction) {
 
         const channel = interaction.guild.channels.cache.get(room.channel_id);
         if (channel) {
-            await channel.setName(newName).catch(() => { });
+            await channel.setName(newName).catch(() => {});
         }
         db.setBoosterRoomName(ownerId, newName);
 
@@ -905,7 +1103,6 @@ async function handlePanelButton(interaction) {
 // BOT MENTION HANDLER — Gọi tên/tag bot để mở lại bảng điều khiển
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Danh sách từ khóa gọi tên bot (lowercase, không dấu/có dấu)
 const BOT_NAME_KEYWORDS = [
     'bot',
     'đại ngỗng', 'dai ngong', 'dai ngỗng',
@@ -914,49 +1111,28 @@ const BOT_NAME_KEYWORDS = [
     'ngong~', 'ngog~',
 ];
 
-/**
- * Kiểm tra tin nhắn có gọi tên/tag bot không
- * @param {Message} message - Tin nhắn Discord
- * @param {Client} client - Discord client
- * @returns {boolean}
- */
 function isBotMentioned(message, client) {
-    // Check mention trực tiếp
     if (message.mentions.has(client.user.id)) return true;
-
-    // Check từ khóa tên bot
     const content = message.content.toLowerCase().trim();
     return BOT_NAME_KEYWORDS.some(keyword => content.includes(keyword));
 }
 
-/**
- * Xử lý khi owner gọi tên/tag bot trong kênh chat voice VIP Room
- * → Xóa panel cũ, gửi panel mới
- * @param {Message} message - Tin nhắn Discord
- * @param {Client} client - Discord client
- * @returns {boolean} true nếu đã xử lý, false nếu không liên quan
- */
 async function handleBotMention(message, client) {
-    // Kiểm tra có gọi bot không
     if (!isBotMentioned(message, client)) return false;
 
     const channel = message.channel;
     const userId = message.author.id;
 
-    // Kiểm tra kênh này có phải VIP Room không (lấy từ DB)
     const room = db.getBoosterRoomByChannelId(channel.id);
     if (!room) return false;
 
-    // Chỉ owner mới được gọi
     if (room.user_id !== userId) return false;
 
-    // Kiểm tra owner đang ở trong voice channel đó
     const guild = message.guild;
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member || !member.voice.channel || member.voice.channel.id !== channel.id) return false;
 
     try {
-        // Xóa panel cũ nếu có
         const oldMsgId = controlPanelMessages.get(channel.id);
         if (oldMsgId) {
             try {
@@ -965,12 +1141,10 @@ async function handleBotMention(message, client) {
             } catch (e) { /* ignore */ }
         }
 
-        // Gửi panel mới
         const panel = createControlPanel(userId, room, member);
         const sent = await channel.send(panel);
         controlPanelMessages.set(channel.id, sent.id);
 
-        // Xóa tin nhắn gọi bot
         try { await message.delete(); } catch (e) { /* ignore */ }
 
         console.log(`[BoostVC] Control panel reopened by ${member.displayName} via bot mention`);
@@ -992,4 +1166,3 @@ module.exports = {
     createControlPanel,
     controlPanelMessages
 };
-

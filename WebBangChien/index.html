@@ -353,6 +353,22 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .mp-mini-stop {
   display: none;
 }
+/* Nút mở full player (chỉ hiện khi đang collapsed) */
+.mp-mini-expand {
+  background: none; border: none; cursor: pointer;
+  color: rgba(200,162,44,.5);
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  transition: all .2s;
+}
+.mp-mini-expand:hover { color: var(--gold); background: rgba(200,162,44,.1); }
+/* Chỉ hiện nút expand khi collapsed, ẩn khi đã mở */
+.mp-wrap:not(.collapsed) .mp-mini-expand { display: none !important; }
+/* Ẩn trong edge mode */
+.mp-wrap.mp-edge .mp-mini-expand { display: none !important; }
 /* Dải sáng trên cùng */
 .mp-wrap::before{
   content:'';
@@ -5700,9 +5716,13 @@ document.addEventListener('keydown', (e) => {
     <div class="mp-mini-info">
       <div class="mp-mini-track" id="mpMiniTrack">♪  Nhạc Lang Gia...</div>
     </div>
-    <!-- Nút Play mini (luôn hiện kể cả thu gọn) -->
-    <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay()" title="Play / Pause">
+    <!-- Nút Play mini (luôn hiện kể cả thu gọn) - Click = toggle play/pause -->
+    <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay(); event.stopPropagation();" title="Play / Pause">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <!-- Nút mở full player (chỉ xuất hiện khi collapsed) -->
+    <button class="mp-mini-expand" id="mpMiniExpand" onclick="mpToggleCollapse(); event.stopPropagation();" title="Mở player">
+      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>
     </button>
     <!-- Nút đóng player (X) -->
     <button class="mp-close-btn" id="mpCloseBtn" onclick="mpClosePlayer()" title="Tắt trình phát nhạc">
@@ -6331,22 +6351,6 @@ document.addEventListener('keydown', (e) => {
   // Init: load random bài từ LangGia, chưa play
   buildShuf(PLAYLISTS[0].tracks.length);
   loadTrack(0, shufOrder[0], false);
-
-  // Auto-play khi có tương tác đầu tiên (trình duyệt yêu cầu user gesture)
-  let hasInteracted = false;
-  function handleAutoPlay() {
-    if (!hasInteracted && audio.paused) {
-      hasInteracted = true;
-      mpTogglePlay();
-    }
-  }
-  document.addEventListener('click', handleAutoPlay, { once: true });
-  document.addEventListener('touchstart', handleAutoPlay, { once: true });
-  const sceneElem = document.getElementById('coinScene');
-  if (sceneElem) {
-    sceneElem.addEventListener('mousedown', handleAutoPlay, { once: true });
-    sceneElem.addEventListener('touchstart', handleAutoPlay, { once: true });
-  }
 
   // Shuffle ON mặc định, Repeat OFF
   $('mpShuf').classList.add('on');

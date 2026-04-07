@@ -5569,61 +5569,6 @@ async function renderPmLevelTab(container, discordId) {
     }, { passive: false });
 })();
 
-// ═══ MAP AUTO-FIT — JS tính max-width chính xác thay CSS calc ═══
-function fitMapSize() {
-    const pane = document.getElementById('pane-map');
-    const mapBox = document.getElementById('mapBox');
-    if (!pane || !mapBox) return;
-    // Mobile: không can thiệp
-    if (window.innerWidth <= 768) { mapBox.style.maxWidth = ''; return; }
-    // Fullscreen: không can thiệp
-    if (document.getElementById('fsOverlay')?.classList.contains('active')) return;
-
-    // Tạm ẩn mapBox để đo space còn lại chính xác
-    const origH = mapBox.style.height;
-    const origMW = mapBox.style.maxWidth;
-    mapBox.style.height = '0';
-    mapBox.style.maxWidth = '0';
-
-    const paneRect = pane.getBoundingClientRect();
-    const ps = getComputedStyle(pane);
-    const padY = parseFloat(ps.paddingTop) + parseFloat(ps.paddingBottom);
-    const gap = parseFloat(ps.gap) || 16;
-
-    // Đo tổng height các siblings (controls, timeline, ...)
-    let siblingsH = 0;
-    let sibCount = 0;
-    for (const child of pane.children) {
-        if (child === mapBox) continue;
-        if (getComputedStyle(child).display !== 'none' && child.offsetHeight > 0) {
-            siblingsH += child.offsetHeight;
-            sibCount++;
-        }
-    }
-
-    // Restore
-    mapBox.style.height = origH;
-    mapBox.style.maxWidth = origMW;
-
-    // Available height cho map
-    const gapTotal = gap * (sibCount + 1); // +1 cho mapBox
-    const availH = paneRect.height - padY - siblingsH - gapTotal;
-
-    // max-width giữ aspect-ratio 43:24 vừa vặn available height
-    const maxW = Math.max(availH, 120) * 43 / 24;
-    mapBox.style.maxWidth = maxW + 'px';
-}
-
-// Gọi fitMapSize khi load, resize, và khi tab Bản đồ được active
-window.addEventListener('load', () => setTimeout(fitMapSize, 200));
-window.addEventListener('resize', fitMapSize);
-// Observer: khi pane-map được show (tab switch)
-const _paneMap = document.getElementById('pane-map');
-if (_paneMap) {
-    new MutationObserver(() => setTimeout(fitMapSize, 50))
-        .observe(_paneMap, { attributes: true, attributeFilter: ['class'] });
-}
-
 // ═══ FULLSCREEN MAP MODE (CSS overlay — không dùng F11 browser) ═══
 let _fsOverlay = null;
 let _fsMapPlaceholder = null; // Giữ vị trí cho mapBox khi di chuyển

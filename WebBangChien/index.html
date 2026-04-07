@@ -1039,14 +1039,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 
 /* ─── MAP BOX ─── */
-/* max-width giữ đúng tỷ lệ 43:24 — cách DUY NHẤT cho div (max-height KHÔNG thu width) */
+/* aspect-ratio 43:24, max-width được JS fitMapSize() tính động */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
   width:100%;
-  /* Tỷ lệ gốc map: 43:24 */
   aspect-ratio: 43/24;
-  /* Thu width theo viewport height → height từ aspect-ratio tự giảm theo */
-  max-width: calc((100dvh - 350px) * 43 / 24);
+  /* max-width do JS set — không dùng CSS calc vì không chính xác */
   margin-inline: auto;
   flex: 0 0 auto;
   box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
@@ -2058,8 +2056,6 @@ html, body { overflow-x: hidden; }
             </div>
             <!-- Map giấy (background-image, chỉ đổi ảnh nền, icon giữ nguyên) -->
             <div class="map-bg-giay" id="mapBgGiay"></div>
-            <div class="map-ov"></div>
-            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle fullscreen-btn" id="mapFullscreenBtn" onclick="toggleMapFullscreen()">⛶ Toàn màn hình</button><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
             <!-- Tactics Viewer Layers (chỉ xem) -->
             <svg class="tactics-targeting-svg" id="tvTargetingSvg" style="display:none; position:absolute; inset:0; width:100%; height:100%; pointer-events:none;" xmlns="http://www.w3.org/2000/svg">
               <defs>
@@ -2071,6 +2067,9 @@ html, body { overflow-x: hidden; }
             <div class="tactics-view-layer" id="tacticsViewLayer" style="display:none; position:absolute; inset:0; pointer-events:none;"></div>
             <div class="tactics-tower-names" id="tvTowerNames" style="display:none; position:absolute; inset:0; pointer-events:none;"></div>
             </div> <!-- End mapContainer -->
+            <!-- Overlay + Controls nằm NGOÀI mapContainer → không bị zoom/pan kéo theo -->
+            <div class="map-ov"></div>
+            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle fullscreen-btn" id="mapFullscreenBtn" onclick="toggleMapFullscreen()">⛶ Toàn màn hình</button><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
           </div>
           <!-- Tactics Controls + Timeline Mini -->
           <div class="tactics-controls" id="tacticsControls" style="display:none">
@@ -5569,6 +5568,61 @@ async function renderPmLevelTab(container, discordId) {
         e.preventDefault();
     }, { passive: false });
 })();
+
+// ═══ MAP AUTO-FIT — JS tính max-width chính xác thay CSS calc ═══
+function fitMapSize() {
+    const pane = document.getElementById('pane-map');
+    const mapBox = document.getElementById('mapBox');
+    if (!pane || !mapBox) return;
+    // Mobile: không can thiệp
+    if (window.innerWidth <= 768) { mapBox.style.maxWidth = ''; return; }
+    // Fullscreen: không can thiệp
+    if (document.getElementById('fsOverlay')?.classList.contains('active')) return;
+
+    // Tạm ẩn mapBox để đo space còn lại chính xác
+    const origH = mapBox.style.height;
+    const origMW = mapBox.style.maxWidth;
+    mapBox.style.height = '0';
+    mapBox.style.maxWidth = '0';
+
+    const paneRect = pane.getBoundingClientRect();
+    const ps = getComputedStyle(pane);
+    const padY = parseFloat(ps.paddingTop) + parseFloat(ps.paddingBottom);
+    const gap = parseFloat(ps.gap) || 16;
+
+    // Đo tổng height các siblings (controls, timeline, ...)
+    let siblingsH = 0;
+    let sibCount = 0;
+    for (const child of pane.children) {
+        if (child === mapBox) continue;
+        if (getComputedStyle(child).display !== 'none' && child.offsetHeight > 0) {
+            siblingsH += child.offsetHeight;
+            sibCount++;
+        }
+    }
+
+    // Restore
+    mapBox.style.height = origH;
+    mapBox.style.maxWidth = origMW;
+
+    // Available height cho map
+    const gapTotal = gap * (sibCount + 1); // +1 cho mapBox
+    const availH = paneRect.height - padY - siblingsH - gapTotal;
+
+    // max-width giữ aspect-ratio 43:24 vừa vặn available height
+    const maxW = Math.max(availH, 120) * 43 / 24;
+    mapBox.style.maxWidth = maxW + 'px';
+}
+
+// Gọi fitMapSize khi load, resize, và khi tab Bản đồ được active
+window.addEventListener('load', () => setTimeout(fitMapSize, 200));
+window.addEventListener('resize', fitMapSize);
+// Observer: khi pane-map được show (tab switch)
+const _paneMap = document.getElementById('pane-map');
+if (_paneMap) {
+    new MutationObserver(() => setTimeout(fitMapSize, 50))
+        .observe(_paneMap, { attributes: true, attributeFilter: ['class'] });
+}
 
 // ═══ FULLSCREEN MAP MODE (CSS overlay — không dùng F11 browser) ═══
 let _fsOverlay = null;

@@ -1214,6 +1214,18 @@ module.exports = {
             return setboosterCommand.execute(message, args);
         }
 
+        // ?addvip - Thêm người dùng vào danh sách VIP Booster Room
+        if (commandName === 'addvip') {
+            const addvipCommand = require('../../commands/booster/addvip');
+            return addvipCommand.execute(message, args, client);
+        }
+
+        // ?rmvip - Gỡ người dùng khỏi danh sách VIP Booster Room
+        if (commandName === 'rmvip') {
+            const rmvipCommand = require('../../commands/booster/rmvip');
+            return rmvipCommand.execute(message, args, client);
+        }
+
         // ?setchannelanh - Set channel làm Phòng Ảnh (Quản Lý only)
         if (['setchannelanh', 'setchannelphonganh', 'phonganh'].includes(commandName)) {
             const setchannelanhCommand = require('../../commands/admin/setchannelanh');

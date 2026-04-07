@@ -1039,17 +1039,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 
 /* ─── MAP BOX ─── */
-/* aspect-ratio giữ đúng tỷ lệ 43:24, max-width co map theo viewport để timeline luôn hiện */
+/* width 100% + max-height → map full chiều ngang, tự co theo viewport height */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
   width:100%;
   /* Tỷ lệ gốc map: 43:24 */
   aspect-ratio: 43/24;
-  /* Co chiều rộng theo chiều cao khả dụng → map + controls + timeline gọn trong viewport */
-  max-width: calc((100dvh - 340px) * 43 / 24);
-  margin-inline: auto;
-  /* Không grow/shrink bởi flex — để aspect-ratio quyết định kích thước */
-  flex: 0 0 auto;
+  /* Giới hạn theo chiều cao khả dụng — khi max-height bị giới hạn,
+     browser tự thu width xuống nhờ aspect-ratio (CSS spec) */
+  max-height: calc(100dvh - 420px);
   box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
   background:#060d08
 }
@@ -5440,14 +5438,15 @@ async function renderPmLevelTab(container, discordId) {
     function clampPan() {
         const boxRect = mapBox.getBoundingClientRect();
         const scale = isZoomed ? ZOOM_LEVEL : 1;
-        // Giới hạn pan: cho phép dịch tối đa nửa chiều rộng (khi zoom) + thêm chút margin
-        const maxX = (boxRect.width  * (scale - 1)) / (2 * scale) + boxRect.width  * 0.25 / scale;
-        const maxY = (boxRect.height * (scale - 1)) / (2 * scale) + boxRect.height * 0.25 / scale;
         if (scale <= 1) {
-            // Không zoom: cho phép pan trong giới hạn nhỏ
-            panX = Math.max(-boxRect.width  * 0.3, Math.min(boxRect.width  * 0.3, panX));
-            panY = Math.max(-boxRect.height * 0.3, Math.min(boxRect.height * 0.3, panY));
+            // Không zoom: không cho pan (map đã full width, kéo sẽ lộ vùng đen)
+            panX = 0; panY = 0;
         } else {
+            // Zoom: chỉ được pan trong vùng map — clamp để không lộ khoảng đen
+            // Khi scale=2, content rộng gấp đôi, origin tại zoomOxPct/zoomOyPct
+            // maxPan = (size * (scale-1)) / (2*scale) — đúng biên bản đồ
+            const maxX = (boxRect.width  * (scale - 1)) / (2 * scale);
+            const maxY = (boxRect.height * (scale - 1)) / (2 * scale);
             panX = Math.max(-maxX, Math.min(maxX, panX));
             panY = Math.max(-maxY, Math.min(maxY, panY));
         }

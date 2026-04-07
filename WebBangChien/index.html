@@ -5439,12 +5439,13 @@ async function renderPmLevelTab(container, discordId) {
         const boxRect = mapBox.getBoundingClientRect();
         const scale = isZoomed ? ZOOM_LEVEL : 1;
         if (scale <= 1) {
-            // Không zoom: không cho pan (map đã full width, kéo sẽ lộ vùng đen)
-            panX = 0; panY = 0;
+            // Chưa zoom: cho kéo nhẹ (10% container) để xem các góc
+            const limitX = boxRect.width  * 0.1;
+            const limitY = boxRect.height * 0.1;
+            panX = Math.max(-limitX, Math.min(limitX, panX));
+            panY = Math.max(-limitY, Math.min(limitY, panY));
         } else {
-            // Zoom: chỉ được pan trong vùng map — clamp để không lộ khoảng đen
-            // Khi scale=2, content rộng gấp đôi, origin tại zoomOxPct/zoomOyPct
-            // maxPan = (size * (scale-1)) / (2*scale) — đúng biên bản đồ
+            // Zoom: clamp chặt để không lộ vùng đen
             const maxX = (boxRect.width  * (scale - 1)) / (2 * scale);
             const maxY = (boxRect.height * (scale - 1)) / (2 * scale);
             panX = Math.max(-maxX, Math.min(maxX, panX));
@@ -5619,7 +5620,7 @@ function enterMapFullscreen() {
 
     // Di chuyển mapBox thực sự vào fsMapArea (giữ nguyên zoom/pan state)
     if (mapBox) {
-        mapBox.style.cssText = 'position:absolute;inset:0;border-radius:0;border:none';
+        mapBox.style.cssText = 'position:absolute;inset:0;border-radius:0;border:none;max-height:none;aspect-ratio:auto;width:100%;height:100%';
         fsMapArea.appendChild(mapBox);
     }
 

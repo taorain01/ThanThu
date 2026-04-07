@@ -3,6 +3,7 @@
 .env2
 .env.*
 backup_env_hosting.txt
+GROK_API.md
 
 # === Node.js ===
 node_modules/
@@ -22,6 +23,7 @@ logs/
 # === Thư mục không cần thiết ===
 backup bot/
 backup data/
+backup*/
 BgRemover/
 Test gemini/
 .venv/
@@ -43,6 +45,7 @@ test_models_2.py
 # === IDE ===
 .vscode/
 .idea/
+.agents/
 
 # === OS ===
 Thumbs.db

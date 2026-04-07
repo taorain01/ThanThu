@@ -1035,16 +1035,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-tab:hover{color:var(--text);background:rgba(34,197,94,.08)}
 .r-tab.active{background:var(--bg-card);color:var(--gold);border-color:rgba(34,197,94,.2)}
 .r-content{flex:1;overflow:hidden}
-.r-pane{display:none;height:100%;padding:16px;overflow-y:auto;overflow-x:hidden}
+.r-pane{display:none;height:100%;padding:16px;overflow:hidden}
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 
 /* ─── MAP BOX ─── */
-/* Dùng padding-bottom thay aspect-ratio để hỗ trợ đầy đủ mọi trình duyệt */
+/* aspect-ratio giữ đúng tỷ lệ 43:24, max-width co map theo viewport để timeline luôn hiện */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
   width:100%;
-  /* Tỷ lệ 43:24 = 55.81% — hiện full ảnh battle_map_clean.png */
-  padding-bottom:55.81%;
+  /* Tỷ lệ gốc map: 43:24 */
+  aspect-ratio: 43/24;
+  /* Co chiều rộng theo chiều cao khả dụng → map + controls + timeline gọn trong viewport */
+  max-width: calc((100dvh - 340px) * 43 / 24);
+  margin-inline: auto;
+  /* Không grow/shrink bởi flex — để aspect-ratio quyết định kích thước */
+  flex: 0 0 auto;
   box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
   background:#060d08
 }
@@ -1081,7 +1086,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 @media (max-width: 640px) {
   .map-box {
     /* Trên mobile tỷ lệ 1:1 (vuông) để thấy rõ bản đồ dọc */
-    padding-bottom: 100%;
+    aspect-ratio: 1/1;
+    max-width: none;
+    margin-inline: 0;
     border-radius: 12px;
   }
 }
@@ -1381,7 +1388,8 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .right.mob-active { display: flex }
 
   /* Map full width */
-  .map-box { min-height: 50vh; border-radius: 0 }
+  /* Reset constraint desktop, mobile dùng height cố định */
+  .map-box { min-height: 50vh; border-radius: 0; aspect-ratio: auto; max-width: none; margin-inline: 0 }
 
   /* Session day-bar compact trên mobile */
   .day-bar { padding: 6px 8px; gap: 6px }
@@ -6348,13 +6356,63 @@ document.addEventListener('keydown', (e) => {
     return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
   }
 
-  // Init: load random bài từ LangGia, chưa play
+  // Init: load random bài từ LangGia, tự phát khi có thể
   buildShuf(PLAYLISTS[0].tracks.length);
-  loadTrack(0, shufOrder[0], false);
+  loadTrack(0, shufOrder[0], false); // Load trước, chưa play
 
   // Shuffle ON mặc định, Repeat OFF
   $('mpShuf').classList.add('on');
   $('mpRep').style.opacity='.4';
+
+  // ── Autoplay: tự phát khi user tương tác lần đầu (bypass browser policy) ──
+  let _mpAutoStarted = false;
+  function _mpTryAutoStart() {
+    if (_mpAutoStarted) return;
+    _mpAutoStarted = true;
+    if (audio.paused && curIdx >= 0) {
+      audio.play().then(() => {
+        $('mpPlayBtn').innerHTML = SVG_PAUSE;
+        $('mpDisc').classList.add('spin');
+        setEQ(true);
+        syncMiniPlay(true);
+      }).catch(() => {});
+    }
+    // Gỡ listener sau khi đã play
+    ['click','keydown','touchstart','scroll'].forEach(ev =>
+      document.removeEventListener(ev, _mpTryAutoStart, {capture:true})
+    );
+  }
+  // Thử autoplay ngay (hoạt động nếu browser cho phép)
+  audio.play().then(() => {
+    _mpAutoStarted = true;
+    $('mpPlayBtn').innerHTML = SVG_PAUSE;
+    $('mpDisc').classList.add('spin');
+    setEQ(true);
+    syncMiniPlay(true);
+  }).catch(() => {
+    // Browser block → chờ tương tác đầu tiên
+    ['click','keydown','touchstart','scroll'].forEach(ev =>
+      document.addEventListener(ev, _mpTryAutoStart, {once:false, capture:true})
+    );
+  });
+
+  // ── Chuột phải vào ô ảnh đĩa → tắt nhạc (pause) ──
+  const artRow = document.querySelector('.mp-art-row');
+  const discEl = $('mpDisc');
+  [artRow, discEl].forEach(el => {
+    if (!el) return;
+    el.addEventListener('contextmenu', function(e) {
+      e.preventDefault(); // Ngăn context menu mặc định
+      // Dừng nhạc
+      if (!audio.paused) {
+        audio.pause();
+        $('mpPlayBtn').innerHTML = SVG_PLAY;
+        $('mpDisc').classList.remove('spin');
+        setEQ(false);
+        syncMiniPlay(false);
+      }
+    });
+  });
 
   // ── Vị trí mặc định trên mobile: dán cạnh trái, giữa màn hình ──
   (function initMobileEdgePos() {

@@ -1039,15 +1039,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 
 /* ─── MAP BOX ─── */
-/* width 100% + max-height → map full chiều ngang, tự co theo viewport height */
+/* max-width giữ đúng tỷ lệ 43:24 — cách DUY NHẤT cho div (max-height KHÔNG thu width) */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
   width:100%;
   /* Tỷ lệ gốc map: 43:24 */
   aspect-ratio: 43/24;
-  /* Giới hạn theo chiều cao khả dụng — khi max-height bị giới hạn,
-     browser tự thu width xuống nhờ aspect-ratio (CSS spec) */
-  max-height: calc(100dvh - 420px);
+  /* Thu width theo viewport height → height từ aspect-ratio tự giảm theo */
+  max-width: calc((100dvh - 350px) * 43 / 24);
+  margin-inline: auto;
+  flex: 0 0 auto;
   box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
   background:#060d08
 }

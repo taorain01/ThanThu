@@ -6,8 +6,9 @@ const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 
-// Dedup guard: chong gui thong bao trung lap khi bot nhan nhieu realtime event
-const _sessionNotifDedup = new Map();
+// Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
+const _notifDebounceMap = new Map();
+const NOTIF_DEBOUNCE_MS = 3000; // Chờ 3 giây để gom tất cả thay đổi
 
 function resolvePrimaryGuild(client) {
   const preferredGuildId = process.env.guildId || process.env.GUILD_ID || '1239836342456942643';
@@ -447,25 +448,38 @@ function buildSessionChangeSummaries(localSession, newData) {
 async function sendSessionChangeSummaries(client, guild, session, summaries = []) {
   if (!session?.channel_id || !summaries.length) return;
 
-  // Dedup: chống gửi trùng trong 5 giây
   const dedupKey = session.day || session.party_key || 'x';
-  const dedupHash = summaries.join('|');
-  const _last = _sessionNotifDedup.get(dedupKey);
-  if (_last && _last.h === dedupHash && Date.now() - _last.t < 5000) {
-    console.log('[Supabase] Skip dup notif ' + dedupKey);
-    return;
+
+  // Lấy hoặc tạo buffer debounce cho session này
+  if (!_notifDebounceMap.has(dedupKey)) {
+    _notifDebounceMap.set(dedupKey, { summaries: [], timer: null, channelId: session.channel_id });
   }
-  _sessionNotifDedup.set(dedupKey, { h: dedupHash, t: Date.now() });
+  const buf = _notifDebounceMap.get(dedupKey);
 
-  const channel = await client.channels.fetch(session.channel_id).catch(() => null);
-  if (!channel) return;
+  // Thêm summaries mới vào buffer (bỏ qua trùng lặp)
+  for (const s of summaries) {
+    if (!buf.summaries.includes(s)) buf.summaries.push(s);
+  }
 
-  const visible = summaries.slice(0, 2);
-  const remaining = summaries.length - visible.length;
-  const content = remaining > 0
-    ? `${visible.join('\n')}\n...và ${remaining} thay đổi khác.`
-    : visible.join('\n');
-  await channel.send({ content });
+  // Reset timer — chờ thêm 3 giây kể từ thay đổi cuối cùng
+  if (buf.timer) clearTimeout(buf.timer);
+  buf.timer = setTimeout(async () => {
+    _notifDebounceMap.delete(dedupKey);
+    const allSummaries = buf.summaries;
+    if (!allSummaries.length) return;
+
+    const channel = await client.channels.fetch(buf.channelId).catch(() => null);
+    if (!channel) return;
+
+    // Hiện tối đa 5 dòng, phần còn lại ghi gọn
+    const visible = allSummaries.slice(0, 5);
+    const remaining = allSummaries.length - visible.length;
+    const content = remaining > 0
+      ? `${visible.join('\n')}\n...và ${remaining} thay đổi khác.`
+      : visible.join('\n');
+    await channel.send({ content });
+    console.log(`[Supabase] 📨 Gửi thông báo gộp BC ${dedupKey}: ${allSummaries.length} thay đổi`);
+  }, NOTIF_DEBOUNCE_MS);
 }
 
 const TACTICS_DAY_LABELS = {

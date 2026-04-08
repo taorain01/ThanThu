@@ -63,6 +63,14 @@ async function joinChannel(voiceChannel) {
             storage.removeVoiceState(voiceChannel.guild.id);
             connection.destroy();
             players.delete(voiceChannel.guild.id);
+            // Reset queue để processQueue không bị kẹt khi reconnect
+            const gId = voiceChannel.guild.id;
+            if (queues.has(gId)) {
+                const q = queues.get(gId);
+                q.items = [];
+                q.processing = false;
+                console.log(`[TTS] ♻️ Reset queue cho guild ${gId}`);
+            }
         }
     });
 
@@ -117,12 +125,27 @@ const queues = new Map();
  */
 async function processQueue(guildId) {
     const queue = queues.get(guildId);
-    if (!queue || queue.processing || queue.items.length === 0) return;
+    if (!queue || queue.items.length === 0) return;
+
+    // Force-reset nếu queue đang bị kẹt quá lâu (safety guard)
+    if (queue.processing) {
+        const now = Date.now();
+        const elapsed = now - (queue.processingStartedAt || 0);
+        if (elapsed > 30_000) {
+            console.log(`[TTS] ⚠️ Queue bị kẹt ${Math.round(elapsed/1000)}s → force-reset`);
+            queue.processing = false;
+            queue.processingStartedAt = 0;
+        } else {
+            return; // Đang xử lý bình thường, bỏ qua
+        }
+    }
 
     queue.processing = true;
+    queue.processingStartedAt = Date.now();
 
     while (queue.items.length > 0) {
         if (!isConnected(guildId)) {
+            console.log(`[TTS] Queue dừng: bot không còn connected`);
             queue.items = [];
             break;
         }
@@ -136,16 +159,47 @@ async function processQueue(guildId) {
     }
 
     queue.processing = false;
+    queue.processingStartedAt = 0;
 }
 
 /**
- * Phát 1 câu và chờ đọc xong
+ * Phát 1 câu và chờ đọc xong (có timeout 15s để tránh stuck)
  */
 function playText(guildId, text) {
     return new Promise(async (resolve) => {
+        // Timeout 15s: nếu player không idle sau 15s → resolve và bỏ qua
+        const timeoutHandle = setTimeout(() => {
+            console.warn(`[TTS] ⏰ Timeout 15s cho "${text.substring(0, 30)}" → skip`);
+            cleanup();
+            resolve();
+        }, 15_000);
+
+        let cleaned = false;
+        function cleanup() {
+            if (cleaned) return;
+            cleaned = true;
+            clearTimeout(timeoutHandle);
+            player.removeListener(AudioPlayerStatus.Idle, onIdle);
+            player.removeListener('error', onError);
+        }
+
+        const player = getPlayer(guildId);
+
+        const onIdle = () => { cleanup(); resolve(); };
+        const onError = (err) => {
+            console.error('[TTS] Player error:', err.message);
+            cleanup();
+            resolve();
+        };
+
         try {
-            const player = getPlayer(guildId);
-            console.log(`[TTS] Player state trước khi play: ${player.state.status}`);
+            // Kiểm tra connection TRƯỚC khi fetch audio (tránh fetch vô ích)
+            const connection = getVoiceConnection(guildId);
+            if (!connection || connection.state.status === 'destroyed') {
+                console.log(`[TTS] ❌ Không có connection khi chuẩn bị play → skip`);
+                cleanup();
+                return resolve();
+            }
 
             const audioUrl = googleTTS.getAudioUrl(text, {
                 lang: 'vi',
@@ -164,39 +218,28 @@ function playText(guildId, text) {
 
             const resource = createAudioResource(stream, { inputType: 'arbitrary' });
 
-            // Kiểm tra connection còn subscribe player không
-            const connection = getVoiceConnection(guildId);
-            if (connection) {
-                console.log(`[TTS] Connection state: ${connection.state.status}, subscription: ${connection.state.subscription ? 'có' : 'KHÔNG CÓ'}`);
-                // Re-subscribe nếu mất subscription
-                if (!connection.state.subscription) {
-                    console.log(`[TTS] ⚠️ Mất subscription! Re-subscribe...`);
-                    connection.subscribe(player);
-                }
-            } else {
-                console.log(`[TTS] ❌ Không có connection!`);
+            // Re-check connection sau khi fetch (có thể bot bị kick trong lúc fetch)
+            const conn = getVoiceConnection(guildId);
+            if (!conn || conn.state.status === 'destroyed') {
+                console.log(`[TTS] ❌ Connection mất sau khi fetch audio → skip`);
+                cleanup();
+                return resolve();
             }
 
-            // Lắng nghe khi đọc xong → resolve
-            const onIdle = () => {
-                player.removeListener(AudioPlayerStatus.Idle, onIdle);
-                player.removeListener('error', onError);
-                resolve();
-            };
-            const onError = (err) => {
-                console.error('[TTS] Player error:', err.message);
-                player.removeListener(AudioPlayerStatus.Idle, onIdle);
-                player.removeListener('error', onError);
-                resolve();
-            };
+            // Re-subscribe nếu mất subscription
+            if (!conn.state.subscription) {
+                console.log(`[TTS] ⚠️ Mất subscription! Re-subscribe...`);
+                conn.subscribe(player);
+            }
 
             player.on(AudioPlayerStatus.Idle, onIdle);
             player.on('error', onError);
             player.play(resource);
 
-            console.log(`[TTS] Speaking: "${text.substring(0, 50)}..."`);
+            console.log(`[TTS] Speaking: "${text.substring(0, 50)}"`);
         } catch (error) {
             console.error('[TTS] PlayText error:', error.message);
+            cleanup();
             resolve();
         }
     });

@@ -1044,7 +1044,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 /* aspect-ratio 43:24, width 100% tự vừa viewport */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
-  width:100%;
+  /* width tự co khi viewport thấp: không để height vượt (100vh - overhead) */
+  width: min(100%, calc((100vh - 200px) * 43 / 24));
   aspect-ratio: 43/24;
   margin-inline: auto;
   flex: 0 0 auto;
@@ -1423,6 +1424,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   /* Map-box fill đầy không gian còn lại */
   .right.mob-active .map-box {
     flex: 1;
+    width: 100%; /* override min() từ desktop */
     min-height: 0;
     aspect-ratio: auto;
     max-height: none;

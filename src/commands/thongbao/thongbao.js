@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+﻿const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const storage = require('../../utils/storage');
 const { checkPermissionAndReply } = require('../../utils/permissionHelper');
 const { sendNotificationWithMenu } = require('../../utils/menuManager');
@@ -221,7 +221,8 @@ function getWeeklySchedule(guildId) {
     for (const e of dailyEvents) {
       if (e.missionType === 'YenTiec') {
         output += `${e.emoji} **${e.name}**: MỖI NGÀY\n`;
-        output += `   T2-T6: **21h00** | T7-CN: **19h00**\n`;
+        output += `   T2-T6: **21h00**\n`;
+        output += `   T7-CN: **19h00** (nếu có BC) / **19h30** (nếu không có BC)\n`;
       } else {
         output += `${e.emoji} **${e.name}** - Mỗi ngày\n`;
       }

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+﻿const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
 // Helper: Tạo ActionRow chứa nút English cho embed lịch tuần
 function createEnglishButtonRow() {
@@ -254,11 +254,11 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
         if (lang === 'en') {
             output += `🎉 **Guild Party**: EVERY DAY\n`;
             output += `   Mon-Fri: **21h00**\n`;
-            output += `   Sat-Sun: **19h30** (if no Guild War)\n`;
+            output += `   Sat-Sun: **19h00** (if Guild War) / **19h30** (if no Guild War)\n`;
         } else {
             output += `🎉 **Yến Tiệc**: MỖI NGÀY\n`;
             output += `   T2-T6: **21h00**\n`;
-            output += `   T7-CN: **19h30** (nếu không có BC)\n`;
+            output += `   T7-CN: **19h00** (nếu có BC) / **19h30** (nếu không có BC)\n`;
         }
     }
 

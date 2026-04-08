@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
@@ -1034,8 +1034,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   transition:all .3s;background:rgba(255,255,255,.03);color:var(--text2);border:1px solid transparent;border-bottom:none}
 .r-tab:hover{color:var(--text);background:rgba(34,197,94,.08)}
 .r-tab.active{background:var(--bg-card);color:var(--gold);border-color:rgba(34,197,94,.2)}
-.r-content{flex:1;overflow:hidden}
-.r-pane{display:none;height:100%;padding:16px;overflow:hidden}
+.r-content{flex:1;overflow:hidden;min-height:0;display:flex;flex-direction:column}
+.r-pane{display:none;flex:1;min-height:0;padding:16px;overflow:hidden}
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
 #pane-timer.active{padding:0;gap:0}
 #pane-timer iframe{flex:1;min-height:0;width:100%;border:none;background:#0a1a0f}
@@ -1044,8 +1044,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 /* aspect-ratio 43:24, width 100% tự vừa viewport */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
-  /* width tự co khi viewport thấp: không để height vượt (100vh - overhead) */
-  width: min(100%, calc((100vh - 200px) * 43 / 24));
+  /* width tự co khi viewport thấp: không để height vượt (100vh - overhead)
+     Overhead thực tế: header(~80px) + daybar(~62px) + r-tabs(~53px) + pane-padding(32px) = ~227px
+     Dùng 260px để có buffer an toàn cho timeline ~54px ở bottom */
+  width: min(100%, calc((100vh - 260px) * 43 / 24));
   aspect-ratio: 43/24;
   margin-inline: auto;
   flex: 0 0 auto;
@@ -1055,9 +1057,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 /* Controls + Timeline overlay phía dưới map (nằm trong mapBox) */
 .map-box .tactics-controls{
-  position:absolute;bottom:36px;left:0;right:0;z-index:12;
-  background:linear-gradient(transparent,rgba(0,0,0,.7) 30%);
-  padding:8px 12px 4px;display:flex
+  position:absolute;bottom:calc(clamp(18px, 2.5vw, 28px) + clamp(4px, 0.8vw, 12px) + clamp(4px, 0.8vw, 12px) + 10px);left:4px;right:4px;z-index:12;
+  background:linear-gradient(transparent,rgba(0,0,0,.75) 30%);
+  padding:6px 12px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;
+  /* Tránh clip bởi border-radius 16px của map-box → cách 4px ở trái/phải */
 }
 .map-box .tactics-timeline-mini{
   position:absolute;bottom:0;left:0;right:0;z-index:12;
@@ -1066,6 +1069,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   /* Responsive scaling theo viewport */
   padding: clamp(4px, 0.8vw, 12px) clamp(8px, 1.5vw, 16px);
   transition: padding 0.2s ease;
+  /* Góc dưới phải match border-radius của map-box (16px), không dùng border-radius tự thân
+     để tránh bị clip bởi overflow:hidden của map-box */
+  border-radius: 0 0 14px 14px;
+  box-shadow: none;
 }
 /* mapContainer fill đầy mapBox (position relative trên mapBox) */
 .map-container{position:absolute;inset:0;width:100%;height:100%;}
@@ -1552,20 +1559,41 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .tactics-controls{display:flex;align-items:center;gap:12px;padding:8px 12px;flex-shrink:0;
   background:rgba(10,18,12,.6);border:1px solid rgba(251,191,36,.12);border-radius:10px;margin-top:8px}
 .tc-label{font-size:11px;font-weight:600;color:var(--text2)}
-.tc-toggle{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
+/* Radio-style toggle: chỉ 1 active tại một thời điểm */
+.tc-toggle{
+  display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
-  cursor:pointer;transition:all .3s;font-size:11px;font-weight:600;color:var(--text3);
-  user-select:none}
-.tc-toggle:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2)}
-.tc-toggle.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:var(--green-300)}
-.tc-toggle .tc-icon{font-size:13px}
-.tc-toggle .tc-check{width:14px;height:14px;border-radius:4px;border:1.5px solid rgba(255,255,255,.25);
-  display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
-.tc-toggle.active .tc-check{background:var(--green-500);border-color:var(--green-400)}
-.tc-toggle.active .tc-check::after{content:'✓';font-size:9px;color:#fff;font-weight:900}
-.tc-mark-label{margin-left:auto;font-size:11px;color:var(--gold);font-weight:700;
-  display:flex;align-items:center;gap:4px}
-.tc-mark-label .tc-time{font-size:13px;font-weight:800;color:var(--gold-glow)}
+  cursor:pointer;transition:all .25s cubic-bezier(.25,.46,.45,.94);
+  font-size:11px;font-weight:600;color:var(--text3);
+  user-select:none;flex-shrink:0;white-space:nowrap;
+}
+.tc-toggle:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:var(--text)}
+.tc-toggle.active{
+  background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(34,197,94,.08));
+  border-color:rgba(34,197,94,.5);color:var(--green-300);
+  box-shadow:0 0 10px rgba(34,197,94,.15),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.tc-toggle .tc-icon{font-size:12px}
+/* Dùng radio-dot thay vì checkbox */
+.tc-toggle .tc-check{
+  width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,.3);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .25s;flex-shrink:0;position:relative;
+}
+.tc-toggle.active .tc-check{
+  background:var(--green-400);border-color:var(--green-300);
+  box-shadow:0 0 6px rgba(34,197,94,.5);
+}
+.tc-toggle.active .tc-check::after{
+  content:'';width:4px;height:4px;border-radius:50%;background:#fff;
+}
+/* Mark label: luôn hiển thị đầy đủ bên phải, không bị co */
+.tc-mark-label{
+  margin-left:auto;font-size:11px;color:var(--gold);font-weight:700;
+  display:flex;align-items:center;gap:4px;
+  flex-shrink:0;white-space:nowrap;
+}
+.tc-mark-label .tc-time{font-size:13px;font-weight:800;color:var(--gold)}
 
 /* ═══ MINI TIMELINE ═══ */
 .tactics-timeline-mini{flex-shrink:0;margin-top:6px;padding:6px 8px;
@@ -4142,7 +4170,8 @@ async function loadTasksTab() {
     const marks = parsed.marks || [];
     const globalNotes = parsed.global_notes || [];
     const sortedMarks = [...marks]
-        .map(mark => ({ ...mark, time: normalizeTaskTimeValue(mark.time) }))
+        .map(mark => ({ ...mark, time: normalizeTaskTimeValue(mark.time) }))
+
         .sort((a, b) => b.time - a.time);
 
     // Lấy roster hiện tại
@@ -4933,14 +4962,20 @@ function tvRenderTowerGuards(mark) {
 
 // Toggle: Cá nhân (highlight chỉ bản thân)
 function toggleTacticsMe() {
+    // Radio behavior: bật Cá nhân → tắt Full Team
     _tvFilterMe = !_tvFilterMe;
+    if (_tvFilterMe) _tvFilterTeam = false;
     document.getElementById('tcMe')?.classList.toggle('active', _tvFilterMe);
+    document.getElementById('tcTeam')?.classList.toggle('active', _tvFilterTeam);
     tvRenderMark(_tvActiveMarkIdx);
 }
 
 // Toggle: Full Team (hiện/ẩn enemies + targeting)
 function toggleTacticsTeam() {
+    // Radio behavior: bật Full Team → tắt Cá nhân
     _tvFilterTeam = !_tvFilterTeam;
+    if (_tvFilterTeam) _tvFilterMe = false;
+    document.getElementById('tcMe')?.classList.toggle('active', _tvFilterMe);
     document.getElementById('tcTeam')?.classList.toggle('active', _tvFilterTeam);
     tvRenderMark(_tvActiveMarkIdx);
 }
@@ -5507,20 +5542,47 @@ async function renderPmLevelTab(container, discordId) {
         hint.textContent = isZoomed ? '🖐 Kéo để di chuyển · Nhấp đúp để thu nhỏ' : '🔍 Nhấp đúp để phóng to';
     });
 
+    // ── INERTIA: theo dõi velocity để tạo momentum sau khi nhả chuột ──
+    let velX = 0, velY = 0;
+    let lastMoveX = 0, lastMoveY = 0, lastMoveTime = 0;
+    let inertiaRaf = null;
+    const FRICTION = 0.88; // 0=dừng ngay, 1=không dừng
+    const MIN_VEL = 0.3; // px/ms - ngưỡng coi là dừng
+
+    function stopInertia() {
+        if (inertiaRaf) { cancelAnimationFrame(inertiaRaf); inertiaRaf = null; }
+    }
+    function runInertia() {
+        velX *= FRICTION;
+        velY *= FRICTION;
+        if (Math.abs(velX) < MIN_VEL && Math.abs(velY) < MIN_VEL) {
+            stopInertia(); return;
+        }
+        panX += velX;
+        panY += velY;
+        clampPan();
+        applyTransform(false);
+        inertiaRaf = requestAnimationFrame(runInertia);
+    }
+
     // Mouse drag pan — hoạt động cả khi chưa zoom
     mapContainer.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
-        // Không pan nếu click vào interactive element
         if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
+        stopInertia();
         isPanning = true;
         startX = e.clientX; startY = e.clientY;
         startPanX = panX; startPanY = panY;
+        velX = 0; velY = 0;
+        lastMoveX = e.clientX; lastMoveY = e.clientY; lastMoveTime = performance.now();
         mapContainer.style.cursor = 'grabbing';
         e.preventDefault();
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!isPanning) return;
+        const now = performance.now();
+        const dt = Math.max(now - lastMoveTime, 1);
         const scale = isZoomed ? ZOOM_LEVEL : 1;
         const dx = (e.clientX - startX) / scale;
         const dy = (e.clientY - startY) / scale;
@@ -5528,18 +5590,25 @@ async function renderPmLevelTab(container, discordId) {
         panY = startPanY + dy;
         clampPan();
         applyTransform(false);
+        // Tính velocity (px/frame @ 60fps) từ delta gần nhất
+        velX = ((e.clientX - lastMoveX) / scale) * (16 / dt);
+        velY = ((e.clientY - lastMoveY) / scale) * (16 / dt);
+        lastMoveX = e.clientX; lastMoveY = e.clientY; lastMoveTime = now;
     });
 
     window.addEventListener('mouseup', () => {
-        if (isPanning) {
-            isPanning = false;
-            mapContainer.style.cursor = '';
+        if (!isPanning) return;
+        isPanning = false;
+        mapContainer.style.cursor = '';
+        // Kick off inertia nếu velocity đủ lớn
+        if (Math.abs(velX) > MIN_VEL || Math.abs(velY) > MIN_VEL) {
+            inertiaRaf = requestAnimationFrame(runInertia);
         }
     });
 
-    // Hover cursor hint — grab khi không drag
+    // Hover cursor hint
     mapContainer.addEventListener('mouseenter', () => {
-        if (!isPanning) mapContainer.style.cursor = 'grab';
+        if (!isPanning && !inertiaRaf) mapContainer.style.cursor = 'grab';
     });
     mapContainer.addEventListener('mouseleave', () => {
         if (!isPanning) mapContainer.style.cursor = '';
@@ -5548,22 +5617,32 @@ async function renderPmLevelTab(container, discordId) {
     // ESC: reset về center
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && (isZoomed || panX !== 0 || panY !== 0)) {
+            stopInertia();
             isZoomed = false; panX = 0; panY = 0;
             applyTransform(true);
             hint.textContent = '🔍 Nhấp đúp để phóng to';
         }
     });
 
-    // Touch: double-tap zoom + 1-finger pan
+    // Touch: double-tap zoom + 1-finger pan với momentum
     let lastTap = 0;
+    let touchVelX = 0, touchVelY = 0;
+    let lastTouchX = 0, lastTouchY = 0, lastTouchTime = 0;
     mapContainer.addEventListener('touchend', (e) => {
         const now = Date.now();
         if (now - lastTap < 300 && e.changedTouches.length === 1) {
             e.preventDefault();
+            stopInertia();
             mapContainer.dispatchEvent(new MouseEvent('dblclick', {
                 clientX: e.changedTouches[0].clientX,
                 clientY: e.changedTouches[0].clientY
             }));
+        } else {
+            // Momentum sau khi nhả ngón tay
+            velX = touchVelX; velY = touchVelY;
+            if (Math.abs(velX) > MIN_VEL || Math.abs(velY) > MIN_VEL) {
+                inertiaRaf = requestAnimationFrame(runInertia);
+            }
         }
         lastTap = now;
     });
@@ -5572,14 +5651,19 @@ async function renderPmLevelTab(container, discordId) {
     mapBox.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) return;
         if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
+        stopInertia();
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
         touchPanX = panX; touchPanY = panY;
+        touchVelX = 0; touchVelY = 0;
+        lastTouchX = touchStartX; lastTouchY = touchStartY; lastTouchTime = performance.now();
     }, { passive: true });
 
     mapBox.addEventListener('touchmove', (e) => {
         if (e.touches.length !== 1) return;
         if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
+        const now = performance.now();
+        const dt = Math.max(now - lastTouchTime, 1);
         const scale = isZoomed ? ZOOM_LEVEL : 1;
         const dx = (e.touches[0].clientX - touchStartX) / scale;
         const dy = (e.touches[0].clientY - touchStartY) / scale;
@@ -5587,6 +5671,10 @@ async function renderPmLevelTab(container, discordId) {
         panY = touchPanY + dy;
         clampPan();
         applyTransform(false);
+        // Track touch velocity
+        touchVelX = ((e.touches[0].clientX - lastTouchX) / scale) * (16 / dt);
+        touchVelY = ((e.touches[0].clientY - lastTouchY) / scale) * (16 / dt);
+        lastTouchX = e.touches[0].clientX; lastTouchY = e.touches[0].clientY; lastTouchTime = now;
         e.preventDefault();
     }, { passive: false });
 })();
@@ -6155,12 +6243,27 @@ document.addEventListener('keydown', (e) => {
   };
 
   // Toggle collapse/expand player
+  // Hanh vi 2 buoc:
+  //   - Click lan 1 khi dang collapsed + nhac dang phat - chi PAUSE nhac, khong mo player
+  //   - Click lan 2 (nhac da dung) - moi mo rong player ra
   window.mpToggleCollapse = function() {
     const wrap = $('mpWrap');
     if (!wrap) return;
     const wasCollapsed = wrap.classList.contains('collapsed');
+
+    // Neu dang thu gon VA nhac dang phat - chi tat nhac, KHONG expand
+    if (wasCollapsed && !audio.paused) {
+      audio.pause();
+      $('mpPlayBtn').innerHTML = SVG_PLAY;
+      $('mpDisc').classList.remove('spin');
+      setEQ(false);
+      syncMiniPlay(false);
+      return; // Ket thuc som - chua mo player
+    }
+
+    // Nhac da dung hoac dang mo - toggle expand/collapse binh thuong
     wrap.classList.toggle('collapsed');
-    // Khi phóng to: bay về vị trí gốc + xóa edge state
+    // Khi phong to: bay ve vi tri goc + xoa edge state
     if (wasCollapsed) {
       wrap.classList.remove('mp-edge');
       wrap.style.left = '20px';

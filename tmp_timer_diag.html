@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Timer Diagnostic</title>
+  <style>
+    body { font-family: Consolas, monospace; white-space: pre-wrap; padding: 16px; background: #111; color: #eee; }
+    .ok { color: #4ade80; }
+    .bad { color: #f87171; }
+    .warn { color: #fbbf24; }
+    iframe { width: 1400px; height: 900px; border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <div id="out">running...</div>
+  <iframe id="host" src="/WebBangChien/index.html"></iframe>
+  <script>
+    const out = document.getElementById('out');
+    const log = (label, value) => `${label}: ${value}`;
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function run() {
+      try {
+        const host = document.getElementById('host');
+        await new Promise((resolve, reject) => {
+          if (host.contentDocument?.readyState === 'complete') {
+            resolve();
+            return;
+          }
+          host.addEventListener('load', resolve, { once: true });
+          setTimeout(() => reject(new Error('host iframe load timeout')), 15000);
+        });
+
+        const doc = host.contentDocument;
+        const win = host.contentWindow;
+        doc.getElementById('landingPage')?.classList.add('hidden');
+        doc.getElementById('loadingScreen')?.classList.add('hidden');
+        doc.getElementById('guestScreen')?.classList.remove('active');
+        doc.getElementById('notMemberScreen')?.classList.remove('active');
+        doc.getElementById('mainApp')?.classList.add('active');
+
+        const timerTab = doc.getElementById('timerTab');
+        if (!timerTab) throw new Error('timerTab not found');
+        timerTab.click();
+        await sleep(1500);
+
+        const pane = doc.getElementById('pane-timer');
+        const timerFrame = doc.getElementById('timerIframe');
+        const paneRect = pane?.getBoundingClientRect();
+        const timerRect = timerFrame?.getBoundingClientRect();
+        const paneStyle = pane ? win.getComputedStyle(pane) : null;
+        const timerStyle = timerFrame ? win.getComputedStyle(timerFrame) : null;
+
+        let nestedInfo = [];
+        if (timerFrame && timerFrame.contentDocument) {
+          const tdoc = timerFrame.contentDocument;
+          const tw = timerFrame.contentWindow;
+          const wrap = tdoc.querySelector('.wrap');
+          const main = tdoc.querySelector('.main');
+          const side = tdoc.querySelector('.side');
+          const hdr = tdoc.querySelector('.hdr');
+          const wrapRect = wrap?.getBoundingClientRect();
+          const mainRect = main?.getBoundingClientRect();
+          const sideRect = side?.getBoundingClientRect();
+          const hdrRect = hdr?.getBoundingClientRect();
+          nestedInfo = [
+            log('nested.readyState', tdoc.readyState),
+            log('nested.bodyChildren', tdoc.body.children.length),
+            log('nested.wrap.exists', !!wrap),
+            log('nested.wrap.rect', wrapRect ? `${wrapRect.width}x${wrapRect.height} @ ${wrapRect.left},${wrapRect.top}` : 'null'),
+            log('nested.hdr.rect', hdrRect ? `${hdrRect.width}x${hdrRect.height}` : 'null'),
+            log('nested.main.rect', mainRect ? `${mainRect.width}x${mainRect.height}` : 'null'),
+            log('nested.side.rect', sideRect ? `${sideRect.width}x${sideRect.height}` : 'null'),
+            log('nested.body.scroll', `${tdoc.body.scrollWidth}x${tdoc.body.scrollHeight}`),
+            log('nested.viewport', `${tw.innerWidth}x${tw.innerHeight}`),
+            log('nested.body.textSample', (tdoc.body.innerText || '').trim().slice(0, 200).replace(/\s+/g, ' ')),
+          ];
+        } else {
+          nestedInfo = [log('nested', 'unavailable')];
+        }
+
+        out.textContent = [
+          log('host.readyState', doc.readyState),
+          log('mainApp.className', doc.getElementById('mainApp')?.className || 'null'),
+          log('pane.exists', !!pane),
+          log('pane.className', pane?.className || 'null'),
+          log('pane.display', paneStyle?.display || 'null'),
+          log('pane.position', paneStyle?.position || 'null'),
+          log('pane.rect', paneRect ? `${paneRect.width}x${paneRect.height} @ ${paneRect.left},${paneRect.top}` : 'null'),
+          log('timerFrame.exists', !!timerFrame),
+          log('timerFrame.src', timerFrame?.getAttribute('src') || 'null'),
+          log('timerFrame.display', timerStyle?.display || 'null'),
+          log('timerFrame.position', timerStyle?.position || 'null'),
+          log('timerFrame.rect', timerRect ? `${timerRect.width}x${timerRect.height} @ ${timerRect.left},${timerRect.top}` : 'null'),
+          ...nestedInfo
+        ].join('\n');
+      } catch (err) {
+        out.textContent = `ERROR: ${err.message}\n${err.stack || ''}`;
+      }
+    }
+
+    run();
+  </script>
+</body>
+</html>

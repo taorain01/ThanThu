@@ -196,6 +196,22 @@
       flex-shrink:0;
       opacity:.6;
     }
+    .slot-badge{
+      min-width:34px;
+      height:32px;
+      padding:0 8px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      border-radius:10px;
+      background:rgba(246,196,83,.08);
+      border:1px solid rgba(246,196,83,.2);
+      color:var(--gold);
+      font-size:12px;
+      font-weight:900;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+    }
     .avatar{
       width:28px;height:28px;border-radius:50%;
       display:grid;place-items:center;
@@ -599,6 +615,36 @@
       return configs;
     }
 
+    function getTeamCaps() {
+      const sizes = localState?.team_sizes || {};
+      return {
+        attack1: Number(sizes.attack1 ?? 10) || 0,
+        attack2: Number(sizes.attack2 ?? 10) || 0,
+        defense: Number(sizes.defense ?? 5) || 0,
+        forest: Number(sizes.forest ?? 5) || 0
+      };
+    }
+
+    function getTeamSlotStarts() {
+      const caps = getTeamCaps();
+      const slotStartAtt2 = 1 + caps.attack1;
+      const slotStartDef = slotStartAtt2 + caps.attack2;
+      const slotStartFor = slotStartDef + caps.defense;
+      const slotStartWait = slotStartFor + caps.forest;
+      return {
+        team_attack1: 1,
+        team_attack2: slotStartAtt2,
+        team_defense: slotStartDef,
+        team_forest: slotStartFor,
+        waiting_list: slotStartWait
+      };
+    }
+
+    function getMemberSlotNumber(teamKey, index) {
+      const start = getTeamSlotStarts()[teamKey];
+      return start == null ? (index + 1) : (start + index);
+    }
+
     function updateHeader() {
       const label = DAY_LABELS[currentDay] || currentDay || 'Không rõ ngày';
       document.getElementById('pageTitle').textContent = `✏️ Team Editor - ${label}`;
@@ -632,13 +678,16 @@
     function renderMemberRow(member, teamKey, index) {
       const row = document.createElement('div');
       const cls = roleClass(member.role);
+      const slotNumber = getMemberSlotNumber(teamKey, index);
       row.className = `member-row${localState.locked ? ' locked' : ''}`;
       row.draggable = false; // SortableJS quản lý kéo thả qua drag-handle
       row.dataset.userId = member.id;
       row.dataset.team = teamKey;
       row.dataset.index = String(index);
+      row.dataset.slot = String(slotNumber);
       row.innerHTML = `
         <div class="drag-handle">⠿</div>
+        <div class="slot-badge">${slotNumber}</div>
         <div class="avatar ${cls}">${roleShort(member.role)}</div>
         <div class="member-main">
           <div class="member-name">${member.gn || member.game_username || member.name || member.username || member.id}</div>

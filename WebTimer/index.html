@@ -390,12 +390,54 @@ header {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:2px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,0.3); }
 
+/* Sound Pack Picker */
+.snd-pick {
+  position:relative; display:flex; align-items:center; gap:8px;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 24px; padding: 6px 14px;
+  cursor: pointer; transition: all 0.2s; user-select: none;
+}
+.snd-pick:hover,.snd-pick.open { border-color: var(--cyan); background: var(--cyan-dim); }
+.snd-pick-ico { font-size:14px; }
+.snd-pick-label { font-size:0.75rem; color:var(--text-dim); font-family:'Rajdhani'; font-weight:600; letter-spacing:1px; }
+.snd-pick-arrow { width:10px; height:10px; transition: transform 0.2s; }
+.snd-pick.open .snd-pick-arrow { transform: rotate(180deg); }
+.snd-menu {
+  position:absolute; top:calc(100% + 8px); right:0; min-width:220px;
+  background: rgba(5,10,20,0.97); border:1px solid var(--glass-border);
+  border-radius:12px; padding:6px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7); z-index:100;
+  display:none; backdrop-filter: blur(20px);
+}
+.snd-menu.open { display:block; animation: sndIn 0.2s ease; }
+@keyframes sndIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+.snd-opt {
+  display:flex; align-items:center; gap:10px; padding:9px 12px;
+  border-radius:8px; cursor:pointer; transition:all 0.15s;
+  font-size:0.8rem; color:var(--text-dim);
+}
+.snd-opt:hover { background: var(--cyan-dim); color: var(--text); }
+.snd-opt.active { background: rgba(0,229,255,0.12); color: var(--cyan); font-weight:700; }
+.snd-opt .snd-ico { font-size:16px; width:24px; text-align:center; flex-shrink:0; }
+.snd-opt .snd-name { flex:1; }
+.snd-opt .snd-preview {
+  opacity:.5; font-size:11px; color:var(--cyan); transition:all 0.2s;
+  padding:3px 10px; border-radius:8px; border:1px solid rgba(0,229,255,0.2);
+  background:rgba(0,229,255,0.05); cursor:pointer; white-space:nowrap;
+}
+.snd-opt:hover .snd-preview { opacity:1; border-color:rgba(0,229,255,0.5); background:rgba(0,229,255,0.15);
+  box-shadow:0 0 8px rgba(0,229,255,0.2); }
+.snd-opt .snd-check { display:none; color:var(--cyan); font-size:10px; }
+.snd-opt.active .snd-check { display:inline; }
+
 /* Responsive */
 @media(max-width: 768px) {
   .main-content { grid-template-columns:1fr; }
   .right-panel { height: 300px; border-left:none; border-top: 1px solid var(--glass-border); }
   :root { --ring-size: 220px; }
   .time-display { font-size:2.8rem; }
+  .snd-pick-label { display:none; }
+  .snd-menu { min-width:180px; }
 }
 </style>
 </head>
@@ -420,6 +462,18 @@ header {
         <span class="toggle-icon">🔔</span>
         <span class="toggle-label">THÔNG BÁO</span>
         <div class="toggle-dot"></div>
+      </div>
+      <div class="snd-pick" id="sndPick">
+        <span class="snd-pick-ico" id="sndCurIco">🎮</span>
+        <span class="snd-pick-label" id="sndLabel">Digital</span>
+        <svg class="snd-pick-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+        <div class="snd-menu" id="sndMenu">
+          <div class="snd-opt active" data-pack="digital"><span class="snd-ico">🎮</span><span class="snd-name">Digital</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="drum"><span class="snd-ico">🥁</span><span class="snd-name">Trống Trận</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="bell"><span class="snd-ico">🔔</span><span class="snd-name">Chuông Chùa</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="scifi"><span class="snd-ico">⚡</span><span class="snd-name">Sci-Fi</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="melody"><span class="snd-ico">🎵</span><span class="snd-name">Melody</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+        </div>
       </div>
     </div>
   </header>
@@ -506,6 +560,7 @@ let interval = null;
 let settings = { sound: true, notif: true };
 let firedWarnings = {}; // { 'boss-25_30': true, ... }
 let audioCtx = null;
+let soundPack = localStorage.getItem('timer-sound-pack') || 'digital';
 
 // ===== AUDIO =====
 function getAudioCtx() {
@@ -513,6 +568,7 @@ function getAudioCtx() {
   return audioCtx;
 }
 
+// Âm cơ bản
 function playTone(freq, duration, type='sine', gain=0.3) {
   try {
     const ctx = getAudioCtx();
@@ -528,26 +584,168 @@ function playTone(freq, duration, type='sine', gain=0.3) {
   } catch(e) {}
 }
 
+// Âm trống: pitch bend xuống nhanh
+function drumHit(freq=80, decay=0.3, vol=0.4) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq * 3, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq, ctx.currentTime + 0.04);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+    osc.start(); osc.stop(ctx.currentTime + decay);
+  } catch(e) {}
+}
+
+// Âm chuông: sine + overtones
+function bellTone(freq=800, decay=1.2, vol=0.2) {
+  try {
+    const ctx = getAudioCtx();
+    [1, 2.4, 5.4].forEach((h, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq * h, ctx.currentTime);
+      g.gain.setValueAtTime(vol / (i + 1), ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay / (i * 0.7 + 1));
+      osc.start(); osc.stop(ctx.currentTime + decay);
+    });
+  } catch(e) {}
+}
+
+// Sweep tần số (sci-fi)
+function sweep(f1=200, f2=2000, dur=0.5, type='sawtooth', vol=0.2) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(f1, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(f2, ctx.currentTime + dur);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(); osc.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+
+// ===== 5 BỘ ÂM THANH =====
+const SOUND_PACKS = {
+  digital: { name:'Digital', icon:'🎮',
+    w30: () => { playTone(440, 0.3); },
+    w15: () => { playTone(550, 0.2); setTimeout(() => playTone(550, 0.2), 300); },
+    w5:  () => { [0, 200, 400].forEach(d => setTimeout(() => playTone(880, 0.15, 'square'), d)); },
+    arrive_boss: () => { [0, 200, 400, 600].forEach(d => setTimeout(() => playTone(200 + d, 0.4, 'sawtooth', 0.4), d)); },
+    arrive_pvp:  () => { playTone(660, 0.15); setTimeout(() => playTone(880, 0.3), 200); },
+    end: () => { playTone(220, 2, 'sawtooth', 0.5); }
+  },
+  drum: { name:'Trống Trận', icon:'🥁',
+    w30: () => { drumHit(60, 0.5, 0.5); },
+    w15: () => { drumHit(70, 0.35, 0.45); setTimeout(() => drumHit(90, 0.3, 0.5), 250); },
+    w5:  () => { [0, 120, 240, 360, 480].forEach(d => setTimeout(() => drumHit(100 + d/5, 0.15, 0.4), d)); },
+    arrive_boss: () => { [60,80,100,150].forEach((f,i) => setTimeout(() => drumHit(f, 0.4, 0.5), i*150)); setTimeout(() => drumHit(50, 0.8, 0.6), 600); },
+    arrive_pvp:  () => { drumHit(80, 0.25, 0.35); setTimeout(() => drumHit(120, 0.2, 0.4), 200); setTimeout(() => drumHit(160, 0.3, 0.5), 380); },
+    end: () => { drumHit(50, 0.9, 0.5); setTimeout(() => drumHit(40, 1.2, 0.4), 300); }
+  },
+  bell: { name:'Chuông Chùa', icon:'🔔',
+    w30: () => { bellTone(500, 2, 0.2); },
+    w15: () => { bellTone(500, 1.5, 0.2); setTimeout(() => bellTone(700, 1, 0.18), 500); },
+    w5:  () => { [0, 200, 400, 600, 800].forEach(d => setTimeout(() => bellTone(900 + d*0.3, 0.5, 0.15), d)); },
+    arrive_boss: () => { bellTone(250, 3, 0.3); setTimeout(() => bellTone(500, 2, 0.2), 600); },
+    arrive_pvp:  () => { bellTone(600, 1.5, 0.18); setTimeout(() => bellTone(800, 1.2, 0.15), 400); },
+    end: () => { [800, 600, 500, 400].forEach((f, i) => setTimeout(() => bellTone(f, 2, 0.15), i * 500)); }
+  },
+  scifi: { name:'Sci-Fi', icon:'⚡',
+    w30: () => { sweep(400, 1200, 0.3, 'square', 0.18); },
+    w15: () => { sweep(400, 1200, 0.2, 'square', 0.18); setTimeout(() => sweep(600, 1400, 0.2, 'square', 0.18), 300); },
+    w5:  () => { [0, 130, 260, 390, 520].forEach(d => setTimeout(() => sweep(800, 3000, 0.1, 'sawtooth', 0.22), d)); },
+    arrive_boss: () => { sweep(200, 1000, 0.3, 'sawtooth', 0.25); setTimeout(() => sweep(1000, 200, 0.3, 'sawtooth', 0.25), 350); setTimeout(() => sweep(200, 2000, 0.5, 'sawtooth', 0.3), 700); },
+    arrive_pvp:  () => { sweep(200, 1500, 0.4, 'sawtooth', 0.2); setTimeout(() => playTone(1500, 0.2, 'square', 0.15), 400); },
+    end: () => { sweep(1500, 80, 0.8, 'sawtooth', 0.25); setTimeout(() => playTone(80, 0.5, 'triangle', 0.2), 800); }
+  },
+  melody: { name:'Melody', icon:'🎵',
+    w30: () => { playTone(659, 0.2); setTimeout(() => playTone(523, 0.3), 200); },
+    w15: () => { playTone(784, 0.15); setTimeout(() => playTone(880, 0.15), 180); setTimeout(() => playTone(784, 0.25), 360); },
+    w5:  () => { [659, 740, 784, 880, 988].forEach((f, i) => setTimeout(() => playTone(f, 0.12, 'sine', 0.25), i * 100)); },
+    arrive_boss: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.35, 'sine', 0.3), i * 180)); },
+    arrive_pvp:  () => { [523, 587, 659, 784].forEach((f, i) => setTimeout(() => playTone(f, 0.2, 'sine', 0.25), i * 150)); },
+    end: () => { [1047, 880, 784, 659, 523].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'sine', 0.22), i * 200)); }
+  }
+};
+
 function playWarning(warnSecs) {
   if (!settings.sound) return;
-  if (warnSecs === 30) {
-    playTone(440, 0.3); // 1 beep
-  } else if (warnSecs === 15) {
-    playTone(550, 0.2);
-    setTimeout(() => playTone(550, 0.2), 300); // 2 beeps
-  } else if (warnSecs === 5) {
-    [0, 200, 400].forEach(d => setTimeout(() => playTone(880, 0.15, 'square'), d)); // 3 rapid
-  }
+  const pack = SOUND_PACKS[soundPack] || SOUND_PACKS.digital;
+  if (warnSecs === 30 && pack.w30) pack.w30();
+  else if (warnSecs === 15 && pack.w15) pack.w15();
+  else if (warnSecs === 5 && pack.w5) pack.w5();
 }
 
 function playEventArrival(type) {
   if (!settings.sound) return;
-  if (type === 'boss') {
-    [0, 200, 400, 600].forEach(d => setTimeout(() => playTone(200 + d, 0.4, 'sawtooth', 0.4), d));
-  } else {
-    playTone(660, 0.15); setTimeout(() => playTone(880, 0.3), 200);
-  }
+  const pack = SOUND_PACKS[soundPack] || SOUND_PACKS.digital;
+  if (type === 'boss' && pack.arrive_boss) pack.arrive_boss();
+  else if (pack.arrive_pvp) pack.arrive_pvp();
 }
+
+function playEndSound() {
+  if (!settings.sound) return;
+  const pack = SOUND_PACKS[soundPack] || SOUND_PACKS.digital;
+  if (pack.end) pack.end();
+}
+
+// ===== SOUND PACK UI =====
+function initSoundPack() {
+  const p = SOUND_PACKS[soundPack];
+  if (!p) return;
+  document.getElementById('sndCurIco').textContent = p.icon;
+  document.getElementById('sndLabel').textContent = p.name;
+  document.querySelectorAll('.snd-opt').forEach(el => el.classList.toggle('active', el.dataset.pack === soundPack));
+}
+function selectSndPack(pack) {
+  soundPack = pack;
+  localStorage.setItem('timer-sound-pack', pack);
+  const p = SOUND_PACKS[pack];
+  document.getElementById('sndCurIco').textContent = p.icon;
+  document.getElementById('sndLabel').textContent = p.name;
+  document.querySelectorAll('.snd-opt').forEach(el => el.classList.toggle('active', el.dataset.pack === pack));
+  document.getElementById('sndMenu').classList.remove('open');
+  document.getElementById('sndPick').classList.remove('open');
+  // Preview: phát âm arrive_boss để nghe thử
+  if (p.arrive_boss) p.arrive_boss();
+}
+function previewSndPack(pack) {
+  const p = SOUND_PACKS[pack];
+  if (p && p.arrive_boss) p.arrive_boss();
+}
+// Gắn sự kiện cho sound picker
+document.getElementById('sndPick').addEventListener('click', e => {
+  const prevEl = e.target.closest('.snd-preview');
+  const optEl = e.target.closest('.snd-opt');
+  if (prevEl) {
+    e.stopPropagation();
+    previewSndPack(prevEl.closest('.snd-opt').dataset.pack);
+  } else if (optEl) {
+    e.stopPropagation();
+    selectSndPack(optEl.dataset.pack);
+  } else {
+    e.stopPropagation();
+    document.getElementById('sndPick').classList.toggle('open');
+    document.getElementById('sndMenu').classList.toggle('open');
+  }
+});
+// Đóng menu khi click ngoài
+document.addEventListener('click', e => {
+  const sndPick = document.getElementById('sndPick');
+  if (!sndPick.contains(e.target)) {
+    document.getElementById('sndMenu').classList.remove('open');
+    sndPick.classList.remove('open');
+  }
+});
 
 // ===== NOTIFICATIONS =====
 async function requestNotifPermission() {
@@ -590,7 +788,7 @@ function startTimer() {
       running = false;
       document.getElementById('btn-start').textContent = '▶ BẮT ĐẦU';
       addLog('HẾT GIỜ! Bang Chiến kết thúc! 🏁', 'warn');
-      playTone(220, 2, 'sawtooth', 0.5);
+      playEndSound();
     }
     updateDisplay();
     checkEvents();
@@ -777,6 +975,7 @@ document.getElementById('start-min').addEventListener('change', () => {
 // ===== INIT =====
 renderEvents();
 updateDisplay();
+initSoundPack();
 </script>
 </body>
 </html>

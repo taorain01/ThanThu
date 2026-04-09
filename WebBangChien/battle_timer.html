@@ -57,6 +57,38 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 .tog.on .dot{background:rgba(251,191,36,.3)}
 .tog.on .dot::after{background:var(--gold);transform:translateX(12px);box-shadow:0 0 6px var(--gold)}
 
+/* ── SOUND PACK PICKER ── */
+.snd-pick{position:relative;display:flex;align-items:center;gap:7px;padding:6px 14px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:20px;cursor:pointer;font-size:12px;color:var(--text3);
+  transition:all .2s;user-select:none}
+.snd-pick:hover,.snd-pick.open{border-color:rgba(251,191,36,.5);color:var(--gold);background:rgba(251,191,36,.08)}
+.snd-pick-ico{font-size:14px}
+.snd-pick-label{white-space:nowrap;font-weight:600;letter-spacing:.3px}
+.snd-pick-arrow{width:10px;height:10px;transition:transform .2s}
+.snd-pick.open .snd-pick-arrow{transform:rotate(180deg)}
+.snd-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:220px;
+  background:rgba(10,26,15,.97);border:1px solid var(--border);border-radius:12px;
+  padding:6px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:100;
+  display:none;backdrop-filter:blur(20px)}
+.snd-menu.open{display:block;animation:sndIn .2s ease}
+@keyframes sndIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.snd-opt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
+  cursor:pointer;transition:all .15s;font-size:12px;color:var(--text2)}
+.snd-opt:hover{background:rgba(251,191,36,.08);color:var(--text)}
+.snd-opt.active{background:rgba(251,191,36,.12);color:var(--gold);font-weight:700}
+.snd-opt .snd-ico{font-size:16px;width:24px;text-align:center;flex-shrink:0}
+.snd-opt .snd-name{flex:1}
+.snd-opt .snd-preview{opacity:.5;font-size:11px;color:var(--gold);transition:all .2s;
+  padding:3px 10px;border-radius:8px;border:1px solid rgba(251,191,36,.2);
+  background:rgba(251,191,36,.05);cursor:pointer;white-space:nowrap}
+.snd-opt:hover .snd-preview{opacity:1;border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.15);
+  box-shadow:0 0 8px rgba(251,191,36,.2)}
+.snd-opt .snd-check{display:none;color:var(--gold);font-size:10px}
+.snd-opt.active .snd-check{display:inline}
+@media(max-width:768px){.snd-pick{padding:5px 10px}.snd-pick-label{font-size:10px}.snd-menu{min-width:180px}}
+@media(max-width:480px){.snd-pick{padding:5px 8px;gap:4px}.snd-pick-label{display:none}.snd-menu{min-width:160px;right:-5px}}
+
 /* ── MAIN PANEL ── */
 .main{background:var(--card);border:1px solid var(--border);border-radius:18px;
   padding:24px;display:flex;flex-direction:column;align-items:center;gap:18px}
@@ -340,6 +372,18 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
         <div class="dot"></div>
         <span>Âm thanh</span>
       </div>
+      <div class="snd-pick" id="sndPick">
+        <span class="snd-pick-ico" id="sndCurIco">🎮</span>
+        <span class="snd-pick-label" id="sndLabel">Digital</span>
+        <svg class="snd-pick-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+        <div class="snd-menu" id="sndMenu">
+          <div class="snd-opt active" data-pack="digital"><span class="snd-ico">🎮</span><span class="snd-name">Digital</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="drum"><span class="snd-ico">🥁</span><span class="snd-name">Trống Trận</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="bell"><span class="snd-ico">🔔</span><span class="snd-name">Chuông Chùa</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="scifi"><span class="snd-ico">⚡</span><span class="snd-name">Sci-Fi</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+          <div class="snd-opt" data-pack="melody"><span class="snd-ico">🎵</span><span class="snd-name">Melody</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -472,6 +516,7 @@ let iv = null, running = false, paused = false;
 let fired = new Set(), nCnt = 0;
 let optMsg = true, optSnd = true;
 let alertTO = null, audioCtx = null;
+let soundPack = localStorage.getItem('timer-sound-pack') || 'digital';
 let isEditing = false;
 let isDragging = false;
 
@@ -629,7 +674,9 @@ function angleToTime(angle) {
   return Math.max(0, Math.min(MAX_TOTAL, t));
 }
 function updateDragHandle() {
-  const pct = total > 0 ? remain / total : 1;
+  // Khi chưa bắt đầu (idle), dùng MAX_TOTAL để handle theo đúng vị trí trên vòng 30 phút
+  const isIdle = !running && total === remain;
+  const pct = isIdle ? remain / MAX_TOTAL : (total > 0 ? remain / total : 1);
   // Góc trên SVG: 0% = 12h (top), theo chiều kim đồng hồ
   const angle = (1 - pct) * 2 * Math.PI - Math.PI / 2; // offset -90° vì CSS
   // Tính px position
@@ -677,15 +724,21 @@ function onDragStart(e) {
 function onDragMove(e) {
   if (!isDragging) return;
   e.preventDefault();
-  const angle = getAngleFromEvent(e);
-  const t = angleToTime(angle);
+  const angle = getAngleFromEvent(e); // 0=12h, CW positive, [0, 2π)
+  const t = angleToTime(angle);       // thời gian đã snap 15s
   total = t;
   remain = t;
   fired.clear();
   updateDisplay();
-  updateDragHandle();
+  // Đặt handle TRỰC TIẾP tại vị trí ứng với thời gian đã snap
+  // Chuyển time → góc trên vòng tròn (ngược lại angleToTime)
+  const timePct = t / MAX_TOTAL;                               // 0..1
+  const ringAngle = (1 - timePct) * 2 * Math.PI - Math.PI / 2; // CSS coords
+  const wrapSize = ringWrap.offsetWidth;
+  const rPx = (R / 240) * wrapSize;
+  dragHandle.style.left = (wrapSize / 2 + rPx * Math.cos(ringAngle)) + 'px';
+  dragHandle.style.top  = (wrapSize / 2 + rPx * Math.sin(ringAngle)) + 'px';
   updatePresetActive();
-  // Cập nhật input
   inpMin.value = Math.floor(t / 60);
   inpSec.value = t % 60;
 }
@@ -807,13 +860,23 @@ function updateDisplay(){
   const el = rTime;
   el.textContent = fmtT(remain);
   el.className = 'r-time-display' + (remain<=30?' crit':remain<=60?' warn':'') + (isEditing?' editing':'');
-  const pct = total > 0 ? remain / total : 1;
-  const off = CIRC * (1 - pct);
+  // Khi chưa bắt đầu (idle), ring lấp TỪ handle NGƯỢC VỀ 12h
+  const isIdle = !running && total === remain;
+  const ringPct = isIdle ? remain / MAX_TOTAL : (total > 0 ? remain / total : 1);
   const tr = document.getElementById('rTrack');
-  tr.style.strokeDasharray = CIRC;
-  tr.style.strokeDashoffset = off;
+  if (isIdle) {
+    // Chế độ chỉnh: gap từ 12h → handle, fill từ handle → 12h (ngược chiều)
+    tr.style.strokeDasharray = `${ringPct * CIRC} ${(1 - ringPct) * CIRC}`;
+    tr.style.strokeDashoffset = ringPct * CIRC;
+  } else {
+    // Chế độ đếm ngược: fill từ 12h theo chiều kim đồng hồ
+    tr.style.strokeDasharray = CIRC;
+    tr.style.strokeDashoffset = CIRC * (1 - ringPct);
+  }
   tr.setAttribute('stroke', remain<=30?'url(#rg-boss)':remain<=120?'url(#rg-pvp)':'url(#rg1)');
-  document.getElementById('progFill').style.width = (pct*100)+'%';
+  // Progress bar luôn dùng remain/total (100% khi chưa bắt đầu)
+  const barPct = total > 0 ? remain / total : 1;
+  document.getElementById('progFill').style.width = (barPct*100)+'%';
 }
 function fmtT(s){return`${pad(Math.floor(s/60))}:${pad(s%60)}`;}
 function pad(n){return String(n).padStart(2,'0');}
@@ -850,6 +913,8 @@ function flashSc(c){
 
 // ── AUDIO ──
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+
+// Âm cơ bản (oscillator đơn)
 function tone(f,d,t='sine',v=.28){
   try{const c=getAC(),o=c.createOscillator(),g=c.createGain();
     o.connect(g);g.connect(c.destination);o.type=t;
@@ -858,24 +923,146 @@ function tone(f,d,t='sine',v=.28){
     g.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);
     o.start();o.stop(c.currentTime+d);}catch(e){}
 }
-function playS(t){
-  if(!optSnd)return;
-  ({
+
+// Âm trống: pitch bend xuống nhanh → tiếng "bùm"
+function drumHit(freq=80,decay=.3,vol=.4){
+  try{const c=getAC(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.type='triangle';
+    o.frequency.setValueAtTime(freq*3,c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq,c.currentTime+.04);
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,c.currentTime+decay);
+    o.start();o.stop(c.currentTime+decay);}catch(e){}
+}
+
+// Âm chuông: sine + overtones → tiếng chuông ngân
+function bellTone(freq=800,decay=1.2,vol=.2){
+  try{const c=getAC();
+    [1,2.4,5.4].forEach((h,i)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.connect(g);g.connect(c.destination);o.type='sine';
+      o.frequency.setValueAtTime(freq*h,c.currentTime);
+      g.gain.setValueAtTime(vol/(i+1),c.currentTime);
+      g.gain.exponentialRampToValueAtTime(.001,c.currentTime+decay/(i*.7+1));
+      o.start();o.stop(c.currentTime+decay);
+    });}catch(e){}
+}
+
+// Sweep tần số (hiệu ứng sci-fi)
+function sweep(f1=200,f2=2000,dur=.5,type='sawtooth',vol=.2){
+  try{const c=getAC(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.type=type;
+    o.frequency.setValueAtTime(f1,c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(f2,c.currentTime+dur);
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);
+    o.start();o.stop(c.currentTime+dur);}catch(e){}
+}
+
+// ── 5 BỘ ÂM THANH ──
+const SOUND_PACKS={
+  digital:{name:'Digital',icon:'🎮',
     start:()=>{tone(523,.12);setTimeout(()=>tone(659,.12),130);setTimeout(()=>tone(784,.25),260)},
     w30:()=>{tone(880,.18,'square',.18);setTimeout(()=>tone(880,.18,'square',.18),280)},
     w15:()=>{[0,180,360].forEach(d=>setTimeout(()=>tone(1100,.12,'square',.22),d))},
     w5:()=>{[0,130,260,390,520].forEach(d=>setTimeout(()=>tone(1320,.1,'sawtooth',.28),d))},
     ms:()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.28,'triangle',.32),i*130))},
-    end:()=>{[784,659,523,440].forEach((f,i)=>setTimeout(()=>tone(f,.35,'sine',.3),i*180))},
-  }[t]||function(){})();
+    end:()=>{[784,659,523,440].forEach((f,i)=>setTimeout(()=>tone(f,.35,'sine',.3),i*180))}},
+  drum:{name:'Trống Trận',icon:'🥁',
+    start:()=>{drumHit(80,.25,.35);setTimeout(()=>drumHit(120,.2,.4),200);setTimeout(()=>drumHit(160,.3,.5),380)},
+    w30:()=>{drumHit(60,.5,.5)},
+    w15:()=>{drumHit(70,.35,.45);setTimeout(()=>drumHit(90,.3,.5),250)},
+    w5:()=>{[0,120,240,360,480].forEach(d=>setTimeout(()=>drumHit(100+d/5,.15,.4),d))},
+    ms:()=>{[60,80,100,150].forEach((f,i)=>setTimeout(()=>drumHit(f,.4,.5),i*150));setTimeout(()=>drumHit(50,.8,.6),600)},
+    end:()=>{drumHit(50,.9,.5);setTimeout(()=>drumHit(40,1.2,.4),300)}},
+  bell:{name:'Chuông Chùa',icon:'🔔',
+    start:()=>{bellTone(600,1.5,.18);setTimeout(()=>bellTone(800,1.2,.15),400);setTimeout(()=>bellTone(1000,.8,.12),750)},
+    w30:()=>{bellTone(500,2,.2)},
+    w15:()=>{bellTone(500,1.5,.2);setTimeout(()=>bellTone(700,1,.18),500)},
+    w5:()=>{[0,200,400,600,800].forEach(d=>setTimeout(()=>bellTone(900+d*.3,.5,.15),d))},
+    ms:()=>{bellTone(250,3,.3);setTimeout(()=>bellTone(500,2,.2),600)},
+    end:()=>{[800,600,500,400].forEach((f,i)=>setTimeout(()=>bellTone(f,2,.15),i*500))}},
+  scifi:{name:'Sci-Fi',icon:'⚡',
+    start:()=>{sweep(200,1500,.4,'sawtooth',.2);setTimeout(()=>tone(1500,.2,'square',.15),400)},
+    w30:()=>{sweep(400,1200,.3,'square',.18)},
+    w15:()=>{sweep(400,1200,.2,'square',.18);setTimeout(()=>sweep(600,1400,.2,'square',.18),300)},
+    w5:()=>{[0,130,260,390,520].forEach(d=>setTimeout(()=>sweep(800,3000,.1,'sawtooth',.22),d))},
+    ms:()=>{sweep(200,1000,.3,'sawtooth',.25);setTimeout(()=>sweep(1000,200,.3,'sawtooth',.25),350);setTimeout(()=>sweep(200,2000,.5,'sawtooth',.3),700)},
+    end:()=>{sweep(1500,80,.8,'sawtooth',.25);setTimeout(()=>tone(80,.5,'triangle',.2),800)}},
+  melody:{name:'Melody',icon:'🎵',
+    start:()=>{[523,587,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.2,'sine',.25),i*150))},
+    w30:()=>{tone(659,.2);setTimeout(()=>tone(523,.3),200)},
+    w15:()=>{tone(784,.15);setTimeout(()=>tone(880,.15),180);setTimeout(()=>tone(784,.25),360)},
+    w5:()=>{[659,740,784,880,988].forEach((f,i)=>setTimeout(()=>tone(f,.12,'sine',.25),i*100))},
+    ms:()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.35,'sine',.3),i*180))},
+    end:()=>{[1047,880,784,659,523].forEach((f,i)=>setTimeout(()=>tone(f,.3,'sine',.22),i*200))}}
+};
+
+// Phát âm thanh theo bộ đã chọn
+function playS(t){
+  if(!optSnd)return;
+  const pack=SOUND_PACKS[soundPack]||SOUND_PACKS.digital;
+  if(pack[t])pack[t]();
 }
+
+// ── SOUND PACK UI ──
+function initSoundPack(){
+  const p=SOUND_PACKS[soundPack];
+  if(!p)return;
+  document.getElementById('sndCurIco').textContent=p.icon;
+  document.getElementById('sndLabel').textContent=p.name;
+  document.querySelectorAll('.snd-opt').forEach(el=>el.classList.toggle('active',el.dataset.pack===soundPack));
+}
+function selectPack(pack){
+  soundPack=pack;
+  localStorage.setItem('timer-sound-pack',pack);
+  const p=SOUND_PACKS[pack];
+  document.getElementById('sndCurIco').textContent=p.icon;
+  document.getElementById('sndLabel').textContent=p.name;
+  document.querySelectorAll('.snd-opt').forEach(el=>el.classList.toggle('active',el.dataset.pack===pack));
+  document.getElementById('sndMenu').classList.remove('open');
+  document.getElementById('sndPick').classList.remove('open');
+  playS('start'); // Preview khi chọn
+}
+function previewPack(pack){
+  const old=soundPack; soundPack=pack;
+  playS('ms');
+  soundPack=old;
+}
+// Gắn sự kiện cho sound picker (event delegation)
+document.getElementById('sndPick').addEventListener('click',e=>{
+  const prevEl=e.target.closest('.snd-preview');
+  const optEl=e.target.closest('.snd-opt');
+  if(prevEl){
+    e.stopPropagation();
+    previewPack(prevEl.closest('.snd-opt').dataset.pack);
+  } else if(optEl){
+    e.stopPropagation();
+    selectPack(optEl.dataset.pack);
+  } else {
+    e.stopPropagation();
+    const pick=document.getElementById('sndPick');
+    const menu=document.getElementById('sndMenu');
+    pick.classList.toggle('open');
+    menu.classList.toggle('open');
+  }
+});
 
 // ── TOGGLES ──
 function toggleOpt(k){
   if(k==='msg'){optMsg=!optMsg;document.getElementById('togMsg').classList.toggle('on',optMsg);}
   else{optSnd=!optSnd;document.getElementById('togSnd').classList.toggle('on',optSnd);if(optSnd)try{getAC().resume();}catch(e){}}
 }
+// Đóng menu sound khi click ngoài
+document.addEventListener('click',e=>{
+  const sndPick=document.getElementById('sndPick');
+  if(!sndPick.contains(e.target)){
+    document.getElementById('sndMenu').classList.remove('open');
+    sndPick.classList.remove('open');
+  }
+});
 document.addEventListener('click',()=>{try{getAC().resume();}catch(e){}},{once:true});
+initSoundPack();
 </script>
 </body>
 </html>

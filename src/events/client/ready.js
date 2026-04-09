@@ -87,7 +87,6 @@ async function seedKcMembersIntoBotData(client) {
  * Migrate old display roles to new star symbol name
  */
 async function migrateDisplayRoles(client) {
-  console.log('[migrateDisplayRoles] Starting migration...');
   let migratedCount = 0;
 
   for (const [, guild] of client.guilds.cache) {
@@ -114,7 +113,7 @@ async function migrateDisplayRoles(client) {
     }
   }
 
-  console.log(`[migrateDisplayRoles] Completed! Migrated ${migratedCount} roles.`);
+  if (migratedCount > 0) console.log(`[migrateDisplayRoles] Migrated ${migratedCount} roles.`);
 }
 
 // Danh sách status random
@@ -684,6 +683,33 @@ module.exports = {
           console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
         }
 
+        // ♦ Báo cáo dung lượng Supabase
+        try {
+          const storageReport = await supaSync.getSupabaseStorageReport();
+          if (storageReport) {
+            console.log('');
+            console.log('╔══════════════════════════════════════════════╗');
+            console.log('║        📊 SUPABASE STORAGE REPORT           ║');
+            console.log('╠══════════════════════════════════════════════╣');
+            for (const t of storageReport.tables) {
+              const name = t.table.padEnd(22);
+              const rows = String(t.rows).padStart(6);
+              const kb = String(t.estimatedKB + ' KB').padStart(10);
+              const note = t.note ? ` (${t.note})` : '';
+              console.log(`║  ${name} ${rows} rows ${kb}${note}`);
+            }
+            console.log('╠══════════════════════════════════════════════╣');
+            console.log(`║  TỔNG: ${String(storageReport.totalRows).padStart(6)} rows ~ ${storageReport.totalEstimatedMB} MB`);
+            console.log(`║  Free tier limit: 500 MB`);
+            const usagePercent = Math.round(storageReport.totalEstimatedMB / 500 * 100 * 100) / 100;
+            console.log(`║  Đã dùng: ~${usagePercent}%`);
+            console.log('╚══════════════════════════════════════════════╝');
+            console.log('');
+          }
+        } catch (reportErr) {
+          console.error('[Supabase] Lỗi lấy storage report:', reportErr.message);
+        }
+
         // Lắng nghe thay đổi từ web → sync ngược về SQLite + xoá role
         // Hỗ trợ INSERT (tạo mới), UPDATE (thay đổi danh sách) và DELETE (xóa session)
         supaSync.listenForWebChanges(guild.id, async (newData) => {
@@ -1062,7 +1088,6 @@ module.exports = {
 
     if (yentiecChannelId) {
       scheduleWeeklyReminders(client, yentiecChannelId);
-      console.log(`[yentiecReminder] Initialized with channel ${yentiecChannelId}`);
     } else {
       console.log('[yentiecReminder] No YenTiec notification found, skipping');
     }

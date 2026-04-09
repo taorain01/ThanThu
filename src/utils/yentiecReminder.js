@@ -190,10 +190,6 @@ async function handleWeekendChoice(interaction, guildId, hours, minutes, skipWee
     const kyCuuRole = interaction.guild.roles.cache.find(r => r.name.includes('Kỳ Cựu') || r.name === ROLE_NAME);
     const isKyCuu = kyCuuRole && interaction.member.roles.cache.has(kyCuuRole.id);
 
-    // Debug log
-    console.log(`[yentiecReminder] User: ${interaction.user.username}, Role found: ${kyCuuRole?.name || 'NONE'}, Has role: ${isKyCuu}`);
-    console.log(`[yentiecReminder] User roles:`, interaction.member.roles.cache.map(r => r.name).join(', '));
-
     if (!isKyCuu) {
         await interaction.reply({ content: '❌ Chỉ Kỳ Cựu mới được chọn giờ!', ephemeral: true });
         return true;
@@ -419,7 +415,6 @@ function scheduleWeeklyReminders(client, channelId) {
     // === KIỂM TRA GỬI NGAY KHI KHỞI ĐỘNG ===
     // Nếu bot khởi động vào Thứ 7 (sau 12h) hoặc Chủ Nhật → gửi nhắc chọn giờ weekend
     if ((currentDay === 6 && currentHour >= 12) || currentDay === 0) {
-        console.log(`[yentiecReminder] Bot started on weekend (day=${currentDay}, hour=${currentHour})`);
         (async () => {
             try {
                 const channel = await client.channels.fetch(channelId);
@@ -454,7 +449,6 @@ function scheduleWeeklyReminders(client, channelId) {
 
     // Nếu bot khởi động vào Thứ 2 (sau 12h) đến Thứ 6 → gửi nhắc đổi 21h
     if ((currentDay === 1 && currentHour >= 12) || (currentDay >= 2 && currentDay <= 5)) {
-        console.log(`[yentiecReminder] Bot started on weekday (day=${currentDay}, hour=${currentHour})`);
         (async () => {
             try {
                 const channel = await client.channels.fetch(channelId);
@@ -521,7 +515,6 @@ function scheduleWeeklyReminders(client, channelId) {
 
         const scheduleNext = () => {
             const delay = calcDelay();
-            console.log(`[yentiecReminder] Scheduled: ${dayOfWeek === 6 ? 'Thứ 7' : 'Thứ 2'} ${hour}h, delay: ${Math.round(delay / 60000)}mins, isWeekend: ${isWeekend}`);
 
             setTimeout(async () => {
                 try {

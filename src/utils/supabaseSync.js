@@ -1689,6 +1689,83 @@ async function syncOneExpLevel(discordId, expRecord) {
     }
 }
 
+/**
+ * Báo cáo dung lượng Supabase: đếm row từng bảng + ước tính size
+ * Gọi khi bot khởi động để log vào console
+ * @returns {Object|null} { tables: [...], totalRows, totalEstimatedKB }
+ */
+async function getSupabaseStorageReport() {
+    if (!isReady()) return null;
+
+    const TABLE_NAMES = [
+        'bc_sessions',
+        'bc_users',
+        'bc_tactics',
+        'bc_tactics_history',
+        'bc_regulars',
+        'bc_logs',
+        'bc_exp_levels'
+    ];
+
+    // Ước tính kích thước trung bình 1 row (bytes) cho từng bảng
+    const AVG_ROW_SIZE = {
+        'bc_sessions': 4096,        // JSON team lớn
+        'bc_users': 512,
+        'bc_tactics': 8192,         // markers JSON rất lớn
+        'bc_tactics_history': 10240, // markers + roster snapshot
+        'bc_regulars': 128,
+        'bc_logs': 256,
+        'bc_exp_levels': 256
+    };
+
+    const results = [];
+    let totalRows = 0;
+    let totalEstimatedBytes = 0;
+
+    for (const tableName of TABLE_NAMES) {
+        try {
+            const { count, error } = await supabase
+                .from(tableName)
+                .select('*', { count: 'exact', head: true });
+
+            if (error) {
+                // Bảng chưa tồn tại hoặc lỗi khác → bỏ qua
+                if (/schema cache|find the table|relation.*does not exist/i.test(error.message || '')) {
+                    results.push({ table: tableName, rows: 0, estimatedKB: 0, note: 'chưa tạo' });
+                    continue;
+                }
+                results.push({ table: tableName, rows: '?', estimatedKB: '?', note: sanitizeErrorMessage(error.message) });
+                continue;
+            }
+
+            const rowCount = count || 0;
+            const avgSize = AVG_ROW_SIZE[tableName] || 256;
+            const estimatedBytes = rowCount * avgSize;
+
+            totalRows += rowCount;
+            totalEstimatedBytes += estimatedBytes;
+
+            results.push({
+                table: tableName,
+                rows: rowCount,
+                estimatedKB: Math.round(estimatedBytes / 1024 * 10) / 10
+            });
+        } catch (err) {
+            results.push({ table: tableName, rows: '?', estimatedKB: '?', note: err.message });
+        }
+    }
+
+    const totalEstimatedKB = Math.round(totalEstimatedBytes / 1024 * 10) / 10;
+    const totalEstimatedMB = Math.round(totalEstimatedBytes / (1024 * 1024) * 100) / 100;
+
+    return {
+        tables: results,
+        totalRows,
+        totalEstimatedKB,
+        totalEstimatedMB
+    };
+}
+
 module.exports = {
     initSupabase,
     isReady,
@@ -1709,5 +1786,6 @@ module.exports = {
     formatActiveSession,
     syncAllActiveSessions,
     syncExpLevels,
-    syncOneExpLevel
+    syncOneExpLevel,
+    getSupabaseStorageReport
 };

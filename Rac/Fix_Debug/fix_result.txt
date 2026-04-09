@@ -1,0 +1,44 @@
+﻿[dotenv@17.3.1] injecting env (26) from .env -- tip: ΓÜÖ∩╕Å  write to custom object with { processEnv: myObject }
+Sessions found: [ 'sat', 'sun' ]
+bc_users: 93 records
+Γ£à MinggWang: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à Paxetamor: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à VNHK-JinYangLu: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à Arisusagi: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à SteveYip: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à Omal: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à MasterPaw: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à Moonmoon: id=456797752676974595 gn=herlipstick role=mem sub=
+Γ£à Ji├╝Hu─½: id=456797752676974595 gn=herlipstick role=mem sub=
+
+=== Processing session sat ===
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+
+  Team thß╗º: 1 ΓåÆ 10
+  Members: YungKun, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick
+  Γ£à ─É├â Cß║¼P NHß║¼T SUPABASE!
+
+=== Processing session sun ===
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+  Γ£à Th├¬m herlipstick (456797752676974595) v├áo defense
+
+  Team thß╗º: 6 ΓåÆ 15
+  Members: MinggWang, VNHK-JinYangLu, YungKun, Arisusagi, SteveYip, Ji├╝Hu─½-πâíτ½╣τÄ▓, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick, herlipstick
+  Γ£à ─É├â Cß║¼P NHß║¼T SUPABASE!
+
+Done!

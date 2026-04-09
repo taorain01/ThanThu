@@ -1,0 +1,41 @@
+Chào bạn,
+
+Dưới đây là phân tích chi tiết bài hát và đề xuất "Style Prompt" cho Suno AI:
+
+---
+
+### 1. Phân tích chi tiết file âm thanh
+
+Đây là một bản cover của bài hát kinh điển "Let It Be" của The Beatles, được trình bày theo phong cách acoustic.
+
+*   **Thể loại nhạc (Genre):**
+    *   **Acoustic Pop Rock / Ballad:** Bài hát mang đậm chất rock/pop nhưng được hòa âm lại với các nhạc cụ acoustic là chủ đạo, tạo nên một bản ballad nhẹ nhàng, sâu lắng.
+
+*   **Tinh thần / Cảm xúc (Mood / Vibe):**
+    *   **Bình yên, êm dịu:** Giai điệu và giọng hát mang lại cảm giác thư thái, dễ chịu.
+    *   **Hoài niệm, suy tư:** Có chút gì đó gợi nhớ về quá khứ, những trăn trở nhưng cuối cùng là sự chấp nhận và bình tâm.
+    *   **Hy vọng và an ủi:** Lời bài hát "Let It Be" vốn dĩ đã mang ý nghĩa động viên, xoa dịu, và cách thể hiện này càng làm nổi bật tinh thần đó.
+
+*   **Các loại nhạc cụ chính được sử dụng:**
+    *   **Acoustic Guitar:** Đóng vai trò chủ đạo, chơi cả phần đệm (rhythm) và giai điệu dẫn dắt (lead melody, bao gồm cả phần solo guitar ở giữa).
+    *   **Piano:** Chơi các hợp âm nền, bổ sung thêm giai điệu và tạo chiều sâu cho hòa âm, cũng có một phần solo ngắn.
+    *   **Trống (Drums):** Chơi rất nhẹ nhàng, sử dụng brush hoặc dùi trống mềm, chủ yếu giữ nhịp mà không gây cảm giác dồn dập, mạnh mẽ.
+    *   **Bass Guitar:** Cung cấp nền tảng âm trầm, làm tròn đầy bản hòa âm.
+
+*   **Giọng hát (Voice):**
+    *   **Giọng nam:** Trầm ấm, mềm mại và truyền cảm.
+    *   **Cách hát:** Rõ lời, chậm rãi, có sự kiểm soát tốt về cảm xúc, không quá phô trương mà tập trung vào việc truyền tải sự chân thành, điềm tĩnh.
+
+*   **Nhịp / Tốc độ (Tempo / Rhythm):**
+    *   **Nhịp độ (Tempo):** Chậm rãi (slow tempo), đúng chất của một bản ballad.
+    *   **Tiết tấu (Rhythm):** Đều đặn, nhẹ nhàng, dễ nghe, không có sự phức tạp hay biến đổi đột ngột.
+
+---
+
+### 2. Phân tích thành 'Style Prompt' cho Suno AI
+
+Dựa trên phân tích trên, đây là 'Style Prompt' tối ưu cho Suno AI:
+
+**`acoustic pop rock, warm reflective male vocal, slow piano, acoustic guitar, soft drums, hopeful ballad`**
+
+(103 ký tự)

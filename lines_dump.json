@@ -1,4 +1,0 @@
-{
-    "l515": "            await interaction.update({ content: 'â \u0019 BC khÒ´ng tá»Sn táº¡i!', components: [] });\r",
-    "l559": "        await interaction.update({ content: `â\u001c⬦ \u001e Ò£ \u001e °a ${kicked} ng °á» i xuá»ng hÒ ng chá» !`, components: [] });\r"
-}

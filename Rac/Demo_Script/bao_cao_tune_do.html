@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📊 Báo Cáo Hệ Thống Tune Đồ - ThanThu Bot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --card2: #22263a;
+    --gold: #f1c40f; --purple: #9b59b6; --green: #2ecc71;
+    --red: #e74c3c; --blue: #3498db; --cyan: #00d2d3;
+    --text: #e8e8e8; --text2: #9ca3af; --border: #2d3348;
+    --glow-gold: rgba(241,196,15,.15); --glow-purple: rgba(155,89,182,.15);
+  }
+  body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.6; padding:16px; max-width:900px; margin:0 auto; font-size:15px; }
+  h1 { font-size:1.6em; text-align:center; margin:16px 0 8px; background:linear-gradient(135deg,var(--gold),#f39c12); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:800; }
+  .subtitle { text-align:center; color:var(--text2); font-size:.85em; margin-bottom:20px; }
+  h2 { font-size:1.15em; color:var(--gold); margin:24px 0 12px; padding-bottom:6px; border-bottom:2px solid var(--border); display:flex; align-items:center; gap:8px; }
+  h3 { font-size:1em; color:var(--cyan); margin:16px 0 8px; }
+  .card { background:var(--card); border-radius:12px; padding:16px; margin:10px 0; border:1px solid var(--border); }
+  .card-gold { border-left:3px solid var(--gold); }
+  .card-purple { border-left:3px solid var(--purple); }
+  .card-green { border-left:3px solid var(--green); }
+  .card-blue { border-left:3px solid var(--blue); }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:.9em; }
+  th { background:var(--card2); color:var(--gold); padding:8px 10px; text-align:left; font-weight:600; white-space:nowrap; }
+  td { padding:7px 10px; border-bottom:1px solid var(--border); }
+  tr:hover td { background:rgba(255,255,255,.03); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.75em; font-weight:600; }
+  .b-gold { background:var(--glow-gold); color:var(--gold); }
+  .b-purple { background:var(--glow-purple); color:var(--purple); }
+  .b-green { background:rgba(46,204,113,.15); color:var(--green); }
+  .b-blue { background:rgba(52,152,219,.15); color:var(--blue); }
+  .b-red { background:rgba(231,76,60,.15); color:var(--red); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:10px; }
+  .stat-box { background:var(--card2); border-radius:8px; padding:12px; text-align:center; }
+  .stat-box .num { font-size:1.8em; font-weight:800; }
+  .stat-box .label { font-size:.8em; color:var(--text2); }
+  .flow-step { display:flex; align-items:center; gap:10px; margin:6px 0; }
+  .flow-step .arrow { color:var(--gold); font-weight:bold; }
+  code { background:var(--card2); padding:2px 6px; border-radius:4px; font-size:.85em; color:var(--cyan); }
+  .scroll-x { overflow-x:auto; }
+  .progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:4px; }
+  .progress-fill { height:100%; border-radius:3px; }
+  .tag { font-size:.75em; color:var(--text2); }
+  .toc { background:var(--card); border-radius:8px; padding:12px 16px; margin:16px 0; }
+  .toc a { color:var(--cyan); text-decoration:none; display:block; padding:3px 0; font-size:.9em; }
+  .toc a:hover { color:var(--gold); }
+  .mermaid-like { font-family:monospace; background:var(--card2); padding:14px; border-radius:8px; font-size:.85em; white-space:pre-line; line-height:1.8; }
+  @media(max-width:600px) { .grid { grid-template-columns:1fr; } body { font-size:14px; padding:10px; } }
+</style>
+</head>
+<body>
+
+<h1>⚙️ Hệ Thống Tune Đồ</h1>
+<p class="subtitle">Bot Discord ThanThu &bull; Báo cáo kỹ thuật &bull; 20/03/2026</p>
+
+<!-- MỤC LỤC -->
+<div class="toc">
+  <strong>📑 Mục lục</strong>
+  <a href="#overview">1. Tổng Quan Kiến Trúc</a>
+  <a href="#files">2. Các File Liên Quan</a>
+  <a href="#classes">3. Hệ Thống Phái & Đề Cử</a>
+  <a href="#stats">4. Hệ Thống Stats</a>
+  <a href="#slots">5. Slot Trang Bị</a>
+  <a href="#tune-flow">6. Luồng Tune Chi Tiết</a>
+  <a href="#costs">7. Chi Phí & Vật Liệu</a>
+  <a href="#roll">8. Cơ Chế Roll</a>
+  <a href="#mastery">9. Tính Mastery</a>
+  <a href="#commands">10. Các Lệnh Tune</a>
+  <a href="#buff">11. Buff & Item Đặc Biệt</a>
+  <a href="#quest">12. Quest & Thành Tựu Liên Quan</a>
+</div>
+
+<!-- 1. TỔNG QUAN -->
+<h2 id="overview">📐 1. Tổng Quan Kiến Trúc</h2>
+<div class="grid">
+  <div class="stat-box"><div class="num" style="color:var(--gold)">6</div><div class="label">File chính</div></div>
+  <div class="stat-box"><div class="num" style="color:var(--purple)">1,193</div><div class="label">Dòng code (tune.js)</div></div>
+  <div class="stat-box"><div class="num" style="color:var(--green)">370</div><div class="label">Dòng code (tuneSystem.js)</div></div>
+  <div class="stat-box"><div class="num" style="color:var(--cyan)">18</div><div class="label">Loại stat</div></div>
+</div>
+
+<div class="card">
+  <div class="mermaid-like">
+📦 <strong>Box T1</strong> → mở ra trang bị (Tím 97% / Vàng 3%)
+      ↓
+⚙️ <strong>Tune dòng 2-5</strong> → dùng 💎 Đá T1 (3/5/7/9 viên)
+      ↓
+⚡ <strong>Tune dòng cuối</strong> → dùng 🔮 Thạch Âm (1 viên)
+      ↓
+🏆 <strong>Mastery</strong> → tính điểm → Leaderboard
+  </div>
+</div>
+
+<!-- 2. FILES -->
+<h2 id="files">📁 2. Các File Liên Quan</h2>
+<div class="scroll-x">
+<table>
+  <tr><th>File</th><th>Vai Trò</th><th>Dòng</th></tr>
+  <tr><td><code>commands/minigame/tune.js</code></td><td>Command chính xử lý tune, UI, buttons, bulk tune</td><td>1,193</td></tr>
+  <tr><td><code>utils/tuneSystem.js</code></td><td>Roll dòng, tạo equipment, tính Mastery, chi phí</td><td>370</td></tr>
+  <tr><td><code>utils/classSystem.js</code></td><td>Phái, Stats, Slot, Đề Cử, tên equipment</td><td>324</td></tr>
+  <tr><td><code>utils/itemRegistry.js</code></td><td>Registry vật liệu tune (Đá T1, Thạch Âm, buff items)</td><td>174</td></tr>
+  <tr><td><code>config/icons.js</code></td><td>Config emoji/emote tập trung (rarity, slot, stat)</td><td>167</td></tr>
+  <tr><td><code>database/economy.js</code></td><td>DB: trừ đá, buff flags, equipment CRUD</td><td>1,200+</td></tr>
+</table>
+</div>
+
+<!-- 3. PHÁI & ĐỀ CỬ -->
+<h2 id="classes">⚔️ 3. Hệ Thống Phái & Đề Cử</h2>
+<div class="grid">
+  <div class="card card-gold">
+    <h3>⚔️ DPS</h3>
+    <p><strong>Đề Cử:</strong> Tấn Công Min/Max, Bạo Kích, ST Bạo Kích, Xuyên Giáp, Thế, Mẫn</p>
+    <p><strong>Priority Stats (×1.3):</strong> <span class="badge b-gold">Tỉ Lệ Bạo Kích</span> <span class="badge b-gold">ST Bạo Kích</span></p>
+    <p><strong>Dòng Đặc Biệt:</strong> Tấn Công (+30% mastery đúng phái)</p>
+  </div>
+  <div class="card card-purple">
+    <h3>🛡️ Tanker</h3>
+    <p><strong>Đề Cử:</strong> Máu, Phòng Thủ, Né Tránh, Giảm ST, Nhanh Nhẹn, Thể, Ngự</p>
+    <p><strong>Priority Stats (×1.3):</strong> <span class="badge b-purple">Máu Tối Đa</span> <span class="badge b-purple">Phòng Thủ</span></p>
+    <p><strong>Dòng Đặc Biệt:</strong> Chịu Đựng (+30% mastery đúng phái)</p>
+  </div>
+  <div class="card card-green">
+    <h3>💚 Healer</h3>
+    <p><strong>Đề Cử:</strong> Bạo Kích, Máu, Giảm ST, Nhanh Nhẹn, Động Lực, Ái Lực, Thế, Hồi Chiêu</p>
+    <p><strong>Priority Stats (×1.3):</strong> <span class="badge b-green">Giảm Hồi Chiêu</span> <span class="badge b-green">Tỉ Lệ Bạo Kích</span></p>
+    <p><strong>Dòng Đặc Biệt:</strong> Hồi Phục (+30% mastery đúng phái)</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>⭐ Dòng Universal</h3>
+  <p><strong>Tăng % Vũ Khí</strong> — Đề Cử cho tất cả phái, +15% mastery. Effect: Tấn Công Vũ Khí +3%</p>
+</div>
+
+<!-- 4. STATS -->
+<h2 id="stats">📊 4. Hệ Thống Stats (18 loại)</h2>
+<div class="scroll-x">
+<table>
+  <tr><th>Icon</th><th>Tên</th><th>Range</th><th>Đơn vị</th><th>Đề Cử cho</th></tr>
+  <tr><td>⚔️</td><td>Tấn Công Tối Thiểu</td><td>5 – 15</td><td></td><td><span class="badge b-gold">DPS</span></td></tr>
+  <tr><td>🗡️</td><td>Tấn Công Tối Đa</td><td>8 – 20</td><td></td><td><span class="badge b-gold">DPS</span></td></tr>
+  <tr><td>💥</td><td>Tỉ Lệ Bạo Kích</td><td>1 – 5</td><td>%</td><td><span class="badge b-gold">DPS</span> <span class="badge b-green">Healer</span></td></tr>
+  <tr><td>💢</td><td>ST Bạo Kích</td><td>3 – 10</td><td>%</td><td><span class="badge b-gold">DPS</span></td></tr>
+  <tr><td>🎯</td><td>Xuyên Giáp</td><td>2 – 8</td><td></td><td><span class="badge b-gold">DPS</span></td></tr>
+  <tr><td>❤️</td><td>Máu Tối Đa</td><td>50 – 200</td><td></td><td><span class="badge b-purple">Tanker</span> <span class="badge b-green">Healer</span></td></tr>
+  <tr><td>🛡️</td><td>Phòng Thủ</td><td>3 – 12</td><td></td><td><span class="badge b-purple">Tanker</span></td></tr>
+  <tr><td>💨</td><td>Né Tránh</td><td>1 – 4</td><td></td><td><span class="badge b-purple">Tanker</span></td></tr>
+  <tr><td>🔰</td><td>Giảm Sát Thương</td><td>1 – 5</td><td></td><td><span class="badge b-purple">Tanker</span> <span class="badge b-green">Healer</span></td></tr>
+  <tr><td>🏃</td><td>Nhanh Nhẹn</td><td>2 – 8</td><td></td><td><span class="badge b-purple">Tanker</span> <span class="badge b-green">Healer</span></td></tr>
+  <tr><td>💫</td><td>Động Lực</td><td>2 – 8</td><td></td><td><span class="badge b-green">Healer</span></td></tr>
+  <tr><td>✨</td><td>Tỉ Lệ Ái Lực</td><td>1 – 4</td><td>%</td><td><span class="badge b-green">Healer</span></td></tr>
+  <tr><td>⚡</td><td>Thế</td><td>2 – 6</td><td></td><td><span class="badge b-gold">DPS</span> <span class="badge b-green">Healer</span></td></tr>
+  <tr><td>💪</td><td>Thể</td><td>3 – 10</td><td></td><td><span class="badge b-purple">Tanker</span></td></tr>
+  <tr><td>🔮</td><td>Ngự</td><td>2 – 6</td><td></td><td><span class="badge b-purple">Tanker</span></td></tr>
+  <tr><td>🦅</td><td>Mẫn</td><td>2 – 5</td><td></td><td><span class="badge b-gold">DPS</span></td></tr>
+  <tr><td>💎</td><td>Lực</td><td>3 – 10</td><td></td><td><span class="badge b-blue">Universal</span></td></tr>
+  <tr><td>⏱️</td><td>Giảm Hồi Chiêu</td><td>1 – 4</td><td>%</td><td><span class="badge b-green">Healer</span></td></tr>
+</table>
+</div>
+
+<!-- 5. SLOTS -->
+<h2 id="slots">🎽 5. Slot Trang Bị (8 slot)</h2>
+<div class="scroll-x">
+<table>
+  <tr><th>Icon</th><th>Slot</th><th>Stats có thể roll</th></tr>
+  <tr><td>🎩</td><td>Mũ</td><td>HP, Phòng Thủ, Né Tránh, Giảm ST, Nhanh Nhẹn</td></tr>
+  <tr><td>🛡️</td><td>Giáp</td><td>Phòng Thủ, HP, Giảm ST, Né Tránh, Động Lực</td></tr>
+  <tr><td>🧤</td><td>Găng</td><td>Tấn Min, Tấn Max, Bạo Kích, Nhanh Nhẹn, Xuyên Giáp</td></tr>
+  <tr><td>👟</td><td>Giày</td><td>Nhanh Nhẹn, Né Tránh, Động Lực, HP, Giảm ST</td></tr>
+  <tr><td>⚔️</td><td>Vũ Khí</td><td>Tấn Max, Tấn Min, ST Bạo Kích, Xuyên Giáp, Bạo Kích</td></tr>
+  <tr><td>🗡️</td><td>VK Phụ</td><td>Tấn Min, Xuyên Giáp, Bạo Kích, Ái Lực, Nhanh Nhẹn</td></tr>
+  <tr><td>💎</td><td>Ngọc Bội</td><td>HP, Phòng Thủ, Tấn Max, Ái Lực, Động Lực, Nhanh Nhẹn</td></tr>
+  <tr><td>💍</td><td>Khuyên Tai</td><td>Ái Lực, Động Lực, Bạo Kích, Nhanh Nhẹn, HP</td></tr>
+</table>
+</div>
+
+<!-- 6. LUỒNG TUNE -->
+<h2 id="tune-flow">🔄 6. Luồng Tune Chi Tiết</h2>
+<div class="card">
+  <div class="mermaid-like">
+📦 <strong>Mở Box T1</strong> → <code>createEquipmentFromBox()</code>
+   ├─ Roll slot ngẫu nhiên (8 slot)
+   ├─ Roll dòng đầu tiên (dòng 1)
+   ├─ Xác định rarity: Tím 97% / Vàng 3%
+   │   └─ Lửa Cầu Phúc: +100% (6%) / +200% (9%)
+   └─ Pity system: forceGold nếu đạt pity
+
+⚙️ <strong>Tune dòng 2-5</strong> → <code>rollLine(slot, forceGold)</code>
+   ├─ 1. Roll loại dòng: Normal 72.5% / Special 17.5% / Universal 10%
+   ├─ 2. Roll % (60-100): Tím (60-89) / Vàng (90-100)
+   ├─ 3. Roll stat cụ thể theo slot
+   ├─ 4. Tính value = min + (max-min) × (percent/100)
+   └─ 5. Trừ Đá T1 và lưu DB
+
+⚡ <strong>Tune dòng cuối (dòng 6)</strong> → dùng Thạch Âm
+   └─ Cùng cơ chế roll như dòng 2-5
+
+🎽 <strong>Gắn trang bị</strong> → <code>equipItem()</code>
+   └─ Tính Mastery → cập nhật Leaderboard
+  </div>
+</div>
+
+<!-- 7. CHI PHÍ -->
+<h2 id="costs">💰 7. Chi Phí & Vật Liệu</h2>
+<div class="grid">
+  <div class="card card-gold">
+    <h3>💎 Đá Cường Hóa T1</h3>
+    <table>
+      <tr><th>Dòng</th><th>Chi phí</th></tr>
+      <tr><td>Dòng 2</td><td>3 💎</td></tr>
+      <tr><td>Dòng 3</td><td>5 💎</td></tr>
+      <tr><td>Dòng 4</td><td>7 💎</td></tr>
+      <tr><td>Dòng 5</td><td>9 💎</td></tr>
+      <tr><td><strong>Tổng (2→5)</strong></td><td><strong>24 💎</strong></td></tr>
+    </table>
+    <p class="tag">Nguồn: Phân tách đồ Tím → 5 💎/món</p>
+  </div>
+  <div class="card card-purple">
+    <h3>🔮 Thạch Âm</h3>
+    <table>
+      <tr><th>Dùng cho</th><th>Chi phí</th></tr>
+      <tr><td>Dòng cuối (dòng 6)</td><td>1 🔮</td></tr>
+    </table>
+    <p class="tag">Nguồn: Achievement, Quest hiếm, Shop</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📊 Batch Tune - Tính chi phí gộp</h3>
+  <p><code>getBatchTuneCost(currentLines, times)</code> — Cộng dồn chi phí các dòng liên tiếp</p>
+  <table>
+    <tr><th>Hiện có</th><th>Tune 1</th><th>Tune 2</th><th>Tune 3</th><th>Tune 4</th></tr>
+    <tr><td>1 dòng</td><td>3💎</td><td>8💎</td><td>15💎</td><td>24💎</td></tr>
+    <tr><td>2 dòng</td><td>5💎</td><td>12💎</td><td>21💎</td><td>—</td></tr>
+    <tr><td>3 dòng</td><td>7💎</td><td>16💎</td><td>—</td><td>—</td></tr>
+    <tr><td>4 dòng</td><td>9💎</td><td>—</td><td>—</td><td>—</td></tr>
+  </table>
+</div>
+
+<!-- 8. ROLL -->
+<h2 id="roll">🎲 8. Cơ Chế Roll</h2>
+<div class="grid">
+  <div class="card card-gold">
+    <h3>🎯 Roll % (Rarity)</h3>
+    <p>Roll ngẫu nhiên 60→100</p>
+    <div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.85em"><span>Tím (60-89)</span><span class="badge b-purple">75%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:75%;background:var(--purple)"></div></div>
+    </div>
+    <div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.85em"><span>Vàng (90-100)</span><span class="badge b-gold">25%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:25%;background:var(--gold)"></div></div>
+    </div>
+    <p class="tag">forceGold → roll 90-100 (luôn Vàng)</p>
+  </div>
+  <div class="card card-blue">
+    <h3>📋 Roll Loại Dòng</h3>
+    <div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.85em"><span>Normal (stat thường)</span><span class="badge b-blue">72.5%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:72.5%;background:var(--blue)"></div></div>
+    </div>
+    <div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.85em"><span>Special (dòng phái)</span><span class="badge b-purple">17.5%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:17.5%;background:var(--purple)"></div></div>
+    </div>
+    <div style="margin:8px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.85em"><span>Universal (Vũ Khí)</span><span class="badge b-gold">10%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:10%;background:var(--gold)"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>🎯 Tính Value cụ thể</h3>
+  <p><strong>Normal:</strong> <code>value = min + (max - min) × (percent / 100)</code></p>
+  <p><strong>Special (Tank):</strong> HP×5% + Defense×3% combo</p>
+  <p><strong>Special (DPS):</strong> Attack×5% + Critical×2% combo</p>
+  <p><strong>Special (Healer):</strong> Heal×10% + Affinity×2% combo</p>
+  <p><strong>Universal:</strong> Weapon Attack × 3%</p>
+</div>
+
+<!-- 9. MASTERY -->
+<h2 id="mastery">🏆 9. Tính Mastery</h2>
+<div class="card card-gold">
+  <h3>Công thức: <code>calculateLineMastery(line, playerClass)</code></h3>
+  <table>
+    <tr><th>Yếu tố</th><th>Công thức / Hệ số</th></tr>
+    <tr><td>Base Points</td><td><code>40 + (percent - 60) × 2</code> → Range: 40 – 120</td></tr>
+    <tr><td>Hệ số Màu</td><td>Vàng: <span class="badge b-gold">×1.25</span> | Tím: ×1.0</td></tr>
+    <tr><td>Hệ số Đề Cử</td><td>Đề Cử: <span class="badge b-green">×1.5</span> | Không: ×1.0</td></tr>
+    <tr><td>Hệ số Priority</td><td>Priority Stat: <span class="badge b-blue">×1.3</span> | Không: ×1.0</td></tr>
+    <tr><td>Bonus Dòng Đặc Biệt</td><td>Đúng phái: <span class="badge b-purple">×1.3</span></td></tr>
+    <tr><td>Bonus Universal</td><td><span class="badge b-gold">×1.15</span></td></tr>
+  </table>
+  <h3 style="margin-top:12px">Ví dụ: Dòng Vàng 95% + Đề Cử + Priority</h3>
+  <p>Base = 40 + (95-60)×2 = <strong>110</strong></p>
+  <p>→ ×1.25 (vàng) ×1.5 (đề cử) ×1.3 (priority) = <strong>110 × 2.4375 = 268 điểm</strong></p>
+  <p class="tag" style="margin-top:8px">Tổng Mastery = Σ mastery tất cả dòng của tất cả 8 slot đang mặc</p>
+</div>
+
+<!-- 10. COMMANDS -->
+<h2 id="commands">💬 10. Các Lệnh Tune</h2>
+<div class="scroll-x">
+<table>
+  <tr><th>Lệnh</th><th>Mô tả</th></tr>
+  <tr><td><code>?tune</code></td><td>Hiển thị Select Menu chọn trang bị Vàng (ưu tiên đề cử cao)</td></tr>
+  <tr><td><code>?tune &lt;id&gt;</code></td><td>Hiện UI tune chi tiết cho trang bị theo ID</td></tr>
+  <tr><td><code>?tune &lt;id&gt; &lt;1-4&gt;</code></td><td>Quick tune: tune nhiều dòng cùng lúc</td></tr>
+  <tr><td><code>?tune 1-10</code></td><td>Bulk tune: tune 1-10 đồ Vàng lên đủ 5 dòng</td></tr>
+  <tr><td><code>?tune all</code></td><td>Tune tất cả đồ Vàng chưa full 5 dòng</td></tr>
+</table>
+</div>
+
+<div class="card">
+  <h3>🖱️ Interactive UI Features</h3>
+  <ul style="padding-left:18px;font-size:.9em">
+    <li><strong>Select Menu:</strong> Chọn đồ từ dropdown, ưu tiên dòng Vàng Đề Cử % cao</li>
+    <li><strong>Buttons 1-4 Lần:</strong> Tune batch với chi phí hiển thị, disable nếu không đủ đá</li>
+    <li><strong>Button Dòng Cuối:</strong> Xuất hiện khi đủ 5 dòng, dùng Thạch Âm</li>
+    <li><strong>Button Gắn Nhanh:</strong> Gắn trang bị ngay từ UI tune</li>
+    <li><strong>So sánh:</strong> Auto so sánh với đồ đang mặc cùng slot (mastery diff)</li>
+    <li><strong>Perfect Roll:</strong> Banner đặc biệt khi roll Vàng + Đề Cử</li>
+    <li><strong>Phù hợp cho:</strong> Auto detect class phù hợp nhất theo số dòng đề cử</li>
+  </ul>
+</div>
+
+<!-- 11. BUFF -->
+<h2 id="buff">✨ 11. Buff & Item Đặc Biệt</h2>
+<div class="scroll-x">
+<table>
+  <tr><th>Item</th><th>Icon</th><th>Effect</th><th>Cách dùng</th></tr>
+  <tr><td>Tinh Thể Vàng</td><td>💠</td><td>Dòng tune tiếp theo = Vàng Đề Cử (forceGold)</td><td><code>?use tinhthevang</code> → <code>?tune &lt;id&gt;</code></td></tr>
+  <tr><td>Thạch Âm Vàng</td><td>🔷</td><td>Dòng cuối = Vàng (forceGold cho final line)</td><td><code>?use thachamvang</code> → <code>?tune &lt;id&gt; 5</code></td></tr>
+  <tr><td>Lửa Cầu Phúc</td><td>🔥</td><td>+100% tỉ lệ Vàng khi mở Box (3h)</td><td><code>?use lcp</code></td></tr>
+  <tr><td>Lửa Cầu Phúc CL</td><td>🔥</td><td>+200% tỉ lệ Vàng khi mở Box (3h)</td><td><code>?use lcpcl</code></td></tr>
+  <tr><td>Đá Đen</td><td>🌑</td><td>Hút dòng vàng từ đồ (hủy đồ) → khắc ấn lên đồ khác</td><td><code>?daden</code> / <code>?dd</code></td></tr>
+</table>
+</div>
+
+<div class="card">
+  <h3>⚙️ Cơ chế Buff trong code</h3>
+  <p>DB column: <code>tune_gold_buff</code> (0/1) — set bởi <code>setTuneGoldBuff()</code></p>
+  <p>Khi tune: <code>consumeTuneGoldBuff()</code> → trả true/false → truyền vào <code>rollLine(slot, forceGold)</code></p>
+  <p>Buff chỉ áp dụng cho <strong>dòng đầu tiên</strong> trong batch tune</p>
+</div>
+
+<!-- 12. QUEST & THÀNH TỰU -->
+<h2 id="quest">🎯 12. Quest & Thành Tựu Liên Quan</h2>
+<div class="grid">
+  <div class="card card-blue">
+    <h3>📋 Daily Quest (tune_count)</h3>
+    <table>
+      <tr><td>Tune 1 lần</td><td>Tune 3 lần</td></tr>
+      <tr><td>Tune 5 lần</td><td>Tune 10 lần</td></tr>
+    </table>
+  </div>
+  <div class="card card-purple">
+    <h3>📅 Weekly Quest (tune_count)</h3>
+    <table>
+      <tr><td>Tune 30 lần</td><td>Tune 50 lần</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card card-gold">
+  <h3>🏆 Thành Tựu Tune</h3>
+  <table>
+    <tr><th>Tên</th><th>Yêu cầu</th><th>Thưởng</th></tr>
+    <tr><td>Thợ Rèn T1</td><td>Tune lần đầu</td><td>🌾 500 Hạt</td></tr>
+    <tr><td>Tune T1 I</td><td>20 lần tune</td><td>🌾 1,000 Hạt</td></tr>
+    <tr><td>Tune T1 II</td><td>100 lần tune</td><td>🌾 5,000 + 💎 20 Đá</td></tr>
+    <tr><td>Tune T1 III</td><td>500 lần tune</td><td>🌾 15,000 + 🔮 10 Thạch</td></tr>
+    <tr><td>⭐ Đề Cử I</td><td>10 dòng đề cử equipped</td><td>🌾 3,000 Hạt</td></tr>
+    <tr><td>⭐ Đề Cử II</td><td>48 dòng đề cử (max)</td><td>🌾 20,000 + 🏷️ Danh hiệu</td></tr>
+    <tr><td>Perfect T1 I</td><td>1 đồ 5 dòng đề cử</td><td>🌾 15,000 Hạt</td></tr>
+    <tr><td>Perfect T1 II</td><td>1 đồ 6 dòng đề cử</td><td>🌾 30,000 + 🏷️ Perfect</td></tr>
+    <tr><td>Mastery T1 I</td><td>5,000 Mastery</td><td>🌾 3,000 Hạt</td></tr>
+    <tr><td>Mastery T1 II</td><td>15,000 Mastery</td><td>🌾 15,000 + 🔮 10 Thạch</td></tr>
+    <tr><td>Mastery T1 III</td><td>30,000 Mastery</td><td>🌾 30,000 + 🏷️ Master</td></tr>
+  </table>
+</div>
+
+<div style="text-align:center;margin:24px 0;color:var(--text2);font-size:.8em">
+  <p>📊 Báo cáo tự động &bull; ThanThu Bot &bull; Tạo bởi Antigravity</p>
+</div>
+
+</body>
+</html>

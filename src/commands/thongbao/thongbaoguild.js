@@ -1,4 +1,4 @@
-﻿const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 
 // Helper: Tạo ActionRow chứa nút English cho embed lịch tuần
 function createEnglishButtonRow() {
@@ -167,6 +167,8 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
 
     // Thu thập sự kiện từ weeklyNotifications
     let hasYenTiec = false;
+    let yenTiecHours = 21; // Giờ mặc định, sẽ lấy từ notification thực tế
+    let yenTiecMinutes = 0;
 
     for (const [id, notif] of weeklyNotifications) {
         if (notif.guildId !== guildId || !notif.isGuildMission) continue;
@@ -179,6 +181,9 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
 
         if (notif.isDaily) {
             hasYenTiec = true;
+            // Lấy giờ thực tế đã set từ lệnh /thongbaoguild yentiec
+            yenTiecHours = notif.hours;
+            yenTiecMinutes = notif.minutes;
             continue;
         }
 
@@ -250,15 +255,17 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
 
     // Thêm Yến Tiệc
     if (hasYenTiec) {
+        // Format giờ yến tiệc từ lệnh /thongbaoguild yentiec đã set
+        const ytTimeStr = `${yenTiecHours}h${yenTiecMinutes > 0 ? yenTiecMinutes.toString().padStart(2, '0') : '00'}`;
         output += '─────────────────────────────\n';
         if (lang === 'en') {
             output += `🎉 **Guild Party**: EVERY DAY\n`;
-            output += `   Mon-Fri: **21h00**\n`;
-            output += `   Sat-Sun: **19h00** (if Guild War) / **19h30** (if no Guild War)\n`;
+            output += `   Mon-Fri: **${ytTimeStr}**\n`;
+            output += `   Sat-Sun: **19h IF GUILD WAR**\n`;
         } else {
             output += `🎉 **Yến Tiệc**: MỖI NGÀY\n`;
-            output += `   T2-T6: **21h00**\n`;
-            output += `   T7-CN: **19h00** (nếu có BC) / **19h30** (nếu không có BC)\n`;
+            output += `   T2-T6: **${ytTimeStr}**\n`;
+            output += `   T7-CN: **19h NẾU CÓ BANG CHIẾN**\n`;
         }
     }
 

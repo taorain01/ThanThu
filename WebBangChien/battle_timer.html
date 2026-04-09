@@ -57,22 +57,30 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 .tog.on .dot{background:rgba(251,191,36,.3)}
 .tog.on .dot::after{background:var(--gold);transform:translateX(12px);box-shadow:0 0 6px var(--gold)}
 
-/* ── SOUND PACK PICKER ── */
-.snd-pick{position:relative;display:flex;align-items:center;gap:7px;padding:6px 14px;
-  background:rgba(255,255,255,.04);border:1px solid var(--border);
-  border-radius:20px;cursor:pointer;font-size:12px;color:var(--text3);
-  transition:all .2s;user-select:none}
-.snd-pick:hover,.snd-pick.open{border-color:rgba(251,191,36,.5);color:var(--gold);background:rgba(251,191,36,.08)}
-.snd-pick-ico{font-size:14px}
+/* ── SOUND PACK PICKER (floating right) ── */
+.snd-pick{
+  position:fixed;right:16px;bottom:80px;z-index:200;
+  display:flex;align-items:center;gap:7px;padding:10px 16px;
+  background:rgba(10,26,15,.92);border:1px solid rgba(251,191,36,.35);
+  border-radius:28px;cursor:pointer;font-size:12px;color:var(--text3);
+  transition:all .2s;user-select:none;
+  box-shadow:0 4px 20px rgba(0,0,0,.5),0 0 0 0 rgba(251,191,36,.2);
+  backdrop-filter:blur(12px)}
+.snd-pick:hover,.snd-pick.open{
+  border-color:rgba(251,191,36,.7);color:var(--gold);
+  background:rgba(251,191,36,.1);
+  box-shadow:0 6px 24px rgba(0,0,0,.6),0 0 16px rgba(251,191,36,.15)}
+.snd-pick-ico{font-size:16px}
 .snd-pick-label{white-space:nowrap;font-weight:600;letter-spacing:.3px}
 .snd-pick-arrow{width:10px;height:10px;transition:transform .2s}
 .snd-pick.open .snd-pick-arrow{transform:rotate(180deg)}
-.snd-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:220px;
-  background:rgba(10,26,15,.97);border:1px solid var(--border);border-radius:12px;
-  padding:6px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:100;
+.snd-menu{
+  position:fixed;bottom:calc(80px + 52px + 8px);right:16px;min-width:220px;
+  background:rgba(10,26,15,.97);border:1px solid rgba(251,191,36,.25);border-radius:12px;
+  padding:6px;box-shadow:0 -8px 32px rgba(0,0,0,.7);z-index:201;
   display:none;backdrop-filter:blur(20px)}
 .snd-menu.open{display:block;animation:sndIn .2s ease}
-@keyframes sndIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes sndIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .snd-opt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
   cursor:pointer;transition:all .15s;font-size:12px;color:var(--text2)}
 .snd-opt:hover{background:rgba(251,191,36,.08);color:var(--text)}
@@ -86,8 +94,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
   box-shadow:0 0 8px rgba(251,191,36,.2)}
 .snd-opt .snd-check{display:none;color:var(--gold);font-size:10px}
 .snd-opt.active .snd-check{display:inline}
-@media(max-width:768px){.snd-pick{padding:5px 10px}.snd-pick-label{font-size:10px}.snd-menu{min-width:180px}}
-@media(max-width:480px){.snd-pick{padding:5px 8px;gap:4px}.snd-pick-label{display:none}.snd-menu{min-width:160px;right:-5px}}
+@media(max-width:480px){.snd-pick{right:10px;bottom:70px;padding:8px 12px}.snd-pick-label{display:none}.snd-menu{right:10px;min-width:190px}}
 
 /* ── MAIN PANEL ── */
 .main{background:var(--card);border:1px solid var(--border);border-radius:18px;

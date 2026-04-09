@@ -724,20 +724,19 @@ function onDragStart(e) {
 function onDragMove(e) {
   if (!isDragging) return;
   e.preventDefault();
-  const angle = getAngleFromEvent(e); // 0=12h, CW positive, [0, 2π)
-  const t = angleToTime(angle);       // thời gian đã snap 15s
+  var angle = getAngleFromEvent(e);
+  var t = angleToTime(angle);
   total = t;
   remain = t;
   fired.clear();
-  updateDisplay();
-  // Đặt handle TRỰC TIẾP tại vị trí ứng với thời gian đã snap
-  // Chuyển time → góc trên vòng tròn (ngược lại angleToTime)
-  const timePct = t / MAX_TOTAL;                               // 0..1
-  const ringAngle = (1 - timePct) * 2 * Math.PI - Math.PI / 2; // CSS coords
-  const wrapSize = ringWrap.offsetWidth;
-  const rPx = (R / 240) * wrapSize;
-  dragHandle.style.left = (wrapSize / 2 + rPx * Math.cos(ringAngle)) + 'px';
-  dragHandle.style.top  = (wrapSize / 2 + rPx * Math.sin(ringAngle)) + 'px';
+  // Di chuyen handle TRUOC (tranh bi block boi updateDisplay)
+  var timePct = t / MAX_TOTAL;
+  var ringAngle = (1 - timePct) * 2 * Math.PI - Math.PI / 2;
+  var ws = ringWrap.offsetWidth;
+  var rr = (R / 240) * ws;
+  dragHandle.style.left = (ws / 2 + rr * Math.cos(ringAngle)) + 'px';
+  dragHandle.style.top  = (ws / 2 + rr * Math.sin(ringAngle)) + 'px';
+  try { updateDisplay(); } catch(ex) { console.error('updateDisplay error:', ex); }
   updatePresetActive();
   inpMin.value = Math.floor(t / 60);
   inpSec.value = t % 60;
@@ -860,17 +859,14 @@ function updateDisplay(){
   const el = rTime;
   el.textContent = fmtT(remain);
   el.className = 'r-time-display' + (remain<=30?' crit':remain<=60?' warn':'') + (isEditing?' editing':'');
-  // Khi chưa bắt đầu (idle), ring lấp TỪ handle NGƯỢC VỀ 12h
-  const isIdle = !running && total === remain;
-  const ringPct = isIdle ? remain / MAX_TOTAL : (total > 0 ? remain / total : 1);
-  const tr = document.getElementById('rTrack');
+  var isIdle = !running && total === remain;
+  var ringPct = isIdle ? remain / MAX_TOTAL : (total > 0 ? remain / total : 1);
+  var tr = document.getElementById('rTrack');
   if (isIdle) {
-    // Chế độ chỉnh: gap từ 12h → handle, fill từ handle → 12h (ngược chiều)
-    tr.style.strokeDasharray = `${ringPct * CIRC} ${(1 - ringPct) * CIRC}`;
+    tr.style.strokeDasharray = (ringPct * CIRC) + ' ' + ((1 - ringPct) * CIRC);
     tr.style.strokeDashoffset = ringPct * CIRC;
   } else {
-    // Chế độ đếm ngược: fill từ 12h theo chiều kim đồng hồ
-    tr.style.strokeDasharray = CIRC;
+    tr.style.strokeDasharray = String(CIRC);
     tr.style.strokeDashoffset = CIRC * (1 - ringPct);
   }
   tr.setAttribute('stroke', remain<=30?'url(#rg-boss)':remain<=120?'url(#rg-pvp)':'url(#rg1)');

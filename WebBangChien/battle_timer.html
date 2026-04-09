@@ -674,24 +674,13 @@ function angleToTime(angle) {
   return Math.max(0, Math.min(MAX_TOTAL, t));
 }
 function updateDragHandle() {
-  // Khi chưa bắt đầu (idle), dùng MAX_TOTAL để handle theo đúng vị trí trên vòng 30 phút
-  const isIdle = !running && total === remain;
-  const pct = isIdle ? remain / MAX_TOTAL : (total > 0 ? remain / total : 1);
-  // Góc trên SVG: 0% = 12h (top), theo chiều kim đồng hồ
-  const angle = (1 - pct) * 2 * Math.PI - Math.PI / 2; // offset -90° vì CSS
-  // Tính px position
-  const wrapRect = ringWrap.getBoundingClientRect();
-  const wrapSize = ringWrap.offsetWidth;
-  const centerX = wrapSize / 2;
-  const centerY = wrapSize / 2;
-  // Bán kính theo pixel (SVG r=110 trong viewBox 240, wrap = wrapSize)
-  const rPx = (R / 240) * wrapSize;
-  const x = centerX + rPx * Math.cos(angle);
-  const y = centerY + rPx * Math.sin(angle);
-  dragHandle.style.left = x + 'px';
-  dragHandle.style.top = y + 'px';
-  // Ẩn handle khi đang chạy
-  dragHandle.classList.toggle('hidden', running && !paused);
+  // Luon dung MAX_TOTAL (thang 30 phut tuyet doi) — dong bo voi drag
+  var pct = remain / MAX_TOTAL;
+  var angle = (1 - pct) * 2 * Math.PI - Math.PI / 2;
+  var ws = ringWrap.offsetWidth;
+  var rPx = (R / 240) * ws;
+  dragHandle.style.left = (ws / 2 + rPx * Math.cos(angle)) + 'px';
+  dragHandle.style.top  = (ws / 2 + rPx * Math.sin(angle)) + 'px';
 }
 
 // Mouse drag
@@ -782,7 +771,7 @@ function startTimer(){
   document.getElementById('btnStart').disabled=true;
   document.getElementById('btnPause').disabled=false;
   document.getElementById('rStatus').textContent='▶ Đang Chạy';
-  dragHandle.classList.add('hidden');
+  // Handle van hien thi khi chay — di chuyen CW cung ring
   // cập nhật transition cho smooth khi chạy
   document.getElementById('rTrack').style.transition='stroke-dashoffset 1s linear,stroke .5s';
   if(iv)clearInterval(iv);
@@ -796,7 +785,6 @@ function pauseTimer(){
   document.getElementById('btnStart').disabled=false;
   document.getElementById('btnStartTxt').textContent='Tiếp Tục';
   document.getElementById('rStatus').textContent='⏸ Tạm Dừng';
-  dragHandle.classList.remove('hidden');
   updateDragHandle();
   addN('⏸','Tạm dừng',`Còn ${fmtT(remain)}`,'twarn');
 }
@@ -808,7 +796,7 @@ function resetTimer(){
   document.getElementById('rStatus').textContent='⏸ Sẵn Sàng';
   // khôi phục transition nhanh khi kéo
   document.getElementById('rTrack').style.transition='stroke-dashoffset .15s linear,stroke .5s';
-  dragHandle.classList.remove('hidden');
+  // Handle luon hien
   updateDisplay();
   updateDragHandle();
   MS.forEach(m=>document.getElementById(`ms-${m.id}`)?.classList.remove('lit'));
@@ -824,7 +812,7 @@ function tick(){
     playS('end');showAl('','KẾT THÚC!','Bang chiến đã kết thúc!','','',5000);
     return;
   }
-  remain--;updateDisplay();checkMS();
+  remain--;updateDisplay();updateDragHandle();checkMS();
 }
 function checkMS(){
   MS.forEach(m=>{
@@ -856,22 +844,16 @@ function fireMilestone(m){
 
 // ── DISPLAY ──
 function updateDisplay(){
-  const el = rTime;
+  var el = rTime;
   el.textContent = fmtT(remain);
   el.className = 'r-time-display' + (remain<=30?' crit':remain<=60?' warn':'') + (isEditing?' editing':'');
-  var isIdle = !running && total === remain;
-  var ringPct = isIdle ? remain / MAX_TOTAL : (total > 0 ? remain / total : 1);
+  // Ring luon dung remain/MAX_TOTAL - gap tu 12h den handle, gold tu handle den 12h
+  var pct = remain / MAX_TOTAL;
   var tr = document.getElementById('rTrack');
-  if (isIdle) {
-    tr.style.strokeDasharray = (ringPct * CIRC) + ' ' + ((1 - ringPct) * CIRC);
-    tr.style.strokeDashoffset = ringPct * CIRC;
-  } else {
-    tr.style.strokeDasharray = String(CIRC);
-    tr.style.strokeDashoffset = CIRC * (1 - ringPct);
-  }
+  tr.style.strokeDasharray = (pct * CIRC) + ' ' + ((1 - pct) * CIRC);
+  tr.style.strokeDashoffset = pct * CIRC;
   tr.setAttribute('stroke', remain<=30?'url(#rg-boss)':remain<=120?'url(#rg-pvp)':'url(#rg1)');
-  // Progress bar luôn dùng remain/total (100% khi chưa bắt đầu)
-  const barPct = total > 0 ? remain / total : 1;
+  var barPct = total > 0 ? remain / total : 1;
   document.getElementById('progFill').style.width = (barPct*100)+'%';
 }
 function fmtT(s){return`${pad(Math.floor(s/60))}:${pad(s%60)}`;}

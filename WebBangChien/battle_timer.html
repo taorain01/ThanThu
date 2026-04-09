@@ -793,7 +793,12 @@ function pauseTimer(){
   addN('⏸','Tạm dừng',`Còn ${fmtT(remain)}`,'twarn');
 }
 function resetTimer(){
-  clearInterval(iv);iv=null;running=false;paused=false;fired.clear();remain=total;
+  clearInterval(iv);iv=null;running=false;paused=false;fired.clear();
+  total=MAX_TOTAL;remain=MAX_TOTAL;
+  // Cap nhat input va preset
+  var inp=document.getElementById('inpMin');var inpS=document.getElementById('inpSec');
+  if(inp)inp.value=30;if(inpS)inpS.value=0;
+  updatePresetActive();
   document.getElementById('btnStart').disabled=false;
   document.getElementById('btnStartTxt').textContent='Bắt Đầu';
   document.getElementById('btnPause').disabled=true;

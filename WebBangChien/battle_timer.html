@@ -61,48 +61,70 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 .main{background:var(--card);border:1px solid var(--border);border-radius:18px;
   padding:24px;display:flex;flex-direction:column;align-items:center;gap:18px}
 
-/* Ring */
-.ring-wrap{position:relative;width:270px;height:270px}
-.ring-svg{width:270px;height:270px;transform:rotate(-90deg)}
+/* Ring - vòng tròn đồng hồ */
+.ring-wrap{position:relative;width:300px;height:300px;cursor:grab}
+.ring-wrap.dragging{cursor:grabbing}
+.ring-svg{width:300px;height:300px;transform:rotate(-90deg)}
 .r-bg{fill:none;stroke:rgba(255,255,255,.04);stroke-width:8}
 .r-glow{fill:none;stroke:rgba(34,197,94,.12);stroke-width:10;stroke-dasharray:691;stroke-dashoffset:0;opacity:.5;will-change:opacity;animation:rGlow 3s ease-in-out infinite}
 @keyframes rGlow{0%,100%{opacity:.3}50%{opacity:.7}}
 .r-track{fill:none;stroke:url(#rg1);stroke-width:8;stroke-linecap:round;
-  stroke-dasharray:691;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke .5s}
-.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+  stroke-dasharray:691;stroke-dashoffset:0;transition:stroke-dashoffset .15s linear,stroke .5s}
+/* Vạch chia trên vòng tròn */
+.r-tick{fill:none;stroke:rgba(255,255,255,.08);stroke-width:1}
+.r-tick-major{fill:none;stroke:rgba(251,191,36,.25);stroke-width:1.5}
+
+/* Nút kéo (drag handle) */
+.drag-handle{position:absolute;width:22px;height:22px;border-radius:50%;
+  background:radial-gradient(circle,var(--gold-glow),var(--gold-dark));
+  border:2px solid rgba(255,255,255,.4);box-shadow:0 0 12px rgba(251,191,36,.6);
+  transform:translate(-50%,-50%);pointer-events:none;z-index:5;
+  transition:opacity .2s,transform .2s}
+.drag-handle.hidden{opacity:0;transform:translate(-50%,-50%) scale(0)}
+.ring-wrap:hover .drag-handle:not(.hidden){transform:translate(-50%,-50%) scale(1.15)}
+.ring-wrap.dragging .drag-handle{transform:translate(-50%,-50%) scale(1.25);box-shadow:0 0 20px rgba(251,191,36,.8)}
+
+/* Vùng trung tâm */
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;z-index:3}
 .r-lbl{font-size:9px;letter-spacing:4px;text-transform:uppercase;color:var(--text3)}
-.r-time{font-family:'Orbitron',sans-serif;font-size:54px;font-weight:900;
+
+/* Hiển thị thời gian - click để nhập */
+.r-time-wrap{display:flex;align-items:center;gap:2px;position:relative}
+.r-time-display{font-family:'Orbitron',sans-serif;font-size:54px;font-weight:900;
   background:linear-gradient(135deg,var(--gold-glow),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  line-height:1;filter:drop-shadow(0 0 10px rgba(251,191,36,.5));transition:all .3s}
-.r-time.warn{background:linear-gradient(135deg,#fb923c,#ef4444);-webkit-background-clip:text;animation:tblink .5s ease-in-out infinite}
-.r-time.crit{background:linear-gradient(135deg,#f87171,#dc2626);-webkit-background-clip:text;animation:tblink .25s ease-in-out infinite}
+  line-height:1;filter:drop-shadow(0 0 10px rgba(251,191,36,.5));transition:all .3s;
+  cursor:pointer;position:relative}
+.r-time-display.warn{background:linear-gradient(135deg,#fb923c,#ef4444);-webkit-background-clip:text;animation:tblink .5s ease-in-out infinite}
+.r-time-display.crit{background:linear-gradient(135deg,#f87171,#dc2626);-webkit-background-clip:text;animation:tblink .25s ease-in-out infinite}
 @keyframes tblink{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Inline editor - nhập trực tiếp */
+.r-time-editor{display:none;align-items:center;gap:3px}
+.r-time-editor.active{display:flex}
+.r-time-display.editing{display:none}
+.r-input{width:62px;background:rgba(0,0,0,.6);border:1.5px solid var(--gold);border-radius:8px;
+  padding:4px 2px;color:var(--gold-glow);font-family:'Orbitron',sans-serif;font-size:36px;font-weight:900;
+  text-align:center;outline:none;-moz-appearance:textfield}
+.r-input::-webkit-inner-spin-button,.r-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.r-input:focus{box-shadow:0 0 16px rgba(251,191,36,.35)}
+.r-sep{font-family:'Orbitron',sans-serif;font-size:36px;font-weight:900;color:var(--gold);line-height:1}
+.r-edit-hint{font-size:8px;color:var(--gold);letter-spacing:1px;opacity:.7;margin-top:1px}
+
 .r-status{font-size:11px;color:var(--text3);letter-spacing:2px;text-transform:uppercase}
+
+/* Preset nhanh dưới vòng tròn */
+.presets{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.preset-btn{padding:5px 12px;border-radius:16px;border:1px solid rgba(251,191,36,.2);
+  background:rgba(251,191,36,.06);color:var(--gold);font-size:11px;font-weight:700;
+  font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:.3px}
+.preset-btn:hover{background:rgba(251,191,36,.15);border-color:rgba(251,191,36,.4);transform:translateY(-1px);
+  box-shadow:0 3px 10px rgba(251,191,36,.2)}
+.preset-btn.active{background:rgba(251,191,36,.2);border-color:var(--gold);box-shadow:0 0 12px rgba(251,191,36,.3)}
 
 /* Progress bar mini */
 .prog-bar{width:100%;height:3px;background:rgba(255,255,255,.05);border-radius:2px}
 .prog-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green-500),var(--gold));
-  transition:width 1s linear;box-shadow:0 0 8px rgba(251,191,36,.4)}
-
-/* Config */
-.cfg{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.cfg-title{font-size:10px;color:var(--text3);letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.cfg-title svg{width:13px;height:13px}
-.cfg-row{display:flex;gap:8px;align-items:flex-end}
-.cfg-field{display:flex;flex-direction:column;gap:4px;flex:1}
-.cfg-field label{font-size:10px;color:var(--text3)}
-.cfg-input{background:rgba(0,0,0,.5);border:1px solid var(--border);border-radius:8px;
-  padding:8px 10px;color:var(--text);font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;
-  width:100%;text-align:center;transition:border-color .2s}
-.cfg-input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 10px rgba(251,191,36,.2)}
-.cfg-input::-webkit-inner-spin-button,.cfg-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-.cfg-input[type=number]{-moz-appearance:textfield}
-.cfg-sep{font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--gold);padding-bottom:8px}
-.cfg-apply{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:8px;
-  padding:8px 14px;color:var(--gold);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;
-  cursor:pointer;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:5px}
-.cfg-apply:hover{background:rgba(251,191,36,.2);box-shadow:0 0 12px rgba(251,191,36,.2)}
-.cfg-apply svg{width:13px;height:13px}
+  transition:width .15s linear;box-shadow:0 0 8px rgba(251,191,36,.4)}
 
 /* Buttons */
 .btn-row{display:flex;gap:10px;width:100%}
@@ -227,9 +249,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
   .hdr-right{gap:6px}
   .tog{padding:5px 10px;font-size:11px}
   .main{padding:16px;gap:14px}
-  .ring-wrap{width:220px;height:220px}
-  .ring-svg{width:220px;height:220px}
-  .r-time{font-size:44px}
+  .ring-wrap{width:250px;height:250px}
+  .ring-svg{width:250px;height:250px}
+  .r-time-display{font-size:44px}
+  .r-input{font-size:28px;width:52px}
+  .r-sep{font-size:28px}
   .side{grid-row:3}
   .nlist{max-height:200px}
   .ms-info strong{font-size:12px}
@@ -237,12 +261,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 @media(max-width:480px){
   .hdr-title p{display:none}
   .tog span{display:none}
-  .ring-wrap{width:190px;height:190px}
-  .ring-svg{width:190px;height:190px}
-  .r-time{font-size:38px}
+  .ring-wrap{width:220px;height:220px}
+  .ring-svg{width:220px;height:220px}
+  .r-time-display{font-size:38px}
+  .r-input{font-size:24px;width:44px}
+  .r-sep{font-size:24px}
   .btn{padding:11px 10px;font-size:13px}
   .al-box{padding:20px 28px}
   .al-title{font-size:17px}
+  .preset-btn{padding:4px 9px;font-size:10px}
 }
 
 /* Scrollbar */
@@ -318,8 +345,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 
   <!-- MAIN TIMER -->
   <main class="main" id="mainPanel">
-    <div class="ring-wrap">
-      <svg class="ring-svg" viewBox="0 0 240 240">
+    <div class="ring-wrap" id="ringWrap">
+      <svg class="ring-svg" id="ringSvg" viewBox="0 0 240 240">
         <defs>
           <linearGradient id="rg1" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stop-color="#fde68a"/>
@@ -335,34 +362,39 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
           </linearGradient>
         </defs>
         <circle class="r-bg" cx="120" cy="120" r="110"/>
+        <!-- Vạch chia thời gian (30 vạch = 30 phút) -->
+        <g id="ringTicks"></g>
         <circle class="r-glow" cx="120" cy="120" r="110"/>
         <circle class="r-track" id="rTrack" cx="120" cy="120" r="110"/>
       </svg>
+      <!-- Nút kéo trên vòng tròn -->
+      <div class="drag-handle" id="dragHandle"></div>
       <div class="ring-center">
         <div class="r-lbl">Thời Gian Còn Lại</div>
-        <div class="r-time" id="rTime">30:00</div>
+        <!-- Hiển thị bình thường -->
+        <div class="r-time-display" id="rTime" onclick="openEditor()">30:00</div>
+        <!-- Editor inline -->
+        <div class="r-time-editor" id="rEditor">
+          <input class="r-input" id="inpMin" type="number" value="30" min="0" max="30" maxlength="2">
+          <span class="r-sep">:</span>
+          <input class="r-input" id="inpSec" type="number" value="0" min="0" max="59" maxlength="2">
+        </div>
+        <div class="r-edit-hint" id="editHint" style="display:none">ENTER ✓ · ESC ✕</div>
         <div class="r-status" id="rStatus">⏸ Sẵn Sàng</div>
       </div>
     </div>
 
-    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:100%"></div></div>
-
-    <!-- Config -->
-    <div class="cfg">
-      <div class="cfg-title">
-        <svg width="13" height="13" viewBox="0 0 24 24"><use href="#ico-settings" color="#64748b"/></svg>
-        Cấu hình thời gian bắt đầu
-      </div>
-      <div class="cfg-row">
-        <div class="cfg-field"><label>Phút</label><input class="cfg-input" id="inpMin" type="number" value="30" min="0" max="99"></div>
-        <div class="cfg-sep">:</div>
-        <div class="cfg-field"><label>Giây</label><input class="cfg-input" id="inpSec" type="number" value="0" min="0" max="59"></div>
-        <button class="cfg-apply" onclick="applyConfig()">
-          <svg width="13" height="13" viewBox="0 0 24 24"><use href="#ico-check" color="currentColor"/></svg>
-          Áp dụng
-        </button>
-      </div>
+    <!-- Preset nhanh -->
+    <div class="presets" id="presets">
+      <button class="preset-btn" data-min="5">5 phút</button>
+      <button class="preset-btn" data-min="10">10 phút</button>
+      <button class="preset-btn" data-min="15">15 phút</button>
+      <button class="preset-btn" data-min="20">20 phút</button>
+      <button class="preset-btn" data-min="25">25 phút</button>
+      <button class="preset-btn active" data-min="30">30 phút</button>
     </div>
+
+    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:100%"></div></div>
 
     <!-- Buttons -->
     <div class="btn-row">
@@ -414,6 +446,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 </div>
 
 <script>
+// ── CẤU HÌNH ──
+const MAX_MINUTES = 30; // Tối đa 30 phút
+const MAX_TOTAL = MAX_MINUTES * 60; // 1800 giây
+
 // ── CẤU HÌNH MỐC THỜI GIAN ──
 const MS = [
   {id:'b25',type:'boss',name:'Boss Thứ Nhất',desc:'Phút 25 · Chuẩn bị đội hình',min:25,warns:[30,15,5]},
@@ -429,18 +465,53 @@ const TASKS=[
 ];
 
 // ── STATE ──
-const CIRC=2*Math.PI*110;
-let total=1800,remain=1800,tasks=[...TASKS];
-let iv=null,running=false,paused=false;
-let fired=new Set(),nCnt=0;
-let optMsg=true,optSnd=true;
-let alertTO=null,audioCtx=null;
+const R = 110; // bán kính SVG
+const CIRC = 2 * Math.PI * R;
+let total = 1800, remain = 1800, tasks = [...TASKS];
+let iv = null, running = false, paused = false;
+let fired = new Set(), nCnt = 0;
+let optMsg = true, optSnd = true;
+let alertTO = null, audioCtx = null;
+let isEditing = false;
+let isDragging = false;
+
+// ── DOM ──
+const ringWrap = document.getElementById('ringWrap');
+const ringSvg = document.getElementById('ringSvg');
+const dragHandle = document.getElementById('dragHandle');
+const rTime = document.getElementById('rTime');
+const rEditor = document.getElementById('rEditor');
+const editHint = document.getElementById('editHint');
+const inpMin = document.getElementById('inpMin');
+const inpSec = document.getElementById('inpSec');
 
 // ── INIT ──
 initParticles();
+renderTicks();
 renderMS();
 renderTasks();
 updateDisplay();
+initPresets();
+updateDragHandle();
+
+// ── VẠC CHIA TRÊN VÒNG TRÒN ──
+function renderTicks() {
+  const g = document.getElementById('ringTicks');
+  let html = '';
+  for (let i = 0; i < 60; i++) {
+    const angle = (i / 60) * 360 - 90; // bắt đầu từ 12h
+    const rad = angle * Math.PI / 180;
+    const isMajor = i % 5 === 0; // mỗi 5 phút là vạch lớn
+    const r1 = isMajor ? 100 : 103;
+    const r2 = 107;
+    const x1 = 120 + r1 * Math.cos(rad);
+    const y1 = 120 + r1 * Math.sin(rad);
+    const x2 = 120 + r2 * Math.cos(rad);
+    const y2 = 120 + r2 * Math.sin(rad);
+    html += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="${isMajor ? 'r-tick-major' : 'r-tick'}"/>`;
+  }
+  g.innerHTML = html;
+}
 
 // ── PARTICLES ──
 function initParticles(){
@@ -453,6 +524,179 @@ function initParticles(){
     c.appendChild(p);
   }
 }
+
+// ── PRESET BUTTONS ──
+function initPresets() {
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (running && !paused) return; // không cho chỉnh khi đang chạy
+      const m = parseInt(btn.dataset.min);
+      total = m * 60;
+      remain = total;
+      fired.clear();
+      // cập nhật UI
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      inpMin.value = m;
+      inpSec.value = 0;
+      updateDisplay();
+      updateDragHandle();
+      addN('⚙','Preset',`Đặt ${m} phút`,'tstart');
+    });
+  });
+}
+
+// ── EDITOR INLINE (click vào số để nhập) ──
+function openEditor() {
+  if (running && !paused) return; // không cho chỉnh khi đang chạy
+  isEditing = true;
+  rTime.classList.add('editing');
+  rEditor.classList.add('active');
+  editHint.style.display = '';
+  inpMin.value = Math.floor(remain / 60);
+  inpSec.value = remain % 60;
+  inpMin.focus();
+  inpMin.select();
+}
+function closeEditor(apply) {
+  if (!isEditing) return;
+  isEditing = false;
+  if (apply) {
+    const m = Math.max(0, Math.min(MAX_MINUTES, +inpMin.value || 0));
+    const s = Math.max(0, Math.min(59, +inpSec.value || 0));
+    total = m * 60 + s;
+    if (total > MAX_TOTAL) total = MAX_TOTAL;
+    remain = total;
+    fired.clear();
+    // cập nhật preset active
+    updatePresetActive();
+    addN('⚙','Cấu hình',`Đặt ${pad(m)}:${pad(s)}`,'tstart');
+  }
+  rTime.classList.remove('editing');
+  rEditor.classList.remove('active');
+  editHint.style.display = 'none';
+  updateDisplay();
+  updateDragHandle();
+}
+function updatePresetActive() {
+  const min = Math.floor(total / 60);
+  const sec = total % 60;
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', sec === 0 && parseInt(b.dataset.min) === min);
+  });
+}
+
+// Xử lý Enter/Escape
+[inpMin, inpSec].forEach(inp => {
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); closeEditor(true); }
+    if (e.key === 'Escape') { e.preventDefault(); closeEditor(false); }
+  });
+});
+// Tab từ phút sang giây
+inpMin.addEventListener('keydown', e => {
+  if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); inpSec.focus(); inpSec.select(); }
+});
+// Click bên ngoài → đóng editor
+document.addEventListener('mousedown', e => {
+  if (isEditing && !rEditor.contains(e.target) && e.target !== rTime) {
+    closeEditor(true);
+  }
+});
+
+// ── KÉO VÒNG TRÒN ĐỂ CHỈNH THỜI GIAN ──
+function getAngleFromEvent(e) {
+  const rect = ringWrap.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  // Lấy toạ độ chuột hoặc touch
+  const px = (e.touches ? e.touches[0].clientX : e.clientX);
+  const py = (e.touches ? e.touches[0].clientY : e.clientY);
+  // Tính góc (0 = 12h, chiều kim đồng hồ)
+  let angle = Math.atan2(px - cx, -(py - cy)); // 0 = top, clockwise positive
+  if (angle < 0) angle += 2 * Math.PI;
+  return angle;
+}
+function angleToTime(angle) {
+  // 0 = 30 phút (full), 2π = 0 phút
+  // Ngược: 0 at top = full, đi theo chiều kim đồng hồ = giảm
+  // Ta dùng: % = angle / (2π), thời gian = MAX_TOTAL * (1 - %)
+  const pct = angle / (2 * Math.PI);
+  // Snap theo 30 giây
+  let t = Math.round(MAX_TOTAL * (1 - pct));
+  // Snap theo 15 giây
+  t = Math.round(t / 15) * 15;
+  return Math.max(0, Math.min(MAX_TOTAL, t));
+}
+function updateDragHandle() {
+  const pct = total > 0 ? remain / total : 1;
+  // Góc trên SVG: 0% = 12h (top), theo chiều kim đồng hồ
+  const angle = (1 - pct) * 2 * Math.PI - Math.PI / 2; // offset -90° vì CSS
+  // Tính px position
+  const wrapRect = ringWrap.getBoundingClientRect();
+  const wrapSize = ringWrap.offsetWidth;
+  const centerX = wrapSize / 2;
+  const centerY = wrapSize / 2;
+  // Bán kính theo pixel (SVG r=110 trong viewBox 240, wrap = wrapSize)
+  const rPx = (R / 240) * wrapSize;
+  const x = centerX + rPx * Math.cos(angle);
+  const y = centerY + rPx * Math.sin(angle);
+  dragHandle.style.left = x + 'px';
+  dragHandle.style.top = y + 'px';
+  // Ẩn handle khi đang chạy
+  dragHandle.classList.toggle('hidden', running && !paused);
+}
+
+// Mouse drag
+ringWrap.addEventListener('mousedown', onDragStart);
+document.addEventListener('mousemove', onDragMove);
+document.addEventListener('mouseup', onDragEnd);
+// Touch drag
+ringWrap.addEventListener('touchstart', onDragStart, { passive: false });
+document.addEventListener('touchmove', onDragMove, { passive: false });
+document.addEventListener('touchend', onDragEnd);
+
+function onDragStart(e) {
+  if (running && !paused) return;
+  if (isEditing) return;
+  // Kiểm tra click trên vùng ring (không phải trung tâm)
+  const rect = ringWrap.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const px = (e.touches ? e.touches[0].clientX : e.clientX);
+  const py = (e.touches ? e.touches[0].clientY : e.clientY);
+  const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
+  const wrapRadius = rect.width / 2;
+  // Chỉ bắt đầu kéo nếu click gần vòng tròn (60%-105% bán kính)
+  if (dist < wrapRadius * 0.55 || dist > wrapRadius * 1.05) return;
+  e.preventDefault();
+  isDragging = true;
+  ringWrap.classList.add('dragging');
+  onDragMove(e);
+}
+function onDragMove(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  const angle = getAngleFromEvent(e);
+  const t = angleToTime(angle);
+  total = t;
+  remain = t;
+  fired.clear();
+  updateDisplay();
+  updateDragHandle();
+  updatePresetActive();
+  // Cập nhật input
+  inpMin.value = Math.floor(t / 60);
+  inpSec.value = t % 60;
+}
+function onDragEnd() {
+  if (!isDragging) return;
+  isDragging = false;
+  ringWrap.classList.remove('dragging');
+}
+
+// Cập nhật handle khi resize
+window.addEventListener('resize', () => updateDragHandle());
 
 // ── RENDER MILESTONES ──
 function renderMS(){
@@ -479,22 +723,16 @@ function renderTasks(){
 function toggleTask(id){tasks=tasks.map(t=>t.id===id?{...t,done:!t.done}:t);renderTasks();}
 
 // ── TIMER ──
-function applyConfig(){
-  if(running&&!paused)return;
-  const m=Math.max(0,Math.min(99,+document.getElementById('inpMin').value||0));
-  const s=Math.max(0,Math.min(59,+document.getElementById('inpSec').value||0));
-  total=m*60+s;remain=total;fired.clear();updateDisplay();
-  addN('⚙','Cấu hình',`Đặt ${pad(m)}:${pad(s)}`,'tstart');
-}
 function startTimer(){
   if(running&&!paused)return;
   if(remain<=0){resetTimer();return;}
   running=true;paused=false;
   document.getElementById('btnStart').disabled=true;
   document.getElementById('btnPause').disabled=false;
-  document.getElementById('inpMin').disabled=true;
-  document.getElementById('inpSec').disabled=true;
   document.getElementById('rStatus').textContent='▶ Đang Chạy';
+  dragHandle.classList.add('hidden');
+  // cập nhật transition cho smooth khi chạy
+  document.getElementById('rTrack').style.transition='stroke-dashoffset 1s linear,stroke .5s';
   if(iv)clearInterval(iv);
   iv=setInterval(tick,1000);
   addN('▶','Bắt đầu!',`Timer từ ${fmtT(remain)}`,'tstart');
@@ -506,6 +744,8 @@ function pauseTimer(){
   document.getElementById('btnStart').disabled=false;
   document.getElementById('btnStartTxt').textContent='Tiếp Tục';
   document.getElementById('rStatus').textContent='⏸ Tạm Dừng';
+  dragHandle.classList.remove('hidden');
+  updateDragHandle();
   addN('⏸','Tạm dừng',`Còn ${fmtT(remain)}`,'twarn');
 }
 function resetTimer(){
@@ -513,10 +753,13 @@ function resetTimer(){
   document.getElementById('btnStart').disabled=false;
   document.getElementById('btnStartTxt').textContent='Bắt Đầu';
   document.getElementById('btnPause').disabled=true;
-  document.getElementById('inpMin').disabled=false;
-  document.getElementById('inpSec').disabled=false;
   document.getElementById('rStatus').textContent='⏸ Sẵn Sàng';
-  updateDisplay();MS.forEach(m=>document.getElementById(`ms-${m.id}`)?.classList.remove('lit'));
+  // khôi phục transition nhanh khi kéo
+  document.getElementById('rTrack').style.transition='stroke-dashoffset .15s linear,stroke .5s';
+  dragHandle.classList.remove('hidden');
+  updateDisplay();
+  updateDragHandle();
+  MS.forEach(m=>document.getElementById(`ms-${m.id}`)?.classList.remove('lit'));
   addN('↺','Reset','Timer đã reset','tstart');
 }
 function tick(){
@@ -561,15 +804,16 @@ function fireMilestone(m){
 
 // ── DISPLAY ──
 function updateDisplay(){
-  const el=document.getElementById('rTime');
-  el.textContent=fmtT(remain);
-  el.className='r-time'+(remain<=30?' crit':remain<=60?' warn':'');
-  const pct=total>0?remain/total:1;
-  const off=CIRC*(1-pct);
-  const tr=document.getElementById('rTrack');
-  tr.style.strokeDasharray=CIRC;tr.style.strokeDashoffset=off;
-  tr.setAttribute('stroke',remain<=30?'url(#rg-boss)':remain<=120?'url(#rg-pvp)':'url(#rg1)');
-  document.getElementById('progFill').style.width=(pct*100)+'%';
+  const el = rTime;
+  el.textContent = fmtT(remain);
+  el.className = 'r-time-display' + (remain<=30?' crit':remain<=60?' warn':'') + (isEditing?' editing':'');
+  const pct = total > 0 ? remain / total : 1;
+  const off = CIRC * (1 - pct);
+  const tr = document.getElementById('rTrack');
+  tr.style.strokeDasharray = CIRC;
+  tr.style.strokeDashoffset = off;
+  tr.setAttribute('stroke', remain<=30?'url(#rg-boss)':remain<=120?'url(#rg-pvp)':'url(#rg1)');
+  document.getElementById('progFill').style.width = (pct*100)+'%';
 }
 function fmtT(s){return`${pad(Math.floor(s/60))}:${pad(s%60)}`;}
 function pad(n){return String(n).padStart(2,'0');}

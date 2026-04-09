@@ -56,6 +56,12 @@ client.once("ready", async () => {
   const { initWeeklyScheduler } = require('./utils/weeklyScheduler');
   initWeeklyScheduler(client);
 
+  // Dọn dẹp EXP periodic (xóa chu kỳ cũ) - chạy mỗi giờ
+  const { cleanupExpiredPeriodic } = require('./database/economy');
+  setInterval(() => {
+    try { cleanupExpiredPeriodic(); } catch (e) { console.error('[EXP Periodic] Cleanup error:', e.message); }
+  }, 3600000); // 1 giờ
+
   // Auto-migration: Cleanup notifications from guilds bot is no longer in
   // Delay để đảm bảo guild cache đã load xong
   setTimeout(async () => {

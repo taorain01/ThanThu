@@ -68,7 +68,13 @@ module.exports = {
         const card = await createRankCard(targetUser, targetMember, info, totalUsers);
 
         const attachment = new AttachmentBuilder(card, { name: 'rank-card.png' });
-        await message.reply({ files: [attachment] });
+
+        // Xóa tin nhắn gốc + tag lại người dùng
+        try { await message.delete(); } catch (e) {}
+        await message.channel.send({
+            content: `<@${message.author.id}>`,
+            files: [attachment]
+        });
     }
 };
 

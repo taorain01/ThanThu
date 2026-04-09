@@ -1,11 +1,41 @@
 /**
  * Lệnh ?top - Bảng xếp hạng EXP
- * Tạo leaderboard card đẹp bằng Canvas (scale lớn hơn)
+ * Hỗ trợ: ?top (tổng) | ?top ngay/tuan/thang/nam (theo chu kỳ)
+ * Tạo leaderboard card đẹp bằng Canvas, chỉ hiển thị 5 người top
+ * Xóa tin nhắn gốc + tag lại người dùng
  */
 
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
-const { getAllExpLevels, getExpInfo } = require('../../database/economy');
+const { getAllExpLevels, getExpInfo, getPeriodicLeaderboard, getPeriodicExpInfo, getCurrentPeriodKeys } = require('../../database/economy');
+
+// Cấu hình các loại chu kỳ
+const PERIOD_CONFIG = {
+    day: {
+        aliases: ['ngay', 'day', 'd', 'homnay', 'today'],
+        label: 'HOM NAY',
+        emoji: '☀️',
+        theme: { primary: '#FF6B35', secondary: '#D4380D', accent: '#FFA940' }
+    },
+    week: {
+        aliases: ['tuan', 'week', 'w', 'tuannay'],
+        label: 'TUAN NAY',
+        emoji: '📅',
+        theme: { primary: '#1890FF', secondary: '#0050B3', accent: '#69C0FF' }
+    },
+    month: {
+        aliases: ['thang', 'month', 'm', 'thangnay'],
+        label: 'THANG NAY',
+        emoji: '🗓️',
+        theme: { primary: '#722ED1', secondary: '#531DAB', accent: '#B37FEB' }
+    },
+    year: {
+        aliases: ['nam', 'year', 'y', 'namnay'],
+        label: 'NAM NAY',
+        emoji: '🏆',
+        theme: { primary: '#EB2F96', secondary: '#C41D7F', accent: '#FF85C0' }
+    }
+};
 
 module.exports = {
     name: 'top',
@@ -15,49 +45,67 @@ module.exports = {
 
     async execute(message, args) {
         // Xác định loại bảng xếp hạng
-        let type = 'total';
+        let periodType = null; // null = tổng EXP
+        let expSubType = 'total'; // total, voice, text (chỉ cho tổng)
         let typeLabel = 'TONG EXP';
         let themeColors = { primary: '#667eea', secondary: '#764ba2', accent: '#f093fb' };
 
         if (args[0]) {
             const arg = args[0].toLowerCase();
-            if (['voice', 'vc', 'v'].includes(arg)) {
-                type = 'voice';
-                typeLabel = 'VOICE EXP';
-                themeColors = { primary: '#43b581', secondary: '#2d8b6a', accent: '#7CFFC4' };
-            } else if (['text', 'chat', 't', 'msg'].includes(arg)) {
-                type = 'text';
-                typeLabel = 'TEXT EXP';
-                themeColors = { primary: '#faa61a', secondary: '#f47b20', accent: '#FFD700' };
+
+            // Kiểm tra có phải chu kỳ không
+            for (const [type, config] of Object.entries(PERIOD_CONFIG)) {
+                if (config.aliases.includes(arg)) {
+                    periodType = type;
+                    typeLabel = config.label;
+                    themeColors = config.theme;
+                    break;
+                }
+            }
+
+            // Nếu không phải chu kỳ, kiểm tra loại EXP (voice/text)
+            if (!periodType) {
+                if (['voice', 'vc', 'v'].includes(arg)) {
+                    expSubType = 'voice';
+                    typeLabel = 'VOICE EXP';
+                    themeColors = { primary: '#43b581', secondary: '#2d8b6a', accent: '#7CFFC4' };
+                } else if (['text', 'chat', 't', 'msg'].includes(arg)) {
+                    expSubType = 'text';
+                    typeLabel = 'TEXT EXP';
+                    themeColors = { primary: '#faa61a', secondary: '#f47b20', accent: '#FFD700' };
+                }
             }
         }
 
-        // Thay thế logic lấy dữ liệu toàn cục bằng cách lọc members trong server
-        const allRecords = getAllExpLevels();
-        await message.guild.members.fetch().catch(() => {});
-        const guildMembers = message.guild.members.cache;
+        let leaderboard, totalUsers, myExpValue;
 
-        const sortKey = type === 'total' ? 'total_exp' : type === 'text' ? 'text_exp' : 'voice_exp';
-        const filteredRecords = allRecords.filter(r => guildMembers.has(r.discord_id) && r[sortKey] > 0);
-        filteredRecords.sort((a, b) => b[sortKey] - a[sortKey]);
+        if (periodType) {
+            // === Bảng xếp hạng theo chu kỳ ===
+            leaderboard = getPeriodicLeaderboard(periodType, 5);
+            totalUsers = leaderboard.length;
+            const myPeriodic = getPeriodicExpInfo(message.author.id, periodType);
+            myExpValue = myPeriodic?.total_exp || 0;
+        } else {
+            // === Bảng xếp hạng tổng EXP ===
+            const allRecords = getAllExpLevels();
+            await message.guild.members.fetch().catch(() => {});
+            const guildMembers = message.guild.members.cache;
 
-        const totalUsers = filteredRecords.length;
-        const leaderboard = filteredRecords.slice(0, 10);
-        const myInfo = getExpInfo(message.author.id);
-        
-        // Cập nhật local rank cho bản thân
-        const rankIndex = filteredRecords.findIndex(r => r.discord_id === message.author.id);
-        myInfo.rank = rankIndex !== -1 ? rankIndex + 1 : totalUsers + 1;
-        
-        // Tính ngày bắt đầu từ người có record cũ nhất
-        let serverStartDateStr = '';
-        if (filteredRecords.length > 0) {
-            let earliest = filteredRecords.reduce((a, b) => (a.created_at < b.created_at ? a : b)).created_at;
-            if (earliest) Object.assign(myInfo, { earliestDate: new Date(earliest).toLocaleDateString('vi-VN') });
+            const sortKey = expSubType === 'total' ? 'total_exp' : expSubType === 'text' ? 'text_exp' : 'voice_exp';
+            const filteredRecords = allRecords.filter(r => guildMembers.has(r.discord_id) && r[sortKey] > 0);
+            filteredRecords.sort((a, b) => b[sortKey] - a[sortKey]);
+
+            totalUsers = filteredRecords.length;
+            leaderboard = filteredRecords.slice(0, 5);
+            const myIndex = filteredRecords.findIndex(r => r.discord_id === message.author.id);
+            const myRecord = filteredRecords.find(r => r.discord_id === message.author.id);
+            myExpValue = myRecord ? myRecord[sortKey] : 0;
         }
 
         if (leaderboard.length === 0) {
-            return message.reply('Chua co ai co EXP! Hay bat dau tro chuyen de kiem EXP nhe.');
+            // Xóa tin nhắn gốc + tag lại
+            try { await message.delete(); } catch (e) {}
+            return message.channel.send({ content: `<@${message.author.id}> Chưa có ai có EXP trong khoảng thời gian này!` });
         }
 
         // Resolve tên và avatar cho tất cả entries
@@ -84,22 +132,26 @@ module.exports = {
             }
 
             // Truncate tên dài
-            if (displayName.length > 18) {
-                displayName = displayName.substring(0, 18) + '...';
+            if (displayName.length > 16) {
+                displayName = displayName.substring(0, 16) + '..';
             }
 
-            // EXP value theo loại
+            // EXP value
             let expValue;
-            if (type === 'text') expValue = entry.text_exp;
-            else if (type === 'voice') expValue = entry.voice_exp;
-            else expValue = entry.total_exp;
+            if (periodType) {
+                expValue = entry.total_exp;
+            } else {
+                if (expSubType === 'text') expValue = entry.text_exp;
+                else if (expSubType === 'voice') expValue = entry.voice_exp;
+                else expValue = entry.total_exp;
+            }
 
             entries.push({
                 rank: i + 1,
                 displayName,
                 avatarUrl,
                 expValue,
-                level: entry.level,
+                level: entry.level || 0,
                 isMe: entry.discord_id === message.author.id,
             });
         }
@@ -108,35 +160,43 @@ module.exports = {
         const maxExp = entries[0]?.expValue || 1;
 
         // Tạo canvas leaderboard
-        const card = await createLeaderboardCard(entries, maxExp, typeLabel, themeColors, myInfo, totalUsers, message.author);
+        const periodKeys = getCurrentPeriodKeys();
+        const card = await createLeaderboardCard(entries, maxExp, typeLabel, themeColors, myExpValue, totalUsers, periodType, periodKeys);
 
         const attachment = new AttachmentBuilder(card, { name: 'leaderboard.png' });
-        
-        // Hướng dẫn sử dụng
+
+        // Tạo hint
         let hint = '';
-        if (type === 'total') {
-            hint = '?top voice | ?top text';
+        if (periodType) {
+            const otherPeriods = Object.entries(PERIOD_CONFIG)
+                .filter(([k]) => k !== periodType)
+                .map(([k, v]) => `?top ${v.aliases[0]}`)
+                .join(' | ');
+            hint = `\`?top\` · ${otherPeriods}`;
         } else {
-            hint = '?top';
+            hint = '`?top ngay` · `?top tuan` · `?top thang` · `?top nam`';
         }
 
-        await message.reply({ 
-            files: [attachment],
-            content: hint ? `\`${hint}\`` : undefined
+        // Xóa tin nhắn gốc + tag lại người dùng
+        try { await message.delete(); } catch (e) {}
+
+        await message.channel.send({
+            content: `<@${message.author.id}>\n${hint}`,
+            files: [attachment]
         });
     }
 };
 
 /**
- * Tạo leaderboard card đẹp bằng Canvas (scale lớn hơn)
+ * Tạo leaderboard card gọn (5 người top)
  */
-async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, totalUsers, author) {
-    const width = 900;
-    const rowHeight = 66;
-    const headerHeight = 90;
-    const footerHeight = 60;
-    const topPadding = 24;
-    const bottomPadding = 18;
+async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myExpValue, totalUsers, periodType, periodKeys) {
+    const width = 750;
+    const rowHeight = 62;
+    const headerHeight = 72;
+    const footerHeight = 44;
+    const topPadding = 18;
+    const bottomPadding = 14;
     const height = headerHeight + topPadding + entries.length * rowHeight + bottomPadding + footerHeight;
 
     const canvas = createCanvas(width, height);
@@ -148,7 +208,7 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     bgGrad.addColorStop(0.4, '#1a1545');
     bgGrad.addColorStop(1, '#0d0b1e');
     ctx.fillStyle = bgGrad;
-    roundRect(ctx, 0, 0, width, height, 20);
+    roundRect(ctx, 0, 0, width, height, 16);
     ctx.fill();
 
     // Viền phát sáng
@@ -157,31 +217,20 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     borderGlow.addColorStop(0.5, theme.secondary);
     borderGlow.addColorStop(1, theme.accent);
     ctx.strokeStyle = borderGlow;
-    ctx.lineWidth = 3;
-    roundRect(ctx, 1, 1, width - 2, height - 2, 20);
+    ctx.lineWidth = 2;
+    roundRect(ctx, 1, 1, width - 2, height - 2, 16);
     ctx.stroke();
-
-    // ═══ HIỆU ỨNG NỀN ═══
-    ctx.globalAlpha = 0.03;
-    ctx.fillStyle = theme.primary;
-    ctx.beginPath();
-    ctx.arc(width - 100, 75, 130, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(80, height - 50, 90, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
 
     // ═══ HEADER ═══
     const headerGrad = ctx.createLinearGradient(0, 0, width, headerHeight);
     headerGrad.addColorStop(0, 'rgba(255,255,255,0.03)');
     headerGrad.addColorStop(1, 'rgba(255,255,255,0.01)');
     ctx.fillStyle = headerGrad;
-    roundRect(ctx, 0, 0, width, headerHeight, { tl: 20, tr: 20, bl: 0, br: 0 });
+    roundRect(ctx, 0, 0, width, headerHeight, { tl: 16, tr: 16, bl: 0, br: 0 });
     ctx.fill();
 
     // Đường kẻ dưới header
-    const lineGrad = ctx.createLinearGradient(30, headerHeight, width - 30, headerHeight);
+    const lineGrad = ctx.createLinearGradient(24, headerHeight, width - 24, headerHeight);
     lineGrad.addColorStop(0, 'rgba(255,255,255,0)');
     lineGrad.addColorStop(0.2, theme.primary + '60');
     lineGrad.addColorStop(0.5, theme.accent + '80');
@@ -190,117 +239,118 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     ctx.strokeStyle = lineGrad;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(30, headerHeight);
-    ctx.lineTo(width - 30, headerHeight);
+    ctx.moveTo(24, headerHeight);
+    ctx.lineTo(width - 24, headerHeight);
     ctx.stroke();
 
     // Title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = 'bold 26px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('BANG XEP HANG', 36, headerHeight / 2 - 8);
+    ctx.fillText('BANG XEP HANG', 28, headerHeight / 2 - 6);
 
     // Type badge
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 13px sans-serif';
     const badgeText = typeLabel;
-    const badgeWidth = ctx.measureText(badgeText).width + 26;
-    const badgeX = 36;
-    const badgeY = headerHeight / 2 + 18;
+    const badgeWidth = ctx.measureText(badgeText).width + 22;
+    const badgeX = 28;
+    const badgeY = headerHeight / 2 + 16;
 
-    const badgeGrad = ctx.createLinearGradient(badgeX, badgeY - 12, badgeX + badgeWidth, badgeY + 12);
+    const badgeGrad = ctx.createLinearGradient(badgeX, badgeY - 10, badgeX + badgeWidth, badgeY + 10);
     badgeGrad.addColorStop(0, theme.primary);
     badgeGrad.addColorStop(1, theme.secondary);
     ctx.fillStyle = badgeGrad;
-    roundRect(ctx, badgeX, badgeY - 12, badgeWidth, 24, 12);
+    roundRect(ctx, badgeX, badgeY - 10, badgeWidth, 20, 10);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY);
 
-    // Tổng người chơi (góc phải header)
+    // Thông tin chu kỳ (góc phải header)
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '16px sans-serif';
+    ctx.font = '14px sans-serif';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    
-    if (myInfo.earliestDate) {
-        ctx.fillText(`${totalUsers} nguoi choi`, width - 36, headerHeight / 2 - 12);
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.font = '14px sans-serif';
-        ctx.fillText(`Tu ngay: ${myInfo.earliestDate}`, width - 36, headerHeight / 2 + 12);
+
+    if (periodType && periodKeys) {
+        const periodLabel = periodKeys[periodType] || '';
+        ctx.fillText(`${totalUsers} nguoi · ${periodLabel}`, width - 28, headerHeight / 2 - 6);
     } else {
-        ctx.fillText(`${totalUsers} nguoi choi`, width - 36, headerHeight / 2);
+        ctx.fillText(`${totalUsers} nguoi choi`, width - 28, headerHeight / 2 - 6);
     }
 
-    // ═══ DANH SÁCH TOP ═══
+    // Gợi ý tab chu kỳ (phía dưới phải header)
+    if (!periodType) {
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('ngay · tuan · thang · nam', width - 28, headerHeight / 2 + 14);
+    }
+
+    // ═══ DANH SÁCH TOP 5 ═══
     const startY = headerHeight + topPadding;
 
     for (let i = 0; i < entries.length; i++) {
         const entry = entries[i];
         const y = startY + i * rowHeight;
-        const rowPadX = 24;
+        const rowPadX = 18;
         const rowWidth = width - rowPadX * 2;
 
         // Nền row cho top 3 hoặc highlight bản thân
         if (entry.rank <= 3) {
             const rowAlpha = entry.rank === 1 ? 0.08 : entry.rank === 2 ? 0.05 : 0.03;
             ctx.fillStyle = `rgba(255,255,255,${rowAlpha})`;
-            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 5, 10);
+            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 4, 8);
             ctx.fill();
         }
 
         if (entry.isMe) {
             ctx.strokeStyle = theme.primary + '50';
             ctx.lineWidth = 1;
-            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 5, 10);
+            roundRect(ctx, rowPadX, y, rowWidth, rowHeight - 4, 8);
             ctx.stroke();
         }
 
         // ── Rank number ──
-        const rankX = rowPadX + 26;
+        const rankX = rowPadX + 24;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const centerY = y + (rowHeight - 5) / 2;
+        const centerY = y + (rowHeight - 4) / 2;
 
         if (entry.rank <= 3) {
-            // Vẽ huy chương cho top 3
             const medalColors = [
-                { bg: '#FFD700', border: '#B8860B', text: '#000' }, // Vàng
-                { bg: '#C0C0C0', border: '#808080', text: '#000' }, // Bạc
-                { bg: '#CD7F32', border: '#8B5A2B', text: '#fff' }, // Đồng
+                { bg: '#FFD700', border: '#B8860B', text: '#000' },
+                { bg: '#C0C0C0', border: '#808080', text: '#000' },
+                { bg: '#CD7F32', border: '#8B5A2B', text: '#fff' },
             ];
             const medal = medalColors[entry.rank - 1];
 
-            // Hình tròn huy chương
             ctx.fillStyle = medal.bg;
             ctx.beginPath();
-            ctx.arc(rankX, centerY, 18, 0, Math.PI * 2);
+            ctx.arc(rankX, centerY, 16, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.strokeStyle = medal.border;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(rankX, centerY, 18, 0, Math.PI * 2);
+            ctx.arc(rankX, centerY, 16, 0, Math.PI * 2);
             ctx.stroke();
 
             ctx.fillStyle = medal.text;
-            ctx.font = 'bold 18px sans-serif';
+            ctx.font = 'bold 16px sans-serif';
             ctx.fillText(entry.rank.toString(), rankX, centerY);
         } else {
-            // Số thứ tự thường
             ctx.fillStyle = 'rgba(255,255,255,0.35)';
-            ctx.font = 'bold 18px sans-serif';
+            ctx.font = 'bold 16px sans-serif';
             ctx.fillText(`${entry.rank}`, rankX, centerY);
         }
 
         // ── Avatar ──
-        const avSize = 44;
-        const avX = rankX + 36;
+        const avSize = 40;
+        const avX = rankX + 32;
         const avY = centerY - avSize / 2;
 
-        // Clip tròn để vẽ avatar
         ctx.save();
         ctx.beginPath();
         ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
@@ -315,7 +365,6 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
                 throw new Error('no avatar');
             }
         } catch (e) {
-            // Fallback gradient
             const fallbackGrad = ctx.createLinearGradient(avX, avY, avX + avSize, avY + avSize);
             fallbackGrad.addColorStop(0, theme.primary);
             fallbackGrad.addColorStop(1, theme.secondary);
@@ -323,7 +372,7 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
             ctx.fillRect(avX, avY, avSize, avSize);
 
             ctx.fillStyle = '#fff';
-            ctx.font = 'bold 20px sans-serif';
+            ctx.font = 'bold 18px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(entry.displayName[0].toUpperCase(), avX + avSize / 2, avY + avSize / 2);
@@ -340,26 +389,19 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
             ctx.stroke();
         }
 
-        // ── Tên + Level ──
-        const nameX = avX + avSize + 16;
+        // ── Tên ──
+        const nameX = avX + avSize + 14;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
 
-        // Tên
         ctx.fillStyle = entry.isMe ? theme.accent : '#ffffff';
-        ctx.font = 'bold 20px sans-serif';
-        ctx.fillText(entry.displayName, nameX, centerY - 10);
-
-        // Level badge nhỏ
-        const lvText = `Lv ${entry.level}`;
-        ctx.font = '14px sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.fillText(lvText, nameX, centerY + 12);
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText(entry.displayName, nameX, centerY);
 
         // ── EXP bar + số ──
-        const barMaxWidth = 230;
-        const barHeight = 14;
-        const barX = width - 36 - barMaxWidth;
+        const barMaxWidth = 200;
+        const barHeight = 12;
+        const barX = width - 28 - barMaxWidth;
         const barY = centerY - barHeight / 2;
 
         // Nền bar
@@ -385,19 +427,18 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Số EXP bên phải bar
+        // Số EXP bên trái bar
         ctx.fillStyle = theme.accent;
-        ctx.font = 'bold 16px sans-serif';
+        ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText(formatNumber(entry.expValue), barX - 10, centerY);
+        ctx.fillText(formatNumber(entry.expValue), barX - 8, centerY);
     }
 
-    // ═══ FOOTER - Thông tin bản thân ═══
+    // ═══ FOOTER ═══
     const footerY = height - footerHeight;
 
-    // Đường kẻ trên footer
-    const footerLine = ctx.createLinearGradient(30, footerY, width - 30, footerY);
+    const footerLine = ctx.createLinearGradient(24, footerY, width - 24, footerY);
     footerLine.addColorStop(0, 'rgba(255,255,255,0)');
     footerLine.addColorStop(0.3, 'rgba(255,255,255,0.1)');
     footerLine.addColorStop(0.7, 'rgba(255,255,255,0.1)');
@@ -405,20 +446,20 @@ async function createLeaderboardCard(entries, maxExp, typeLabel, theme, myInfo, 
     ctx.strokeStyle = footerLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(30, footerY);
-    ctx.lineTo(width - 30, footerY);
+    ctx.moveTo(24, footerY);
+    ctx.lineTo(width - 24, footerY);
     ctx.stroke();
 
     // Thông tin cá nhân
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '16px sans-serif';
+    ctx.font = '14px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const footerCenterY = footerY + footerHeight / 2;
-    ctx.fillText(`Hang cua ban: #${myInfo.rank}/${totalUsers}`, 36, footerCenterY);
+    ctx.fillText(`EXP cua ban: ${formatNumber(myExpValue)}`, 28, footerCenterY);
 
     ctx.textAlign = 'right';
-    ctx.fillText(`Level ${myInfo.level}  |  ${formatNumber(myInfo.totalExp)} EXP`, width - 36, footerCenterY);
+    ctx.fillText('Lang Gia Cac', width - 28, footerCenterY);
 
     return canvas.toBuffer('image/png');
 }

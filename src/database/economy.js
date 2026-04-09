@@ -379,6 +379,29 @@ function initializeDatabase() {
     } catch (e) { /* Column exists */ }
 
     console.log('✅ EXP Level tables initialized');
+
+    // ============== EXP PERIODIC (Bảng xếp hạng theo chu kỳ) ==============
+    db.prepare(`
+        CREATE TABLE IF NOT EXISTS exp_periodic (
+            discord_id TEXT NOT NULL,
+            period_type TEXT NOT NULL,
+            period_key TEXT NOT NULL,
+            text_exp INTEGER DEFAULT 0,
+            voice_exp INTEGER DEFAULT 0,
+            total_exp INTEGER DEFAULT 0,
+            PRIMARY KEY (discord_id, period_type, period_key)
+        )
+    `).run();
+
+    // Index cho leaderboard query nhanh
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_exp_periodic_lookup ON exp_periodic(period_type, period_key, total_exp)').run();
+    } catch (e) { /* Index exists */ }
+
+    // Dọn dẹp dữ liệu chu kỳ cũ ngay khi khởi động
+    cleanupExpiredPeriodic();
+
+    console.log('✅ EXP Periodic tables initialized');
 }
 
 
@@ -1571,6 +1594,9 @@ function addTextExp(discordId) {
         WHERE discord_id = ?
     `).run(newTextExp, newTotalExp, newLevel, new Date().toISOString(), newMessages, discordId);
 
+    // Cộng EXP vào bảng periodic (ngày/tuần/tháng/năm)
+    addPeriodicExp(discordId, expGained, 'text');
+
     // Sync to Supabase
     try {
         const supaSync = require('../utils/supabaseSync');
@@ -1639,6 +1665,9 @@ function addVoiceExp(discordId, minutes = 1, isMuted = false) {
             voice_muted_minutes = COALESCE(voice_muted_minutes, 0) + ?
         WHERE discord_id = ?
     `).run(newVoiceExp, newTotalExp, newLevel, newVoiceMinutes, unmutedAdd, mutedAdd, discordId);
+
+    // Cộng EXP vào bảng periodic (ngày/tuần/tháng/năm)
+    addPeriodicExp(discordId, expGained, 'voice');
 
     // Sync to Supabase
     try {
@@ -1726,6 +1755,117 @@ function getExpUserCount() {
  */
 function getAllExpLevels() {
     return db.prepare('SELECT * FROM exp_levels').all();
+}
+
+// ============== EXP PERIODIC FUNCTIONS ==============
+
+/**
+ * Lấy period key hiện tại cho từng loại chu kỳ
+ * Format: day=YYYY-MM-DD, week=YYYY-WNN, month=YYYY-MM, year=YYYY
+ */
+function getCurrentPeriodKeys() {
+    const vn = getVietnamNow();
+    const y = vn.getFullYear();
+    const m = String(vn.getMonth() + 1).padStart(2, '0');
+    const d = String(vn.getDate()).padStart(2, '0');
+
+    // Tính tuần ISO
+    const jan1 = new Date(y, 0, 1);
+    const dayOfYear = Math.ceil((vn - jan1) / 86400000) + 1;
+    const weekNum = Math.ceil((dayOfYear + jan1.getDay()) / 7);
+    const w = String(weekNum).padStart(2, '0');
+
+    return {
+        day: `${y}-${m}-${d}`,
+        week: `${y}-W${w}`,
+        month: `${y}-${m}`,
+        year: `${y}`
+    };
+}
+
+/**
+ * Cộng EXP vào bảng periodic cho tất cả chu kỳ
+ * @param {string} discordId
+ * @param {number} expAmount - Số EXP cộng thêm
+ * @param {string} expType - 'text' hoặc 'voice'
+ */
+function addPeriodicExp(discordId, expAmount, expType = 'text') {
+    const keys = getCurrentPeriodKeys();
+    const textAdd = expType === 'text' ? expAmount : 0;
+    const voiceAdd = expType === 'voice' ? expAmount : 0;
+
+    const upsert = db.prepare(`
+        INSERT INTO exp_periodic (discord_id, period_type, period_key, text_exp, voice_exp, total_exp)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(discord_id, period_type, period_key)
+        DO UPDATE SET
+            text_exp = text_exp + ?,
+            voice_exp = voice_exp + ?,
+            total_exp = total_exp + ?
+    `);
+
+    const runAll = db.transaction(() => {
+        for (const [type, key] of Object.entries(keys)) {
+            upsert.run(discordId, type, key, textAdd, voiceAdd, expAmount, textAdd, voiceAdd, expAmount);
+        }
+    });
+    runAll();
+}
+
+/**
+ * Lấy bảng xếp hạng periodic
+ * @param {string} periodType - 'day', 'week', 'month', 'year'
+ * @param {number} limit - Số lượng top (mặc định 5)
+ * @returns {Array} Danh sách top users
+ */
+function getPeriodicLeaderboard(periodType = 'day', limit = 5) {
+    const keys = getCurrentPeriodKeys();
+    const periodKey = keys[periodType];
+    if (!periodKey) return [];
+
+    return db.prepare(`
+        SELECT * FROM exp_periodic
+        WHERE period_type = ? AND period_key = ? AND total_exp > 0
+        ORDER BY total_exp DESC
+        LIMIT ?
+    `).all(periodType, periodKey, limit);
+}
+
+/**
+ * Lấy EXP periodic của một user cụ thể
+ * @param {string} discordId
+ * @param {string} periodType
+ * @returns {Object|null}
+ */
+function getPeriodicExpInfo(discordId, periodType = 'day') {
+    const keys = getCurrentPeriodKeys();
+    const periodKey = keys[periodType];
+    if (!periodKey) return null;
+
+    return db.prepare(`
+        SELECT * FROM exp_periodic
+        WHERE discord_id = ? AND period_type = ? AND period_key = ?
+    `).get(discordId, periodType, periodKey) || { total_exp: 0, text_exp: 0, voice_exp: 0 };
+}
+
+/**
+ * Dọn dẹp dữ liệu chu kỳ đã hết hạn
+ * Chỉ giữ lại chu kỳ hiện tại, xóa tất cả cũ
+ */
+function cleanupExpiredPeriodic() {
+    const keys = getCurrentPeriodKeys();
+
+    const deleteOld = db.transaction(() => {
+        for (const [type, key] of Object.entries(keys)) {
+            const result = db.prepare(`
+                DELETE FROM exp_periodic WHERE period_type = ? AND period_key != ?
+            `).run(type, key);
+            if (result.changes > 0) {
+                console.log(`🗑️ Đã xóa ${result.changes} record exp_periodic cũ (${type}, giữ lại ${key})`);
+            }
+        }
+    });
+    deleteOld();
 }
 
 // Phần thưởng theo level
@@ -1854,6 +1994,12 @@ module.exports = {
     getTotalExpForLevel,
     getLevelReward,
     LEVEL_REWARDS,
+    // EXP Periodic
+    addPeriodicExp,
+    getPeriodicLeaderboard,
+    getPeriodicExpInfo,
+    cleanupExpiredPeriodic,
+    getCurrentPeriodKeys,
     // Database access
     db
 };

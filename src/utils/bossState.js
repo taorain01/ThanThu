@@ -64,8 +64,7 @@ const BOSS_AUTO_CLOSE_DURATION = 60 * 60 * 1000;
 // dayOfWeek: 0=CN, 1=T2, 2=T3, 3=T4, 4=T5, 5=T6, 6=T7
 const bossSchedule = [
     { dayOfWeek: 1, name: 'Thứ 2', hour: 19, minute: 0 },
-    { dayOfWeek: 2, name: 'Thứ 3', hour: 19, minute: 0 },
-    { dayOfWeek: 5, name: 'Thứ 6', hour: 19, minute: 0 }
+    { dayOfWeek: 2, name: 'Thứ 3', hour: 19, minute: 0 }
 ];
 
 // Helper: Cập nhật lịch boss

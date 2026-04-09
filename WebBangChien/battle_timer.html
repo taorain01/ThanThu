@@ -57,24 +57,34 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 .tog.on .dot{background:rgba(251,191,36,.3)}
 .tog.on .dot::after{background:var(--gold);transform:translateX(12px);box-shadow:0 0 6px var(--gold)}
 
-/* ── SOUND PACK PICKER ── */
+/* ── SOUND PACK PICKER (floating right tab) ── */
 .snd-pick{
-  position:relative;display:flex;align-items:center;gap:6px;padding:6px 12px;
-  background:rgba(255,255,255,.04);border:1px solid var(--border);
-  border-radius:20px;cursor:pointer;font-size:12px;color:var(--text3);
-  transition:all .2s;user-select:none}
-.snd-pick:hover,.snd-pick.open{border-color:rgba(251,191,36,.5);color:var(--gold);background:rgba(251,191,36,.08)}
-.snd-pick-ico{font-size:14px}
-.snd-pick-label{white-space:nowrap;font-weight:600;letter-spacing:.3px}
-.snd-pick-arrow{width:10px;height:10px;transition:transform .2s}
-.snd-pick.open .snd-pick-arrow{transform:rotate(180deg)}
+  position:fixed;right:-1px;top:50%;transform:translateY(-50%);
+  z-index:300;display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:12px 8px;
+  background:rgba(10,26,15,.92);border:1px solid rgba(251,191,36,.35);
+  border-right:none;border-radius:12px 0 0 12px;
+  cursor:pointer;font-size:11px;color:var(--text3);
+  transition:all .2s;user-select:none;
+  box-shadow:-4px 0 20px rgba(0,0,0,.5);backdrop-filter:blur(12px)}
+.snd-pick:hover,.snd-pick.open{
+  border-color:rgba(251,191,36,.6);color:var(--gold);
+  background:rgba(251,191,36,.1);right:0;
+  box-shadow:-6px 0 24px rgba(251,191,36,.15)}
+.snd-pick-ico{font-size:18px}
+.snd-pick-label{
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  white-space:nowrap;font-weight:600;letter-spacing:1px;font-size:10px}
+.snd-pick-arrow{width:8px;height:8px;transition:transform .2s;transform:rotate(90deg)}
+.snd-pick.open .snd-pick-arrow{transform:rotate(-90deg)}
 .snd-menu{
-  position:absolute;top:calc(100% + 8px);right:0;min-width:220px;
+  position:fixed;right:56px;top:50%;transform:translateY(-50%);
+  min-width:220px;
   background:rgba(10,26,15,.97);border:1px solid rgba(251,191,36,.25);border-radius:12px;
-  padding:6px;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:200;
+  padding:6px;box-shadow:-8px 0 32px rgba(0,0,0,.7);z-index:299;
   display:none;backdrop-filter:blur(20px)}
 .snd-menu.open{display:block;animation:sndIn .2s ease}
-@keyframes sndIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes sndIn{from{opacity:0;transform:translateY(-50%) translateX(10px)}to{opacity:1;transform:translateY(-50%)}}
 .snd-opt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
   cursor:pointer;transition:all .15s;font-size:12px;color:var(--text2)}
 .snd-opt:hover{background:rgba(251,191,36,.08);color:var(--text)}
@@ -88,8 +98,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
   box-shadow:0 0 8px rgba(251,191,36,.2)}
 .snd-opt .snd-check{display:none;color:var(--gold);font-size:10px}
 .snd-opt.active .snd-check{display:inline}
-@media(max-width:768px){.snd-pick{padding:5px 10px}.snd-pick-label{font-size:10px}.snd-menu{min-width:180px}}
-@media(max-width:480px){.snd-pick{padding:5px 8px;gap:4px}.snd-pick-label{display:none}.snd-menu{min-width:160px;right:-5px}}
+@media(max-width:480px){
+  .snd-pick{padding:8px 6px;right:-1px}
+  .snd-pick-label{display:none}
+  .snd-menu{right:48px;min-width:190px}}
 
 /* ── MAIN PANEL ── */
 .main{background:var(--card);border:1px solid var(--border);border-radius:18px;
@@ -374,20 +386,22 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
         <div class="dot"></div>
         <span>Âm thanh</span>
       </div>
-      <div class="snd-pick" id="sndPick">
-        <span class="snd-pick-ico" id="sndCurIco">🎮</span>
-        <span class="snd-pick-label" id="sndLabel">Digital</span>
-        <svg class="snd-pick-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
-        <div class="snd-menu" id="sndMenu">
-          <div class="snd-opt active" data-pack="digital"><span class="snd-ico">🎮</span><span class="snd-name">Digital</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
-          <div class="snd-opt" data-pack="drum"><span class="snd-ico">🥁</span><span class="snd-name">Trống Trận</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
-          <div class="snd-opt" data-pack="bell"><span class="snd-ico">🔔</span><span class="snd-name">Chuông Chùa</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
-          <div class="snd-opt" data-pack="scifi"><span class="snd-ico">⚡</span><span class="snd-name">Sci-Fi</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
-          <div class="snd-opt" data-pack="melody"><span class="snd-ico">🎵</span><span class="snd-name">Melody</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
-        </div>
-      </div>
     </div>
   </header>
+
+  <!-- SOUND PACK PICKER (floating right side) -->
+  <div class="snd-pick" id="sndPick">
+    <span class="snd-pick-ico" id="sndCurIco">🎮</span>
+    <span class="snd-pick-label" id="sndLabel">Digital</span>
+    <svg class="snd-pick-arrow" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+    <div class="snd-menu" id="sndMenu">
+      <div class="snd-opt active" data-pack="digital"><span class="snd-ico">🎮</span><span class="snd-name">Digital</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+      <div class="snd-opt" data-pack="drum"><span class="snd-ico">🥁</span><span class="snd-name">Trống Trận</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+      <div class="snd-opt" data-pack="bell"><span class="snd-ico">🔔</span><span class="snd-name">Chuông Chùa</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+      <div class="snd-opt" data-pack="scifi"><span class="snd-ico">⚡</span><span class="snd-name">Sci-Fi</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+      <div class="snd-opt" data-pack="melody"><span class="snd-ico">🎵</span><span class="snd-name">Melody</span><span class="snd-check">✓</span><span class="snd-preview">🔊 Thử</span></div>
+    </div>
+  </div>
 
   <!-- MAIN TIMER -->
   <main class="main" id="mainPanel">

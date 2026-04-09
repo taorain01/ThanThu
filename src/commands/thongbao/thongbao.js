@@ -1,4 +1,4 @@
-﻿const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const storage = require('../../utils/storage');
 const { checkPermissionAndReply } = require('../../utils/permissionHelper');
 const { sendNotificationWithMenu } = require('../../utils/menuManager');
@@ -163,7 +163,9 @@ function getWeeklySchedule(guildId) {
       dailyEvents.push({
         name: template.eventName,
         emoji: template.emoji,
-        missionType: notif.missionType
+        missionType: notif.missionType,
+        hours: notif.hours,
+        minutes: notif.minutes
       });
       continue;
     } else {
@@ -220,9 +222,11 @@ function getWeeklySchedule(guildId) {
     output += '─────────────────────────────\n';
     for (const e of dailyEvents) {
       if (e.missionType === 'YenTiec') {
+        // Lấy giờ thực tế từ notification
+        const ytTimeStr = `${e.hours}h${e.minutes > 0 ? e.minutes.toString().padStart(2, '0') : '00'}`;
         output += `${e.emoji} **${e.name}**: MỖI NGÀY\n`;
-        output += `   T2-T6: **21h00**\n`;
-        output += `   T7-CN: **19h00** (nếu có BC) / **19h30** (nếu không có BC)\n`;
+        output += `   T2-T6: **${ytTimeStr}**\n`;
+        output += `   T7-CN: **19h NẾU CÓ BANG CHIẾN**\n`;
       } else {
         output += `${e.emoji} **${e.name}** - Mỗi ngày\n`;
       }

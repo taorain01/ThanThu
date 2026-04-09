@@ -133,6 +133,14 @@ function isNextWeek(date) {
 function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
     const db = require('../../database/db');
 
+    // DEBUG: Kiểm tra weeklyNotifications có data không
+    console.log(`[getWeeklySchedule] DEBUG: weeklyNotifications.size = ${weeklyNotifications.size}, guildId = ${guildId}`);
+    for (const [id, notif] of weeklyNotifications) {
+        if (notif.guildId === guildId) {
+            console.log(`[getWeeklySchedule] DEBUG: found notif id=${id}, type=${notif.missionType}, isGuildMission=${notif.isGuildMission}, isDaily=${notif.isDaily}, thu=${notif.thu}`);
+        }
+    }
+
     const vnOffset = 7 * 60;
     const localOffset = new Date().getTimezoneOffset();
     const now = new Date();

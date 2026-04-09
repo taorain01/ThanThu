@@ -708,6 +708,8 @@ function onDragStart(e) {
   e.preventDefault();
   isDragging = true;
   ringWrap.classList.add('dragging');
+  // Tat transition de ring follow tuc thi khi keo
+  document.getElementById('rTrack').style.transition = 'none';
   onDragMove(e);
 }
 function onDragMove(e) {
@@ -734,6 +736,8 @@ function onDragEnd() {
   if (!isDragging) return;
   isDragging = false;
   ringWrap.classList.remove('dragging');
+  // Khoi phuc transition muot
+  document.getElementById('rTrack').style.transition = 'stroke-dashoffset .15s linear, stroke-dasharray .15s linear, stroke .5s';
 }
 
 // Cập nhật handle khi resize
@@ -773,7 +777,7 @@ function startTimer(){
   document.getElementById('rStatus').textContent='▶ Đang Chạy';
   // Handle van hien thi khi chay — di chuyen CW cung ring
   // cập nhật transition cho smooth khi chạy
-  document.getElementById('rTrack').style.transition='stroke-dashoffset 1s linear,stroke .5s';
+  document.getElementById('rTrack').style.transition='stroke-dashoffset 1s linear, stroke-dasharray 1s linear, stroke .5s';
   if(iv)clearInterval(iv);
   iv=setInterval(tick,1000);
   addN('▶','Bắt đầu!',`Timer từ ${fmtT(remain)}`,'tstart');
@@ -795,7 +799,7 @@ function resetTimer(){
   document.getElementById('btnPause').disabled=true;
   document.getElementById('rStatus').textContent='⏸ Sẵn Sàng';
   // khôi phục transition nhanh khi kéo
-  document.getElementById('rTrack').style.transition='stroke-dashoffset .15s linear,stroke .5s';
+  document.getElementById('rTrack').style.transition='none';
   // Handle luon hien
   updateDisplay();
   updateDragHandle();

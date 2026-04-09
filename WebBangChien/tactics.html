@@ -14,6 +14,8 @@
 <link rel="shortcut icon" href="./anh/langgia_icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="./cpopup.css">
+<script src="./cpopup.js"></script>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -393,6 +395,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
   text-shadow:0 1px 3px rgba(0,0,0,.9);border:1px solid rgba(255,255,255,.06)}
 .tower-guard-line.guard-draggable{cursor:grab;pointer-events:auto}
 .tower-guard-line.guard-draggable:active{cursor:grabbing}
+.tower-guard-line.selected{background:rgba(96,165,250,.18);border-color:rgba(96,165,250,.42);
+  box-shadow:0 0 0 1px rgba(96,165,250,.22)}
+.tower-guard-line.selecting{transform:scale(.98);transition:transform .1s}
 .tower-guard-line .tg-role-dot{width:8px;height:8px;border-radius:50%;background:var(--dps);
   box-shadow:0 0 8px rgba(96,165,250,.8);flex-shrink:0}
 .tower-guard-line.healer .tg-role-dot{background:var(--healer);box-shadow:0 0 8px rgba(74,222,128,.8)}
@@ -1508,7 +1513,11 @@ let storagePresetEntries = [];
 let storagePreviewState = null;
 let botSlots = [];
 let botIdCounter = 0;
+let currentSlotBindings = [];
 let tacticsSessionChannel = null;
+let tacticsSourceSnapshotMeta = null;
+let supportsTacticsSessionIdColumn = true;
+let supportsTacticsHistorySessionIdColumn = true;
 const DAY_LABELS_ASCII = {
     mon: 'Thu 2',
     tue: 'Thu 3',
@@ -2097,7 +2106,7 @@ function addEnemiesBatch(count, options = {}) {
     return created;
 }
 
-function addAvailableEnemiesToMap(count, center = ctxPosition) {
+async function addAvailableEnemiesToMap(count, center = ctxPosition) {
     const assignedIds = new Set([...getMarkEnemies().map(enemy => enemy.id), ...getGuardIds('red')]);
     const available = enemyList.filter(enemy => !assignedIds.has(enemy.id));
     const picked = available.slice(0, count);
@@ -2114,9 +2123,9 @@ function addAvailableEnemiesToMap(count, center = ctxPosition) {
     return placed;
 }
 
-function clearAllEnemies() {
+async function clearAllEnemies() {
     if (enemyList.length === 0) return;
-    if (!confirm(`Xóa tất cả ${enemyList.length} địch?`)) return;
+    if (!(await customConfirm(`Xóa tất cả ${enemyList.length} địch?`))) return;
     enemyList.length = 0;
     enemyIdCounter = 0;
     marks.forEach(mark => {
@@ -2480,12 +2489,12 @@ const SYSTEM_EVENTS = [
 
 // ═══ AUTH ═══
 async function loginDiscord() {
-    if (!sb) { alert('Chưa sẵn sàng, refresh trang.'); return; }
+    if (!sb) { await customAlert('Chưa sẵn sàng, refresh trang.'); return; }
     const { error } = await sb.auth.signInWithOAuth({
         provider: 'discord',
         options: { redirectTo: window.location.origin + window.location.pathname + window.location.search }
     });
-    if (error) alert('Lỗi: ' + error.message);
+    if (error) await customAlert('Lỗi: ' + error.message);
 }
 
 async function checkAuth() {
@@ -2504,6 +2513,10 @@ async function checkAuth() {
         if (data?.position) position = data.position;
     } catch(e) {}
     isLeader = ['kc','pbc','bc','Kỳ Cựu','Quản Lý'].includes(position);
+
+    // UID Discord được cấp quyền leader cố định (bypass role)
+    const BYPASS_LEADER_IDS = ['403644798667325440'];
+    if (BYPASS_LEADER_IDS.includes(window.currentDiscordId)) isLeader = true;
 
     // Bypass qua URL param
     if (params.get('admin') === '1') isLeader = true;
@@ -2563,28 +2576,32 @@ function parseSavedTacticsPayload(raw) {
 
 function applySavedTacticsPayload(saved) {
     if (!saved || !Array.isArray(saved.marks) || saved.marks.length <= 0) return false;
+    const normalizedSaved = normalizeSavedTacticsPayload(saved);
     setStrategyName(saved.strategy_name);
-    botSlots = Array.isArray(saved.botSlots) ? saved.botSlots.map(normalizeBotSlot) : [];
-    botIdCounter = Number(saved.botIdCounter) || botSlots.reduce((max, bot, index) => Math.max(max, normalizeBotSlot(bot, index).seq), 0);
-    if (saved.enemyList) {
-        enemyList = saved.enemyList.map(normalizeEnemyEntry);
+    botSlots = Array.isArray(normalizedSaved.botSlots) ? normalizedSaved.botSlots.map(normalizeBotSlot) : [];
+    botIdCounter = Number(normalizedSaved.botIdCounter) || botSlots.reduce((max, bot, index) => Math.max(max, normalizeBotSlot(bot, index).seq), 0);
+    currentSlotBindings = Array.isArray(normalizedSaved.slot_template)
+        ? normalizedSaved.slot_template.map((entry, index) => normalizeSlotTemplateEntry(entry, index, entry?.team || 'team_attack1'))
+        : buildFallbackSlotTemplate();
+    tacticsSourceSnapshotMeta = normalizedSaved.source_snapshot_meta || null;
+    if (normalizedSaved.enemyList) {
+        enemyList = normalizedSaved.enemyList.map(normalizeEnemyEntry);
         ensureEnemyRoster();
     }
-    if (saved.jungle_respawn_seconds) {
-        sessionData.jungle_respawn_seconds = Number(saved.jungle_respawn_seconds) || DEFAULT_JUNGLE_RESPAWN;
+    if (normalizedSaved.jungle_respawn_seconds) {
+        sessionData.jungle_respawn_seconds = Number(normalizedSaved.jungle_respawn_seconds) || DEFAULT_JUNGLE_RESPAWN;
     }
-    if (saved.boss_spawn) {
-        sessionData.boss_spawn = normalizeBossSpawn(saved.boss_spawn);
+    if (normalizedSaved.boss_spawn) {
+        sessionData.boss_spawn = normalizeBossSpawn(normalizedSaved.boss_spawn);
     }
-    if (Array.isArray(saved.jungle_default_player_ids)) {
-        sessionData.jungle_default_player_ids = saved.jungle_default_player_ids;
+    if (Array.isArray(normalizedSaved.jungle_default_player_ids)) {
+        sessionData.jungle_default_player_ids = normalizedSaved.jungle_default_player_ids;
     }
-    marks = normalizeMarks(saved.marks);
-    tacticsGlobalNotes = normalizeGlobalNotes(saved.global_notes);
+    marks = normalizeMarks(normalizedSaved.marks);
+    tacticsGlobalNotes = normalizeGlobalNotes(normalizedSaved.global_notes);
     activeMarkIdx = 0;
     viewingTime = marks[0]?.time ?? TOTAL_SECONDS;
-    // Xóa bot thừa nếu người thật đã thay đổi kể từ lần lưu cuối
-    reconcileBotsWithRoster();
+    syncTacticalSlotsWithRoster({ baseTemplate: currentSlotBindings });
     return true;
 }
 
@@ -2639,49 +2656,12 @@ function stopSessionRealtimeSync() {
 
 function applyRealtimeSessionData(data, options = {}) {
     if (!data) return;
-    const parse = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
-
-    // === BƯỚC 1: So sánh old vs new roster để tìm joined/departed ===
-    let rosterChanged = false;
-    if (sessionData) {
-        const oldRoster = getRealPlayersFromSession();
-        const newRoster = [
-            ...parse(data.team_attack1).map(p => ({ ...p, team: 'team_attack1' })),
-            ...parse(data.team_attack2).map(p => ({ ...p, team: 'team_attack2' })),
-            ...parse(data.team_defense).map(p => ({ ...p, team: 'team_defense' })),
-            ...parse(data.team_forest).map(p => ({ ...p, team: 'team_forest' }))
-        ];
-        const oldIds = new Set(oldRoster.map(p => p.id));
-        const newIds = new Set(newRoster.map(p => p.id));
-        const joined = newRoster.filter(p => !oldIds.has(p.id));
-        const departed = oldRoster.filter(p => !newIds.has(p.id));
-
-        // === BƯỚC 2: Xử lý người MỚI đăng ký → thay bot ===
-        if (joined.length > 0 && botSlots.length > 0) {
-            autoReplaceBots(oldRoster, newRoster);
-            rosterChanged = true;
-        }
-
-        // === BƯỚC 3: Xử lý người HUỶ đăng ký → tạo bot thay thế ===
-        if (departed.length > 0) {
-            const replacedCount = autoHandleDepartedPlayers(departed);
-            if (replacedCount > 0) rosterChanged = true;
-        }
-    }
-
-    // === BƯỚC 4: Cập nhật sessionData ===
     sessionData = data;
     ensureSessionDefaults();
+    const rosterChanged = syncTacticalSlotsWithRoster();
 
-    // === BƯỚC 5: Reconcile bots (xóa thừa + thêm thiếu) ===
-    reconcileBotsWithRoster();
-
-    // === BƯỚC 6: Rebuild marks kế thừa nếu roster thay đổi ===
     if (rosterChanged) {
-        if (typeof refreshAutoInheritedSystemMarks === 'function') {
-            refreshAutoInheritedSystemMarks();
-        }
-        // Cập nhật markSnapshot để tránh stale dirty (Bug 3)
+        if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
         captureMarkSnapshot();
     }
 
@@ -2705,7 +2685,8 @@ function startSessionRealtimeSync() {
     if (!sb || !sessionData || !sessionData.guild_id || !currentDay) return;
     stopSessionRealtimeSync();
     const guildId = getActiveGuildId();
-    tacticsSessionChannel = sb.channel(`tactics-bc-session:${guildId}:${currentDay}`);
+    const sessionId = String(getTacticsSessionId() || '');
+    tacticsSessionChannel = sb.channel(`tactics-bc-session:${guildId}:${sessionId || currentDay}`);
     tacticsSessionChannel
         .on('postgres_changes', {
             event: '*',
@@ -2714,7 +2695,12 @@ function startSessionRealtimeSync() {
             filter: `guild_id=eq.${guildId}`
         }, payload => {
             const next = payload?.new;
-            if (!next || next.day !== currentDay) return;
+            if (!next) return;
+            if (sessionId) {
+                if (String(next.id || '') !== sessionId) return;
+            } else if (next.day !== currentDay) {
+                return;
+            }
             applyRealtimeSessionData(next, { toastMessage: '🔄 Đã đồng bộ roster session mới' });
         })
         .subscribe(status => {
@@ -3457,6 +3443,13 @@ function renderTeamList() {
                 <div class="p-avatar ${roleCls}"><img src="./anh/icons/${role.toLowerCase()}.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover"></div>
                 <span class="p-name">${displayName}</span>
                 <span class="p-role ${roleCls}">${role}${sub}</span>`;
+            if (isLeader) {
+                div.addEventListener('contextmenu', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    showRosterPlayerCtx(event, p.id);
+                });
+            }
             container.appendChild(div);
         });
         teamBots.forEach(bot => {
@@ -3468,14 +3461,333 @@ function renderTeamList() {
             div.dataset.sub = bot.sub || '';
             div.innerHTML = `
                 <div class="p-avatar ${roleCls}"><img src="./anh/icons/${bot.role.toLowerCase()}.png" style="width:100%;height:100%;border-radius:50%;object-fit:cover"></div>
-                <span class="p-name">${bot.name}</span>
+                <span class="p-name">${bot.original_name || bot.name}</span>
                 <span class="p-role ${roleCls}">${bot.role}</span>`;
+            if (isLeader) {
+                div.addEventListener('contextmenu', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    showRosterPlayerCtx(event, bot.id);
+                });
+            }
             container.appendChild(div);
         });
     });
 }
 
+function getActiveRosterEntries() {
+    return getFlattenedSessionRoster();
+}
+
+function buildSessionTeamsFromFlatRoster(flatRoster, waitingList = getWaitingPlayersFromSession()) {
+    const sizes = getSessionTeamSizes();
+    const next = {};
+    let cursor = 0;
+    const assign = (teamKey, count) => {
+        next[teamKey] = flatRoster.slice(cursor, cursor + count).map(player => ({
+            ...player,
+            team: teamKey
+        }));
+        cursor += count;
+    };
+    assign('team_attack1', Math.max(0, sizes.attack1 || 0));
+    assign('team_attack2', Math.max(0, sizes.attack2 || 0));
+    assign('team_defense', Math.max(0, sizes.defense || 0));
+    assign('team_forest', Math.max(0, sizes.forest || 0));
+    next.waiting_list = (waitingList || []).map(player => ({ ...player }));
+    return next;
+}
+
+function applySessionRosterLocally(nextTeams) {
+    if (!sessionData) return;
+    sessionData = {
+        ...sessionData,
+        team_attack1: JSON.stringify(nextTeams.team_attack1 || []),
+        team_attack2: JSON.stringify(nextTeams.team_attack2 || []),
+        team_defense: JSON.stringify(nextTeams.team_defense || []),
+        team_forest: JSON.stringify(nextTeams.team_forest || []),
+        waiting_list: JSON.stringify(nextTeams.waiting_list || [])
+    };
+    applyRealtimeSessionData(sessionData, {});
+}
+
+async function persistSessionRosterOrder(nextTeams, action = 'swap_position') {
+    if (!sb || !sessionData) return false;
+    const leaderIds = (() => {
+        try {
+            return typeof sessionData.leader_ids === 'string'
+                ? JSON.parse(sessionData.leader_ids || '{}')
+                : (sessionData.leader_ids || {});
+        } catch (error) {
+            return {};
+        }
+    })();
+    const payload = {
+        team_attack1: JSON.stringify(nextTeams.team_attack1 || []),
+        team_attack2: JSON.stringify(nextTeams.team_attack2 || []),
+        team_defense: JSON.stringify(nextTeams.team_defense || []),
+        team_forest: JSON.stringify(nextTeams.team_forest || []),
+        waiting_list: JSON.stringify(nextTeams.waiting_list || []),
+        leader_ids: JSON.stringify({
+            ...leaderIds,
+            editor_id: window.currentDiscordId || null,
+            editor_name: window.currentUserName || 'Leader',
+            editor_action: action,
+            edited_at: Date.now()
+        })
+    };
+    let query = sb.from('bc_sessions').update(payload).eq('guild_id', getActiveGuildId());
+    query = getTacticsSessionId() ? query.eq('id', getTacticsSessionId()) : query.eq('day', currentDay);
+    const { error } = await query;
+    if (error) {
+        toast('❌ Không thể cập nhật vị trí roster: ' + error.message);
+        return false;
+    }
+    applySessionRosterLocally(nextTeams);
+    return true;
+}
+
+async function swapRosterPlayerPositions(sourcePlayerId, targetPlayerId) {
+    if (!sourcePlayerId || !targetPlayerId || sourcePlayerId === targetPlayerId || !sessionData) return;
+    const flatRoster = getActiveRosterEntries();
+    const fromIndex = flatRoster.findIndex(player => player.id === sourcePlayerId);
+    const toIndex = flatRoster.findIndex(player => player.id === targetPlayerId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    [flatRoster[fromIndex], flatRoster[toIndex]] = [flatRoster[toIndex], flatRoster[fromIndex]];
+    const nextTeams = buildSessionTeamsFromFlatRoster(flatRoster, getWaitingPlayersFromSession());
+    const sourceName = getAllPlayers().find(player => player.id === sourcePlayerId)?.gn
+        || getAllPlayers().find(player => player.id === sourcePlayerId)?.name
+        || sourcePlayerId;
+    const targetName = getAllPlayers().find(player => player.id === targetPlayerId)?.gn
+        || getAllPlayers().find(player => player.id === targetPlayerId)?.name
+        || targetPlayerId;
+    const ok = await persistSessionRosterOrder(nextTeams, 'swap_position');
+    if (ok) {
+        closeCtx();
+        toast(`🔄 Đã đổi vị trí: ${sourceName} ↔ ${targetName}`);
+    }
+}
+
+function getPanelPositionEntries() {
+    const humansById = new Map(getFlattenedSessionRoster().map(player => [player.id, player]));
+    const botsById = new Map(botSlots.map((bot, index) => {
+        const normalized = normalizeBotSlot(bot, index);
+        return [normalized.id, normalized];
+    }));
+    const bindings = (Array.isArray(currentSlotBindings) && currentSlotBindings.length
+        ? currentSlotBindings
+        : buildFallbackSlotTemplate())
+        .map((binding, index) => normalizeSlotTemplateEntry(binding || {}, index, binding?.team || getSessionSlotLayout()[index] || 'team_attack1'));
+
+    return bindings.map((binding, index) => {
+        const occupant = humansById.get(binding.tactical_id) || botsById.get(binding.tactical_id) || null;
+        if (!occupant) return null;
+        return {
+            id: occupant.id,
+            slot_index: Number.isFinite(Number(binding.slot_index)) ? Number(binding.slot_index) : index,
+            team: binding.team,
+            isBot: Boolean(occupant.isBot),
+            binding,
+            unit: occupant,
+            displayName: occupant.isBot
+                ? (occupant.original_name || occupant.name || binding.original_name || occupant.id)
+                : (occupant.gn || occupant.name || occupant.username || binding.original_name || occupant.id)
+        };
+    }).filter(Boolean);
+}
+
+function getPanelPositionEntryById(unitId) {
+    return getPanelPositionEntries().find(entry => entry.id === unitId) || null;
+}
+
+function formatPanelPositionChoice(entry) {
+    if (!entry) return '';
+    return `${entry.isBot ? 'Bot · ' : ''}${entry.displayName}`;
+}
+
+async function swapRosterPanelPositions(sourceUnitId, targetUnitId) {
+    if (!sourceUnitId || !targetUnitId || sourceUnitId === targetUnitId || !sessionData) return;
+
+    const sourceEntry = getPanelPositionEntryById(sourceUnitId);
+    const targetEntry = getPanelPositionEntryById(targetUnitId);
+    if (!sourceEntry || !targetEntry) return;
+
+    if (!sourceEntry.isBot && !targetEntry.isBot) {
+        await swapRosterPlayerPositions(sourceUnitId, targetUnitId);
+        return;
+    }
+
+    const nextTemplate = (Array.isArray(currentSlotBindings) && currentSlotBindings.length
+        ? currentSlotBindings
+        : buildFallbackSlotTemplate())
+        .map((binding, index) => normalizeSlotTemplateEntry(binding || {}, index, binding?.team || getSessionSlotLayout()[index] || 'team_attack1'));
+
+    const fromIndex = Number(sourceEntry.slot_index);
+    const toIndex = Number(targetEntry.slot_index);
+    if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || fromIndex < 0 || toIndex < 0) return;
+
+    [nextTemplate[fromIndex], nextTemplate[toIndex]] = [nextTemplate[toIndex], nextTemplate[fromIndex]];
+
+    const changed = syncTacticalSlotsWithRoster({ baseTemplate: nextTemplate });
+    if (changed && typeof refreshAutoInheritedSystemMarks === 'function') {
+        refreshAutoInheritedSystemMarks();
+    }
+
+    captureMarkSnapshot();
+    renderTeamList();
+    renderPlayersOnMap();
+    syncPanelOnMap();
+    renderTargeting();
+    if (typeof refreshZoomModal === 'function') refreshZoomModal();
+    commitTacticsHistory('swap-position-with-bot');
+
+    const label = `${formatPanelPositionChoice(sourceEntry)} ↔ ${formatPanelPositionChoice(targetEntry)}`;
+    const tacticsData = buildPersistedTacticsPayload();
+    const saveError = await persistTacticsPayload(tacticsData);
+    if (saveError) {
+        toast('Khong the luu thay doi vi tri: ' + saveError.message);
+        return;
+    }
+
+    const historyError = await persistEditHistorySnapshot(tacticsData, {
+        sourceAction: 'save',
+        resultNote: `Thay the vi tri: ${label}`
+    });
+    if (document.getElementById('storageDrawer')?.classList.contains('show') && storageDrawerTab === 'history') {
+        await loadStorageHistoryEntries();
+        renderStorageDrawer();
+    }
+
+    closeCtx();
+    if (historyError?.mode === 'local') toast(`Da thay the vi tri: ${label}. Lich su tam luu tren trinh duyet nay.`);
+    else if (historyError) toast(`Da thay the vi tri: ${label}. Nhung khong ghi duoc lich su.`);
+    else toast(`Da thay the vi tri: ${label}`);
+}
+
+function showRosterPlayerCtx(event, playerId) {
+    if (!isLeader || !sessionData) return;
+    const flatRoster = getActiveRosterEntries();
+    const currentPlayer = flatRoster.find(player => player.id === playerId);
+    if (!currentPlayer) return;
+    const currentName = currentPlayer.gn || currentPlayer.name || currentPlayer.username || currentPlayer.id;
+    const choices = flatRoster.filter(player => player.id !== playerId);
+    let html = `<div class="ctx-sub-title">👤 ${currentName}</div>`;
+    html += `<div class="ctx-sep"></div>`;
+    html += `<div class="ctx-sub-title">🔄 Thay thế vị trí</div>`;
+    if (!choices.length) {
+        html += `<div class="ctx-item" style="opacity:.75;pointer-events:none"><span class="ci-icon">ℹ️</span>Chưa có người chơi khác để thay</div>`;
+    } else {
+        choices.forEach(player => {
+            const displayName = player.gn || player.name || player.username || player.id;
+            html += `<div class="ctx-item" onclick="swapRosterPlayerPositions('${playerId}','${player.id}')"><span class="ci-icon">👥</span>${displayName}</div>`;
+        });
+    }
+    openContextMenuHtml(event.clientX, event.clientY, html);
+}
+
 // ═══ RENDER TIMELINE ═══
+function showRosterPlayerCtx(event, playerId) {
+    if (!isLeader || !sessionData) return;
+    const entries = getPanelPositionEntries();
+    const currentEntry = entries.find(entry => entry.id === playerId);
+    if (!currentEntry) return;
+    const choices = entries.filter(entry => entry.id !== playerId);
+    let html = `<div class="ctx-sub-title">${currentEntry.isBot ? '🤖' : '👤'} ${formatPanelPositionChoice(currentEntry)}</div>`;
+    html += `<div class="ctx-sep"></div>`;
+    html += `<div class="ctx-sub-title">🔄 Thay thế vị trí</div>`;
+    if (!choices.length) {
+        html += `<div class="ctx-item" style="opacity:.75;pointer-events:none"><span class="ci-icon">ℹ️</span>Chua co doi tuong khac de thay</div>`;
+    } else {
+        choices.forEach(entry => {
+            html += `<div class="ctx-item" onclick="swapRosterPanelPositions('${playerId}','${entry.id}')"><span class="ci-icon">${entry.isBot ? '🤖' : '👥'}</span>${formatPanelPositionChoice(entry)}</div>`;
+        });
+    }
+    openContextMenuHtml(event.clientX, event.clientY, html);
+}
+
+function formatPanelPositionChoice(entry) {
+    if (!entry) return '';
+    return `${entry.isBot ? 'Bot - ' : ''}${entry.displayName}`;
+}
+
+async function swapRosterPanelPositions(sourceUnitId, targetUnitId) {
+    if (!sourceUnitId || !targetUnitId || sourceUnitId === targetUnitId || !sessionData) return;
+
+    const sourceEntry = getPanelPositionEntryById(sourceUnitId);
+    const targetEntry = getPanelPositionEntryById(targetUnitId);
+    if (!sourceEntry || !targetEntry) return;
+
+    if (!sourceEntry.isBot && !targetEntry.isBot) {
+        await swapRosterPlayerPositions(sourceUnitId, targetUnitId);
+        return;
+    }
+
+    const nextTemplate = (Array.isArray(currentSlotBindings) && currentSlotBindings.length
+        ? currentSlotBindings
+        : buildFallbackSlotTemplate())
+        .map((binding, index) => normalizeSlotTemplateEntry(binding || {}, index, binding?.team || getSessionSlotLayout()[index] || 'team_attack1'));
+
+    const fromIndex = Number(sourceEntry.slot_index);
+    const toIndex = Number(targetEntry.slot_index);
+    if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || fromIndex < 0 || toIndex < 0) return;
+
+    [nextTemplate[fromIndex], nextTemplate[toIndex]] = [nextTemplate[toIndex], nextTemplate[fromIndex]];
+
+    const changed = syncTacticalSlotsWithRoster({ baseTemplate: nextTemplate });
+    if (changed && typeof refreshAutoInheritedSystemMarks === 'function') {
+        refreshAutoInheritedSystemMarks();
+    }
+
+    captureMarkSnapshot();
+    renderTeamList();
+    renderPlayersOnMap();
+    syncPanelOnMap();
+    renderTargeting();
+    if (typeof refreshZoomModal === 'function') refreshZoomModal();
+    commitTacticsHistory('swap-position-with-bot');
+
+    const label = `${formatPanelPositionChoice(sourceEntry)} <-> ${formatPanelPositionChoice(targetEntry)}`;
+    const tacticsData = buildPersistedTacticsPayload();
+    const saveError = await persistTacticsPayload(tacticsData);
+    if (saveError) {
+        toast('Khong the luu thay doi vi tri: ' + saveError.message);
+        return;
+    }
+
+    const historyError = await persistEditHistorySnapshot(tacticsData, {
+        sourceAction: 'save',
+        resultNote: `Thay the vi tri: ${label}`
+    });
+    if (document.getElementById('storageDrawer')?.classList.contains('show') && storageDrawerTab === 'history') {
+        await loadStorageHistoryEntries();
+        renderStorageDrawer();
+    }
+
+    closeCtx();
+    if (historyError?.mode === 'local') toast(`Da thay the vi tri: ${label}. Lich su tam luu tren trinh duyet nay.`);
+    else if (historyError) toast(`Da thay the vi tri: ${label}. Nhung khong ghi duoc lich su.`);
+    else toast(`Da thay the vi tri: ${label}`);
+}
+
+function showRosterPlayerCtx(event, playerId) {
+    if (!isLeader || !sessionData) return;
+    const entries = getPanelPositionEntries();
+    const currentEntry = entries.find(entry => entry.id === playerId);
+    if (!currentEntry) return;
+    const choices = entries.filter(entry => entry.id !== playerId);
+    let html = `<div class="ctx-sub-title">${currentEntry.isBot ? 'BOT' : 'PLY'} ${formatPanelPositionChoice(currentEntry)}</div>`;
+    html += `<div class="ctx-sep"></div>`;
+    html += `<div class="ctx-sub-title">Thay the vi tri</div>`;
+    if (!choices.length) {
+        html += `<div class="ctx-item" style="opacity:.75;pointer-events:none"><span class="ci-icon">INF</span>Chua co doi tuong khac de thay</div>`;
+    } else {
+        choices.forEach(entry => {
+            html += `<div class="ctx-item" onclick="swapRosterPanelPositions('${playerId}','${entry.id}')"><span class="ci-icon">${entry.isBot ? 'BOT' : 'SWP'}</span>${formatPanelPositionChoice(entry)}</div>`;
+        });
+    }
+    openContextMenuHtml(event.clientX, event.clientY, html);
+}
+
 function getColorForMixedMark(type) {
     if (type === 'start' || type === 'end') return 'var(--green-400)';
     if (type === 'boss_minor' || type === 'boss_major') return 'var(--gold)';
@@ -3563,8 +3875,14 @@ function getMarkPopulationStatus(mark = marks[activeMarkIdx]) {
     if (!mark || mark.time === TOTAL_SECONDS) return { ok: true };
     const sizes = getSessionTeamSizes();
     const totalMax = Object.values(sizes).reduce((s, v) => s + (v || 0), 0) || 30;
-    const blueTotal = (mark.players?.length || 0) + getGuardIds('blue', mark).length;
-    const redTotal = (mark.enemies?.length || 0) + getGuardIds('red', mark).length;
+    const blueTotal = new Set([
+        ...((mark.players || []).map(player => player.id)),
+        ...getGuardIds('blue', mark)
+    ].filter(Boolean)).size;
+    const redTotal = new Set([
+        ...((mark.enemies || []).map(enemy => enemy.id)),
+        ...getGuardIds('red', mark)
+    ].filter(Boolean)).size;
     if (blueTotal === totalMax && redTotal === totalMax) return { ok: true };
     if (blueTotal !== totalMax) {
         const diff = blueTotal < totalMax ? `còn thiếu ${totalMax - blueTotal}` : `đang dư ${blueTotal - totalMax}`;
@@ -3892,7 +4210,7 @@ function markHasInheritedDiff(idx) {
     return JSON.stringify(serializeMarkState(mark)) !== JSON.stringify(serializeMarkState(sourceMark));
 }
 
-function deleteMarkAtTime(seconds, options = {}) {
+async function deleteMarkAtTime(seconds, options = {}) {
     const idx = findMarkIndexByTime(seconds);
     if (idx < 0) return false;
     const mark = marks[idx];
@@ -3902,7 +4220,7 @@ function deleteMarkAtTime(seconds, options = {}) {
     }
 
     if (!options.skipConfirm && markHasInheritedDiff(idx)) {
-        const confirmed = window.confirm(`Mark ${formatTime(mark.time)} đã khác trạng thái kế thừa. Bạn vẫn muốn xóa chứ?`);
+        const confirmed = await customConfirm(`Mark ${formatTime(mark.time)} đã khác trạng thái kế thừa. Bạn vẫn muốn xóa chứ?`);
         if (!confirmed) return false;
     }
 
@@ -4058,6 +4376,7 @@ function initObjectiveToggle() {
 
     function forwardMapIconMouseDown(event, iconEl) {
         if (event.button !== 0) return;
+        if (event.target.closest('.tower-guard-line.guard-draggable, .tower-guard')) return;
         const underneath = getUnderlyingUnitTarget(event.clientX, event.clientY, iconEl);
         if (!underneath) return;
         event.preventDefault();
@@ -4250,18 +4569,82 @@ function removeTowerGuardAssignment(towerId, guardId) {
     flagMarkDirty();
 }
 
+function getTowerGuardSelectionKey(towerId, side, guardId) {
+    return `${side || 'blue'}:${towerId || ''}:${guardId || ''}`;
+}
+
+function parseTowerGuardSelectionKey(key) {
+    const parts = String(key || '').split(':');
+    return {
+        side: parts[0] || 'blue',
+        towerId: parts[1] || '',
+        guardId: parts.slice(2).join(':')
+    };
+}
+
+function getTowerGuardLineSelectionKey(line) {
+    if (!line) return '';
+    return getTowerGuardSelectionKey(line.dataset.towerId, line.dataset.guardSide, line.dataset.guardId);
+}
+
+function getTowerGuardUnitPayload(guardId, side) {
+    if (!guardId) return null;
+    if (side === 'red') {
+        const enemy = enemyList.find(entry => entry.id === guardId);
+        const meta = getGuardDisplayMeta(guardId, side) || {};
+        return {
+            id: guardId,
+            name: enemy?.name || meta.name || guardId,
+            role: enemy?.role || meta.role || 'DPS'
+        };
+    }
+
+    const player = getAllPlayers().find(entry => entry.id === guardId);
+    if (player) {
+        return {
+            id: player.id,
+            team: player.team || 'team_attack1',
+            name: player.gn || player.name || player.username || guardId,
+            role: player.role || 'DPS',
+            sub: player.sub || ''
+        };
+    }
+
+    const slotBinding = (currentSlotBindings || []).find((entry) =>
+        entry?.tactical_id === guardId || entry?.reserved_for === guardId
+    );
+    if (slotBinding) {
+        return {
+            id: guardId,
+            team: slotBinding.team || 'team_attack1',
+            name: slotBinding.original_name || `Slot ${Number(slotBinding.slot_index || 0) + 1}`,
+            role: slotBinding.role || 'DPS',
+            sub: slotBinding.sub || ''
+        };
+    }
+
+    const meta = getGuardDisplayMeta(guardId, side) || {};
+    return {
+        id: guardId,
+        team: 'team_attack1',
+        name: meta.name || guardId,
+        role: meta.role || 'DPS',
+        sub: ''
+    };
+}
+
 function startTowerGuardDrag(e, towerId, side, guardId) {
     if (!isLeader) return;
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     console.log('[TowerDrag] ▶ start', { towerId, side, guardId, x: e.clientX, y: e.clientY });
-    const meta = getGuardDisplayMeta(guardId, side);
-    if (!meta) return;
+    const payload = getTowerGuardUnitPayload(guardId, side);
+    if (!payload) return;
 
     const ghost = document.createElement('div');
     ghost.className = 'drag-ghost';
-    const roleCls = meta.role === 'Healer' ? 'healer' : meta.role === 'Tanker' ? 'tanker' : '';
+    const roleCls = payload.role === 'Healer' ? 'healer' : payload.role === 'Tanker' ? 'tanker' : '';
     ghost.innerHTML = `<div class="mp-dot ${roleCls}"></div>`;
     ghost.style.left = e.clientX + 'px';
     ghost.style.top = e.clientY + 'px';
@@ -4272,14 +4655,209 @@ function startTowerGuardDrag(e, towerId, side, guardId) {
         towerId,
         side,
         guardId,
-        name: meta.name,
-        role: meta.role || 'DPS',
+        name: payload.name,
+        role: payload.role || 'DPS',
+        team: payload.team || (side === 'blue' ? 'team_attack1' : undefined),
+        sub: payload.sub || '',
+        guardIds: [guardId],
+        enemyId: side === 'red' ? payload.id : undefined,
         ghostEl: ghost
     };
     document.getElementById('mapArea').classList.add('drop-active');
 }
 
 // Đồng bộ: người bị gỡ khỏi trụ → thêm lại vào players (về nhà)
+function addTowerGuardSelection(line) {
+    if (!line?.dataset?.guardId) return;
+    const side = line.dataset.guardSide || 'blue';
+    if (towerGuardSelectionSide && towerGuardSelectionSide !== side) {
+        clearTowerGuardSelection();
+    }
+    towerGuardSelectionSide = side;
+    towerGuardMultiSelectMode = true;
+    towerGuardSelectedKeys.add(getTowerGuardLineSelectionKey(line));
+    line.classList.add('selected');
+}
+
+function getSelectedTowerGuardEntries(side = null) {
+    return [...towerGuardSelectedKeys].map(parseTowerGuardSelectionKey)
+        .filter(entry => entry.guardId && entry.towerId && (!side || entry.side === side))
+        .map(entry => {
+            const payload = getTowerGuardUnitPayload(entry.guardId, entry.side);
+            if (!payload) return null;
+            return { ...entry, ...payload };
+        })
+        .filter(Boolean);
+}
+
+function syncTowerGuardSelectionVisuals() {
+    const liveKeys = new Set();
+    document.querySelectorAll('.tower-guard-line[data-guard-id]').forEach(line => {
+        const key = getTowerGuardLineSelectionKey(line);
+        if (!key) return;
+        liveKeys.add(key);
+        line.classList.toggle('selected', towerGuardSelectedKeys.has(key));
+    });
+    [...towerGuardSelectedKeys].forEach(key => {
+        if (!liveKeys.has(key)) towerGuardSelectedKeys.delete(key);
+    });
+    if (!towerGuardSelectedKeys.size) {
+        towerGuardMultiSelectMode = false;
+        towerGuardSelectionSide = null;
+    }
+}
+
+function clearTowerGuardSelection() {
+    if (towerGuardLongPressTimer) {
+        clearTimeout(towerGuardLongPressTimer);
+        towerGuardLongPressTimer = null;
+    }
+    towerGuardSweepActive = false;
+    towerGuardMultiSelectMode = false;
+    towerGuardSelectionSide = null;
+    towerGuardSelectedKeys.clear();
+    document.querySelectorAll('.tower-guard-line.selected, .tower-guard-line.selecting').forEach(line => {
+        line.classList.remove('selected', 'selecting');
+    });
+}
+
+function startTowerGuardMultiDrag(e, side) {
+    const infos = getSelectedTowerGuardEntries(side);
+    if (!infos.length) return false;
+    if (infos.length === 1) {
+        startTowerGuardDrag(e, infos[0].towerId, infos[0].side, infos[0].guardId);
+        return true;
+    }
+
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.innerHTML = `<div class="mp-dot" style="width:30px;height:30px;font-size:11px;color:#fff;font-weight:800;
+        display:flex;align-items:center;justify-content:center">x${infos.length}</div>`;
+    ghost.style.left = e.clientX + 'px';
+    ghost.style.top = e.clientY + 'px';
+    document.body.appendChild(ghost);
+
+    dragState = {
+        source: 'tower-guard-multi',
+        side,
+        guardIds: infos.map(info => info.guardId),
+        guardInfos: infos,
+        ghostEl: ghost
+    };
+    document.getElementById('mapArea').classList.add('drop-active');
+    return true;
+}
+
+function startTowerGuardLineInteraction(event, line) {
+    if (!isLeader || !line?.dataset?.guardId) return;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const towerId = line.dataset.towerId;
+    const side = line.dataset.guardSide || 'blue';
+    const guardId = line.dataset.guardId;
+    const key = getTowerGuardLineSelectionKey(line);
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let dragStarted = false;
+    let moved = false;
+
+    const beginDrag = (dragEvent) => {
+        const selectedEntries = getSelectedTowerGuardEntries(side);
+        const shouldDragSelection = towerGuardMultiSelectMode &&
+            towerGuardSelectedKeys.has(key) &&
+            selectedEntries.length > 1;
+
+        if (shouldDragSelection) {
+            dragStarted = startTowerGuardMultiDrag(dragEvent, side);
+            return;
+        }
+
+        if (towerGuardMultiSelectMode && !towerGuardSelectedKeys.has(key)) {
+            clearTowerGuardSelection();
+        }
+        dragStarted = true;
+        startTowerGuardDrag(dragEvent, towerId, side, guardId);
+    };
+
+    if (towerGuardLongPressTimer) clearTimeout(towerGuardLongPressTimer);
+    towerGuardLongPressTimer = setTimeout(() => {
+        if (moved) return;
+        addTowerGuardSelection(line);
+        line.classList.add('selecting');
+        setTimeout(() => line.classList.remove('selecting'), 150);
+        towerGuardSweepActive = true;
+    }, 550);
+
+    const onMove = ev => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+
+        if (!towerGuardSweepActive && Math.abs(dx) + Math.abs(dy) > 5) {
+            moved = true;
+            if (towerGuardLongPressTimer) {
+                clearTimeout(towerGuardLongPressTimer);
+                towerGuardLongPressTimer = null;
+            }
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            beginDrag(ev);
+            return;
+        }
+
+        if (!towerGuardSweepActive) return;
+
+        moved = true;
+        const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+        const candidate = hit?.closest('.tower-guard-line.guard-draggable');
+        if (candidate && candidate.dataset.guardSide === side) {
+            addTowerGuardSelection(candidate);
+            return;
+        }
+
+        if (getSelectedTowerGuardEntries(side).length > 0) {
+            towerGuardSweepActive = false;
+            if (towerGuardLongPressTimer) {
+                clearTimeout(towerGuardLongPressTimer);
+                towerGuardLongPressTimer = null;
+            }
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            beginDrag(ev);
+        }
+    };
+
+    const onUp = () => {
+        if (towerGuardLongPressTimer) {
+            clearTimeout(towerGuardLongPressTimer);
+            towerGuardLongPressTimer = null;
+        }
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        towerGuardSweepActive = false;
+        syncTowerGuardSelectionVisuals();
+        if (!dragStarted && !towerGuardMultiSelectMode) {
+            clearTowerGuardSelection();
+        }
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && towerGuardSelectedKeys.size > 0) {
+        clearTowerGuardSelection();
+    }
+});
+
+document.addEventListener('click', event => {
+    if (!towerGuardMultiSelectMode) return;
+    const inTowerGuardUi = event.target.closest('.tower-guard-line.guard-draggable, .ctx-menu, .drag-ghost');
+    if (!inTowerGuardUi) clearTowerGuardSelection();
+});
+
 function syncGuardsWithPlayers(oldGuardIds) {
     const newGuardIds = new Set(getGuardIds('blue'));
     const currentPlayerIds = new Set(getMarkPlayers().map(p => p.id));
@@ -4311,9 +4889,20 @@ function getGuardDisplayMeta(id, side) {
     if (!id) return null;
     const source = side === 'blue' ? getAllPlayers() : enemyList;
     const unit = source.find(entry => entry.id === id);
-    if (!unit) return { name: id, role: 'DPS' };
+    if (!unit && side === 'blue') {
+        const slotBinding = (currentSlotBindings || []).find((entry) =>
+            entry?.tactical_id === id || entry?.reserved_for === id
+        );
+        if (slotBinding) {
+            return {
+                name: slotBinding.original_name || `Slot ${Number(slotBinding.slot_index) + 1}`,
+                role: slotBinding.role || 'DPS'
+            };
+        }
+    }
+    if (!unit) return { name: side === 'blue' ? 'Người chơi' : 'Địch', role: 'DPS' };
     return {
-        name: unit.gn || unit.name || unit.id,
+        name: unit.original_name || unit.gn || unit.name || unit.id,
         role: unit.role || 'DPS'
     };
 }
@@ -4338,17 +4927,11 @@ function renderTowerGuardNames() {
 
         if (isLeader) {
             namesEl.querySelectorAll('.tower-guard-line[data-guard-id]').forEach(line => {
-                line.addEventListener('mousedown', event => {
-                    startTowerGuardDrag(
-                        event,
-                        line.dataset.towerId,
-                        line.dataset.guardSide,
-                        line.dataset.guardId
-                    );
-                });
+                line.addEventListener('mousedown', event => startTowerGuardLineInteraction(event, line));
             });
         }
     });
+    syncTowerGuardSelectionVisuals();
 }
 
 function applyObjectiveStates() {
@@ -5610,7 +6193,14 @@ function buildPersistedTacticsPayload() {
         jungle_default_player_ids: getSessionJungleDefaultPlayerIds(),
         global_notes: normalizeGlobalNotes(tacticsGlobalNotes),
         strategy_name: normalizeStrategyName(tacticsStrategyName),
-        version: 2,
+        roster_snapshot: buildRosterSnapshot(),
+        slot_template: buildPersistedSlotTemplate(),
+        source_snapshot_meta: {
+            ...(tacticsSourceSnapshotMeta || {}),
+            current_session_id: getTacticsSessionId(),
+            current_day: currentDay || sessionData?.day || null
+        },
+        version: 3,
         savedAt: new Date().toISOString()
     };
 }
@@ -5624,6 +6214,338 @@ function buildRosterSnapshot() {
         defense: parse(sessionData.team_defense),
         forest: parse(sessionData.team_forest)
     };
+}
+
+function getTacticsSessionId() {
+    return sessionData?.id || sessionData?.session_id || getRequestedTacticsSessionId() || null;
+}
+
+function getSessionSlotLayout(data = sessionData) {
+    const sizes = (() => {
+        try {
+            const raw = typeof data?.team_sizes === 'string'
+                ? JSON.parse(data.team_sizes || '{}')
+                : (data?.team_sizes || {});
+            return {
+                attack1: raw.attack1 ?? 10,
+                attack2: raw.attack2 ?? 10,
+                defense: raw.defense ?? 5,
+                forest: raw.forest ?? 5
+            };
+        } catch (error) {
+            return { attack1: 10, attack2: 10, defense: 5, forest: 5 };
+        }
+    })();
+
+    const layout = [];
+    Array.from({ length: Math.max(0, sizes.attack1 || 0) }).forEach(() => layout.push('team_attack1'));
+    Array.from({ length: Math.max(0, sizes.attack2 || 0) }).forEach(() => layout.push('team_attack2'));
+    Array.from({ length: Math.max(0, sizes.defense || 0) }).forEach(() => layout.push('team_defense'));
+    Array.from({ length: Math.max(0, sizes.forest || 0) }).forEach(() => layout.push('team_forest'));
+    return layout;
+}
+
+function getFlattenedSessionRoster(data = sessionData) {
+    if (!data) return [];
+    const parse = value => { try { return typeof value === 'string' ? JSON.parse(value) : (value || []); } catch (error) { return []; } };
+    return ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].flatMap((teamKey) =>
+        parse(data[teamKey]).map((player) => ({ ...player, team: teamKey }))
+    );
+}
+
+function normalizeSlotTemplateEntry(entry, index = 0, fallbackTeam = 'team_attack1') {
+    const slotIndex = Number.isFinite(Number(entry?.slot_index)) ? Number(entry.slot_index) : index;
+    const team = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].includes(entry?.team)
+        ? entry.team
+        : fallbackTeam;
+    const role = ['DPS', 'Tanker', 'Healer'].includes(entry?.role) ? entry.role : 'DPS';
+    const tacticalId = entry?.tactical_id || entry?.player_id || entry?.id || null;
+    const reservedFor = entry?.reserved_for || entry?.replacement_for || entry?.player_id || entry?.id || null;
+    return {
+        slot_index: slotIndex,
+        team,
+        tactical_id: tacticalId,
+        reserved_for: reservedFor,
+        original_name: entry?.original_name || entry?.name || '',
+        role,
+        sub: entry?.sub || ''
+    };
+}
+
+function buildSlotTemplateFromRosterSnapshot(rosterSnapshot, payload = {}) {
+    const snapshot = rosterSnapshot && typeof rosterSnapshot === 'object'
+        ? rosterSnapshot
+        : { attack1: [], attack2: [], defense: [], forest: [] };
+    const teamMap = [
+        ['attack1', 'team_attack1'],
+        ['attack2', 'team_attack2'],
+        ['defense', 'team_defense'],
+        ['forest', 'team_forest']
+    ];
+    const template = [];
+
+    teamMap.forEach(([rosterKey, teamKey]) => {
+        const players = Array.isArray(snapshot[rosterKey]) ? snapshot[rosterKey] : [];
+        players.forEach((player) => {
+            template.push(normalizeSlotTemplateEntry({
+                slot_index: template.length,
+                team: teamKey,
+                tactical_id: player?.id || null,
+                reserved_for: player?.id || null,
+                original_name: player?.gn || player?.name || player?.username || '',
+                role: player?.role || 'DPS',
+                sub: player?.sub || ''
+            }, template.length, teamKey));
+        });
+    });
+
+    (Array.isArray(payload?.botSlots) ? payload.botSlots : []).forEach((bot) => {
+        const slotIndex = Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : -1;
+        if (slotIndex < 0) return;
+        template[slotIndex] = normalizeSlotTemplateEntry({
+            slot_index: slotIndex,
+            team: bot?.original_team || bot?.team || template[slotIndex]?.team || 'team_attack1',
+            tactical_id: bot?.id || template[slotIndex]?.tactical_id || null,
+            reserved_for: bot?.replacement_for || template[slotIndex]?.reserved_for || null,
+            original_name: bot?.original_name || bot?.name || template[slotIndex]?.original_name || '',
+            role: bot?.role || template[slotIndex]?.role || 'DPS',
+            sub: bot?.sub || template[slotIndex]?.sub || ''
+        }, slotIndex, template[slotIndex]?.team || bot?.team || 'team_attack1');
+    });
+
+    return template
+        .map((entry, index) => normalizeSlotTemplateEntry(entry || {}, index, entry?.team || 'team_attack1'))
+        .sort((a, b) => a.slot_index - b.slot_index);
+}
+
+function buildFallbackSlotTemplate() {
+    const humans = getFlattenedSessionRoster();
+    const layout = getSessionSlotLayout();
+    const slotCount = humans.length;
+    return Array.from({ length: slotCount }, (_, index) => {
+        const human = humans[index];
+        return normalizeSlotTemplateEntry({
+            slot_index: index,
+            team: layout[index] || human?.team || 'team_attack1',
+            tactical_id: human?.id || null,
+            reserved_for: human?.id || null,
+            original_name: human?.gn || human?.name || human?.username || '',
+            role: human?.role || 'DPS',
+            sub: human?.sub || ''
+        }, index, layout[index] || human?.team || 'team_attack1');
+    });
+}
+
+function buildPersistedSlotTemplate() {
+    const humans = getFlattenedSessionRoster();
+    const humansById = new Map(humans.map((player) => [player.id, player]));
+    const botsById = new Map(botSlots.map((bot, index) => {
+        const normalized = normalizeBotSlot(bot, index);
+        return [normalized.id, normalized];
+    }));
+    const bindings = Array.isArray(currentSlotBindings) && currentSlotBindings.length
+        ? currentSlotBindings
+        : buildFallbackSlotTemplate();
+    return bindings.map((binding, index) => {
+        const normalized = normalizeSlotTemplateEntry(binding || {}, index, binding?.team || 'team_attack1');
+        const occupant = humansById.get(normalized.tactical_id) || botsById.get(normalized.tactical_id) || null;
+        return normalizeSlotTemplateEntry({
+            slot_index: index,
+            team: normalized.team,
+            tactical_id: occupant?.id || normalized.tactical_id || null,
+            reserved_for: normalized.reserved_for || occupant?.replacement_for || occupant?.id || null,
+            original_name: normalized.original_name || occupant?.original_name || occupant?.gn || occupant?.name || '',
+            role: normalized.role || occupant?.role || 'DPS',
+            sub: normalized.sub || occupant?.sub || ''
+        }, index, normalized.team);
+    });
+}
+
+function createReservedBotForSlot(slot, existingBot = null) {
+    return normalizeBotSlot({
+        ...(existingBot || {}),
+        id: existingBot?.id || slot.tactical_id || `slotbot_${slot.slot_index + 1}`,
+        seq: existingBot?.seq || Number(slot.slot_index) + 1,
+        name: existingBot?.name || slot.original_name || `Bot ${String(slot.slot_index + 1).padStart(2, '0')}`,
+        role: slot.role || existingBot?.role || 'DPS',
+        sub: slot.sub || existingBot?.sub || '',
+        team: slot.team || existingBot?.team || 'team_attack1',
+        isBot: true,
+        replacement_for: slot.reserved_for || existingBot?.replacement_for || null,
+        reserved_slot_index: slot.slot_index,
+        original_team: slot.team || existingBot?.original_team || 'team_attack1',
+        original_name: slot.original_name || existingBot?.original_name || existingBot?.name || ''
+    }, slot.slot_index);
+}
+
+function remapUnitIdAcrossTactics(oldId, replacementUnit) {
+    if (!oldId || !replacementUnit || oldId === replacementUnit.id) return;
+    const replacementName = replacementUnit.gn || replacementUnit.name || replacementUnit.original_name || replacementUnit.username || replacementUnit.id;
+    const replacementRole = replacementUnit.role || 'DPS';
+    const replacementSub = replacementUnit.sub || '';
+    const replacementTeam = replacementUnit.team || 'team_attack1';
+    const isBot = Boolean(replacementUnit.isBot);
+
+    marks.forEach((mark) => {
+        (mark.players || []).forEach((player) => {
+            if (player.id !== oldId) return;
+            player.id = replacementUnit.id;
+            player.name = replacementName;
+            player.role = replacementRole;
+            player.sub = replacementSub;
+            player.team = replacementTeam;
+            if (isBot) player.isBot = true;
+            else delete player.isBot;
+        });
+        Object.keys(mark.tower_guards || {}).forEach((towerId) => {
+            mark.tower_guards[towerId] = (mark.tower_guards[towerId] || []).map((id) =>
+                id === oldId ? replacementUnit.id : id
+            );
+        });
+        (mark.targeting || []).forEach((target) => {
+            if (target.playerId === oldId) target.playerId = replacementUnit.id;
+            if (target.from === oldId) target.from = replacementUnit.id;
+        });
+        (mark.icon_targets || []).forEach((target) => {
+            if (target.playerId === oldId) target.playerId = replacementUnit.id;
+            if (target.from === oldId) target.from = replacementUnit.id;
+        });
+        if (mark.pvp_fighters?.blue === oldId) mark.pvp_fighters.blue = replacementUnit.id;
+        Object.values(mark.boss_assignments || {}).forEach((entry) => {
+            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map((id) => id === oldId ? replacementUnit.id : id);
+        });
+        Object.values(mark.tree_carriers || {}).forEach((entry) => {
+            if (entry?.main === oldId) entry.main = replacementUnit.id;
+            if (Array.isArray(entry?.support)) entry.support = entry.support.map((id) => id === oldId ? replacementUnit.id : id);
+        });
+        Object.values(mark.jungle_assignments || {}).forEach((entry) => {
+            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map((id) => id === oldId ? replacementUnit.id : id);
+            Object.values(entry?.windows || {}).forEach((windowEntry) => {
+                if (Array.isArray(windowEntry?.blue)) windowEntry.blue = windowEntry.blue.map((id) => id === oldId ? replacementUnit.id : id);
+            });
+        });
+        (mark.tasks || []).forEach((task) => {
+            if (task?.scope === 'personal' && task.target === oldId) task.target = replacementUnit.id;
+        });
+    });
+
+    tacticsGlobalNotes.forEach((note) => {
+        if (note?.scope === 'personal' && note.target === oldId) note.target = replacementUnit.id;
+    });
+
+    if (Array.isArray(sessionData?.jungle_default_player_ids)) {
+        sessionData.jungle_default_player_ids = sessionData.jungle_default_player_ids.map((id) =>
+            id === oldId ? replacementUnit.id : id
+        );
+    }
+}
+
+function syncTacticalSlotsWithRoster(options = {}) {
+    if (!sessionData) return false;
+
+    const humans = getFlattenedSessionRoster();
+    const layout = getSessionSlotLayout();
+    const savedBindings = Array.isArray(options.baseTemplate) && options.baseTemplate.length
+        ? options.baseTemplate
+        : (Array.isArray(currentSlotBindings) && currentSlotBindings.length ? currentSlotBindings : buildFallbackSlotTemplate());
+    const existingBots = new Map(botSlots.map((bot, index) => {
+        const normalized = normalizeBotSlot(bot, index);
+        const slotIndex = Number.isFinite(Number(normalized.reserved_slot_index))
+            ? Number(normalized.reserved_slot_index)
+            : -1;
+        return [slotIndex, normalized];
+    }));
+
+    const slotCount = savedBindings.length
+        ? Math.max(layout.length, savedBindings.length, humans.length)
+        : humans.length;
+    const nextBindings = [];
+    const nextBots = [];
+    const pendingRemaps = [];
+
+    for (let index = 0; index < slotCount; index++) {
+        const teamKey = layout[index] || savedBindings[index]?.team || humans[index]?.team || 'team_attack1';
+        const previous = normalizeSlotTemplateEntry(savedBindings[index] || {}, index, teamKey);
+        const human = humans[index] || null;
+        const originalName = previous.original_name || human?.gn || human?.name || human?.username || '';
+        const slot = normalizeSlotTemplateEntry({
+            ...previous,
+            slot_index: index,
+            team: teamKey,
+            original_name: originalName,
+            role: previous.role || human?.role || 'DPS',
+            sub: previous.sub || human?.sub || ''
+        }, index, teamKey);
+
+        let replacementUnit = null;
+        if (human) {
+            replacementUnit = { ...human, team: teamKey, isBot: false };
+        } else {
+            replacementUnit = createReservedBotForSlot(slot, existingBots.get(index));
+            nextBots.push(replacementUnit);
+        }
+
+        const oldId = previous.tactical_id || previous.player_id || null;
+        if (oldId && oldId !== replacementUnit.id) {
+            pendingRemaps.push({ oldId, replacementUnit, slot });
+        }
+
+        nextBindings.push(normalizeSlotTemplateEntry({
+            ...slot,
+            tactical_id: replacementUnit.id,
+            reserved_for: slot.reserved_for || replacementUnit.replacement_for || replacementUnit.id || null,
+            original_name: slot.original_name || replacementUnit.original_name || replacementUnit.gn || replacementUnit.name || ''
+        }, index, teamKey));
+    }
+
+    currentSlotBindings = nextBindings;
+    botSlots = nextBots.map((bot, index) => normalizeBotSlot(bot, index));
+    botIdCounter = botSlots.reduce((max, bot, index) => Math.max(max, normalizeBotSlot(bot, index).seq), botIdCounter);
+
+    if (pendingRemaps.length > 0) {
+        const tempRemaps = pendingRemaps.map((entry, index) => ({
+            ...entry,
+            tempId: `slot_tmp_${Date.now()}_${index}`
+        }));
+        tempRemaps.forEach((entry) => {
+            remapUnitIdAcrossTactics(entry.oldId, {
+                id: entry.tempId,
+                name: entry.slot.original_name || entry.replacementUnit.original_name || entry.replacementUnit.gn || entry.replacementUnit.name || entry.oldId,
+                role: entry.slot.role || entry.replacementUnit.role || 'DPS',
+                sub: entry.slot.sub || entry.replacementUnit.sub || '',
+                team: entry.slot.team || entry.replacementUnit.team || 'team_attack1',
+                isBot: false
+            });
+        });
+        tempRemaps.forEach((entry) => {
+            remapUnitIdAcrossTactics(entry.tempId, entry.replacementUnit);
+        });
+    }
+
+    return pendingRemaps.length > 0;
+}
+
+function normalizeSavedTacticsPayload(saved, meta = {}) {
+    const payload = (() => {
+        try {
+            return JSON.parse(JSON.stringify(saved || {}));
+        } catch (error) {
+            return {};
+        }
+    })();
+    payload.roster_snapshot = payload.roster_snapshot || payload.roster || meta.roster_snapshot || buildRosterSnapshot();
+    payload.slot_template = Array.isArray(payload.slot_template) && payload.slot_template.length
+        ? payload.slot_template.map((entry, index) => normalizeSlotTemplateEntry(entry, index, entry?.team || 'team_attack1'))
+        : buildSlotTemplateFromRosterSnapshot(payload.roster_snapshot, payload);
+    payload.botSlots = Array.isArray(payload.botSlots) ? payload.botSlots.map((bot, index) => normalizeBotSlot(bot, index)) : [];
+    payload.source_snapshot_meta = {
+        ...(payload.source_snapshot_meta || {}),
+        source_type: meta.type || payload?.source_snapshot_meta?.source_type || 'live',
+        source_session_id: meta.session_id || payload?.source_snapshot_meta?.source_session_id || null,
+        source_day: meta.day || payload?.source_snapshot_meta?.source_day || null,
+        source_saved_at: meta.saved_at || meta.updated_at || payload?.source_snapshot_meta?.source_saved_at || new Date().toISOString()
+    };
+    return payload;
 }
 
 function collectPayloadRosterWarnings(payload) {
@@ -5724,6 +6646,7 @@ function buildEditHistoryResultNote(tacticsData, options = {}) {
 async function persistEditHistorySnapshot(tacticsData, options = {}) {
     if (!sb || !sessionData) return null;
     const guildId = getActiveGuildId();
+    const sessionId = getTacticsSessionId();
     const historyMarkers = {
         ...tacticsData,
         _history_meta: {
@@ -5744,7 +6667,15 @@ async function persistEditHistorySnapshot(tacticsData, options = {}) {
         markers: historyMarkers,
         result_note: buildEditHistoryResultNote(tacticsData, options)
     };
-    const { error } = await sb.from('bc_tactics_history').insert(insertPayload);
+    let { error } = await sb.from('bc_tactics_history').insert({
+        ...insertPayload,
+        ...(supportsTacticsHistorySessionIdColumn && sessionId ? { session_id: sessionId } : {})
+    });
+    if (error && /session_id/i.test(error.message || '')) {
+        supportsTacticsHistorySessionIdColumn = false;
+        const retry = await sb.from('bc_tactics_history').insert(insertPayload);
+        error = retry.error || null;
+    }
     if (error) {
         console.warn('[Tactics] Save history failed:', error);
         return error;
@@ -5755,12 +6686,26 @@ async function persistEditHistorySnapshot(tacticsData, options = {}) {
 async function cleanupEditHistorySnapshots() {
     if (!sb || !sessionData) return null;
     const guildId = getActiveGuildId();
-    const { data, error } = await sb.from('bc_tactics_history')
+    const sessionId = getTacticsSessionId();
+    let query = sb.from('bc_tactics_history')
         .select('id')
         .eq('guild_id', guildId)
-        .eq('day', currentDay)
         .eq('type', 'edit')
         .order('saved_at', { ascending: false });
+    if (supportsTacticsHistorySessionIdColumn && sessionId) query = query.eq('session_id', sessionId);
+    else query = query.eq('day', currentDay);
+    let { data, error } = await query;
+    if (error && /session_id/i.test(error.message || '')) {
+        supportsTacticsHistorySessionIdColumn = false;
+        const retry = await sb.from('bc_tactics_history')
+            .select('id')
+            .eq('guild_id', guildId)
+            .eq('day', currentDay)
+            .eq('type', 'edit')
+            .order('saved_at', { ascending: false });
+        data = retry.data;
+        error = retry.error || null;
+    }
     if (error || !Array.isArray(data) || data.length <= 10) return error || null;
     const staleIds = data.slice(10).map(entry => entry.id).filter(Boolean);
     if (!staleIds.length) return null;
@@ -5789,16 +6734,45 @@ async function loadStorageHistoryEntries() {
     }
     const guildId = getActiveGuildId();
     try {
-        const { data, error } = await sb.from('bc_tactics_history')
-            .select('id,type,saved_at,saved_by,roster,markers,result_note,day')
+        let query = sb.from('bc_tactics_history')
+            .select('id,type,saved_at,saved_by,roster,markers,result_note,day,session_id')
             .eq('guild_id', guildId)
             .eq('day', currentDay)
             .order('saved_at', { ascending: false })
             .limit(20);
+        let { data, error } = await query;
+        if (error && /session_id/i.test(error.message || '')) {
+            supportsTacticsHistorySessionIdColumn = false;
+            const retry = await sb.from('bc_tactics_history')
+                .select('id,type,saved_at,saved_by,roster,markers,result_note,day')
+                .eq('guild_id', guildId)
+                .eq('day', currentDay)
+                .order('saved_at', { ascending: false })
+                .limit(20);
+            data = retry.data;
+            error = retry.error || null;
+        }
         if (error) throw error;
+        const entries = data || [];
+        const missingIds = [...new Set(entries
+            .filter(entry => !entry?.markers?._history_meta?.actor_name && entry?.saved_by)
+            .map(entry => entry.saved_by))];
+        const nameMap = new Map();
+        if (missingIds.length > 0) {
+            const { data: users } = await sb.from('bc_users')
+                .select('discord_id,discord_name')
+                .in('discord_id', missingIds);
+            (users || []).forEach(user => {
+                if (user?.discord_id) nameMap.set(user.discord_id, user.discord_name || user.discord_id);
+            });
+        }
+        const mapped = entries.map(entry => ({
+            ...entry,
+            actor_display_name: entry?.markers?._history_meta?.actor_name || nameMap.get(entry?.saved_by) || entry?.saved_by || ''
+        }));
         storageHistoryEntries = {
-            battle: (data || []).filter(entry => entry.type === 'battle').slice(0, 10),
-            edit: (data || []).filter(entry => entry.type === 'edit').slice(0, 10)
+            battle: mapped.filter(entry => entry.type === 'battle').slice(0, 10),
+            edit: mapped.filter(entry => entry.type === 'edit').slice(0, 10)
         };
     } catch (error) {
         console.warn('[Tactics] Load history failed:', error);
@@ -5871,7 +6845,7 @@ function renderStorageDrawer() {
                         <span class="storage-entry-type battle">BATTLE</span>
                     </div>
                     <div class="storage-entry-sub" style="margin-bottom:4px; font-weight:500; color:#4ade80;">${sessionInfo}</div>
-                    <div class="storage-entry-sub">${formatStorageTimestamp(entry.saved_at)}${entry.saved_by ? ` • ${escapeHtmlAttr(entry.saved_by)}` : ''}</div>
+                    <div class="storage-entry-sub">${formatStorageTimestamp(entry.saved_at)}${entry.actor_display_name ? ` • ${escapeHtmlAttr(entry.actor_display_name)}` : ''}</div>
                     ${note}
                     <div class="storage-entry-actions">
                         <button class="storage-action-btn" onclick="viewTacticsHistoryEntry('${entry.id}')">👁 Xem</button>
@@ -5891,7 +6865,7 @@ function renderStorageDrawer() {
                         <span class="storage-entry-type edit">EDIT</span>
                     </div>
                     <div class="storage-entry-sub" style="margin-bottom:4px; font-weight:500; color:#4ade80;">${sessionInfo}</div>
-                    <div class="storage-entry-sub">${formatStorageTimestamp(entry.saved_at)}${entry.saved_by ? ` • ${escapeHtmlAttr(entry.saved_by)}` : ''}</div>
+                    <div class="storage-entry-sub">${formatStorageTimestamp(entry.saved_at)}${entry.actor_display_name ? ` • ${escapeHtmlAttr(entry.actor_display_name)}` : ''}</div>
                     <div class="storage-entry-actions">
                         <button class="storage-action-btn" onclick="viewTacticsHistoryEntry('${entry.id}')">👁 Xem</button>
                         <button class="storage-action-btn primary" onclick="applyTacticsHistoryEntry('${entry.id}')">↻ Áp dụng</button>
@@ -6038,7 +7012,7 @@ async function applyTacticsHistoryEntry(id) {
         toast('❌ Snapshot lịch sử không hợp lệ');
         return;
     }
-    if (!confirm(`Áp dụng snapshot ${entry.type === 'battle' ? 'thực chiến' : 'chỉnh sửa'} này lên chiến thuật hiện tại?`)) return;
+    if (!(await customConfirm(`Áp dụng snapshot ${entry.type === 'battle' ? 'thực chiến' : 'chỉnh sửa'} này lên chiến thuật hiện tại?`))) return;
     if (storagePreviewState) exitStoragePreview();
     applyExternalTacticsPayload(payload, {
         resetUndo: true,
@@ -6074,7 +7048,7 @@ function viewTacticsPreset(id) {
     enterStoragePreview(entry.markers, `Preset ${entry.preset_name || id}`);
 }
 
-function applyTacticsPreset(id) {
+async function applyTacticsPreset(id) {
     const entry = getPresetEntryById(id);
     if (!entry) return;
     const payload = parseSavedTacticsPayload(entry.markers);
@@ -6082,7 +7056,7 @@ function applyTacticsPreset(id) {
         toast('❌ Preset không hợp lệ');
         return;
     }
-    if (!confirm(`Load preset "${entry.preset_name}" và ghi đè chiến thuật hiện tại?`)) return;
+    if (!(await customConfirm(`Load preset "${entry.preset_name}" và ghi đè chiến thuật hiện tại?`))) return;
     if (storagePreviewState) exitStoragePreview();
     applyExternalTacticsPayload(payload, {
         resetUndo: true,
@@ -6094,7 +7068,7 @@ function applyTacticsPreset(id) {
 async function overwriteTacticsPreset(id) {
     const entry = getPresetEntryById(id);
     if (!entry) return;
-    if (!confirm(`Ghi đè preset "${entry.preset_name}" bằng chiến thuật hiện tại?`)) return;
+    if (!(await customConfirm(`Ghi đè preset "${entry.preset_name}" bằng chiến thuật hiện tại?`))) return;
     const { error } = await sb.from('bc_tactics_presets')
         .update({
             markers: buildPersistedTacticsPayload(),
@@ -6113,7 +7087,7 @@ async function overwriteTacticsPreset(id) {
 async function deleteTacticsPreset(id) {
     const entry = getPresetEntryById(id);
     if (!entry) return;
-    if (!confirm(`Xóa preset "${entry.preset_name}"?`)) return;
+    if (!(await customConfirm(`Xóa preset "${entry.preset_name}"?`))) return;
     const { error } = await sb.from('bc_tactics_presets').delete().eq('id', id);
     if (error) {
         toast('❌ Xóa preset thất bại: ' + error.message);
@@ -6126,6 +7100,7 @@ async function deleteTacticsPreset(id) {
 
 async function persistTacticsPayload(tacticsData) {
     const guildId = getActiveGuildId();
+    const sessionId = getTacticsSessionId();
     const payload = {
         guild_id: guildId,
         day: currentDay,
@@ -6134,8 +7109,20 @@ async function persistTacticsPayload(tacticsData) {
         notes: tacticsData?.strategy_name || '',
         updated_by: window.currentUserName || window.currentDiscordId || null
     };
-    const { error } = await sb.from('bc_tactics').upsert(payload, { onConflict: 'guild_id,day' });
-    return error || null;
+    if (supportsTacticsSessionIdColumn && sessionId) {
+        const scoped = await sb.from('bc_tactics').upsert({
+            ...payload,
+            session_id: sessionId
+        }, { onConflict: 'guild_id,session_id' });
+        if (!scoped.error) return null;
+        if (/session_id/i.test(scoped.error.message || '')) {
+            supportsTacticsSessionIdColumn = false;
+        } else {
+            return scoped.error;
+        }
+    }
+    const fallback = await sb.from('bc_tactics').upsert(payload, { onConflict: 'guild_id,day' });
+    return fallback.error || null;
 }
 
 async function saveTactics() {
@@ -6154,7 +7141,7 @@ async function saveTactics() {
 
 async function resetTacticsFromScratch() {
     if (!isLeader) { toast('👁️ Chế độ xem không thể reset chiến thuật'); return; }
-    if (!confirm('Xóa toàn bộ chiến thuật hiện tại và reset về trạng thái đầu trận?')) return;
+    if (!(await customConfirm('Xóa toàn bộ chiến thuật hiện tại và reset về trạng thái đầu trận?'))) return;
 
     ensureSessionDefaults();
     setStrategyName('');
@@ -7557,7 +8544,11 @@ function normalizeBotSlot(bot, index = 0) {
         role: ['DPS', 'Tanker', 'Healer'].includes(bot?.role) ? bot.role : 'DPS',
         sub: bot?.sub || '',
         team: ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].includes(bot?.team) ? bot.team : 'team_attack1',
-        isBot: true
+        isBot: true,
+        replacement_for: bot?.replacement_for || null,
+        reserved_slot_index: Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : null,
+        original_team: bot?.original_team || bot?.team || 'team_attack1',
+        original_name: bot?.original_name || bot?.name || ''
     };
 }
 
@@ -7702,109 +8693,12 @@ function fillBotsToMax() {
 }
 
 function remapBotIdAcrossTactics(oldId, replacementPlayer) {
-    if (!oldId || !replacementPlayer) return;
-    marks.forEach(mark => {
-        (mark.players || []).forEach(player => {
-            if (player.id === oldId) {
-                player.id = replacementPlayer.id;
-                player.name = replacementPlayer.gn || replacementPlayer.name || replacementPlayer.username || 'Unknown';
-                player.role = replacementPlayer.role || 'DPS';
-                player.sub = replacementPlayer.sub || '';
-                player.team = replacementPlayer.team || 'team_attack1';
-                delete player.isBot;
-            }
-        });
-        Object.keys(mark.tower_guards || {}).forEach(towerId => {
-            mark.tower_guards[towerId] = (mark.tower_guards[towerId] || []).map(id => id === oldId ? replacementPlayer.id : id);
-        });
-        (mark.targeting || []).forEach(target => {
-            if (target.playerId === oldId) target.playerId = replacementPlayer.id;
-            if (target.from === oldId) target.from = replacementPlayer.id;
-        });
-        (mark.icon_targets || []).forEach(target => {
-            if (target.playerId === oldId) target.playerId = replacementPlayer.id;
-            if (target.from === oldId) target.from = replacementPlayer.id;
-        });
-        if (mark.pvp_fighters?.blue === oldId) mark.pvp_fighters.blue = replacementPlayer.id;
-        Object.values(mark.boss_assignments || {}).forEach(entry => {
-            if (entry?.blue) entry.blue = entry.blue.map(id => id === oldId ? replacementPlayer.id : id);
-        });
-        Object.values(mark.tree_carriers || {}).forEach(entry => {
-            if (entry?.main === oldId) entry.main = replacementPlayer.id;
-            if (Array.isArray(entry?.support)) entry.support = entry.support.map(id => id === oldId ? replacementPlayer.id : id);
-        });
-        Object.values(mark.jungle_assignments || {}).forEach(entry => {
-            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map(id => id === oldId ? replacementPlayer.id : id);
-            Object.values(entry?.windows || {}).forEach(windowEntry => {
-                if (Array.isArray(windowEntry?.blue)) windowEntry.blue = windowEntry.blue.map(id => id === oldId ? replacementPlayer.id : id);
-            });
-        });
-        (mark.tasks || []).forEach(task => {
-            if (task?.scope === 'personal' && task.target === oldId) task.target = replacementPlayer.id;
-        });
-    });
-    tacticsGlobalNotes.forEach(note => {
-        if (note?.scope === 'personal' && note.target === oldId) note.target = replacementPlayer.id;
-    });
-    // Cập nhật jungle_default_player_ids nếu bot từng được gán làm người ăn rừng mặc định
-    if (Array.isArray(sessionData?.jungle_default_player_ids)) {
-        sessionData.jungle_default_player_ids = sessionData.jungle_default_player_ids.map(
-            id => id === oldId ? replacementPlayer.id : id
-        );
-    }
+    remapUnitIdAcrossTactics(oldId, { ...replacementPlayer, isBot: false });
 }
 
 // Remap ngược: thay entry người thật bằng bot mới khi người đó huỷ đăng ký
 function remapPlayerToBotInTactics(oldPlayerId, botSlot) {
-    if (!oldPlayerId || !botSlot) return;
-    marks.forEach(mark => {
-        (mark.players || []).forEach(player => {
-            if (player.id === oldPlayerId) {
-                player.id = botSlot.id;
-                player.name = botSlot.name;
-                player.role = botSlot.role;
-                player.sub = botSlot.sub || '';
-                player.team = botSlot.team;
-                player.isBot = true;
-            }
-        });
-        Object.keys(mark.tower_guards || {}).forEach(towerId => {
-            mark.tower_guards[towerId] = (mark.tower_guards[towerId] || []).map(id => id === oldPlayerId ? botSlot.id : id);
-        });
-        (mark.targeting || []).forEach(target => {
-            if (target.playerId === oldPlayerId) target.playerId = botSlot.id;
-            if (target.from === oldPlayerId) target.from = botSlot.id;
-        });
-        (mark.icon_targets || []).forEach(target => {
-            if (target.playerId === oldPlayerId) target.playerId = botSlot.id;
-            if (target.from === oldPlayerId) target.from = botSlot.id;
-        });
-        if (mark.pvp_fighters?.blue === oldPlayerId) mark.pvp_fighters.blue = botSlot.id;
-        Object.values(mark.boss_assignments || {}).forEach(entry => {
-            if (entry?.blue) entry.blue = entry.blue.map(id => id === oldPlayerId ? botSlot.id : id);
-        });
-        Object.values(mark.tree_carriers || {}).forEach(entry => {
-            if (entry?.main === oldPlayerId) entry.main = botSlot.id;
-            if (Array.isArray(entry?.support)) entry.support = entry.support.map(id => id === oldPlayerId ? botSlot.id : id);
-        });
-        Object.values(mark.jungle_assignments || {}).forEach(entry => {
-            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map(id => id === oldPlayerId ? botSlot.id : id);
-            Object.values(entry?.windows || {}).forEach(windowEntry => {
-                if (Array.isArray(windowEntry?.blue)) windowEntry.blue = windowEntry.blue.map(id => id === oldPlayerId ? botSlot.id : id);
-            });
-        });
-        (mark.tasks || []).forEach(task => {
-            if (task?.scope === 'personal' && task.target === oldPlayerId) task.target = botSlot.id;
-        });
-    });
-    tacticsGlobalNotes.forEach(note => {
-        if (note?.scope === 'personal' && note.target === oldPlayerId) note.target = botSlot.id;
-    });
-    if (Array.isArray(sessionData?.jungle_default_player_ids)) {
-        sessionData.jungle_default_player_ids = sessionData.jungle_default_player_ids.map(
-            id => id === oldPlayerId ? botSlot.id : id
-        );
-    }
+    remapUnitIdAcrossTactics(oldPlayerId, { ...botSlot, isBot: true });
 }
 
 // Tạo bot mới kế thừa team/role của người rời đi
@@ -7817,7 +8711,11 @@ function createReplacementBotForPlayer(player) {
         role: player.role || 'DPS',
         sub: player.sub || '',
         team: player.team || 'team_attack1',
-        isBot: true
+        isBot: true,
+        replacement_for: player.id || null,
+        reserved_slot_index: Number.isFinite(Number(player.slot_index)) ? Number(player.slot_index) : null,
+        original_team: player.team || 'team_attack1',
+        original_name: player.gn || player.name || player.username || ''
     });
 }
 
@@ -7881,9 +8779,9 @@ function removeBotSlot(id, options = {}) {
     if (options.commit !== false) commitTacticsHistory('bot-remove');
 }
 
-function clearAllBots() {
+async function clearAllBots() {
     if (!botSlots.length) return;
-    if (!confirm(`Xóa tất cả ${botSlots.length} bot?`)) return;
+    if (!(await customConfirm(`Xóa tất cả ${botSlots.length} bot?`))) return;
     botSlots.forEach(bot => purgeBotIdFromTactics(bot.id));
     botSlots = [];
     botIdCounter = 0;
@@ -7945,6 +8843,13 @@ function renderBotPanel() {
                 });
             }
         }
+        if (isLeader) {
+            div.addEventListener('contextmenu', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                showRosterPlayerCtx(event, bot.id);
+            });
+        }
         container.appendChild(div);
     });
 }
@@ -7966,7 +8871,8 @@ function autoReplaceBots(oldRoster, newRoster) {
     if (!newPlayers.length) return;
     let replaced = 0;
     newPlayers.forEach(player => {
-        const bot = findBestBotMatch(player);
+        const bot = botSlots.find(entry => entry.replacement_for === player.id)
+            || findBestBotMatch(player);
         if (!bot) return;
         const crossTeam = bot.team !== (player.team || 'team_attack1');
         remapBotIdAcrossTactics(bot.id, player);
@@ -7992,77 +8898,9 @@ function autoReplaceBots(oldRoster, newRoster) {
 // Sau khi load/restore botSlots + sessionData, kiểm tra team nào bị thừa bot → xóa bot
 function reconcileBotsWithRoster() {
     if (!sessionData) return;
-    const sizes = typeof sessionData.team_sizes === 'string'
-        ? JSON.parse(sessionData.team_sizes || '{}') : (sessionData.team_sizes || {});
-    const realPlayers = getRealPlayersFromSession();
-    const teamConfigs = [
-        { key: 'team_attack1', max: sizes.attack1 || 10 },
-        { key: 'team_attack2', max: sizes.attack2 || 10 },
-        { key: 'team_defense', max: sizes.defense ?? 5 },
-        { key: 'team_forest', max: sizes.forest ?? 5 }
-    ];
-    let removed = 0;
-    // Bước 1: Xóa bot thừa theo từng team
-    teamConfigs.forEach(cfg => {
-        const realCount = realPlayers.filter(p => p.team === cfg.key).length;
-        const teamBots = botSlots.filter(b => b.team === cfg.key);
-        let excess = (realCount + teamBots.length) - cfg.max;
-        while (excess > 0 && teamBots.length > 0) {
-            const botToRemove = teamBots.pop();
-            purgeBotIdFromTactics(botToRemove.id);
-            botSlots = botSlots.filter(b => b.id !== botToRemove.id);
-            removed++;
-            excess--;
-        }
-    });
-    if (removed > 0) {
-        console.log(`[Tactics] 🧹 reconcileBotsWithRoster: đã xóa ${removed} bot thừa`);
-    }
-
-    // Bước 2: Thêm bot nếu tổng < totalMax (đảm bảo luôn đủ theo team_sizes)
-    const totalMax = teamConfigs.reduce((s, c) => s + c.max, 0) || 30;
-    const totalNow = realPlayers.length + botSlots.length;
-    if (totalNow < totalMax) {
-        const need = totalMax - totalNow;
-        // Phân bổ bot mới vào team còn thiếu chỗ
-        const teamSlots = teamConfigs.map(cfg => {
-            const realCount = realPlayers.filter(p => p.team === cfg.key).length;
-            const botCount = botSlots.filter(b => b.team === cfg.key).length;
-            return { key: cfg.key, max: cfg.max, free: Math.max(0, cfg.max - realCount - botCount) };
-        });
-        let added = 0;
-        for (let i = 0; i < need; i++) {
-            // Tìm team có chỗ trống nhiều nhất
-            const bestTeam = teamSlots.reduce((best, t) => t.free > best.free ? t : best, teamSlots[0]);
-            if (bestTeam.free <= 0) break; // Tất cả team đã đầy
-            const seq = ++botIdCounter;
-            const roles = distributeRoles(1);
-            const newBot = normalizeBotSlot({
-                id: `bot_${seq}`,
-                seq,
-                name: `Bot ${String(seq).padStart(2, '0')}`,
-                role: roles[0] || 'DPS',
-                sub: '',
-                team: bestTeam.key,
-                isBot: true
-            });
-            botSlots.push(newBot);
-            bestTeam.free--;
-            added++;
-        }
-        if (added > 0) {
-            // Seed bot mới vào setup mark (30:00) nếu có
-            const setupMark = marks.find(m => m.time === TOTAL_SECONDS);
-            if (setupMark) {
-                seedSetupMark(setupMark);
-            }
-            console.log(`[Tactics] 🤖 reconcileBotsWithRoster: đã thêm ${added} bot để đủ 30`);
-        }
-    }
-
-    // Bước 3: Rebuild marks kế thừa nếu có thay đổi
-    if (removed > 0) {
-        if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+    const changed = syncTacticalSlotsWithRoster();
+    if (changed && typeof refreshAutoInheritedSystemMarks === 'function') {
+        refreshAutoInheritedSystemMarks();
     }
 }
 
@@ -8072,6 +8910,14 @@ function replaceBotManual(botId, realPlayerId) {
     if (!bot || !realPlayer) return;
     remapBotIdAcrossTactics(botId, realPlayer);
     botSlots = botSlots.filter(entry => entry.id !== botId);
+    currentSlotBindings = (currentSlotBindings || []).map((binding, index) => {
+        const normalized = normalizeSlotTemplateEntry(binding || {}, index, binding?.team || bot.team);
+        if (normalized.tactical_id !== botId) return normalized;
+        return normalizeSlotTemplateEntry({
+            ...normalized,
+            tactical_id: realPlayer.id
+        }, index, normalized.team);
+    });
     // Rebuild marks kế thừa + cập nhật snapshot tránh stale dirty
     if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
     captureMarkSnapshot();
@@ -8351,6 +9197,11 @@ let dragMovePoint = null;
 let selectedPlayers = new Set(); // Multi-select panel
 let mapSelectedIds = new Set(); // Multi-select trên map
 let enemyMapSelectedIds = new Set(); // Multi-select địch trên map
+let towerGuardSelectedKeys = new Set(); // Multi-select người giữ trụ
+let towerGuardMultiSelectMode = false;
+let towerGuardLongPressTimer = null;
+let towerGuardSweepActive = false;
+let towerGuardSelectionSide = null;
 
 // ═══ RECTANGLE SELECT TRÊN MAP ═══
 let mapSelectState = null; // { startX, startY, rect, timer }
@@ -9491,7 +10342,7 @@ function flushDragMoveFrame() {
             dragState.ghostEl.style.left = e.clientX + 'px';
             dragState.ghostEl.style.top = e.clientY + 'px';
         }
-    } else if (dragState.source === 'tower-guard') {
+    } else if (dragState.source === 'tower-guard' || dragState.source === 'tower-guard-multi') {
         if (dragState.ghostEl) {
             dragState.ghostEl.style.left = e.clientX + 'px';
             dragState.ghostEl.style.top = e.clientY + 'px';
@@ -9583,7 +10434,7 @@ function flushDragMoveFrame() {
         }
     }
 
-    const previewSources = ['panel', 'multi-panel', 'tower-guard', 'map', 'group', 'map-selection', 'enemy-panel', 'enemy-multi-panel', 'enemy-map', 'enemy-group', 'enemy-map-selection'];
+    const previewSources = ['panel', 'multi-panel', 'tower-guard', 'tower-guard-multi', 'map', 'group', 'map-selection', 'enemy-panel', 'enemy-multi-panel', 'enemy-map', 'enemy-group', 'enemy-map-selection'];
     if (previewSources.includes(dragState.source)) {
         let previewX = px;
         let previewY = py;
@@ -9592,7 +10443,8 @@ function flushDragMoveFrame() {
             previewX = px - offset.x;
             previewY = py - offset.y;
         }
-        const isEnemySource = ['enemy-panel', 'enemy-multi-panel', 'enemy-map', 'enemy-group', 'enemy-map-selection'].includes(dragState.source);
+        const isEnemySource = ['enemy-panel', 'enemy-multi-panel', 'enemy-map', 'enemy-group', 'enemy-map-selection'].includes(dragState.source)
+            || ((dragState.source === 'tower-guard' || dragState.source === 'tower-guard-multi') && dragState.side === 'red');
         updateDragAttackPreview(previewX, previewY, isEnemySource
             ? { allowEnemies: false, iconKinds: ['jungle'] }
             : { allowEnemies: true, iconKinds: ['icon', 'jungle'] });
@@ -9708,34 +10560,86 @@ document.addEventListener('mouseup', e => {
             deselectAllEnemies();
             shouldCommitHistory = true;
         } else if (dragState.source === 'tower-guard') {
-            console.log('[TowerDrag] ✓ drop inMap', { px, py, side: dragState.side, guardId: dragState.guardId });
-            removeTowerGuardAssignment(dragState.towerId, dragState.guardId);
+            // Kéo người từ trụ xuống map: gỡ khỏi trụ + đặt lên map
             if (dragState.side === 'blue') {
-                const source = getAllPlayers().find(player => player.id === dragState.guardId);
+                // Gỡ khỏi trụ blue
+                removeTowerGuardAssignment(dragState.towerId, dragState.guardId);
+                // Đặt lên map
                 const players = getMarkPlayers();
-                players.push({
-                    id: dragState.guardId,
-                    x: px,
-                    y: py,
-                    team: source?.team || 'team_attack1',
-                    name: source?.gn || source?.name || dragState.name || dragState.guardId,
-                    role: source?.role || dragState.role || 'DPS',
-                    sub: source?.sub || ''
-                });
-                setMarkPlayers(players);
+                const existing = players.find(p => p.id === dragState.guardId);
+                if (existing) {
+                    existing.x = px;
+                    existing.y = py;
+                } else {
+                    players.push({
+                        id: dragState.guardId,
+                        x: px,
+                        y: py,
+                        team: dragState.team || 'team_attack1',
+                        name: dragState.name,
+                        role: dragState.role,
+                        sub: dragState.sub || ''
+                    });
+                }
+                flagMarkDirty();
+                renderPlayersOnMap(); renderTowerGuardNames(); syncPanelOnMap(); renderTargeting();
+                toast('✅ Đã gỡ khỏi trụ và đặt lên map');
             } else {
-                const source = enemyList.find(enemy => enemy.id === dragState.guardId);
-                const enemies = getMarkEnemies();
-                enemies.push({
-                    id: dragState.guardId,
-                    x: px,
-                    y: py,
-                    name: source?.name || dragState.name || dragState.guardId,
-                    role: source?.role || dragState.role || 'DPS'
-                });
-                setMarkEnemies(enemies);
+                // Tower đỏ (enemy) → gỡ khỏi trụ + đặt enemy lên map
+                RED_TOWER_IDS.forEach(tid => removeTowerGuardAssignment(tid, dragState.enemyId || dragState.guardId));
+                placeEnemiesOnMap([{
+                    id: dragState.enemyId || dragState.guardId,
+                    name: dragState.name,
+                    role: dragState.role
+                }], { x: px, y: py });
+                renderTowerGuardNames();
+                toast('✅ Đã gỡ enemy khỏi trụ và đặt lên map');
             }
             shouldCommitHistory = true;
+            if (typeof refreshZoomModal === 'function') refreshZoomModal();
+        } else if (dragState.source === 'tower-guard-multi') {
+            const infos = Array.isArray(dragState.guardInfos) ? dragState.guardInfos : [];
+            if (dragState.side === 'blue') {
+                const players = getMarkPlayers();
+                infos.forEach((info, index) => {
+                    removeTowerGuardAssignment(info.towerId, info.guardId);
+                    const angle = infos.length > 1 ? (index / infos.length) * Math.PI * 2 : 0;
+                    const radius = infos.length > 1 ? Math.min(3, 1 + infos.length * 0.3) : 0;
+                    const nextX = Math.round((px + Math.cos(angle) * radius) * 10) / 10;
+                    const nextY = Math.round((py + Math.sin(angle) * radius) * 10) / 10;
+                    const existing = players.find(player => player.id === info.guardId);
+                    if (existing) {
+                        existing.x = nextX;
+                        existing.y = nextY;
+                    } else {
+                        players.push({
+                            id: info.guardId,
+                            x: nextX,
+                            y: nextY,
+                            team: info.team || 'team_attack1',
+                            name: info.name,
+                            role: info.role || 'DPS',
+                            sub: info.sub || ''
+                        });
+                    }
+                });
+                flagMarkDirty();
+                renderPlayersOnMap(); renderTowerGuardNames(); syncPanelOnMap(); renderTargeting();
+                toast(`Da go ${infos.length} nguoi khoi tru va dat len map`);
+            } else {
+                infos.forEach(info => {
+                    RED_TOWER_IDS.forEach(tid => removeTowerGuardAssignment(tid, info.guardId));
+                });
+                placeEnemiesOnMap(infos.map(info => ({
+                    id: info.guardId,
+                    name: info.name,
+                    role: info.role || 'DPS'
+                })), { x: px, y: py });
+                renderTowerGuardNames();
+                toast(`Da go ${infos.length} enemy khoi tru va dat len map`);
+            }
+            shouldCommitHistory = true;
+            if (typeof refreshZoomModal === 'function') refreshZoomModal();
         } else if (dragState.source === 'multi-panel') {
             // Thêm nhiều người vào map, xếp vòng tròn
             const players = getMarkPlayers();
@@ -9891,11 +10795,31 @@ document.addEventListener('mouseup', e => {
         toast('🗑️ Đã xóa khỏi map');
         }
     } else if (dragState.source === 'tower-guard') {
-        removeTowerGuardAssignment(dragState.towerId, dragState.guardId);
-        shouldCommitHistory = true;
-        toast('🗑️ Đã xóa khỏi map (trở về danh sách)');
-        renderPlayersOnMap(); renderEnemiesOnMap(); syncPanelOnMap(); applyObjectiveStates(); renderTargeting();
+        // Kéo từ trụ ra ngoài map → chỉ gỡ khỏi trụ (trả về panel)
+        if (dragState.side === 'blue') {
+            removeTowerGuardAssignment(dragState.towerId, dragState.guardId);
+        } else {
+            RED_TOWER_IDS.forEach(tid => removeTowerGuardAssignment(tid, dragState.enemyId || dragState.guardId));
+        }
+        flagMarkDirty();
+        renderPlayersOnMap(); renderEnemiesOnMap(); renderTowerGuardNames(); syncPanelOnMap(); applyObjectiveStates(); renderTargeting();
         if (typeof refreshZoomModal === 'function') refreshZoomModal();
+        shouldCommitHistory = true;
+        toast('✅ Đã gỡ khỏi trụ');
+    } else if (dragState.source === 'tower-guard-multi') {
+        const infos = Array.isArray(dragState.guardInfos) ? dragState.guardInfos : [];
+        if (dragState.side === 'blue') {
+            infos.forEach(info => removeTowerGuardAssignment(info.towerId, info.guardId));
+        } else {
+            infos.forEach(info => {
+                RED_TOWER_IDS.forEach(tid => removeTowerGuardAssignment(tid, info.guardId));
+            });
+        }
+        flagMarkDirty();
+        renderPlayersOnMap(); renderEnemiesOnMap(); renderTowerGuardNames(); syncPanelOnMap(); applyObjectiveStates(); renderTargeting();
+        if (typeof refreshZoomModal === 'function') refreshZoomModal();
+        shouldCommitHistory = true;
+        toast(`Da go ${infos.length} muc tieu khoi tru`);
     } else if (dragState.source === 'enemy-panel' || dragState.source === 'enemy-multi-panel') {
         renderEnemiesOnMap(); renderEnemyListPanel();
     } else {
@@ -9905,6 +10829,9 @@ document.addEventListener('mouseup', e => {
     updatePlayheadInfo(viewingTime);
     if (dragState.dragEl) dragState.dragEl.classList.remove('dragging');
     if (dragState.ghostEl) dragState.ghostEl.remove();
+    if (dragState.source === 'tower-guard' || dragState.source === 'tower-guard-multi') {
+        clearTowerGuardSelection();
+    }
     if (mapAttackPreviewTargets.length) {
         mapAttackPreviewTargets = [];
         renderTargeting();
@@ -9928,7 +10855,9 @@ function getDraggedBluePlayerIds(state = dragState) {
     if (state.source === 'multi-panel' || state.source === 'group' || state.source === 'map-selection') {
         return [...(state.multiIds || state.groupIds || [])];
     }
-    if (state.source === 'tower-guard' && state.side === 'blue') return state.guardId ? [state.guardId] : [];
+    if ((state.source === 'tower-guard' || state.source === 'tower-guard-multi') && state.side === 'blue') {
+        return [...new Set(state.guardIds || (state.guardId ? [state.guardId] : []))];
+    }
     return [];
 }
 
@@ -9938,7 +10867,9 @@ function getDraggedRedEnemyIds(state = dragState) {
     if (state.source === 'enemy-multi-panel' || state.source === 'enemy-group' || state.source === 'enemy-map-selection') {
         return [...(state.enemyIds || state.groupIds || [])];
     }
-    if (state.source === 'tower-guard' && state.side === 'red') return state.guardId ? [state.guardId] : [];
+    if ((state.source === 'tower-guard' || state.source === 'tower-guard-multi') && state.side === 'red') {
+        return [...new Set(state.guardIds || (state.guardId ? [state.guardId] : []))];
+    }
     return [];
 }
 
@@ -11760,7 +12691,7 @@ loadSessionData = async function() {
 const LOCAL_EDIT_HISTORY_LIMIT = 10;
 
 function getLocalEditHistoryKey() {
-    return `tactics-edit-history:${getActiveGuildId()}:${currentDay}`;
+    return `tactics-edit-history:${getActiveGuildId()}:${getTacticsSessionId() || currentDay}`;
 }
 
 function readLocalEditHistoryEntries() {
@@ -11943,7 +12874,7 @@ function mergePresetEntries(remoteEntries, localEntries) {
         .slice(0, LOCAL_PRESET_LIMIT);
 }
 
-function isRecoverablePresetStorageError(error) {
+async function isRecoverablePresetStorageError(error) {
     const text = [
         error?.message,
         error?.details,
@@ -12018,7 +12949,7 @@ createNewTacticsPreset = async function() {
 overwriteTacticsPreset = async function(id) {
     const entry = getPresetEntryById(id);
     if (!entry) return;
-    if (!confirm(`Ghi de preset \"${entry.preset_name}\" bang chien thuat hien tai?`)) return;
+    if (!(await customConfirm(`Ghi de preset \"${entry.preset_name}\" bang chien thuat hien tai?`))) return;
     const markers = buildPersistedTacticsPayload();
     const nextLocalEntry = buildLocalPresetEntry(entry.preset_name || 'Preset', {
         id: entry.id,
@@ -12059,7 +12990,7 @@ overwriteTacticsPreset = async function(id) {
 deleteTacticsPreset = async function(id) {
     const entry = getPresetEntryById(id);
     if (!entry) return;
-    if (!confirm(`Xoa preset \"${entry.preset_name}\"?`)) return;
+    if (!(await customConfirm(`Xoa preset \"${entry.preset_name}\"?`))) return;
     if (entry._local || !sb || !sessionData) {
         removeLocalPresetEntry(id);
         await loadStoragePresetEntries();
@@ -12090,7 +13021,7 @@ applyTacticsPreset = async function(id) {
         toast('Preset khong hop le');
         return;
     }
-    if (!confirm(`Load preset \"${entry.preset_name}\" va ghi de chien thuat hien tai?`)) return;
+    if (!(await customConfirm(`Load preset \"${entry.preset_name}\" va ghi de chien thuat hien tai?`))) return;
     if (storagePreviewState) exitStoragePreview();
     const applied = applyExternalTacticsPayload(payload, {
         resetUndo: true,
@@ -12154,6 +13085,7 @@ function resetSessionScopedTacticsStateOverride() {
     marks = [];
     botSlots = [];
     botIdCounter = 0;
+    currentSlotBindings = [];
     enemyList = [];
     enemyIdCounter = 0;
     activeMarkIdx = 0;
@@ -12167,6 +13099,7 @@ function resetSessionScopedTacticsStateOverride() {
     pendingUnsavedAction = null;
     pendingHistoryCommitReason = null;
     storagePreviewState = null;
+    tacticsSourceSnapshotMeta = null;
     tacticsHistoryPast = [];
     tacticsHistoryFuture = [];
     tacticsHistoryPresent = null;
@@ -12190,43 +13123,168 @@ loadSessionData = async function() {
     sessionData = data;
     currentDay = data.day || currentDay;
     ensureSessionDefaults();
+    tacticsSourceSnapshotMeta = {
+        current_session_id: getTacticsSessionId(),
+        current_day: currentDay || data.day || null
+    };
     updateCurrentDayLabel();
+    syncTeamSectionLabels();
 
     fillMockTeams();
     ensureEnemyRoster();
 
     const loadedPersisted = await loadPersistedTacticsData();
-    if (!loadedPersisted) initDefaultMarks();
+    if (!loadedPersisted) {
+        currentSlotBindings = buildFallbackSlotTemplate();
+        initDefaultMarks();
+        syncTacticalSlotsWithRoster({ baseTemplate: currentSlotBindings });
+    }
 
     updateCurrentDayLabel();
     refreshStorageButtons();
+    startSessionRealtimeSync();
     return loadedPersisted;
 };
 
 loadPersistedTacticsData = async function() {
     const guildId = getActiveGuildId();
     const resolvedDay = getResolvedTacticsDay();
-    try {
-        const { data, error } = await sb.from('bc_tactics')
-            .select('markers, updated_at, updated_by')
-            .eq('guild_id', guildId)
-            .eq('day', resolvedDay)
-            .maybeSingle();
-        if (!error) {
-            const saved = parseSavedTacticsPayload(data?.markers);
-            if (saved && applySavedTacticsPayload(saved)) {
-                toast('Da tai chien thuat da luu!');
-                return true;
+    const sessionId = getTacticsSessionId();
+
+    const tryApplyPayload = async (rawPayload, meta = {}, options = {}) => {
+        const parsed = parseSavedTacticsPayload(rawPayload);
+        if (!parsed) return false;
+        if (!parsed.strategy_name && options.notes) parsed.strategy_name = options.notes;
+        const normalized = normalizeSavedTacticsPayload(parsed, meta);
+        if (!applySavedTacticsPayload(normalized)) return false;
+        if (options.persistSeed === true) {
+            const persistError = await persistTacticsPayload(buildPersistedTacticsPayload());
+            if (persistError) console.warn('[Tactics] Persist seeded tactics failed:', persistError);
+        }
+        toast(options.toastMessage || 'Da tai chien thuat da luu!');
+        return true;
+    };
+
+    if (supportsTacticsSessionIdColumn && sessionId) {
+        try {
+            const scoped = await sb.from('bc_tactics')
+                .select('markers,notes,updated_at,updated_by,day,session_id')
+                .eq('guild_id', guildId)
+                .eq('session_id', sessionId)
+                .maybeSingle();
+            if (!scoped.error) {
+                if (await tryApplyPayload(scoped.data?.markers, {
+                    type: 'live',
+                    session_id: scoped.data?.session_id || sessionId,
+                    day: scoped.data?.day || resolvedDay,
+                    updated_at: scoped.data?.updated_at || null
+                }, {
+                    notes: scoped.data?.notes || '',
+                    toastMessage: 'Da tai chien thuat session hien tai!'
+                })) return true;
+            } else if (/session_id/i.test(scoped.error.message || '')) {
+                supportsTacticsSessionIdColumn = false;
+            } else {
+                console.warn('[Tactics] Load session-scoped bc_tactics failed:', scoped.error);
             }
+        } catch (error) {
+            console.warn('[Tactics] Load session-scoped bc_tactics exception:', error);
+        }
+    }
+
+    if (!supportsTacticsSessionIdColumn) {
+        try {
+            const legacyLive = await sb.from('bc_tactics')
+                .select('markers,notes,updated_at,updated_by,day')
+                .eq('guild_id', guildId)
+                .eq('day', resolvedDay)
+                .maybeSingle();
+            if (!legacyLive.error && await tryApplyPayload(legacyLive.data?.markers, {
+                type: 'legacy-live',
+                day: legacyLive.data?.day || resolvedDay,
+                updated_at: legacyLive.data?.updated_at || null
+            }, {
+                notes: legacyLive.data?.notes || '',
+                toastMessage: 'Da tai chien thuat da luu!'
+            })) return true;
+            if (legacyLive.error) console.warn('[Tactics] Load legacy bc_tactics failed:', legacyLive.error);
+        } catch (error) {
+            console.warn('[Tactics] Load legacy bc_tactics exception:', error);
+        }
+    }
+
+    try {
+        const liveSource = supportsTacticsSessionIdColumn
+            ? await sb.from('bc_tactics')
+                .select('markers,notes,updated_at,updated_by,day,session_id')
+                .eq('guild_id', guildId)
+                .order('updated_at', { ascending: false })
+                .limit(10)
+            : await sb.from('bc_tactics')
+                .select('markers,notes,updated_at,updated_by,day')
+                .eq('guild_id', guildId)
+                .order('updated_at', { ascending: false })
+                .limit(10);
+
+        if (liveSource.error && /session_id/i.test(liveSource.error.message || '')) {
+            supportsTacticsSessionIdColumn = false;
+        } else if (liveSource.error) {
+            console.warn('[Tactics] Load latest tactics seed failed:', liveSource.error);
         } else {
-            console.warn('[Tactics] Load bc_tactics failed:', error);
+            const picked = (liveSource.data || []).find((row) => row?.markers && String(row.session_id || '') !== String(sessionId || ''));
+            if (picked && await tryApplyPayload(picked.markers, {
+                type: 'live',
+                session_id: picked.session_id || null,
+                day: picked.day || null,
+                updated_at: picked.updated_at || null
+            }, {
+                notes: picked.notes || '',
+                persistSeed: true,
+                toastMessage: 'Da ap dung chien thuat tu session truoc!'
+            })) return true;
         }
     } catch (error) {
-        console.warn('[Tactics] Load bc_tactics exception:', error);
+        console.warn('[Tactics] Load latest tactics source exception:', error);
+    }
+
+    try {
+        let historyRows = await sb.from('bc_tactics_history')
+            .select('markers,roster,saved_at,day,type,session_id')
+            .eq('guild_id', guildId)
+            .order('saved_at', { ascending: false })
+            .limit(10);
+        if (historyRows.error && /session_id/i.test(historyRows.error.message || '')) {
+            supportsTacticsHistorySessionIdColumn = false;
+            historyRows = await sb.from('bc_tactics_history')
+                .select('markers,roster,saved_at,day,type')
+                .eq('guild_id', guildId)
+                .order('saved_at', { ascending: false })
+                .limit(10);
+        }
+        if (!historyRows.error) {
+            const pickedHistory = (historyRows.data || []).find((row) => row?.markers);
+            if (pickedHistory && await tryApplyPayload(pickedHistory.markers, {
+                type: pickedHistory.type || 'history',
+                session_id: pickedHistory.session_id || null,
+                day: pickedHistory.day || null,
+                saved_at: pickedHistory.saved_at || null,
+                roster_snapshot: pickedHistory.roster || null
+            }, {
+                persistSeed: true,
+                toastMessage: 'Da ap dung snapshot chien thuat gan nhat!'
+            })) return true;
+        } else {
+            console.warn('[Tactics] Load history seed failed:', historyRows.error);
+        }
+    } catch (error) {
+        console.warn('[Tactics] Load history seed exception:', error);
     }
 
     const legacy = parseSavedTacticsPayload(sessionData?.tactics_data);
-    if (legacy && applySavedTacticsPayload(legacy)) {
+    if (legacy && applySavedTacticsPayload(normalizeSavedTacticsPayload(legacy, {
+        type: 'session-legacy',
+        day: resolvedDay
+    }))) {
         toast('Da tai chien thuat da luu!');
         return true;
     }
@@ -12795,4 +13853,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
-

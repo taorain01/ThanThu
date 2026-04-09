@@ -976,7 +976,26 @@ module.exports = {
                         // 4. XÓA SESSION KHỎI DB
                         dbCleanup.deleteActiveBangchien(autoEndPartyKey);
 
-                        // 4.5. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
+                        // 4.5. Lưu snapshot thực chiến cuối tuần 19:30 trước khi xóa session
+                        try {
+                            if (['sat', 'sun'].includes(day) && (autoEndSession.time || '19:30') === '19:30') {
+                                const { saveBattleTacticsHistorySnapshot } = require('../../utils/supabaseSync');
+                                await saveBattleTacticsHistorySnapshot(guildId, day, {
+                                    time: autoEndSession.time || '19:30',
+                                    roster: {
+                                        attack1: autoEndSession.team_attack1 || [],
+                                        attack2: autoEndSession.team_attack2 || [],
+                                        defense: autoEndSession.team_defense || [],
+                                        forest: autoEndSession.team_forest || []
+                                    },
+                                    resultNote: `Auto-end ${DAY_CONFIG[day].name} 23:00`
+                                });
+                            }
+                        } catch (e) {
+                            console.log('[bangchien] Auto-end: Lỗi lưu battle snapshot:', e.message);
+                        }
+
+                        // 4.6. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
                         try {
                             const { deleteBCSession } = require('../../utils/supabaseSync');
                             await deleteBCSession(guildId, day);

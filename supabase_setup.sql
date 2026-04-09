@@ -41,13 +41,14 @@ CREATE TABLE IF NOT EXISTS bc_users (
 CREATE TABLE IF NOT EXISTS bc_tactics (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     guild_id TEXT NOT NULL,
+    session_id UUID,
     day TEXT NOT NULL,
     markers JSONB DEFAULT '[]',
     drawings JSONB DEFAULT '[]',
     notes TEXT,
     updated_by TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(guild_id, day)
+    UNIQUE(guild_id, session_id)
 );
 
 -- 4. Bảng log thay đổi
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS bc_tactics (
 CREATE TABLE IF NOT EXISTS bc_tactics_history (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     guild_id TEXT NOT NULL,
+    session_id UUID,
     day TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('edit', 'battle')),
     saved_at TIMESTAMPTZ DEFAULT NOW(),
@@ -65,6 +67,8 @@ CREATE TABLE IF NOT EXISTS bc_tactics_history (
 );
 CREATE INDEX IF NOT EXISTS idx_tactics_history_guild_day
     ON bc_tactics_history(guild_id, day, saved_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tactics_history_guild_session
+    ON bc_tactics_history(guild_id, session_id, saved_at DESC);
 
 -- 5. Báº£ng preset chiáº¿n thuáº­t cÃ¡ nhÃ¢n
 CREATE TABLE IF NOT EXISTS bc_tactics_presets (

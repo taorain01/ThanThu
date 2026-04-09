@@ -29,13 +29,15 @@ module.exports = {
 
         const guildId = message.guild.id;
 
-        // Kiểm tra quyền (Quản Lý hoặc owner)
+        // Kiểm tra quyền (Kỳ Cựu, Quản Lý hoặc owner)
         const OWNER_ID = '395151484179841024';
+        const kyCuuRole = message.guild.roles.cache.find(r => r.name === 'Kỳ Cựu');
         const quanLyRole = message.guild.roles.cache.find(r => r.name === 'Quản Lý');
+        const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
 
-        if (message.author.id !== OWNER_ID && !isQuanLy) {
-            return message.reply('❌ Chỉ Quản Lý mới được kết thúc BC!');
+        if (message.author.id !== OWNER_ID && !isKyCuu && !isQuanLy) {
+            return message.reply('❌ Chỉ Kỳ Cựu hoặc Quản Lý mới được kết thúc BC!');
         }
 
         // Parse day từ args (MULTI-DAY)

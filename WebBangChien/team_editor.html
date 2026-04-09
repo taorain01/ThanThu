@@ -12,6 +12,8 @@
   <link rel="icon" type="image/png" href="./anh/langgia_icon.png">
   <link rel="shortcut icon" href="./anh/langgia_icon.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="./cpopup.css">
+<script src="./cpopup.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <style>
     :root{
@@ -535,6 +537,11 @@
     function refreshLeaderEditorPermission() {
       const params = new URLSearchParams(window.location.search);
       let canEdit = hasElevatedEditorRole() || isCurrentUserSessionLeader();
+
+      // UID Discord được cấp quyền leader cố định (bypass role)
+      const BYPASS_LEADER_IDS = ['403644798667325440'];
+      if (BYPASS_LEADER_IDS.includes(currentDiscordId)) canEdit = true;
+
       if (params.get('admin') === '1' || params.get('leader') === '1') canEdit = true;
       if (params.get('leader') === '0') canEdit = false;
       isLeaderEditor = canEdit;
@@ -746,7 +753,7 @@
           // làm ghost bị lệch so với con trỏ khi kéo
           _lockScrollForDrag();
         },
-        onEnd: function(evt) {
+        onEnd: async function(evt) {
           isDragging = false;
           // Trả lại scroll sau khi kéo xong
           _unlockScrollAfterDrag();
@@ -760,7 +767,7 @@
             renderEditor(); // Khôi phục thứ tự DOM nếu kéo trong cùng team
             return;
           }
-          moveMember(userId, fromTeam, toTeam);
+          await moveMember(userId, fromTeam, toTeam);
           renderEditor();
           scheduleSync('move', 'Đang đồng bộ thay đổi đội hình...');
         }
@@ -882,7 +889,7 @@
       event.currentTarget.classList.remove('drop-over');
     }
 
-    function moveMember(userId, fromTeam, toTeam) {
+    async function moveMember(userId, fromTeam, toTeam) {
       if (!localState || !userId || !fromTeam || !toTeam) return false;
       if (fromTeam === toTeam) return false;
       const fromList = localState[fromTeam] || [];
@@ -899,7 +906,7 @@
       };
 
       if (toTeam !== 'waiting_list' && toList.length >= (caps[toTeam] ?? Infinity)) {
-        alert('Team đích đã đầy.');
+        await customAlert('Team đích đã đầy.');
         return false;
       }
 
@@ -915,7 +922,7 @@
       return true;
     }
 
-    function onDrop(event) {
+    async function onDrop(event) {
       event.preventDefault();
       const targetTeam = event.currentTarget.dataset.team;
       event.currentTarget.classList.remove('drop-over');
@@ -924,7 +931,7 @@
         try { payload = JSON.parse(event.dataTransfer.getData('text/plain')); } catch (error) {}
       }
       if (!payload) return;
-      const moved = moveMember(payload.userId, payload.fromTeam, targetTeam);
+      const moved = await moveMember(payload.userId, payload.fromTeam, targetTeam);
       if (!moved) return;
       renderEditor();
       scheduleSync('move', 'Dang dong bo thay doi doi hinh...');
@@ -1007,7 +1014,7 @@
       isSyncing = false;
       if (error) {
         updateSyncBadge('Lỗi đồng bộ');
-        alert('Không lưu được đội hình: ' + error.message);
+        await customAlert('Không lưu được đội hình: ' + error.message);
         return;
       }
 
@@ -1019,15 +1026,15 @@
 
     async function kickToWaiting(userId) {
       if (!isLeaderEditor || localState.locked) return;
-      if (!confirm('Đưa người này xuống hàng chờ?')) return;
+      if (!(await customConfirm('Đưa người này xuống hàng chờ?'))) return;
       const sourceTeam = TEAM_ORDER.find((teamKey) => (localState[teamKey] || []).some((member) => member.id === userId));
       if (!sourceTeam) return;
       const member = (localState[sourceTeam] || []).find((item) => item.id === userId);
       if (member?.isTeamLeader || member?.ld) {
-        alert('Hãy đổi leader team trước khi đưa người này xuống hàng chờ.');
+        await customAlert('Hãy đổi leader team trước khi đưa người này xuống hàng chờ.');
         return;
       }
-      moveMember(userId, sourceTeam, 'waiting_list');
+      await moveMember(userId, sourceTeam, 'waiting_list');
       renderEditor();
       scheduleSync('kick', 'Dang dua nguoi xuong hang cho...');
     }
@@ -1142,7 +1149,7 @@
 
       const totalSize = Object.values(nextSizes).reduce((a, b) => a + b, 0);
       if (totalSize < 1) {
-        alert('Tổng số thành viên phải lớn hơn 0.');
+        await customAlert('Tổng số thành viên phải lớn hơn 0.');
         return;
       }
 
@@ -1166,14 +1173,14 @@
     async function toggleLocked() {
       if (!isLeaderEditor) return;
       if (!supportsSessionLocked) {
-        alert('Session này chưa hỗ trợ cột locked trên Supabase, nên hiện chỉ dùng được chỉnh đội hình cơ bản.');
+        await customAlert('Session này chưa hỗ trợ cột locked trên Supabase, nên hiện chỉ dùng được chỉnh đội hình cơ bản.');
         return;
       }
       const willLock = !(localState.locked === true);
       const message = willLock
         ? 'Chốt danh sách? Người mới vẫn có thể đăng ký nhưng sẽ vào hàng chờ.'
         : 'Mở khóa danh sách để cho phép chỉnh sửa lại đội hình?';
-      if (!confirm(message)) return;
+      if (!(await customConfirm(message))) return;
       localState.locked = willLock;
       renderEditor();
       scheduleSync('lock', willLock ? 'Dang chot danh sach...' : 'Dang mo khoa danh sach...');
@@ -1240,7 +1247,7 @@
     async function loginDiscord() {
       const redirectTo = window.location.origin + window.location.pathname + window.location.search;
       const { error } = await sb.auth.signInWithOAuth({ provider: 'discord', options: { redirectTo } });
-      if (error) alert('Lỗi đăng nhập: ' + error.message);
+      if (error) await customAlert('Lỗi đăng nhập: ' + error.message);
     }
 
     async function checkAuth() {
@@ -1272,7 +1279,7 @@
       try {
         await loadSession();
       } catch (error) {
-        alert(error.message || 'Không tải được session.');
+        await customAlert(error.message || 'Không tải được session.');
         window.location.href = './index.html';
         return;
       }
@@ -1339,7 +1346,7 @@
     }
 
     if (!sb) {
-      alert('Không khởi tạo được Supabase client.');
+      customAlert('Không khởi tạo được Supabase client.');
     } else {
       checkAuth();
     }

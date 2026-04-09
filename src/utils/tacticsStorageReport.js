@@ -49,9 +49,9 @@ async function sendTacticsStorageReport() {
 
         // Lấy dữ liệu song song cho nhanh
         const [historyRows, presetRows, liveRows] = await Promise.all([
-            fetchTableData('bc_tactics_history', 'id, guild_id, day, type, saved_at, roster, markers'),
+            fetchTableData('bc_tactics_history', 'id, guild_id, session_id, day, type, saved_at, roster, markers'),
             fetchTableData('bc_tactics_presets', 'id, guild_id, preset_name, updated_at, markers'),
-            fetchTableData('bc_tactics', 'guild_id, day, updated_at, markers, notes')
+            fetchTableData('bc_tactics', 'guild_id, session_id, day, updated_at, markers, notes')
         ]);
 
         // Tính dung lượng từng bảng
@@ -143,7 +143,7 @@ async function sendTacticsStorageReport() {
         for (const r of liveRows) {
             allItems.push({
                 label: `🗺️ Live`,
-                detail: `${r.day || '?'}`,
+                detail: `${r.day || '?'} ─ ${r.session_id || 'legacy'}`,
                 size: Buffer.byteLength(JSON.stringify(r), 'utf8'),
                 date: r.updated_at
             });

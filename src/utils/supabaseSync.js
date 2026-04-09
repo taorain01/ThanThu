@@ -13,6 +13,8 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 let supabase = null;
 let supportsBcSessionsLockedColumn = true;
 let supportsBcSessionsTeamNamesColumn = true; // Flag auto-fallback cho cột team_names
+let supportsBcTacticsSessionIdColumn = true;
+let supportsBcTacticsHistorySessionIdColumn = true;
 
 /**
  * Khởi tạo Supabase client (gọi 1 lần khi bot start)
@@ -153,6 +155,22 @@ async function syncBCSession(guildId, day, sessionData) {
             console.error('[Supabase] ❌ Sync BC session lỗi:', error.message);
         } else {
             console.log(`[Supabase] ✅ Sync BC ${day} thành công (${team_attack1.length + team_attack2.length + team_defense.length + team_forest.length} người)`);
+            try {
+                const { data: savedSession, error: sessionLookupError } = await supabase
+                    .from('bc_sessions')
+                    .select('*')
+                    .eq('guild_id', guildId)
+                    .eq('day', day)
+                    .maybeSingle();
+
+                if (sessionLookupError) {
+                    handleSyncError('syncBCSession session lookup', sessionLookupError);
+                } else if (savedSession?.id) {
+                    await ensureSessionScopedTacticsPayload(guildId, savedSession);
+                }
+            } catch (syncError) {
+                handleSyncError('syncBCSession tactics sync', syncError);
+            }
         }
     } catch (err) {
         console.error('[Supabase] ❌ syncBCSession exception:', err.message);
@@ -197,6 +215,592 @@ async function deleteBCSession(guildId, day) {
         }
     } catch (err) {
         console.error('[Supabase] ❌ deleteBCSession exception:', err.message);
+    }
+}
+
+async function getSessionScopedTacticsRow(guildId, sessionId, day) {
+    if (!isReady()) return null;
+
+    if (supportsBcTacticsSessionIdColumn && sessionId) {
+        const result = await supabase
+            .from('bc_tactics')
+            .select('id, session_id, guild_id, day, markers, notes, updated_at, updated_by')
+            .eq('guild_id', guildId)
+            .eq('session_id', sessionId)
+            .maybeSingle();
+
+        if (!result.error) return result.data || null;
+        if (/session_id/i.test(result.error.message || '')) {
+            supportsBcTacticsSessionIdColumn = false;
+        } else {
+            handleSyncError('getSessionScopedTacticsRow', result.error);
+            return null;
+        }
+    }
+
+    const fallback = await supabase
+        .from('bc_tactics')
+        .select('id, guild_id, day, markers, notes, updated_at, updated_by')
+        .eq('guild_id', guildId)
+        .eq('day', day)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+    if (fallback.error) {
+        handleSyncError('getSessionScopedTacticsRow fallback', fallback.error);
+        return null;
+    }
+
+    return Array.isArray(fallback.data) ? (fallback.data[0] || null) : (fallback.data || null);
+}
+
+const ACTIVE_TEAM_KEYS = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
+
+function parseSessionJsonList(value) {
+    try {
+        return typeof value === 'string' ? JSON.parse(value || '[]') : (value || []);
+    } catch (error) {
+        return [];
+    }
+}
+
+function getSessionRosterSnapshot(sessionRow) {
+    if (!sessionRow) return { attack1: [], attack2: [], defense: [], forest: [] };
+    return {
+        attack1: parseSessionJsonList(sessionRow.team_attack1),
+        attack2: parseSessionJsonList(sessionRow.team_attack2),
+        defense: parseSessionJsonList(sessionRow.team_defense),
+        forest: parseSessionJsonList(sessionRow.team_forest)
+    };
+}
+
+function getSessionTeamSizes(sessionRow) {
+    try {
+        const raw = typeof sessionRow?.team_sizes === 'string'
+            ? JSON.parse(sessionRow.team_sizes || '{}')
+            : (sessionRow?.team_sizes || {});
+        return {
+            attack1: raw.attack1 ?? 10,
+            attack2: raw.attack2 ?? 10,
+            defense: raw.defense ?? 5,
+            forest: raw.forest ?? 5
+        };
+    } catch (error) {
+        return { attack1: 10, attack2: 10, defense: 5, forest: 5 };
+    }
+}
+
+function getSessionActiveSlotLayout(sessionRow) {
+    const sizes = getSessionTeamSizes(sessionRow);
+    const layout = [];
+    Array.from({ length: Math.max(0, sizes.attack1 || 0) }).forEach(() => layout.push('team_attack1'));
+    Array.from({ length: Math.max(0, sizes.attack2 || 0) }).forEach(() => layout.push('team_attack2'));
+    Array.from({ length: Math.max(0, sizes.defense || 0) }).forEach(() => layout.push('team_defense'));
+    Array.from({ length: Math.max(0, sizes.forest || 0) }).forEach(() => layout.push('team_forest'));
+    return layout;
+}
+
+function getSessionFlatActiveRoster(sessionRow) {
+    return ACTIVE_TEAM_KEYS.flatMap((teamKey) =>
+        parseSessionJsonList(sessionRow?.[teamKey]).map((player) => ({ ...player, team: teamKey }))
+    );
+}
+
+function normalizeTacticsSlotTemplateEntry(entry, index = 0, fallbackTeam = 'team_attack1') {
+    const slotIndex = Number.isFinite(Number(entry?.slot_index)) ? Number(entry.slot_index) : index;
+    const team = ACTIVE_TEAM_KEYS.includes(entry?.team) ? entry.team : fallbackTeam;
+    const role = ['DPS', 'Tanker', 'Healer'].includes(entry?.role) ? entry.role : 'DPS';
+    const tacticalId = entry?.tactical_id || entry?.player_id || entry?.id || null;
+    const reservedFor = entry?.reserved_for || entry?.replacement_for || entry?.player_id || entry?.id || null;
+    return {
+        slot_index: slotIndex,
+        team,
+        tactical_id: tacticalId,
+        reserved_for: reservedFor,
+        original_name: entry?.original_name || entry?.name || '',
+        role,
+        sub: entry?.sub || ''
+    };
+}
+
+function normalizeTacticsBotSlot(bot, index = 0) {
+    const seq = Number.isFinite(Number(bot?.seq)) ? Number(bot.seq) : (index + 1);
+    const role = ['DPS', 'Tanker', 'Healer'].includes(bot?.role) ? bot.role : 'DPS';
+    const team = ACTIVE_TEAM_KEYS.includes(bot?.team) ? bot.team : 'team_attack1';
+    return {
+        ...bot,
+        id: bot?.id || `slotbot_${seq}`,
+        seq,
+        name: bot?.name || `Bot ${String(seq).padStart(2, '0')}`,
+        role,
+        sub: bot?.sub || '',
+        team,
+        isBot: true,
+        replacement_for: bot?.replacement_for || null,
+        reserved_slot_index: Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : null,
+        original_team: bot?.original_team || team,
+        original_name: bot?.original_name || bot?.name || ''
+    };
+}
+
+function buildSlotTemplateFromRosterSnapshot(rosterSnapshot, payload = {}) {
+    const snapshot = rosterSnapshot && typeof rosterSnapshot === 'object'
+        ? rosterSnapshot
+        : { attack1: [], attack2: [], defense: [], forest: [] };
+    const teamMap = [
+        ['attack1', 'team_attack1'],
+        ['attack2', 'team_attack2'],
+        ['defense', 'team_defense'],
+        ['forest', 'team_forest']
+    ];
+    const template = [];
+
+    teamMap.forEach(([rosterKey, teamKey]) => {
+        parseSessionJsonList(snapshot[rosterKey]).forEach((player) => {
+            template.push(normalizeTacticsSlotTemplateEntry({
+                slot_index: template.length,
+                team: teamKey,
+                tactical_id: player?.id || null,
+                reserved_for: player?.id || null,
+                original_name: player?.gn || player?.name || player?.username || '',
+                role: player?.role || 'DPS',
+                sub: player?.sub || ''
+            }, template.length, teamKey));
+        });
+    });
+
+    (Array.isArray(payload?.botSlots) ? payload.botSlots : []).forEach((bot) => {
+        const slotIndex = Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : -1;
+        if (slotIndex < 0) return;
+        template[slotIndex] = normalizeTacticsSlotTemplateEntry({
+            slot_index: slotIndex,
+            team: bot?.original_team || bot?.team || template[slotIndex]?.team || 'team_attack1',
+            tactical_id: bot?.id || template[slotIndex]?.tactical_id || null,
+            reserved_for: bot?.replacement_for || template[slotIndex]?.reserved_for || null,
+            original_name: bot?.original_name || bot?.name || template[slotIndex]?.original_name || '',
+            role: bot?.role || template[slotIndex]?.role || 'DPS',
+            sub: bot?.sub || template[slotIndex]?.sub || ''
+        }, slotIndex, template[slotIndex]?.team || bot?.team || 'team_attack1');
+    });
+
+    return template
+        .map((entry, index) => normalizeTacticsSlotTemplateEntry(entry || {}, index, entry?.team || 'team_attack1'))
+        .sort((a, b) => a.slot_index - b.slot_index);
+}
+
+function normalizeLiveTacticsPayload(rawPayload, meta = {}, rosterFallback = null) {
+    const payload = (() => {
+        try {
+            return JSON.parse(JSON.stringify(rawPayload || {}));
+        } catch (error) {
+            return {};
+        }
+    })();
+
+    const rosterSnapshot = payload.roster_snapshot || payload.roster || rosterFallback || { attack1: [], attack2: [], defense: [], forest: [] };
+    const slotTemplate = Array.isArray(payload.slot_template) && payload.slot_template.length
+        ? payload.slot_template.map((entry, index) => normalizeTacticsSlotTemplateEntry(entry, index, entry?.team || 'team_attack1'))
+        : buildSlotTemplateFromRosterSnapshot(rosterSnapshot, payload);
+
+    return {
+        ...payload,
+        version: Math.max(3, Number(payload.version) || 0),
+        roster_snapshot: rosterSnapshot,
+        slot_template: slotTemplate,
+        botSlots: Array.isArray(payload.botSlots) ? payload.botSlots.map((bot, index) => normalizeTacticsBotSlot(bot, index)) : [],
+        source_snapshot_meta: {
+            ...(payload.source_snapshot_meta || {}),
+            source_type: meta.type || payload?.source_snapshot_meta?.source_type || 'live',
+            source_session_id: meta.session_id || payload?.source_snapshot_meta?.source_session_id || null,
+            source_day: meta.day || payload?.source_snapshot_meta?.source_day || null,
+            source_saved_at: meta.saved_at || meta.updated_at || payload?.source_snapshot_meta?.source_saved_at || new Date().toISOString()
+        }
+    };
+}
+
+function createReservedBotForTacticsSlot(slot, existingBot = null) {
+    return normalizeTacticsBotSlot({
+        ...(existingBot || {}),
+        id: existingBot?.id || slot.tactical_id || `slotbot_${slot.slot_index + 1}`,
+        seq: existingBot?.seq || Number(slot.slot_index) + 1,
+        name: existingBot?.name || slot.original_name || `Bot ${String(slot.slot_index + 1).padStart(2, '0')}`,
+        role: slot.role || existingBot?.role || 'DPS',
+        sub: slot.sub || existingBot?.sub || '',
+        team: slot.team || existingBot?.team || 'team_attack1',
+        isBot: true,
+        replacement_for: slot.reserved_for || existingBot?.replacement_for || null,
+        reserved_slot_index: slot.slot_index,
+        original_team: slot.team || existingBot?.original_team || 'team_attack1',
+        original_name: slot.original_name || existingBot?.original_name || existingBot?.name || ''
+    }, slot.slot_index);
+}
+
+function remapTacticsPayloadUnitId(payload, oldId, replacementUnit) {
+    if (!payload || !oldId || !replacementUnit || oldId === replacementUnit.id) return;
+
+    const replacementName = replacementUnit.gn || replacementUnit.name || replacementUnit.original_name || replacementUnit.username || replacementUnit.id;
+    const replacementRole = replacementUnit.role || 'DPS';
+    const replacementSub = replacementUnit.sub || '';
+    const replacementTeam = replacementUnit.team || 'team_attack1';
+    const isBot = Boolean(replacementUnit.isBot);
+
+    (payload.marks || []).forEach((mark) => {
+        (mark.players || []).forEach((player) => {
+            if (player.id !== oldId) return;
+            player.id = replacementUnit.id;
+            player.name = replacementName;
+            player.role = replacementRole;
+            player.sub = replacementSub;
+            player.team = replacementTeam;
+            if (isBot) player.isBot = true;
+            else delete player.isBot;
+        });
+        Object.keys(mark.tower_guards || {}).forEach((towerId) => {
+            mark.tower_guards[towerId] = (mark.tower_guards[towerId] || []).map((id) =>
+                id === oldId ? replacementUnit.id : id
+            );
+        });
+        (mark.targeting || []).forEach((target) => {
+            if (target.playerId === oldId) target.playerId = replacementUnit.id;
+            if (target.from === oldId) target.from = replacementUnit.id;
+        });
+        (mark.icon_targets || []).forEach((target) => {
+            if (target.playerId === oldId) target.playerId = replacementUnit.id;
+            if (target.from === oldId) target.from = replacementUnit.id;
+        });
+        if (mark.pvp_fighters?.blue === oldId) mark.pvp_fighters.blue = replacementUnit.id;
+        Object.values(mark.boss_assignments || {}).forEach((entry) => {
+            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map((id) => id === oldId ? replacementUnit.id : id);
+        });
+        Object.values(mark.tree_carriers || {}).forEach((entry) => {
+            if (entry?.main === oldId) entry.main = replacementUnit.id;
+            if (Array.isArray(entry?.support)) entry.support = entry.support.map((id) => id === oldId ? replacementUnit.id : id);
+        });
+        Object.values(mark.jungle_assignments || {}).forEach((entry) => {
+            if (Array.isArray(entry?.blue)) entry.blue = entry.blue.map((id) => id === oldId ? replacementUnit.id : id);
+            Object.values(entry?.windows || {}).forEach((windowEntry) => {
+                if (Array.isArray(windowEntry?.blue)) windowEntry.blue = windowEntry.blue.map((id) => id === oldId ? replacementUnit.id : id);
+            });
+        });
+        (mark.tasks || []).forEach((task) => {
+            if (task?.scope === 'personal' && task.target === oldId) task.target = replacementUnit.id;
+        });
+    });
+
+    (payload.global_notes || []).forEach((note) => {
+        if (note?.scope === 'personal' && note.target === oldId) note.target = replacementUnit.id;
+    });
+
+    if (Array.isArray(payload.jungle_default_player_ids)) {
+        payload.jungle_default_player_ids = payload.jungle_default_player_ids.map((id) =>
+            id === oldId ? replacementUnit.id : id
+        );
+    }
+}
+
+function syncTacticsPayloadToSessionRoster(rawPayload, sessionRow) {
+    const payload = normalizeLiveTacticsPayload(rawPayload, {}, getSessionRosterSnapshot(sessionRow));
+    const humans = getSessionFlatActiveRoster(sessionRow);
+    const layout = getSessionActiveSlotLayout(sessionRow);
+    const savedBindings = Array.isArray(payload.slot_template) && payload.slot_template.length
+        ? payload.slot_template.map((entry, index) => normalizeTacticsSlotTemplateEntry(entry, index, entry?.team || 'team_attack1'))
+        : buildSlotTemplateFromRosterSnapshot(payload.roster_snapshot, payload);
+    const existingBots = new Map((payload.botSlots || []).map((bot, index) => {
+        const normalized = normalizeTacticsBotSlot(bot, index);
+        const slotIndex = Number.isFinite(Number(normalized.reserved_slot_index))
+            ? Number(normalized.reserved_slot_index)
+            : -1;
+        return [slotIndex, normalized];
+    }));
+
+    const slotCount = savedBindings.length
+        ? Math.max(layout.length, savedBindings.length, humans.length)
+        : humans.length;
+    const nextBindings = [];
+    const nextBots = [];
+    const pendingRemaps = [];
+
+    for (let index = 0; index < slotCount; index++) {
+        const teamKey = layout[index] || savedBindings[index]?.team || humans[index]?.team || 'team_attack1';
+        const previous = normalizeTacticsSlotTemplateEntry(savedBindings[index] || {}, index, teamKey);
+        const human = humans[index] || null;
+        const slot = normalizeTacticsSlotTemplateEntry({
+            ...previous,
+            slot_index: index,
+            team: teamKey,
+            original_name: previous.original_name || human?.gn || human?.name || human?.username || '',
+            role: previous.role || human?.role || 'DPS',
+            sub: previous.sub || human?.sub || ''
+        }, index, teamKey);
+
+        let replacementUnit = null;
+        if (human) {
+            replacementUnit = { ...human, team: teamKey, isBot: false };
+        } else {
+            replacementUnit = createReservedBotForTacticsSlot(slot, existingBots.get(index));
+            nextBots.push(replacementUnit);
+        }
+
+        const oldId = previous.tactical_id || previous.player_id || null;
+        if (oldId && oldId !== replacementUnit.id) {
+            pendingRemaps.push({ oldId, replacementUnit, slot });
+        }
+
+        nextBindings.push(normalizeTacticsSlotTemplateEntry({
+            ...slot,
+            tactical_id: replacementUnit.id,
+            reserved_for: slot.reserved_for || replacementUnit.replacement_for || replacementUnit.id || null,
+            original_name: slot.original_name || replacementUnit.original_name || replacementUnit.gn || replacementUnit.name || ''
+        }, index, teamKey));
+    }
+
+    if (pendingRemaps.length > 0) {
+        const tempRemaps = pendingRemaps.map((entry, index) => ({
+            ...entry,
+            tempId: `svc_slot_tmp_${Date.now()}_${index}`
+        }));
+        tempRemaps.forEach((entry) => {
+            remapTacticsPayloadUnitId(payload, entry.oldId, {
+                id: entry.tempId,
+                name: entry.slot.original_name || entry.replacementUnit.original_name || entry.replacementUnit.gn || entry.replacementUnit.name || entry.oldId,
+                role: entry.slot.role || entry.replacementUnit.role || 'DPS',
+                sub: entry.slot.sub || entry.replacementUnit.sub || '',
+                team: entry.slot.team || entry.replacementUnit.team || 'team_attack1',
+                isBot: false
+            });
+        });
+        tempRemaps.forEach((entry) => {
+            remapTacticsPayloadUnitId(payload, entry.tempId, entry.replacementUnit);
+        });
+    }
+
+    payload.roster_snapshot = getSessionRosterSnapshot(sessionRow);
+    payload.slot_template = nextBindings;
+    payload.botSlots = nextBots;
+    payload.version = Math.max(3, Number(payload.version) || 0);
+    payload.source_snapshot_meta = {
+        ...(payload.source_snapshot_meta || {}),
+        current_session_id: sessionRow?.id || payload?.source_snapshot_meta?.current_session_id || null,
+        current_day: sessionRow?.day || payload?.source_snapshot_meta?.current_day || null
+    };
+    return payload;
+}
+
+async function fetchLatestGuildTacticsSeedSource(guildId, excludeSessionId = null) {
+    if (!isReady()) return null;
+
+    if (supportsBcTacticsSessionIdColumn) {
+        const liveResult = await supabase
+            .from('bc_tactics')
+            .select('markers,notes,updated_at,updated_by,day,session_id')
+            .eq('guild_id', guildId)
+            .order('updated_at', { ascending: false })
+            .limit(10);
+
+        if (liveResult.error) {
+            if (/session_id/i.test(liveResult.error.message || '')) {
+                supportsBcTacticsSessionIdColumn = false;
+            } else {
+                handleSyncError('fetchLatestGuildTacticsSeedSource live', liveResult.error);
+            }
+        } else {
+            const picked = (liveResult.data || []).find((row) => row?.markers && String(row.session_id || '') !== String(excludeSessionId || ''));
+            if (picked?.markers) {
+                return normalizeLiveTacticsPayload(picked.markers, {
+                    type: 'live',
+                    session_id: picked.session_id || null,
+                    day: picked.day || null,
+                    updated_at: picked.updated_at || null
+                });
+            }
+        }
+    }
+
+    const fallbackLive = await supabase
+        .from('bc_tactics')
+        .select('markers,notes,updated_at,updated_by,day')
+        .eq('guild_id', guildId)
+        .order('updated_at', { ascending: false })
+        .limit(10);
+
+    if (!fallbackLive.error) {
+        const picked = (fallbackLive.data || []).find((row) => row?.markers);
+        if (picked?.markers) {
+            return normalizeLiveTacticsPayload(picked.markers, {
+                type: 'live',
+                day: picked.day || null,
+                updated_at: picked.updated_at || null
+            });
+        }
+    }
+
+    let historyResult = await supabase
+        .from('bc_tactics_history')
+        .select('markers,roster,saved_at,day,type,session_id')
+        .eq('guild_id', guildId)
+        .order('saved_at', { ascending: false })
+        .limit(10);
+
+    if (historyResult.error && /session_id/i.test(historyResult.error.message || '')) {
+        supportsBcTacticsHistorySessionIdColumn = false;
+        historyResult = await supabase
+            .from('bc_tactics_history')
+            .select('markers,roster,saved_at,day,type')
+            .eq('guild_id', guildId)
+            .order('saved_at', { ascending: false })
+            .limit(10);
+    }
+
+    if (historyResult.error) {
+        handleSyncError('fetchLatestGuildTacticsSeedSource history', historyResult.error);
+        return null;
+    }
+
+    const pickedHistory = (historyResult.data || []).find((row) => row?.markers);
+    if (!pickedHistory?.markers) return null;
+
+    return normalizeLiveTacticsPayload(
+        pickedHistory.markers,
+        {
+            type: pickedHistory.type || 'history',
+            session_id: pickedHistory.session_id || null,
+            day: pickedHistory.day || null,
+            saved_at: pickedHistory.saved_at || null
+        },
+        pickedHistory.roster || null
+    );
+}
+
+async function upsertSessionScopedTacticsPayload(guildId, sessionRow, payload) {
+    if (!isReady() || !sessionRow || !payload) return null;
+
+    const upsertPayload = {
+        guild_id: guildId,
+        day: sessionRow.day,
+        markers: payload,
+        drawings: [],
+        notes: payload?.strategy_name || '',
+        updated_by: 'discord-bot'
+    };
+
+    if (supportsBcTacticsSessionIdColumn && sessionRow.id) {
+        const scoped = await supabase
+            .from('bc_tactics')
+            .upsert({
+                ...upsertPayload,
+                session_id: sessionRow.id
+            }, { onConflict: 'guild_id,session_id' });
+
+        if (!scoped.error) return null;
+        if (/session_id/i.test(scoped.error.message || '')) {
+            supportsBcTacticsSessionIdColumn = false;
+        } else {
+            return scoped.error;
+        }
+    }
+
+    const fallback = await supabase
+        .from('bc_tactics')
+        .upsert(upsertPayload, { onConflict: 'guild_id,day' });
+    return fallback.error || null;
+}
+
+async function ensureSessionScopedTacticsPayload(guildId, sessionRow) {
+    if (!isReady() || !sessionRow?.id) return false;
+
+    const currentRow = await getSessionScopedTacticsRow(guildId, sessionRow.id, sessionRow.day);
+    const basePayload = currentRow?.markers
+        ? normalizeLiveTacticsPayload(currentRow.markers)
+        : await fetchLatestGuildTacticsSeedSource(guildId, sessionRow.id);
+
+    const payload = syncTacticsPayloadToSessionRoster(
+        basePayload || normalizeLiveTacticsPayload({
+            marks: [],
+            roster_snapshot: getSessionRosterSnapshot(sessionRow)
+        }, {
+            type: 'blank',
+            session_id: sessionRow.id,
+            day: sessionRow.day
+        }, getSessionRosterSnapshot(sessionRow)),
+        sessionRow
+    );
+
+    const error = await upsertSessionScopedTacticsPayload(guildId, sessionRow, payload);
+    if (error) {
+        handleSyncError('ensureSessionScopedTacticsPayload upsert', error);
+        return false;
+    }
+    return true;
+}
+
+async function saveBattleTacticsHistorySnapshot(guildId, day, options = {}) {
+    if (!isReady()) return false;
+    if (!['sat', 'sun'].includes(String(day || '').toLowerCase())) return false;
+    if ((options.time || '19:30') !== '19:30') return false;
+
+    try {
+        const session = options.sessionId
+            ? { id: options.sessionId, day, time: options.time || '19:30' }
+            : await supabase
+                .from('bc_sessions')
+                .select('id, day, time')
+                .eq('guild_id', guildId)
+                .eq('day', day)
+                .maybeSingle()
+                .then(({ data, error }) => {
+                    if (error) {
+                        handleSyncError('saveBattleTacticsHistorySnapshot session lookup', error);
+                        return null;
+                    }
+                    return data || null;
+                });
+
+        if (!session?.id) return false;
+
+        const liveRow = await getSessionScopedTacticsRow(guildId, session.id, day);
+        if (!liveRow?.markers) return false;
+
+        const markers = typeof liveRow.markers === 'string'
+            ? (() => { try { return JSON.parse(liveRow.markers); } catch (error) { return null; } })()
+            : liveRow.markers;
+        if (!markers || !Array.isArray(markers.marks || markers?.markers?.marks)) return false;
+
+        const insertPayload = {
+            guild_id: guildId,
+            day,
+            type: 'battle',
+            saved_at: new Date().toISOString(),
+            saved_by: options.savedBy || 'discord-bot',
+            roster: options.roster || null,
+            markers,
+            result_note: options.resultNote || 'Auto save battle snapshot'
+        };
+
+        let { error } = await supabase
+            .from('bc_tactics_history')
+            .insert({
+                ...insertPayload,
+                ...(supportsBcTacticsHistorySessionIdColumn ? { session_id: session.id } : {})
+            });
+
+        if (error && /session_id/i.test(error.message || '')) {
+            supportsBcTacticsHistorySessionIdColumn = false;
+            const retry = await supabase
+                .from('bc_tactics_history')
+                .insert(insertPayload);
+            error = retry.error || null;
+        }
+
+        if (error) {
+            handleSyncError('saveBattleTacticsHistorySnapshot insert', error);
+            return false;
+        }
+
+        console.log(`[Supabase] ✅ Đã lưu battle snapshot cho ${day} (session=${session.id})`);
+        return true;
+    } catch (error) {
+        handleSyncError('saveBattleTacticsHistorySnapshot exception', error);
+        return false;
     }
 }
 
@@ -1092,6 +1696,7 @@ module.exports = {
     syncBCSession,
     deleteBCSession,
     deleteAllBCSessions,
+    saveBattleTacticsHistorySnapshot,
     syncUsers,
     syncOneUser,
     syncBcRegular,

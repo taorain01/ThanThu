@@ -21,23 +21,22 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;-webkit-user-select:none;user-select:none}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
-  background-image:radial-gradient(ellipse at 15% 0%,rgba(34,197,94,.07) 0%,transparent 55%),
-    radial-gradient(ellipse at 85% 100%,rgba(251,191,36,.05) 0%,transparent 55%);
   min-height:100vh;overflow-x:hidden}
 
 /* ── Particles ── */
-#pts{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.pt{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,.7),transparent);animation:ptFloat linear infinite}
-@keyframes ptFloat{0%{transform:translateY(105vh);opacity:0}10%{opacity:.8}90%{opacity:.3}100%{transform:translateY(-5vh);opacity:0}}
+#pts{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;will-change:transform;transform:translateZ(0);contain:strict}
+.pt{position:absolute;border-radius:50%;background:rgba(251,191,36,.45);will-change:transform;animation:ptFloat linear infinite}
+@keyframes ptFloat{0%{transform:translate3d(0,105vh,0);opacity:0}10%{opacity:.6}90%{opacity:.2}100%{transform:translate3d(0,-5vh,0);opacity:0}}
 
 /* ── LAYOUT DESKTOP ── */
 .wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:16px;
-  display:grid;grid-template-columns:1fr 360px;grid-template-rows:auto 1fr;gap:14px;min-height:100vh}
+  display:grid;grid-template-columns:1fr 360px;grid-template-rows:auto 1fr;gap:14px;min-height:100vh;
+  contain:layout style}
 
 /* ── HEADER ── */
 .hdr{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
   padding:12px 20px;background:var(--card);border:1px solid var(--border);
-  border-radius:14px;backdrop-filter:blur(20px)}
+  border-radius:14px}
 .hdr-logo{display:flex;align-items:center;gap:12px}
 .hdr-logo svg{width:36px;height:36px;filter:drop-shadow(0 0 8px rgba(251,191,36,.7));flex-shrink:0}
 .hdr-title h1{font-family:'Cinzel Decorative',serif;font-size:18px;
@@ -60,14 +59,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 
 /* ── MAIN PANEL ── */
 .main{background:var(--card);border:1px solid var(--border);border-radius:18px;
-  backdrop-filter:blur(24px);padding:24px;display:flex;flex-direction:column;align-items:center;gap:18px}
+  padding:24px;display:flex;flex-direction:column;align-items:center;gap:18px}
 
 /* Ring */
 .ring-wrap{position:relative;width:270px;height:270px}
-.ring-svg{width:270px;height:270px;transform:rotate(-90deg);filter:drop-shadow(0 0 14px rgba(251,191,36,.35))}
+.ring-svg{width:270px;height:270px;transform:rotate(-90deg)}
 .r-bg{fill:none;stroke:rgba(255,255,255,.04);stroke-width:8}
-.r-glow{fill:none;stroke:rgba(34,197,94,.12);stroke-width:16;stroke-dasharray:691;stroke-dashoffset:0;animation:rGlow 2s ease-in-out infinite}
-@keyframes rGlow{0%,100%{opacity:.3}50%{opacity:.8}}
+.r-glow{fill:none;stroke:rgba(34,197,94,.12);stroke-width:10;stroke-dasharray:691;stroke-dashoffset:0;opacity:.5;will-change:opacity;animation:rGlow 3s ease-in-out infinite}
+@keyframes rGlow{0%,100%{opacity:.3}50%{opacity:.7}}
 .r-track{fill:none;stroke:url(#rg1);stroke-width:8;stroke-linecap:round;
   stroke-dasharray:691;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke .5s}
 .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
@@ -149,7 +148,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 
 /* Notif */
 .notif-box{background:var(--card);border:1px solid var(--border);border-radius:18px;
-  backdrop-filter:blur(24px);padding:18px;flex:1;display:flex;flex-direction:column;min-height:0}
+  padding:18px;flex:1;display:flex;flex-direction:column;min-height:0}
 .notif-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .notif-hdr h2{font-size:12px;font-weight:700;color:var(--green-400);letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:7px}
 .notif-hdr h2 svg{width:14px;height:14px}
@@ -173,7 +172,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 
 /* Tasks */
 .task-box{background:var(--card);border:1px solid var(--border);border-radius:18px;
-  backdrop-filter:blur(24px);padding:18px}
+  padding:18px}
 .task-box h2{font-size:12px;font-weight:700;color:var(--green-400);letter-spacing:2px;text-transform:uppercase;
   margin-bottom:12px;display:flex;align-items:center;gap:7px}
 .task-box h2 svg{width:14px;height:14px}
@@ -208,7 +207,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 .al-sub{font-size:14px;color:var(--text2);margin-top:6px}
 
 /* Screen flash */
-.flash{position:fixed;inset:0;z-index:850;pointer-events:none;opacity:0;transition:opacity .08s}
+.flash{position:fixed;inset:0;z-index:850;pointer-events:none;opacity:0;transition:opacity .08s;will-change:opacity;transform:translateZ(0)}
 .flash.fb{background:rgba(239,68,68,.12)}
 .flash.fp{background:rgba(74,222,128,.08)}
 .flash.fw{background:rgba(251,191,36,.08)}

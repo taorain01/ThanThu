@@ -264,9 +264,9 @@
       border-radius:12px;
       border:1px solid rgba(255,255,255,.04);
       background:rgba(255,255,255,.025);
-      cursor:grab; /* Toàn bộ ô đều kéo được */
+      cursor:default;
       user-select:none;
-      touch-action:none; /* Bật touch drag trên toàn ô */
+      touch-action:pan-y;
       position:relative;
       transition:border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
     }
@@ -306,10 +306,13 @@
       justify-content:center;
       -webkit-user-select:none;
       user-select:none;
-      pointer-events:none; /* Handle chỉ là icon trang trí, không phải vùng kéo nữa */
+      pointer-events:auto;
+      cursor:grab;
+      touch-action:none;
       flex-shrink:0;
       opacity:.6;
     }
+    .drag-handle:active{cursor:grabbing}
     .slot-badge{
       min-width:34px;
       height:32px;
@@ -354,6 +357,8 @@
       padding:7px 8px;
       font-size:12px;
       font-weight:900;
+      position:relative;
+      z-index:2;
     }
     .leader-btn{background:rgba(246,196,83,.14);color:var(--gold);border:1px solid rgba(246,196,83,.25)}
     .leader-btn.active{background:linear-gradient(135deg,rgba(246,196,83,.32),rgba(246,196,83,.18));box-shadow:0 0 0 1px rgba(246,196,83,.25)}
@@ -1653,20 +1658,21 @@
 
       body._sortable = new Sortable(body, {
         group: { name: 'teams', pull: true, put: true },
+        handle: '.drag-handle',
         sort: false,
-        animation: 140,
-        delay: 70,
+        animation: 110,
+        delay: 110,
         delayOnTouchOnly: true,
-        touchStartThreshold: 4,
+        touchStartThreshold: 6,
         ghostClass: 'dragging',
         chosenClass: 'drag-chosen',
         dragClass: 'drag-active',
         fallbackOnBody: true,
-        fallbackTolerance: 4,
+        fallbackTolerance: 2,
         swapThreshold: 0.65,
-        filter: '.empty,.leader-btn,.kick-btn',
+        filter: '.empty',
         preventOnFilter: true,
-        forceFallback: true,
+        forceFallback: false,
         onStart(evt) {
           dragPayload = {
             userId: evt.item.dataset.userId,
@@ -1676,7 +1682,6 @@
           currentDropIntent = null;
           dragPointer = null;
           isDragging = true;
-          _lockScrollForDrag();
         },
         onMove(evt, originalEvent) {
           const point = getEventPoint(originalEvent);
@@ -1692,7 +1697,6 @@
 
           const finalIntent = currentDropIntent;
           isDragging = false;
-          _unlockScrollAfterDrag();
           dragPayload = null;
 
           if (!finalIntent?.evaluation?.ok) {

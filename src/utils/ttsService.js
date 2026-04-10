@@ -15,6 +15,7 @@ const {
 const googleTTS = require('google-tts-api');
 const { Readable } = require('stream');
 const storage = require('./storage');
+const { sanitizeTtsText } = require('./ttsSanitizer');
 
 // Store audio players per guild
 const players = new Map();
@@ -257,13 +258,14 @@ async function speak(guildId, text) {
         return false;
     }
 
-    if (!text || text.trim().length === 0) {
+    const sanitizedText = sanitizeTtsText(text);
+    if (!sanitizedText || sanitizedText.trim().length === 0) {
         console.log(`[TTS] ❌ Text rỗng → bỏ qua`);
         return false;
     }
 
     const maxLength = 200;
-    const textToSpeak = text.length > maxLength ? text.substring(0, maxLength) : text;
+    const textToSpeak = sanitizedText.length > maxLength ? sanitizedText.substring(0, maxLength) : sanitizedText;
 
     // Thêm vào hàng đợi
     if (!queues.has(guildId)) {

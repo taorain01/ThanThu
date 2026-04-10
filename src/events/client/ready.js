@@ -8,7 +8,18 @@ const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require(
 
 // Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
 const _notifDebounceMap = new Map();
+const _sessionSummaryStateMap = new Map();
 const NOTIF_DEBOUNCE_MS = 3000; // Chờ 3 giây để gom tất cả thay đổi
+const SESSION_SUMMARY_LIMIT = 5;
+const SESSION_DAY_LABELS = {
+  mon: 'Thứ 2',
+  tue: 'Thứ 3',
+  wed: 'Thứ 4',
+  thu: 'Thứ 5',
+  fri: 'Thứ 6',
+  sat: 'Thứ 7',
+  sun: 'Chủ Nhật'
+};
 
 function resolvePrimaryGuild(client) {
   const preferredGuildId = process.env.guildId || process.env.GUILD_ID || '1239836342456942643';
@@ -323,10 +334,9 @@ function parseTeamNamesForDiff(value) {
 }
 
 function normalizeTeamLabelForSummary(rawValue, fallbackLabel) {
-  const value = String(rawValue || '').trim();
+  const value = String(rawValue || '').replace(/\s+/g, ' ').trim();
   if (!value) return fallbackLabel;
-  const lowered = value.toLowerCase();
-  return lowered.startsWith('team ') ? lowered : `team ${lowered}`;
+  return /^team\b/i.test(value) ? value : `team ${value}`;
 }
 
 function buildTeamLabelsForDiff(teamNamesValue) {
@@ -472,10 +482,78 @@ function buildSessionChangeSummaries(localSession, newData) {
   return uniqueMessages.slice(0, 4);
 }
 
+function buildSessionSummaryEmbed(session, history = []) {
+  const dayLabel = SESSION_DAY_LABELS[session?.day] || session?.day || 'Bang Chiến';
+  const timeLabel = session?.time || '19:30';
+  const visibleHistory = history.slice(-SESSION_SUMMARY_LIMIT).reverse();
+  const description = visibleHistory.length
+    ? visibleHistory.map((entry) => `• ${entry.text}`).join('\n')
+    : 'Chưa có thay đổi nào.';
+
+  return new EmbedBuilder()
+    .setColor(0x0F766E)
+    .setTitle(`📣 Cập nhật đội hình ${dayLabel} ${timeLabel}`)
+    .setDescription(description)
+    .setFooter({ text: `Giữ ${SESSION_SUMMARY_LIMIT} thay đổi gần nhất` })
+    .setTimestamp(new Date(visibleHistory[0]?.at || Date.now()));
+}
+
+async function resolveStoredSummaryMessage(channel, summaryState) {
+  if (!summaryState?.messageId) return null;
+  if (summaryState.message) return summaryState.message;
+  const fetched = await channel.messages.fetch(summaryState.messageId).catch(() => null);
+  if (fetched) summaryState.message = fetched;
+  return fetched;
+}
+
+async function clearSessionSummaryState(client, summaryKey, fallbackChannelId = null) {
+  const pending = _notifDebounceMap.get(summaryKey);
+  if (pending?.timer) clearTimeout(pending.timer);
+  _notifDebounceMap.delete(summaryKey);
+
+  const summaryState = _sessionSummaryStateMap.get(summaryKey);
+  const channelId = summaryState?.channelId || fallbackChannelId;
+  if (channelId) {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (channel) {
+      const storedMessage = await resolveStoredSummaryMessage(channel, summaryState || {});
+      if (storedMessage) {
+        try { await storedMessage.delete(); } catch (e) { }
+      }
+    }
+  }
+
+  _sessionSummaryStateMap.delete(summaryKey);
+}
+
+async function upsertSessionSummaryEmbed(channel, session, summaryKey, summaryState) {
+  const embed = buildSessionSummaryEmbed(session, summaryState.history || []);
+  const latestMessage = await channel.messages.fetch({ limit: 1 }).then((messages) => messages.first() || null).catch(() => null);
+  const storedMessage = await resolveStoredSummaryMessage(channel, summaryState);
+  const canEditLatest = storedMessage && latestMessage && storedMessage.id === latestMessage.id;
+
+  if (canEditLatest) {
+    await storedMessage.edit({ embeds: [embed], content: '' });
+    summaryState.message = storedMessage;
+    summaryState.messageId = storedMessage.id;
+    _sessionSummaryStateMap.set(summaryKey, summaryState);
+    return;
+  }
+
+  if (storedMessage) {
+    try { await storedMessage.delete(); } catch (e) { }
+  }
+
+  const newMessage = await channel.send({ embeds: [embed] });
+  summaryState.message = newMessage;
+  summaryState.messageId = newMessage.id;
+  _sessionSummaryStateMap.set(summaryKey, summaryState);
+}
+
 async function sendSessionChangeSummaries(client, guild, session, summaries = []) {
   if (!session?.channel_id || !summaries.length) return;
 
-  const dedupKey = session.day || session.party_key || 'x';
+  const dedupKey = session.party_key || session.day || 'x';
 
   // Lấy hoặc tạo buffer debounce cho session này
   if (!_notifDebounceMap.has(dedupKey)) {
@@ -497,15 +575,20 @@ async function sendSessionChangeSummaries(client, guild, session, summaries = []
 
     const channel = await client.channels.fetch(buf.channelId).catch(() => null);
     if (!channel) return;
+    const summaryState = _sessionSummaryStateMap.get(dedupKey) || {
+      history: [],
+      messageId: null,
+      message: null,
+      channelId: buf.channelId
+    };
+    summaryState.channelId = buf.channelId;
+    summaryState.history = [
+      ...(summaryState.history || []),
+      ...allSummaries.map((text) => ({ text, at: Date.now() }))
+    ].slice(-SESSION_SUMMARY_LIMIT);
 
-    // Hiện tối đa 5 dòng, phần còn lại ghi gọn
-    const visible = allSummaries.slice(0, 5);
-    const remaining = allSummaries.length - visible.length;
-    const content = remaining > 0
-      ? `${visible.join('\n')}\n...và ${remaining} thay đổi khác.`
-      : visible.join('\n');
-    await channel.send({ content });
-    console.log(`[Supabase] 📨 Gửi thông báo gộp BC ${dedupKey}: ${allSummaries.length} thay đổi`);
+    await upsertSessionSummaryEmbed(channel, session, dedupKey, summaryState);
+    console.log(`[Supabase] 📨 Gửi/refresh embed gộp BC ${dedupKey}: ${allSummaries.length} thay đổi`);
   }, NOTIF_DEBOUNCE_MS);
 }
 
@@ -914,6 +997,7 @@ module.exports = {
 
               for (const localSession of sessionsToDelete) {
                 const partyKey = localSession.party_key;
+                const summaryKey = localSession.party_key || localSession.day || 'x';
 
                 const participants = [
                   ...(localSession.team_attack1 || []),
@@ -941,6 +1025,11 @@ module.exports = {
                 }
                 bangchienNotifications.delete(partyKey);
                 bangchienRegistrations.delete(partyKey);
+                await clearSessionSummaryState(
+                  client,
+                  summaryKey,
+                  localSession.channel_id || notifData?.channelId || null
+                );
 
                 db.deleteActiveBangchien(partyKey);
                 console.log(`[Supabase] S& Đã xóa SQLite session ${localSession.day} (web delete)`);

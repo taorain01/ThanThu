@@ -32,6 +32,7 @@
       --dps:#5ea9ff;
       --healer:#61e89b;
       --tanker:#ffad4d;
+      --editor-sticky-top:96px;
     }
     *{box-sizing:border-box}
     body{
@@ -134,15 +135,26 @@
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:16px;
+      align-items:start;
     }
     .panel{
       background:linear-gradient(180deg,rgba(13,27,18,.94),rgba(8,18,12,.96));
       border:1px solid var(--line);
       border-radius:18px;
       box-shadow:0 18px 42px rgba(0,0,0,.2);
-      min-height:160px;
+      min-height:0;
       display:flex;
       flex-direction:column;
+    }
+    .team-card{
+      align-self:start;
+      height:auto;
+    }
+    .team-card .panel-body{
+      min-height:0;
+    }
+    .waiting-card{
+      min-height:0;
     }
     .panel-head{
       display:flex;
@@ -152,8 +164,21 @@
       border-bottom:1px solid var(--line);
       gap:10px;
     }
+    .panel-head-main{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
     .panel-title{font-size:14px;font-weight:900;letter-spacing:.3px}
     .panel-meta{font-size:12px;color:var(--muted)}
+    .panel-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-shrink:0;
+      position:relative;
+    }
     .panel-body{
       padding:12px;
       display:flex;
@@ -165,6 +190,67 @@
       border-color:var(--line-strong);
       box-shadow:0 0 0 1px rgba(58,208,126,.2),0 18px 42px rgba(0,0,0,.2);
       background:linear-gradient(180deg,rgba(15,35,22,.98),rgba(8,19,12,.98));
+    }
+    .team-card.team-full{
+      border-color:rgba(246,196,83,.42);
+      box-shadow:0 0 0 1px rgba(246,196,83,.18),0 22px 46px rgba(0,0,0,.26);
+    }
+    .team-card.team-full .panel-head{
+      background:linear-gradient(180deg,rgba(246,196,83,.08),rgba(246,196,83,.02));
+    }
+    .sort-btn{
+      border:none;
+      border-radius:999px;
+      padding:7px 12px;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.2px;
+      color:var(--text);
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      cursor:pointer;
+      transition:.18s ease;
+      white-space:nowrap;
+    }
+    .sort-btn:hover{transform:translateY(-1px);border-color:rgba(141,255,183,.22)}
+    .sort-btn.active{
+      background:rgba(94,169,255,.12);
+      border-color:rgba(94,169,255,.28);
+      color:#c9e0ff;
+    }
+    .sort-menu{
+      position:absolute;
+      top:calc(100% + 8px);
+      right:42px;
+      width:170px;
+      padding:8px;
+      border-radius:14px;
+      border:1px solid rgba(141,255,183,.16);
+      background:linear-gradient(180deg,rgba(12,26,17,.98),rgba(8,16,11,.98));
+      box-shadow:0 20px 44px rgba(0,0,0,.34);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      z-index:15;
+    }
+    .sort-option{
+      border:none;
+      border-radius:10px;
+      padding:9px 10px;
+      background:rgba(255,255,255,.04);
+      border:1px solid transparent;
+      color:var(--text);
+      text-align:left;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .sort-option:hover{border-color:rgba(141,255,183,.18);background:rgba(58,208,126,.08)}
+    .sort-option.active{
+      border-color:rgba(94,169,255,.28);
+      background:rgba(94,169,255,.12);
+      color:#dbeafe;
     }
     /* ═══ FIX DRAG OFFSET: Khi kéo, ngăn layout shift do scrollbar xuất hiện/ẩn ═══ */
     html{
@@ -181,9 +267,35 @@
       cursor:grab; /* Toàn bộ ô đều kéo được */
       user-select:none;
       touch-action:none; /* Bật touch drag trên toàn ô */
+      position:relative;
+      transition:border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
     }
     .member-row.dragging{opacity:.45;transform:scale(.98)}
     .member-row.locked{cursor:default}
+    .member-row.drop-swap{
+      border-color:rgba(94,169,255,.4);
+      background:rgba(94,169,255,.1);
+      box-shadow:0 0 0 1px rgba(94,169,255,.18);
+    }
+    .member-row.drop-before::before,
+    .member-row.drop-after::after{
+      content:'';
+      position:absolute;
+      left:12px;
+      right:12px;
+      height:3px;
+      border-radius:999px;
+      background:linear-gradient(90deg,rgba(58,208,126,.1),rgba(58,208,126,.96),rgba(58,208,126,.1));
+      box-shadow:0 0 0 1px rgba(58,208,126,.18),0 0 16px rgba(58,208,126,.26);
+      pointer-events:none;
+    }
+    .member-row.drop-before::before{top:-2px}
+    .member-row.drop-after::after{bottom:-2px}
+    .member-row.drop-invalid{
+      border-color:rgba(255,107,107,.42);
+      background:rgba(255,107,107,.08);
+      box-shadow:0 0 0 1px rgba(255,107,107,.18);
+    }
     .drag-handle{
       color:var(--muted);
       font-size:18px;
@@ -248,6 +360,140 @@
     .kick-btn{background:rgba(255,107,107,.12);color:#ffb3b3;border:1px solid rgba(255,107,107,.22)}
     .empty{color:var(--muted);font-size:12px;padding:16px 10px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px}
     .side-stack{display:flex;flex-direction:column;gap:16px}
+    .waiting-card .panel-body{
+      min-height:0;
+    }
+    .stats-card .panel-body{
+      min-height:0;
+      overflow:auto;
+    }
+    .stats-body{
+      gap:10px;
+    }
+    .stats-summary{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
+    .stats-box{
+      padding:10px 12px;
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .stats-box strong{
+      display:block;
+      font-size:18px;
+      color:var(--gold);
+      margin-top:4px;
+    }
+    .stats-box span{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.5px;
+    }
+    .stats-filter-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-top:4px;
+    }
+    .filter-status{
+      font-size:11px;
+      color:var(--muted);
+    }
+    .stats-chip-grid{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .stats-chip{
+      border:none;
+      cursor:pointer;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:800;
+      color:var(--text);
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.08);
+      transition:.18s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .stats-chip:hover{transform:translateY(-1px);border-color:rgba(141,255,183,.22)}
+    .stats-chip.active{
+      background:rgba(58,208,126,.14);
+      border-color:rgba(58,208,126,.3);
+      color:#d8ffe7;
+      box-shadow:0 0 0 1px rgba(58,208,126,.14);
+    }
+    .stats-chip.role-healer{color:#bff6d2}
+    .stats-chip.role-tanker{color:#ffd39f}
+    .stats-chip.role-dps{color:#c9e0ff}
+    .stats-chip .count{
+      color:var(--muted);
+      font-size:11px;
+    }
+    .filter-hint{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px dashed rgba(255,255,255,.08);
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+    }
+    .drag-status-pill{
+      position:fixed;
+      left:0;
+      top:0;
+      transform:translate(-9999px,-9999px);
+      z-index:1200;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(7,20,12,.96);
+      border:1px solid rgba(141,255,183,.24);
+      color:var(--text);
+      font-size:12px;
+      font-weight:800;
+      box-shadow:0 18px 38px rgba(0,0,0,.3);
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .12s ease;
+    }
+    .drag-status-pill.show{opacity:1}
+    .drag-status-pill.invalid{
+      border-color:rgba(255,107,107,.3);
+      color:#ffd0d0;
+    }
+    .center-notice{
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%) scale(.94);
+      z-index:1300;
+      min-width:min(420px,calc(100vw - 32px));
+      max-width:min(520px,calc(100vw - 32px));
+      padding:16px 20px;
+      border-radius:18px;
+      border:1px solid rgba(246,196,83,.28);
+      background:linear-gradient(180deg,rgba(15,34,22,.98),rgba(8,18,12,.98));
+      color:var(--text);
+      font-size:15px;
+      font-weight:800;
+      text-align:center;
+      box-shadow:0 28px 60px rgba(0,0,0,.38);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+    .center-notice.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
     .mini-note{padding:12px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
     .modal-wrap{
       position:fixed;inset:0;background:rgba(4,10,6,.76);
@@ -279,9 +525,24 @@
       .teams-grid{grid-template-columns:1fr}
     }
 
+    @media (min-width: 1101px){
+      .side-stack{
+        position:sticky;
+        top:var(--editor-sticky-top);
+        max-height:calc(100vh - var(--editor-sticky-top) - 18px);
+      }
+      .waiting-card{
+        flex:1 1 auto;
+      }
+      .waiting-card .panel-body{
+        overflow-y:auto;
+      }
+    }
+
     /* ═══ SORTABLEJS: Visual feedback khi kéo thả ═══ */
     .member-row.drag-chosen{background:rgba(58,208,126,.12);border-color:rgba(58,208,126,.3)}
     .member-row.drag-active{opacity:0}
+    .sortable-fallback{pointer-events:none!important}
 
     /* ═══ MOBILE RESPONSIVE ═══ */
     @media (max-width: 768px) {
@@ -318,6 +579,9 @@
 
       /* Hàng chờ: đẩy xuống dưới */
       .right-col { order: 2 }
+      .sort-menu{right:0;left:auto;width:100%}
+      .panel-actions{gap:8px}
+      .stats-summary{grid-template-columns:1fr}
 
       /* Modal responsive */
       .modal { width: 90vw; padding: 16px }
@@ -434,10 +698,22 @@
               Kéo thả giữa các team để đổi đội hình. Dấu <b>✕</b> đưa người xuống hàng chờ, nút <b>👑</b> đặt leader team.
             </div>
           </div>
+          <div class="panel stats-card" id="statsCard">
+            <div class="panel-head">
+              <div class="panel-head-main">
+                <div class="panel-title">📊 TỔNG HỢP NHANH</div>
+                <div class="panel-meta">Bấm chip để lọc theo vai trò hoặc hệ DPS</div>
+              </div>
+            </div>
+            <div class="panel-body stats-body" id="statsBody"></div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  <div class="drag-status-pill" id="dragStatusPill"></div>
+  <div class="center-notice" id="centerNotice"></div>
 
   <div class="modal-wrap" id="resizeModal">
     <div class="modal" style="max-width:480px">
@@ -474,6 +750,33 @@
       team_forest: { title: '🌲 TEAM RỪNG', empty: 'Chưa có người trong Rừng' },
       waiting_list: { title: '⏳ HÀNG CHỜ', empty: 'Chưa có ai trong hàng chờ' }
     };
+    const TEAM_NAME_KEY_MAP = {
+      team_attack1: 'attack1',
+      team_attack2: 'attack2',
+      team_defense: 'defense',
+      team_forest: 'forest'
+    };
+    const SORT_OPTIONS = [
+      { value: 'default', label: 'Mặc định' },
+      { value: 'role', label: 'Theo vai trò' },
+      { value: 'name', label: 'Theo tên A-Z' }
+    ];
+    const ROLE_SORT_ORDER = { Healer: 0, Tanker: 1, DPS: 2 };
+    const FILTER_LABELS = {
+      all: 'Tất cả',
+      Healer: 'Healer',
+      Tanker: 'Tanker',
+      DPS: 'DPS'
+    };
+    const SYNC_IDLE_MS = 2600;
+    const DPS_SUBTYPE_DEFS = [
+      { key: 'QD', label: 'Quạt Dù', aliases: ['QD', 'QUAT DU', 'QUẠT DÙ'] },
+      { key: 'VD', label: 'Vô Danh', aliases: ['VD', 'VO DANH', 'VÔ DANH'] },
+      { key: 'SD', label: 'Song Đao', aliases: ['SD', 'SONG DAO', 'SONG ĐAO'] },
+      { key: '9K', label: 'Cửu Kiếm', aliases: ['9K', 'CUU KIEM', 'CỬU KIẾM'] },
+      { key: 'DR', label: 'Dù Roi', aliases: ['DR', 'DU ROI', 'DÙ ROI'] },
+      { key: 'HĐ', label: 'Hoành Đao', aliases: ['HĐ', 'HD', 'HOANH DAO', 'HOÀNH ĐAO', 'HOANH DAO/MO', 'HOÀNH ĐAO/MỞ', 'HOANH DAO MO', 'HOÀNH ĐAO MỞ'] }
+    ];
 
     let sb = null;
     let currentDay = null;
@@ -492,6 +795,19 @@
     let editorChannel = null;
     let lastSyncAt = null;
     let supportsSessionLocked = true;
+    let pendingSyncActions = new Set();
+    let sortState = {};
+    let activeSortMenu = null;
+    let activeFilter = { type: 'all', value: 'all' };
+    let currentRenderView = null;
+    let currentDropIntent = null;
+    let dragPointer = null;
+    let dragStatusRaf = null;
+    let autoScrollRaf = null;
+    let pollingTimer = null;
+    let lastRemoteFingerprint = null;
+    let centerNoticeTimer = null;
+    let localMutationAt = 0;
 
     function safeParse(value, fallback = []) {
       if (Array.isArray(value)) return value;
@@ -579,13 +895,13 @@
       };
     }
 
-    function normalizeLeaderState() {
-      if (!localState) return;
-      localState.leader_ids = { ...(localState.leader_ids || {}) };
+    function normalizeLeaderState(state = localState) {
+      if (!state) return;
+      state.leader_ids = { ...(state.leader_ids || {}) };
 
       Object.entries(TEAM_LEADER_KEY_MAP).forEach(([teamKey, leaderKey]) => {
-        const team = Array.isArray(localState[teamKey]) ? localState[teamKey] : [];
-        let leaderId = localState.leader_ids[leaderKey] || null;
+        const team = Array.isArray(state[teamKey]) ? state[teamKey] : [];
+        let leaderId = state.leader_ids[leaderKey] || null;
 
         const explicitLeader = team.find((member) => member?.isTeamLeader || member?.ld);
         if (explicitLeader) leaderId = explicitLeader.id;
@@ -597,9 +913,256 @@
           member.ld = isLeader;
         });
 
-        localState[teamKey] = team;
-        localState.leader_ids[leaderKey] = leaderId || null;
+        state[teamKey] = team;
+        state.leader_ids[leaderKey] = leaderId || null;
       });
+    }
+
+    function ensureViewState() {
+      sortState = {
+        team_attack1: sortState.team_attack1 || 'default',
+        team_attack2: sortState.team_attack2 || 'default',
+        team_defense: sortState.team_defense || 'default',
+        team_forest: sortState.team_forest || 'default'
+      };
+      if (!activeFilter || typeof activeFilter !== 'object') {
+        activeFilter = { type: 'all', value: 'all' };
+      }
+    }
+
+    function normalizePlainText(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function getMemberDisplayName(member) {
+      return member?.gn || member?.game_username || member?.name || member?.username || member?.id || 'Ẩn danh';
+    }
+
+    function getMemberSecondaryName(member) {
+      return member?.username || member?.discord_name || member?.id || 'Không rõ';
+    }
+
+    function getSortModeLabel(mode) {
+      return SORT_OPTIONS.find((item) => item.value === mode)?.label || 'Mặc định';
+    }
+
+    function normalizeDpsSubtypeKey(rawSubtype) {
+      const normalized = normalizePlainText(rawSubtype);
+      if (!normalized) return null;
+      const match = DPS_SUBTYPE_DEFS.find((item) => item.aliases.some((alias) => normalizePlainText(alias) === normalized));
+      return match?.key || normalized.replace(/\s+/g, ' ');
+    }
+
+    function getDpsSubtypeLabel(subtypeKey) {
+      const match = DPS_SUBTYPE_DEFS.find((item) => item.key === subtypeKey);
+      return match?.label || subtypeKey || '';
+    }
+
+    function getMemberRoleTagText(member) {
+      const role = member?.role || 'DPS';
+      if (role !== 'DPS') return role;
+      const subtypeKey = normalizeDpsSubtypeKey(member?.sub);
+      return subtypeKey ? `${role} [${subtypeKey}]` : role;
+    }
+
+    function getTeamCapacityFor(teamKey, state = localState) {
+      const sizes = state?.team_sizes || {};
+      if (teamKey === 'team_attack1') return Number(sizes.attack1 ?? 10) || 0;
+      if (teamKey === 'team_attack2') return Number(sizes.attack2 ?? 10) || 0;
+      if (teamKey === 'team_defense') return Number(sizes.defense ?? 5) || 0;
+      if (teamKey === 'team_forest') return Number(sizes.forest ?? 5) || 0;
+      return Number.POSITIVE_INFINITY;
+    }
+
+    function isFilterActive() {
+      return activeFilter?.type && activeFilter.type !== 'all';
+    }
+
+    function filterMatches(member) {
+      if (!isFilterActive()) return true;
+      if (activeFilter.type === 'role') return (member?.role || 'DPS') === activeFilter.value;
+      if (activeFilter.type === 'subtype') {
+        return (member?.role || 'DPS') === 'DPS' && normalizeDpsSubtypeKey(member?.sub) === activeFilter.value;
+      }
+      return true;
+    }
+
+    function sortTeamEntries(entries, teamKey) {
+      const mode = sortState?.[teamKey] || 'default';
+      if (mode === 'default') return entries.slice();
+      return entries.slice().sort((left, right) => {
+        if (mode === 'role') {
+          const roleDelta = (ROLE_SORT_ORDER[left.member?.role || 'DPS'] ?? 99) - (ROLE_SORT_ORDER[right.member?.role || 'DPS'] ?? 99);
+          if (roleDelta !== 0) return roleDelta;
+        }
+        const nameDelta = getMemberDisplayName(left.member).localeCompare(getMemberDisplayName(right.member), 'vi', { sensitivity: 'base' });
+        if (nameDelta !== 0) return nameDelta;
+        return left.actualIndex - right.actualIndex;
+      });
+    }
+
+    function buildViewEntries(teamKey) {
+      const entries = (localState?.[teamKey] || []).map((member, actualIndex) => ({ member, actualIndex }));
+      const filteredEntries = entries.filter((entry) => filterMatches(entry.member));
+      return teamKey === 'waiting_list' ? filteredEntries : sortTeamEntries(filteredEntries, teamKey);
+    }
+
+    function getAllRosterMembers() {
+      return [...TEAM_ORDER, 'waiting_list'].flatMap((teamKey) => (localState?.[teamKey] || []).map((member) => ({ teamKey, member })));
+    }
+
+    function buildStatsModel() {
+      const activeCount = TEAM_ORDER.reduce((sum, teamKey) => sum + ((localState?.[teamKey] || []).length), 0);
+      const totalSlots = Object.values(getTeamCaps()).reduce((sum, value) => sum + value, 0);
+      const roleCounts = { Healer: 0, Tanker: 0, DPS: 0 };
+      const subtypeCounts = new Map();
+
+      getAllRosterMembers().forEach(({ member }) => {
+        const role = member?.role || 'DPS';
+        roleCounts[role] = (roleCounts[role] || 0) + 1;
+        if (role === 'DPS') {
+          const subtypeKey = normalizeDpsSubtypeKey(member?.sub);
+          if (subtypeKey) subtypeCounts.set(subtypeKey, (subtypeCounts.get(subtypeKey) || 0) + 1);
+        }
+      });
+
+      return {
+        activeCount,
+        totalSlots,
+        roleCounts,
+        subtypeCounts: [...subtypeCounts.entries()]
+          .sort((left, right) => {
+            const leftIndex = DPS_SUBTYPE_DEFS.findIndex((item) => item.key === left[0]);
+            const rightIndex = DPS_SUBTYPE_DEFS.findIndex((item) => item.key === right[0]);
+            if (leftIndex !== -1 && rightIndex !== -1) return leftIndex - rightIndex;
+            return getDpsSubtypeLabel(left[0]).localeCompare(getDpsSubtypeLabel(right[0]), 'vi', { sensitivity: 'base' });
+          })
+      };
+    }
+
+    function getFilterLabel() {
+      if (!isFilterActive()) return 'Đang xem toàn bộ đội hình';
+      if (activeFilter.type === 'role') return `Đang lọc: ${FILTER_LABELS[activeFilter.value] || activeFilter.value}`;
+      if (activeFilter.type === 'subtype') return `Đang lọc: DPS ${getDpsSubtypeLabel(activeFilter.value)}`;
+      return 'Đang xem toàn bộ đội hình';
+    }
+
+    function isSortModeActive(teamKey) {
+      return teamKey !== 'waiting_list' && (sortState?.[teamKey] || 'default') !== 'default';
+    }
+
+    function canDragInCurrentView(teamKey) {
+      if (!isLeaderEditor || localState?.locked) return false;
+      if (isFilterActive()) return false;
+      return !!teamKey;
+    }
+
+    function shouldSwapOnly(teamKey) {
+      return isSortModeActive(teamKey);
+    }
+
+    function setSortMode(teamKey, nextMode) {
+      ensureViewState();
+      sortState[teamKey] = SORT_OPTIONS.some((item) => item.value === nextMode) ? nextMode : 'default';
+      activeSortMenu = null;
+      clearDropPreview();
+      renderEditor();
+    }
+
+    function toggleSortMenu(teamKey) {
+      activeSortMenu = activeSortMenu === teamKey ? null : teamKey;
+      renderEditor();
+    }
+
+    function isSameFilter(nextFilter) {
+      return (activeFilter?.type || 'all') === (nextFilter?.type || 'all')
+        && (activeFilter?.value || 'all') === (nextFilter?.value || 'all');
+    }
+
+    function setFilter(nextFilter) {
+      const normalized = nextFilter || { type: 'all', value: 'all' };
+      activeFilter = isSameFilter(normalized) ? { type: 'all', value: 'all' } : normalized;
+      activeSortMenu = null;
+      clearDropPreview();
+      renderEditor();
+    }
+
+    function getSessionFingerprint(session) {
+      if (!session) return '';
+      return JSON.stringify({
+        id: session.id || null,
+        day: session.day || null,
+        team_attack1: safeParse(session.team_attack1, []),
+        team_attack2: safeParse(session.team_attack2, []),
+        team_defense: safeParse(session.team_defense, []),
+        team_forest: safeParse(session.team_forest, []),
+        waiting_list: safeParse(session.waiting_list, []),
+        team_sizes: safeParse(session.team_sizes, {}),
+        team_names: safeParse(session.team_names, {}),
+        leader_ids: safeParse(session.leader_ids, {}),
+        locked: session.locked === true,
+        note: session.note || '',
+        time: session.time || '19:30'
+      });
+    }
+
+    function buildCurrentSessionSnapshot() {
+      if (!localState) return null;
+      return {
+        id: currentSessionId,
+        day: currentDay,
+        team_attack1: (localState.team_attack1 || []).map((item) => ({ ...item })),
+        team_attack2: (localState.team_attack2 || []).map((item) => ({ ...item })),
+        team_defense: (localState.team_defense || []).map((item) => ({ ...item })),
+        team_forest: (localState.team_forest || []).map((item) => ({ ...item })),
+        waiting_list: (localState.waiting_list || []).map((item) => ({ ...item })),
+        team_sizes: { ...(localState.team_sizes || {}) },
+        team_names: { ...(localState.team_names || {}) },
+        leader_ids: { ...(localState.leader_ids || {}) },
+        locked: localState.locked === true,
+        note: localState.note || '',
+        time: localState.time || currentSessionData?.time || '19:30'
+      };
+    }
+
+    function rememberSnapshot(snapshot) {
+      currentSessionData = snapshot;
+      lastRemoteFingerprint = getSessionFingerprint(snapshot);
+    }
+
+    function rememberCurrentSnapshot() {
+      rememberSnapshot(buildCurrentSessionSnapshot());
+    }
+
+    function markLocalMutation() {
+      localMutationAt = Date.now();
+      rememberCurrentSnapshot();
+    }
+
+    function getRepresentativePendingAction(actions = pendingSyncActions) {
+      const ordered = [...(actions || [])];
+      if (!ordered.length) return 'sync';
+      if (ordered.includes('resize')) return 'resize';
+      if (ordered.includes('setleader')) return 'setleader';
+      if (ordered.includes('move')) return 'move';
+      if (ordered.includes('kick')) return 'kick';
+      if (ordered.includes('lock')) return 'lock';
+      return ordered[ordered.length - 1] || 'sync';
+    }
+
+    function shouldDeferRemoteHydrate() {
+      return !!(isDragging || isSyncing || debounceTimer || pendingEditorAction || pendingSyncActions.size);
+    }
+
+    function updateStickyOffset() {
+      const topbar = document.querySelector('.topbar');
+      const topbarHeight = topbar?.getBoundingClientRect()?.height || 78;
+      document.documentElement.style.setProperty('--editor-sticky-top', `${Math.round(topbarHeight + 18)}px`);
     }
 
     function getVisibleTeams() {
@@ -682,11 +1245,369 @@
       badge.style.opacity = isBusy ? '1' : '.85';
     }
 
+    function isLeaderMember(member) {
+      return !!(member?.isTeamLeader || member?.ld);
+    }
+
+    function clearLeaderFlag(member) {
+      if (!member) return;
+      member.isTeamLeader = false;
+      member.ld = false;
+    }
+
+    function findMemberLocation(userId, state = localState) {
+      if (!state || !userId) return null;
+      for (const teamKey of [...TEAM_ORDER, 'waiting_list']) {
+        const team = state[teamKey] || [];
+        const index = team.findIndex((member) => member?.id === userId);
+        if (index !== -1) return { teamKey, index, member: team[index] };
+      }
+      return null;
+    }
+
+    function simulateDropIntent(intent, sourceState = localState) {
+      if (!intent || !sourceState) return { ok: false, reason: null, silent: true };
+      const nextState = cloneSessionState(sourceState);
+      normalizeLeaderState(nextState);
+
+      const sourceInfo = findMemberLocation(intent.userId, nextState);
+      if (!sourceInfo) return { ok: false, reason: 'Không tìm thấy thành viên để di chuyển.' };
+      if (sourceInfo.teamKey !== intent.fromTeam) {
+        return { ok: false, reason: 'Dữ liệu kéo thả đã thay đổi, vui lòng thử lại.', silent: true };
+      }
+
+      const sourceList = nextState[sourceInfo.teamKey] || [];
+      const targetList = nextState[intent.targetTeam] || [];
+      const movingMember = sourceList[sourceInfo.index];
+      if (!movingMember) return { ok: false, reason: 'Không tìm thấy thành viên để di chuyển.' };
+
+      if ((shouldSwapOnly(sourceInfo.teamKey) || shouldSwapOnly(intent.targetTeam)) && intent.placement !== 'swap') {
+        return { ok: false, reason: 'Sort nhanh chỉ cho phép hoán đổi trực tiếp.', silent: true };
+      }
+
+      if (isLeaderMember(movingMember) && intent.targetTeam !== sourceInfo.teamKey) {
+        return { ok: false, reason: 'Leader không thể rời team. Hãy đổi leader trước.' };
+      }
+
+      if (intent.placement === 'swap') {
+        if (!Number.isInteger(intent.targetIndex) || intent.targetIndex < 0) {
+          return { ok: false, reason: 'Hãy thả vào đúng tên người cần hoán đổi.', silent: true };
+        }
+        const targetMember = targetList[intent.targetIndex];
+        if (!targetMember) return { ok: false, reason: 'Không tìm thấy vị trí cần hoán đổi.', silent: true };
+        if (targetMember.id === movingMember.id && intent.targetTeam === sourceInfo.teamKey) {
+          return { ok: false, reason: null, silent: true };
+        }
+        if (intent.targetTeam !== sourceInfo.teamKey && isLeaderMember(targetMember)) {
+          return { ok: false, reason: 'Không thể hoán đổi leader sang team khác. Hãy đổi leader trước.' };
+        }
+
+        if (intent.targetTeam === sourceInfo.teamKey) {
+          const list = nextState[intent.targetTeam] || [];
+          [list[sourceInfo.index], list[intent.targetIndex]] = [list[intent.targetIndex], list[sourceInfo.index]];
+        } else {
+          nextState[sourceInfo.teamKey][sourceInfo.index] = targetMember;
+          nextState[intent.targetTeam][intent.targetIndex] = movingMember;
+        }
+        normalizeLeaderState(nextState);
+        return { ok: true, state: nextState, action: 'move', overflowMember: null };
+      }
+
+      if (intent.targetTeam === sourceInfo.teamKey) {
+        const list = nextState[sourceInfo.teamKey] || [];
+        let rawInsertIndex = list.length;
+        if (intent.placement === 'before') rawInsertIndex = intent.targetIndex;
+        if (intent.placement === 'after') rawInsertIndex = intent.targetIndex + 1;
+        if (rawInsertIndex > sourceInfo.index) rawInsertIndex -= 1;
+        if (rawInsertIndex === sourceInfo.index || rawInsertIndex < 0) {
+          return { ok: false, reason: null, silent: true };
+        }
+        const [member] = list.splice(sourceInfo.index, 1);
+        list.splice(Math.min(rawInsertIndex, list.length), 0, member);
+        normalizeLeaderState(nextState);
+        return { ok: true, state: nextState, action: 'move', overflowMember: null };
+      }
+
+      const [member] = sourceList.splice(sourceInfo.index, 1);
+      let insertIndex = targetList.length;
+      if (intent.placement === 'before') insertIndex = Math.max(0, intent.targetIndex);
+      if (intent.placement === 'after') insertIndex = Math.max(0, intent.targetIndex + 1);
+
+      let overflowMember = null;
+      if (intent.targetTeam !== 'waiting_list') {
+        const cap = getTeamCapacityFor(intent.targetTeam, nextState);
+        const targetWasFull = targetList.length >= cap;
+        const isAfterLast = intent.placement === 'append' || (intent.placement === 'after' && intent.targetIndex === targetList.length - 1);
+        if (targetWasFull && isAfterLast) {
+          return { ok: false, reason: 'Team đích đã đầy. Hãy thả ở trên hoặc giữa một người trong team.' };
+        }
+        const overflowCandidate = targetWasFull ? targetList[targetList.length - 1] : null;
+        if (overflowCandidate && isLeaderMember(overflowCandidate)) {
+          return { ok: false, reason: 'Không thể đẩy leader xuống hàng chờ. Hãy đổi leader trước.' };
+        }
+      }
+
+      clearLeaderFlag(member);
+      targetList.splice(Math.min(insertIndex, targetList.length), 0, member);
+
+      if (intent.targetTeam !== 'waiting_list') {
+        const cap = getTeamCapacityFor(intent.targetTeam, nextState);
+        if (targetList.length > cap) {
+          overflowMember = targetList.pop();
+          clearLeaderFlag(overflowMember);
+          nextState.waiting_list = nextState.waiting_list || [];
+          nextState.waiting_list.unshift(overflowMember);
+        }
+      }
+
+      normalizeLeaderState(nextState);
+      return { ok: true, state: nextState, action: 'move', overflowMember };
+    }
+
+    function getEventPoint(event) {
+      if (!event) return null;
+      const source = event.touches?.[0] || event.changedTouches?.[0] || event;
+      if (!Number.isFinite(source?.clientX) || !Number.isFinite(source?.clientY)) return null;
+      return { x: source.clientX, y: source.clientY };
+    }
+
+    function hideDragStatus() {
+      const pill = document.getElementById('dragStatusPill');
+      if (!pill) return;
+      pill.classList.remove('show', 'invalid');
+      pill.textContent = '';
+      pill.style.transform = 'translate(-9999px,-9999px)';
+    }
+
+    function clearDropPreviewStyles() {
+      document.querySelectorAll('.member-row.drop-before,.member-row.drop-after,.member-row.drop-swap,.member-row.drop-invalid')
+        .forEach((row) => row.classList.remove('drop-before', 'drop-after', 'drop-swap', 'drop-invalid'));
+      document.querySelectorAll('.panel.drop-over')
+        .forEach((panel) => panel.classList.remove('drop-over'));
+    }
+
+    function clearDropPreview() {
+      clearDropPreviewStyles();
+      hideDragStatus();
+      currentDropIntent = null;
+      dragPointer = null;
+      if (dragStatusRaf) {
+        cancelAnimationFrame(dragStatusRaf);
+        dragStatusRaf = null;
+      }
+      if (autoScrollRaf) {
+        cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = null;
+      }
+    }
+
+    function buildDropIntentFromPoint(point) {
+      if (!point || !dragPayload || !localState) return null;
+      const hit = document.elementFromPoint(point.x, point.y);
+      if (!hit) return null;
+      const panel = hit.closest('.panel[data-team]');
+      const row = hit.closest('.member-row');
+      const targetTeam = row?.dataset.team || panel?.dataset.team;
+      if (!targetTeam) return null;
+
+      if (!canDragInCurrentView(dragPayload.fromTeam)) {
+        return { ...dragPayload, targetTeam, targetIndex: -1, placement: 'append', point, targetRow: row, targetPanel: panel, forceInvalid: true, invalidReason: 'Bộ lọc hiện tại chỉ để xem, hãy tắt lọc để kéo thả.' };
+      }
+
+      const swapOnlyMode = shouldSwapOnly(dragPayload.fromTeam) || shouldSwapOnly(targetTeam);
+      const intent = {
+        userId: dragPayload.userId,
+        fromTeam: dragPayload.fromTeam,
+        fromIndex: dragPayload.fromIndex,
+        targetTeam,
+        targetIndex: row ? Number(row.dataset.index) : ((localState[targetTeam] || []).length - 1),
+        placement: row ? 'swap' : 'append',
+        point,
+        targetRow: row,
+        targetPanel: panel
+      };
+
+      if (row && !swapOnlyMode) {
+        const rect = row.getBoundingClientRect();
+        const band = Math.max(14, rect.height * 0.28);
+        if (point.y <= rect.top + band) intent.placement = 'before';
+        else if (point.y >= rect.bottom - band) intent.placement = 'after';
+        else intent.placement = 'swap';
+      } else if (swapOnlyMode && !row) {
+        intent.forceInvalid = true;
+        intent.invalidReason = 'Sort nhanh chỉ cho phép thả trực tiếp vào một người để hoán đổi.';
+      }
+
+      return intent;
+    }
+
+    function describeDropIntent(intent, evaluation) {
+      if (!intent) return '';
+      if (!evaluation?.ok) return evaluation?.reason || intent.invalidReason || 'Không thể thả vào đây';
+      let text = 'Đang di chuyển';
+      if (intent.placement === 'swap') text = 'Hoán đổi vị trí';
+      else if (intent.placement === 'before') text = 'Chèn lên trên';
+      else if (intent.placement === 'after') text = 'Chèn xuống dưới';
+      else if (intent.placement === 'append') text = intent.targetTeam === 'waiting_list' ? 'Đưa xuống cuối hàng chờ' : 'Thêm vào cuối team';
+
+      if (evaluation.overflowMember) {
+        text += ` · Đẩy ${getMemberDisplayName(evaluation.overflowMember)} xuống Hàng Chờ`;
+      }
+      return text;
+    }
+
+    function showDragStatus(intent, evaluation) {
+      const pill = document.getElementById('dragStatusPill');
+      if (!pill || !intent?.point) return;
+      pill.textContent = describeDropIntent(intent, evaluation);
+      pill.classList.toggle('invalid', !evaluation?.ok);
+      pill.classList.add('show');
+      const maxX = Math.max(12, window.innerWidth - pill.offsetWidth - 16);
+      const maxY = Math.max(12, window.innerHeight - pill.offsetHeight - 16);
+      const x = Math.min(maxX, intent.point.x + 16);
+      const y = Math.min(maxY, intent.point.y + 16);
+      pill.style.transform = `translate(${x}px,${y}px)`;
+    }
+
+    function maybeAutoScroll(point) {
+      dragPointer = point;
+      if (autoScrollRaf) return;
+      const step = () => {
+        autoScrollRaf = null;
+        if (!isDragging || !dragPointer) return;
+
+        const topLimit = (document.querySelector('.topbar')?.getBoundingClientRect()?.bottom || 0) + 12;
+        const edge = 84;
+        let deltaY = 0;
+        if (dragPointer.y < topLimit + edge) {
+          deltaY = -Math.ceil((1 - Math.max(0, (dragPointer.y - topLimit) / edge)) * 18);
+        } else if (window.innerHeight - dragPointer.y < edge) {
+          deltaY = Math.ceil((1 - Math.max(0, (window.innerHeight - dragPointer.y) / edge)) * 18);
+        }
+        if (deltaY !== 0) window.scrollBy({ top: deltaY, behavior: 'auto' });
+
+        const waitingBody = document.getElementById('waitingBody');
+        const waitingRect = waitingBody?.getBoundingClientRect?.();
+        if (waitingBody && waitingRect && dragPointer.x >= waitingRect.left && dragPointer.x <= waitingRect.right) {
+          const innerEdge = 52;
+          if (waitingRect.bottom - dragPointer.y < innerEdge) waitingBody.scrollTop += 16;
+          else if (dragPointer.y - waitingRect.top < innerEdge) waitingBody.scrollTop -= 16;
+        }
+
+        if (deltaY !== 0) autoScrollRaf = requestAnimationFrame(step);
+      };
+      autoScrollRaf = requestAnimationFrame(step);
+    }
+
+    function updateDropPreview(point) {
+      dragPointer = point;
+      if (dragStatusRaf) return;
+      dragStatusRaf = requestAnimationFrame(() => {
+        dragStatusRaf = null;
+        clearDropPreviewStyles();
+        const intent = buildDropIntentFromPoint(dragPointer);
+        if (!intent) {
+          currentDropIntent = null;
+          hideDragStatus();
+          return;
+        }
+
+        const evaluation = intent.forceInvalid
+          ? { ok: false, reason: intent.invalidReason || 'Không thể thả vào đây', silent: true }
+          : simulateDropIntent(intent);
+
+        currentDropIntent = { ...intent, evaluation };
+
+        if (intent.targetPanel && evaluation.ok) intent.targetPanel.classList.add('drop-over');
+        if (intent.targetRow) {
+          const rowClass = evaluation.ok
+            ? (intent.placement === 'swap' ? 'drop-swap' : intent.placement === 'before' ? 'drop-before' : intent.placement === 'after' ? 'drop-after' : '')
+            : 'drop-invalid';
+          if (rowClass) intent.targetRow.classList.add(rowClass);
+        }
+        showDragStatus(intent, evaluation);
+      });
+    }
+
+    function showCenterNotice(message) {
+      const notice = document.getElementById('centerNotice');
+      if (!notice) return;
+      notice.textContent = message;
+      notice.classList.add('show');
+      if (centerNoticeTimer) clearTimeout(centerNoticeTimer);
+      centerNoticeTimer = setTimeout(() => notice.classList.remove('show'), 1600);
+    }
+
+    function renderStatsPanel() {
+      const body = document.getElementById('statsBody');
+      if (!body || !localState) return;
+      const stats = buildStatsModel();
+      const subtypeButtons = stats.subtypeCounts.map(([key, count]) => `
+        <button class="stats-chip role-dps ${activeFilter.type === 'subtype' && activeFilter.value === key ? 'active' : ''}" type="button" data-filter-type="subtype" data-filter-value="${key}">
+          DPS ${getDpsSubtypeLabel(key)}
+          <span class="count">${count}</span>
+        </button>
+      `).join('');
+
+      body.innerHTML = `
+        <div class="stats-summary">
+          <div class="stats-box">
+            <span>Tổng tham gia</span>
+            <strong>${stats.activeCount}/${stats.totalSlots}</strong>
+          </div>
+          <div class="stats-box">
+            <span>Healer</span>
+            <strong>${stats.roleCounts.Healer || 0}</strong>
+          </div>
+          <div class="stats-box">
+            <span>Tanker</span>
+            <strong>${stats.roleCounts.Tanker || 0}</strong>
+          </div>
+          <div class="stats-box">
+            <span>DPS</span>
+            <strong>${stats.roleCounts.DPS || 0}</strong>
+          </div>
+        </div>
+        <div class="stats-filter-head">
+          <strong style="font-size:12px;letter-spacing:.3px">Lọc nhanh roster</strong>
+          <div class="filter-status">${getFilterLabel()}</div>
+        </div>
+        <div class="stats-chip-grid">
+          <button class="stats-chip ${!isFilterActive() ? 'active' : ''}" type="button" data-filter-type="all" data-filter-value="all">
+            Tất cả
+            <span class="count">${getAllRosterMembers().length}</span>
+          </button>
+          <button class="stats-chip role-healer ${activeFilter.type === 'role' && activeFilter.value === 'Healer' ? 'active' : ''}" type="button" data-filter-type="role" data-filter-value="Healer">
+            Healer
+            <span class="count">${stats.roleCounts.Healer || 0}</span>
+          </button>
+          <button class="stats-chip role-tanker ${activeFilter.type === 'role' && activeFilter.value === 'Tanker' ? 'active' : ''}" type="button" data-filter-type="role" data-filter-value="Tanker">
+            Tanker
+            <span class="count">${stats.roleCounts.Tanker || 0}</span>
+          </button>
+          <button class="stats-chip role-dps ${activeFilter.type === 'role' && activeFilter.value === 'DPS' ? 'active' : ''}" type="button" data-filter-type="role" data-filter-value="DPS">
+            DPS
+            <span class="count">${stats.roleCounts.DPS || 0}</span>
+          </button>
+          ${subtypeButtons}
+        </div>
+        <div class="filter-hint">${isFilterActive() ? 'Đang bật lọc nên kéo thả sẽ tạm khóa để tránh lệch số thứ tự thật.' : 'Bật lọc để xem nhanh toàn bộ Healer, Tanker, DPS hoặc từng hệ DPS trên mọi panel.'}</div>
+      `;
+
+      body.querySelectorAll('[data-filter-type]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const type = button.dataset.filterType;
+          const value = button.dataset.filterValue;
+          setFilter(type === 'all' ? { type: 'all', value: 'all' } : { type, value });
+        });
+      });
+    }
+
     function renderMemberRow(member, teamKey, index) {
       const row = document.createElement('div');
       const cls = roleClass(member.role);
       const slotNumber = getMemberSlotNumber(teamKey, index);
-      row.className = `member-row${localState.locked ? ' locked' : ''}`;
+      row.className = `member-row${(!canDragInCurrentView(teamKey) ? ' locked' : '')}`;
       row.draggable = false; // SortableJS quản lý kéo thả qua drag-handle
       row.dataset.userId = member.id;
       row.dataset.team = teamKey;
@@ -697,11 +1618,11 @@
         <div class="slot-badge">${slotNumber}</div>
         <div class="avatar ${cls}">${roleShort(member.role)}</div>
         <div class="member-main">
-          <div class="member-name">${member.gn || member.game_username || member.name || member.username || member.id}</div>
-          <div class="member-sub">${member.username || member.id}</div>
+          <div class="member-name">${getMemberDisplayName(member)}</div>
+          <div class="member-sub">${getMemberSecondaryName(member)}</div>
         </div>
         <button class="leader-btn ${(member.isTeamLeader || member.ld) ? 'active' : ''}" type="button">👑</button>
-        <div class="role-tag ${cls}">${member.role || 'DPS'}${member.sub ? ' [' + member.sub + ']' : ''}</div>
+        <div class="role-tag ${cls}">${getMemberRoleTagText(member)}</div>
         <button class="kick-btn" type="button">✕</button>
       `;
       const leaderBtn = row.querySelector('.leader-btn');
@@ -726,50 +1647,73 @@
     function setupDropZone(node, teamKey) {
       if (!node) return;
       node.dataset.team = teamKey;
-      if (!isLeaderEditor || localState.locked) return;
       const body = node.querySelector('.panel-body') || node;
-
-      // Hủy Sortable cũ nếu có
       if (body._sortable) body._sortable.destroy();
+      if (!canDragInCurrentView(teamKey)) return;
 
       body._sortable = new Sortable(body, {
-        group: 'teams',           // Cho phép kéo giữa các team
-        animation: 180,
-        delay: 80,                // Delay ngắn để phản hồi nhanh
+        group: { name: 'teams', pull: true, put: true },
+        sort: false,
+        animation: 140,
+        delay: 70,
         delayOnTouchOnly: true,
-        touchStartThreshold: 4,   // Phân biệt vuốt màn hình vs kéo thả
+        touchStartThreshold: 4,
         ghostClass: 'dragging',
         chosenClass: 'drag-chosen',
         dragClass: 'drag-active',
-        // Bỏ handle: kéo từ bất cứ đâu trong member-row
         fallbackOnBody: true,
+        fallbackTolerance: 4,
         swapThreshold: 0.65,
-        filter: '.empty,.leader-btn,.kick-btn', // Không kéo khi bấm nút
+        filter: '.empty,.leader-btn,.kick-btn',
         preventOnFilter: true,
-        forceFallback: false,
-        onStart: function(evt) {
+        forceFallback: true,
+        onStart(evt) {
+          dragPayload = {
+            userId: evt.item.dataset.userId,
+            fromTeam: evt.item.dataset.team,
+            fromIndex: Number(evt.item.dataset.index)
+          };
+          currentDropIntent = null;
+          dragPointer = null;
           isDragging = true;
-          // FIX SCROLL OFFSET: Khóa scroll trên toàn bộ container để tránh layout shift
-          // làm ghost bị lệch so với con trỏ khi kéo
           _lockScrollForDrag();
         },
-        onEnd: async function(evt) {
+        onMove(evt, originalEvent) {
+          const point = getEventPoint(originalEvent);
+          if (point) {
+            updateDropPreview(point);
+            maybeAutoScroll(point);
+          }
+          return false;
+        },
+        async onEnd(evt) {
+          const point = getEventPoint(evt.originalEvent);
+          if (point) updateDropPreview(point);
+
+          const finalIntent = currentDropIntent;
           isDragging = false;
-          // Trả lại scroll sau khi kéo xong
           _unlockScrollAfterDrag();
-          const userId = evt.item.dataset.userId;
-          // panel-body không có data-team, phải lên parent panel.team-card
-          const fromTeam = (evt.from.dataset.team) || evt.from.closest('[data-team]')?.dataset.team
-            || evt.from.parentElement?.closest('[data-team]')?.dataset.team;
-          const toTeam = (evt.to.dataset.team) || evt.to.closest('[data-team]')?.dataset.team
-            || evt.to.parentElement?.closest('[data-team]')?.dataset.team;
-          if (!fromTeam || !toTeam || fromTeam === toTeam) {
-            renderEditor(); // Khôi phục thứ tự DOM nếu kéo trong cùng team
+          dragPayload = null;
+
+          if (!finalIntent?.evaluation?.ok) {
+            const reason = finalIntent?.evaluation?.reason || finalIntent?.invalidReason || null;
+            const silent = finalIntent?.evaluation?.silent !== false;
+            clearDropPreview();
+            renderEditor();
+            if (reason && !silent) await customAlert(reason);
             return;
           }
-          await moveMember(userId, fromTeam, toTeam);
+
+          localState = finalIntent.evaluation.state;
+          normalizeLeaderState();
+          markLocalMutation();
+          const overflowMember = finalIntent.evaluation.overflowMember;
+          clearDropPreview();
           renderEditor();
-          scheduleSync('move', 'Đang đồng bộ thay đổi đội hình...');
+          if (overflowMember) {
+            showCenterNotice(`${getMemberDisplayName(overflowMember)} đã được đẩy xuống Hàng Chờ`);
+          }
+          scheduleSync(finalIntent.evaluation.action || 'move', 'Đã cập nhật trên web, đang gom thay đổi đội hình...');
         }
       });
     }
@@ -813,168 +1757,172 @@
 
     function renderEditor() {
       if (!localState) return;
+      ensureViewState();
+      clearDropPreviewStyles();
       updateHeader();
+      updateStickyOffset();
       const teamsGrid = document.getElementById('teamsGrid');
       const waitingBody = document.getElementById('waitingBody');
       teamsGrid.innerHTML = '';
       waitingBody.innerHTML = '';
+      currentRenderView = {};
 
       getVisibleTeams().forEach((team) => {
         const members = localState[team.key] || [];
+        const viewEntries = buildViewEntries(team.key);
+        currentRenderView[team.key] = viewEntries;
+        const sortMode = sortState?.[team.key] || 'default';
+        const sortButtonText = sortMode === 'default' ? 'Sort nhanh' : `Sort: ${getSortModeLabel(sortMode)}`;
+        const sortMenuHtml = activeSortMenu === team.key
+          ? `<div class="sort-menu">${SORT_OPTIONS.map((option) => `
+              <button class="sort-option ${sortMode === option.value ? 'active' : ''}" type="button" data-sort-team="${team.key}" data-sort-mode="${option.value}">
+                ${option.label}
+              </button>
+            `).join('')}</div>`
+          : '';
         const card = document.createElement('div');
-        card.className = 'panel team-card';
+        card.className = `panel team-card${members.length >= team.max && team.max > 0 ? ' team-full' : ''}`;
         card.dataset.team = team.key;
         card.innerHTML = `
           <div class="panel-head">
-            <div>
+            <div class="panel-head-main">
               <div class="panel-title">${team.title}</div>
-              <div class="panel-meta">${members.length}/${team.max} thành viên</div>
+              <div class="panel-meta">${members.length}/${team.max} thành viên${isFilterActive() ? ` • ${viewEntries.length} đang hiện` : ''}</div>
             </div>
-            <div class="badge">${members.length}</div>
+            <div class="panel-actions">
+              <button class="sort-btn ${sortMode !== 'default' ? 'active' : ''}" type="button" data-sort-btn="${team.key}">${sortButtonText}</button>
+              ${sortMenuHtml}
+              <div class="badge">${members.length}</div>
+            </div>
           </div>
           <div class="panel-body"></div>
         `;
         const body = card.querySelector('.panel-body');
-        if (!members.length) {
+        if (!viewEntries.length) {
           const empty = document.createElement('div');
           empty.className = 'empty';
-          empty.textContent = TEAM_META[team.key]?.empty || 'Chưa có thành viên';
+          empty.textContent = members.length && isFilterActive()
+            ? 'Không có thành viên khớp bộ lọc.'
+            : (TEAM_META[team.key]?.empty || 'Chưa có thành viên');
           body.appendChild(empty);
         } else {
-          members.forEach((member, index) => body.appendChild(renderMemberRow(member, team.key, index)));
+          viewEntries.forEach(({ member, actualIndex }) => body.appendChild(renderMemberRow(member, team.key, actualIndex)));
         }
+        card.querySelector('[data-sort-btn]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          toggleSortMenu(team.key);
+        });
+        card.querySelectorAll('[data-sort-mode]').forEach((button) => {
+          button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            setSortMode(team.key, button.dataset.sortMode);
+          });
+        });
         setupDropZone(card, team.key);
         teamsGrid.appendChild(card);
       });
 
       const waitingMembers = localState.waiting_list || [];
-      document.getElementById('waitingMeta').textContent = `${waitingMembers.length} người`;
-      if (!waitingMembers.length) {
+      const waitingEntries = buildViewEntries('waiting_list');
+      currentRenderView.waiting_list = waitingEntries;
+      document.getElementById('waitingMeta').textContent = !waitingMembers.length
+        ? '0 người'
+        : (isFilterActive()
+        ? `${waitingEntries.length}/${waitingMembers.length} đang hiện`
+        : `${waitingMembers.length} người`);
+      if (!waitingEntries.length) {
         const empty = document.createElement('div');
         empty.className = 'empty';
-        empty.textContent = TEAM_META.waiting_list.empty;
+        empty.textContent = waitingMembers.length && isFilterActive()
+          ? 'Không có người trong hàng chờ khớp bộ lọc.'
+          : TEAM_META.waiting_list.empty;
         waitingBody.appendChild(empty);
       } else {
-        waitingMembers.forEach((member, index) => waitingBody.appendChild(renderMemberRow(member, 'waiting_list', index)));
+        waitingEntries.forEach(({ member, actualIndex }) => waitingBody.appendChild(renderMemberRow(member, 'waiting_list', actualIndex)));
       }
       setupDropZone(document.querySelector('.waiting-card'), 'waiting_list');
-    }
-
-    function onDragStart(event) {
-      const row = event.currentTarget;
-      dragPayload = {
-        userId: row.dataset.userId,
-        fromTeam: row.dataset.team,
-        fromIndex: Number(row.dataset.index)
-      };
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
-      row.classList.add('dragging');
-      isDragging = true;
-    }
-
-    function onDragEnd(event) {
-      event.currentTarget.classList.remove('dragging');
-      document.querySelectorAll('.drop-over').forEach((item) => item.classList.remove('drop-over'));
-      isDragging = false;
-      dragPayload = null;
-    }
-
-    function onDragOver(event) {
-      event.preventDefault();
-      event.currentTarget.classList.add('drop-over');
-    }
-
-    function onDragLeave(event) {
-      event.currentTarget.classList.remove('drop-over');
+      renderStatsPanel();
     }
 
     async function moveMember(userId, fromTeam, toTeam) {
       if (!localState || !userId || !fromTeam || !toTeam) return false;
-      if (fromTeam === toTeam) return false;
-      const fromList = localState[fromTeam] || [];
-      const toList = localState[toTeam] || [];
-      const fromIndex = fromList.findIndex((item) => item.id === userId);
-      if (fromIndex === -1) return false;
-
-      const sizes = localState.team_sizes || {};
-      const caps = {
-        team_attack1: sizes.attack1 ?? 10,
-        team_attack2: sizes.attack2 ?? 10,
-        team_defense: sizes.defense ?? 5,
-        team_forest: sizes.forest ?? 5
-      };
-
-      if (toTeam !== 'waiting_list' && toList.length >= (caps[toTeam] ?? Infinity)) {
-        await customAlert('Team đích đã đầy.');
+      const targetLength = (localState[toTeam] || []).length;
+      const evaluation = simulateDropIntent({
+        userId,
+        fromTeam,
+        targetTeam: toTeam,
+        targetIndex: targetLength - 1,
+        placement: 'append'
+      });
+      if (!evaluation.ok) {
+        if (evaluation.reason && !evaluation.silent) await customAlert(evaluation.reason);
         return false;
       }
-
-      const [member] = fromList.splice(fromIndex, 1);
-      if (member) {
-        member.isTeamLeader = false;
-        member.ld = false;
-      }
-      toList.push(member);
-      localState[fromTeam] = fromList;
-      localState[toTeam] = toList;
+      localState = evaluation.state;
       normalizeLeaderState();
+      markLocalMutation();
+      if (evaluation.overflowMember) {
+        showCenterNotice(`${getMemberDisplayName(evaluation.overflowMember)} đã được đẩy xuống Hàng Chờ`);
+      }
       return true;
     }
 
-    async function onDrop(event) {
-      event.preventDefault();
-      const targetTeam = event.currentTarget.dataset.team;
-      event.currentTarget.classList.remove('drop-over');
-      let payload = dragPayload;
-      if (!payload) {
-        try { payload = JSON.parse(event.dataTransfer.getData('text/plain')); } catch (error) {}
-      }
-      if (!payload) return;
-      const moved = await moveMember(payload.userId, payload.fromTeam, targetTeam);
-      if (!moved) return;
-      renderEditor();
-      scheduleSync('move', 'Dang dong bo thay doi doi hinh...');
-    }
-
-    function scheduleSync(action = 'sync', statusText = 'Dang dong bo...') {
+    function scheduleSync(action = 'sync', statusText = 'Đã cập nhật trên web, đang gom thay đổi để đồng bộ...') {
       if (!localState || !currentDay) return;
-      pendingEditorAction = action || 'sync';
+      pendingSyncActions.add(action || 'sync');
+      pendingEditorAction = getRepresentativePendingAction();
       updateSyncBadge(statusText, true);
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        debounceTimer = null; // Reset để Realtime guard không bị kẹt
+        debounceTimer = null;
         syncSessionState();
-      }, 1200);
+      }, SYNC_IDLE_MS);
     }
 
-    async function syncSessionState() {
+    async function syncSessionState(force = false) {
       if (!localState || !currentDay) return;
+      if (isSyncing) {
+        if (!debounceTimer) {
+          debounceTimer = setTimeout(() => {
+            debounceTimer = null;
+            syncSessionState(force);
+          }, 900);
+        }
+        return;
+      }
+      if (!pendingSyncActions.size && !force) return;
+
       normalizeLeaderState();
-      isSyncing = true;
-      updateSyncBadge('Đang đồng bộ...', true);
-      localState.leader_ids = {
-        ...(localState.leader_ids || {}),
+      const snapshot = buildCurrentSessionSnapshot();
+      const actionsToSync = pendingSyncActions.size ? new Set(pendingSyncActions) : new Set([pendingEditorAction || 'sync']);
+      pendingSyncActions = new Set();
+      pendingEditorAction = getRepresentativePendingAction(actionsToSync);
+      snapshot.leader_ids = {
+        ...(snapshot.leader_ids || {}),
         editor_id: currentDiscordId || null,
         editor_name: currentUserName || 'Web',
         editor_action: pendingEditorAction || 'sync',
         edited_at: Date.now()
       };
+      const snapshotFingerprint = getSessionFingerprint(snapshot);
+
+      isSyncing = true;
+      updateSyncBadge(actionsToSync.size > 1 ? 'Đang đồng bộ một gói thay đổi...' : 'Đang đồng bộ thay đổi...', true);
       const payload = {
-        team_attack1: JSON.stringify(localState.team_attack1 || []),
-        team_attack2: JSON.stringify(localState.team_attack2 || []),
-        team_defense: JSON.stringify(localState.team_defense || []),
-        team_forest: JSON.stringify(localState.team_forest || []),
-        waiting_list: JSON.stringify(localState.waiting_list || []),
-        team_sizes: JSON.stringify(localState.team_sizes || {}),
-        leader_ids: JSON.stringify(localState.leader_ids || {})
+        team_attack1: JSON.stringify(snapshot.team_attack1 || []),
+        team_attack2: JSON.stringify(snapshot.team_attack2 || []),
+        team_defense: JSON.stringify(snapshot.team_defense || []),
+        team_forest: JSON.stringify(snapshot.team_forest || []),
+        waiting_list: JSON.stringify(snapshot.waiting_list || []),
+        team_sizes: JSON.stringify(snapshot.team_sizes || {}),
+        leader_ids: JSON.stringify(snapshot.leader_ids || {})
       };
-      if (supportsSessionLocked) payload.locked = !!localState.locked;
+      if (supportsSessionLocked) payload.locked = !!snapshot.locked;
       // team_names & team_sizes: auto-fallback nếu cột chưa tồn tại
       let supportsTeamNames = true;
       let supportsTeamSizes = true;
       // Luôn gửi team_names để đảm bảo tên được đồng bộ mọi nơi
-      payload.team_names = JSON.stringify(localState.team_names || {});
+      payload.team_names = JSON.stringify(snapshot.team_names || {});
 
       let query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
       if (currentSessionId) query = query.eq('id', currentSessionId);
@@ -983,6 +1931,7 @@
       if (error && /locked/i.test(error.message || '')) {
         supportsSessionLocked = false;
         localState.locked = false;
+        snapshot.locked = false;
         delete payload.locked;
         query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
         if (currentSessionId) query = query.eq('id', currentSessionId);
@@ -1013,14 +1962,30 @@
 
       isSyncing = false;
       if (error) {
+        actionsToSync.forEach((item) => pendingSyncActions.add(item));
+        pendingEditorAction = getRepresentativePendingAction();
+        if (!debounceTimer) {
+          debounceTimer = setTimeout(() => {
+            debounceTimer = null;
+            syncSessionState();
+          }, SYNC_IDLE_MS);
+        }
         updateSyncBadge('Lỗi đồng bộ');
         await customAlert('Không lưu được đội hình: ' + error.message);
         return;
       }
 
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-      pendingEditorAction = null;
-      updateSyncBadge('Đã đồng bộ');
+      rememberSnapshot(snapshot);
+      const stillPending = pendingSyncActions.size || debounceTimer;
+      if (!stillPending && getSessionFingerprint(buildCurrentSessionSnapshot()) === snapshotFingerprint) {
+        localMutationAt = 0;
+        pendingEditorAction = null;
+        updateSyncBadge('Đã đồng bộ');
+      } else {
+        pendingEditorAction = getRepresentativePendingAction();
+        updateSyncBadge('Web đã cập nhật, đang chờ gom lượt đồng bộ tiếp theo...', true);
+      }
       updateHeader();
     }
 
@@ -1034,9 +1999,10 @@
         await customAlert('Hãy đổi leader team trước khi đưa người này xuống hàng chờ.');
         return;
       }
-      await moveMember(userId, sourceTeam, 'waiting_list');
+      const moved = await moveMember(userId, sourceTeam, 'waiting_list');
+      if (!moved) return;
       renderEditor();
-      scheduleSync('kick', 'Dang dua nguoi xuong hang cho...');
+      scheduleSync('kick', 'Đã đưa xuống hàng chờ trên web, đang gom thay đổi...');
     }
 
     function toggleLeader(userId, teamKey) {
@@ -1056,8 +2022,9 @@
         localState.leader_ids = { ...(localState.leader_ids || {}), [leaderKey]: target?.id || null };
       }
       normalizeLeaderState();
+      markLocalMutation();
       renderEditor();
-      scheduleSync('setleader', 'Dang cap nhat leader team...');
+      scheduleSync('setleader', 'Đã cập nhật leader trên web, đang gom thay đổi...');
     }
 
     // Định nghĩa các team trong modal resize
@@ -1160,14 +2127,11 @@
       spillOverflow('team_defense', nextSizes.defense);
       spillOverflow('team_forest', nextSizes.forest);
       normalizeLeaderState();
+      markLocalMutation();
       closeResizeModal();
       renderEditor();
 
-      // Sync ngay lập tức (không debounce) để tránh mất data khi navigate/F5
-      if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
-      pendingEditorAction = 'resize';
-      updateSyncBadge('Đang lưu cấu hình team...', true);
-      await syncSessionState();
+      scheduleSync('resize', 'Đã resize trên web, đang gom thay đổi để đồng bộ...');
     }
 
     async function toggleLocked() {
@@ -1182,8 +2146,9 @@
         : 'Mở khóa danh sách để cho phép chỉnh sửa lại đội hình?';
       if (!(await customConfirm(message))) return;
       localState.locked = willLock;
+      markLocalMutation();
       renderEditor();
-      scheduleSync('lock', willLock ? 'Dang chot danh sach...' : 'Dang mo khoa danh sach...');
+      scheduleSync('lock', willLock ? 'Đã chốt trên web, đang gom thay đổi...' : 'Đã mở khóa trên web, đang gom thay đổi...');
     }
 
     async function loadSession() {
@@ -1201,9 +2166,15 @@
       currentDay = data.day;
       currentSessionId = data.id;
       currentSessionData = data;
+      lastRemoteFingerprint = getSessionFingerprint(data);
+      localMutationAt = 0;
+      pendingEditorAction = null;
+      pendingSyncActions = new Set();
+      if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
       supportsSessionLocked = Object.prototype.hasOwnProperty.call(data || {}, 'locked');
       localState = cloneSessionState(data);
       if (!supportsSessionLocked) localState.locked = false;
+      ensureViewState();
       normalizeLeaderState();
       refreshLeaderEditorPermission();
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
@@ -1212,15 +2183,42 @@
     }
 
     function hydrateFromRealtime(nextSession) {
+      currentSessionId = nextSession?.id || currentSessionId;
       currentSessionData = nextSession;
+      lastRemoteFingerprint = getSessionFingerprint(nextSession);
+      localMutationAt = 0;
+      pendingEditorAction = null;
+      pendingSyncActions = new Set();
+      if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
       supportsSessionLocked = Object.prototype.hasOwnProperty.call(nextSession || {}, 'locked');
       localState = cloneSessionState(nextSession);
       if (!supportsSessionLocked) localState.locked = false;
+      ensureViewState();
       normalizeLeaderState();
       refreshLeaderEditorPermission();
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
       updateSyncBadge('Đã cập nhật');
       renderEditor();
+    }
+
+    async function pollLatestSession() {
+      if (!sb || !currentDay) return;
+      let query = sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID);
+      if (currentSessionId) query = query.eq('id', currentSessionId);
+      else query = query.eq('day', currentDay);
+      const { data, error } = await query.maybeSingle();
+      if (error || !data) return;
+      const nextFingerprint = getSessionFingerprint(data);
+      if (!nextFingerprint || nextFingerprint === lastRemoteFingerprint) return;
+      if (shouldDeferRemoteHydrate()) return;
+      hydrateFromRealtime(data);
+    }
+
+    function startPollingFallback() {
+      if (pollingTimer) return;
+      pollingTimer = setInterval(() => {
+        pollLatestSession().catch(() => {});
+      }, 3000);
     }
 
     function setupRealtime() {
@@ -1232,16 +2230,22 @@
           table: 'bc_sessions',
           filter: `guild_id=eq.${GUILD_ID}`
         }, (payload) => {
-          if (!payload.new || payload.new.day !== currentDay) return;
-          // Guard: bỏ qua Realtime nếu đang kéo thả, đang sync, HOẶC có thay đổi local chưa sync (debounce)
-          // Fix bug: Realtime ghi đè localState trong debounce window gây mất người
-          if (isDragging || isSyncing || debounceTimer) {
+          if (!payload.new) return;
+          if (currentSessionId) {
+            if (payload.new.id !== currentSessionId) return;
+          } else if (payload.new.day !== currentDay) {
+            return;
+          }
+          const nextFingerprint = getSessionFingerprint(payload.new);
+          if (!nextFingerprint || nextFingerprint === lastRemoteFingerprint) return;
+          if (shouldDeferRemoteHydrate()) {
             console.log('[Realtime] Bỏ qua vì đang có pending changes (drag/sync/debounce)');
             return;
           }
           hydrateFromRealtime(payload.new);
         })
         .subscribe();
+      startPollingFallback();
     }
 
     async function loginDiscord() {
@@ -1286,6 +2290,7 @@
 
       document.getElementById('loadingScreen').classList.add('hidden');
       document.getElementById('editorShell').classList.add('active');
+      updateStickyOffset();
       setupRealtime();
     }
 
@@ -1314,26 +2319,21 @@
     document.getElementById('resizeModal').addEventListener('mousedown', (event) => {
       if (event.target.id === 'resizeModal') closeResizeModal();
     });
+    document.addEventListener('click', (event) => {
+      if (!activeSortMenu) return;
+      if (event.target.closest('[data-sort-btn]') || event.target.closest('.sort-menu')) return;
+      activeSortMenu = null;
+      renderEditor();
+    });
+    window.addEventListener('resize', updateStickyOffset);
 
     // Flush pending sync trước khi rời trang (tránh mất data khi debounce chưa kịp chạy)
     window.addEventListener('beforeunload', (event) => {
-      if (debounceTimer) {
+      if (debounceTimer || pendingSyncActions.size) {
         clearTimeout(debounceTimer);
         debounceTimer = null;
-        // Dùng sendBeacon để fire-and-forget khi đóng tab
         if (localState && sb && currentDay) {
-          const payload = {
-            team_attack1: JSON.stringify(localState.team_attack1 || []),
-            team_attack2: JSON.stringify(localState.team_attack2 || []),
-            team_defense: JSON.stringify(localState.team_defense || []),
-            team_forest: JSON.stringify(localState.team_forest || []),
-            waiting_list: JSON.stringify(localState.waiting_list || []),
-            team_sizes: JSON.stringify(localState.team_sizes || {}),
-            team_names: JSON.stringify(localState.team_names || {}),
-            leader_ids: JSON.stringify(localState.leader_ids || {})
-          };
-          // Fallback: schedule async sync ngay (không await)
-          syncSessionState();
+          syncSessionState(true);
         }
       }
     });

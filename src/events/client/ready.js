@@ -314,6 +314,33 @@ function parseTeamSizesForDiff(value) {
   }
 }
 
+function parseTeamNamesForDiff(value) {
+  try {
+    return typeof value === 'string' ? JSON.parse(value || '{}') : (value || {});
+  } catch (e) {
+    return {};
+  }
+}
+
+function normalizeTeamLabelForSummary(rawValue, fallbackLabel) {
+  const value = String(rawValue || '').trim();
+  if (!value) return fallbackLabel;
+  const lowered = value.toLowerCase();
+  return lowered.startsWith('team ') ? lowered : `team ${lowered}`;
+}
+
+function buildTeamLabelsForDiff(teamNamesValue) {
+  const remoteNames = parseTeamNamesForDiff(teamNamesValue);
+  const savedNames = db.getTeamNames ? db.getTeamNames() : {};
+  return {
+    team_attack1: normalizeTeamLabelForSummary(remoteNames.attack1 || savedNames.attack1, TEAM_LABELS_SHORT.team_attack1),
+    team_attack2: normalizeTeamLabelForSummary(remoteNames.attack2 || savedNames.attack2, TEAM_LABELS_SHORT.team_attack2),
+    team_defense: normalizeTeamLabelForSummary(remoteNames.defense || savedNames.defense, TEAM_LABELS_SHORT.team_defense),
+    team_forest: normalizeTeamLabelForSummary(remoteNames.forest || savedNames.forest, TEAM_LABELS_SHORT.team_forest),
+    waiting_list: TEAM_LABELS_SHORT.waiting_list
+  };
+}
+
 function getRosterDisplayName(member) {
   return member?.gn || member?.game_username || member?.name || member?.username || member?.discord_name || member?.id || 'thành viên';
 }
@@ -321,6 +348,7 @@ function getRosterDisplayName(member) {
 function buildSessionChangeSummaries(localSession, newData) {
   const actorMeta = parseLeaderIdsForDiff(newData.leader_ids);
   const editorAction = actorMeta.editor_action || 'sync';
+  const teamLabels = buildTeamLabelsForDiff(newData.team_names);
 
   // Nếu là self_join hoặc self_leave: thông báo đúng là member tự thực hiện
   // không dùng fallback về localSession.leader_name
@@ -378,7 +406,7 @@ function buildSessionChangeSummaries(localSession, newData) {
       if (beforeId === afterId) continue;
       const target = newTeams[teamKey].find((member) => member.id === afterId);
       if (afterId && target) {
-        leaderMessages.push(`${actorName} đã đặt ${getRosterDisplayName(target)} làm leader ${TEAM_LABELS_SHORT[teamKey]}.`);
+        leaderMessages.push(`${actorName} đã đặt ${getRosterDisplayName(target)} làm leader ${teamLabels[teamKey]}.`);
       }
     }
   }
@@ -413,9 +441,9 @@ function buildSessionChangeSummaries(localSession, newData) {
       // Thành viên mới xuất hiện
       if (editorAction === 'self_join') {
         // Chính người dùng tự đăng ký
-        moveMessages.push(`${actorName} đã tự đăng ký vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+        moveMessages.push(`${actorName} đã tự đăng ký vào ${teamLabels[nextInfo.teamKey]}.`);
       } else {
-        moveMessages.push(`${actorName} đã thêm ${getRosterDisplayName(nextInfo.member)} vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+        moveMessages.push(`${actorName} đã thêm ${getRosterDisplayName(nextInfo.member)} vào ${teamLabels[nextInfo.teamKey]}.`);
       }
       continue;
     }
@@ -424,9 +452,9 @@ function buildSessionChangeSummaries(localSession, newData) {
     if (nextInfo.teamKey === 'waiting_list') {
       moveMessages.push(`${actorName} đã đưa ${memberName} về hàng chờ.`);
     } else if (prevInfo.teamKey === 'waiting_list') {
-      moveMessages.push(`${actorName} đã đưa ${memberName} vào ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      moveMessages.push(`${actorName} đã đưa ${memberName} vào ${teamLabels[nextInfo.teamKey]}.`);
     } else {
-      moveMessages.push(`${actorName} đã di chuyển ${memberName} sang ${TEAM_LABELS_SHORT[nextInfo.teamKey]}.`);
+      moveMessages.push(`${actorName} đã di chuyển ${memberName} sang ${teamLabels[nextInfo.teamKey]}.`);
     }
   }
 

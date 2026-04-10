@@ -24,6 +24,8 @@
   --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.88);
   --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
   --dps:#60a5fa;--healer:#4ade80;--tanker:#fb923c;
+  --mobile-header-height:64px;--mobile-daybar-height:52px;--mobile-nav-height:72px;
+  --mobile-map-ui-gap:10px;--mobile-map-ui-height:118px;--mobile-timeline-height:54px;
 }
 html,body{height:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;
@@ -1398,7 +1400,11 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 
   /* Main layout: 1 cột */
   html, body { overflow: auto; height: auto }
-  .app { height: auto; min-height: 100vh; padding-bottom: 60px }
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+  }
   .main { grid-template-columns: 1fr; overflow-y: auto; min-height: auto }
   .main::before { display: none }
   .left { display: none; padding: 8px; border-right: none }
@@ -1409,8 +1415,8 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .right.mob-active {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 150px); /* header + daybar + nav */
-    min-height: 0;
+    height: calc(100dvh - var(--mobile-header-height) - var(--mobile-daybar-height) - var(--mobile-nav-height) - 12px);
+    min-height: 320px;
     overflow: hidden;
   }
 
@@ -1427,25 +1433,86 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 
   /* r-content + r-pane flex fill */
   .right.mob-active .r-content { flex: 1; min-height: 0; overflow: hidden; }
-  .right.mob-active .r-pane.active { flex: 1; min-height: 0; height: auto; }
-  .right.mob-active #pane-map { padding: 0; }
+  .right.mob-active .r-pane.active { flex: 1; min-height: 0; height: 100%; }
+  .right.mob-active #pane-map { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
 
   /* Map-box fill đầy không gian còn lại */
   .right.mob-active .map-box {
     flex: 1;
     width: 100%; /* override min() từ desktop */
     min-height: 0;
+    height: 100%;
     aspect-ratio: auto;
     max-height: none;
     border-radius: 0;
     position: relative;
     overflow: hidden;
   }
+  .right.mob-active .map-box .map-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--mobile-map-ui-height) + var(--mobile-map-ui-gap));
+    height: auto;
+    overflow: hidden !important;
+  }
   .right.mob-active .map-box .map-zoom-wrapper {
     position: absolute; inset: 0;
   }
+  .right.mob-active .map-box .map-bg,
   .right.mob-active .map-box .map-zoom-wrapper > .map-bg {
-    width: 100%; height: 100%; object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+    background: #07120c;
+  }
+  .right.mob-active .map-box .map-top {
+    padding: 10px 12px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .right.mob-active .map-box .map-top > div {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .right.mob-active .map-box .tactics-controls {
+    left: 0;
+    right: 0;
+    bottom: calc(var(--mobile-timeline-height) + var(--mobile-map-ui-gap));
+    padding: 8px 10px 0;
+    gap: 6px;
+    row-gap: 6px;
+    justify-content: space-between;
+  }
+  .right.mob-active .map-box .tc-toggle {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .right.mob-active .map-box .tc-mark-label {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-end;
+    font-size: 10px;
+  }
+  .right.mob-active .map-box .tactics-timeline-mini {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-top: 0;
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-radius: 14px 14px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: linear-gradient(180deg, rgba(4,10,7,.92), rgba(8,18,12,.97));
+    border-top: 1px solid rgba(251,191,36,.18);
+  }
+  .right.mob-active .map-box .tactics-timeline-mini .ttm-track {
+    height: 22px;
   }
 
   /* Mobile bottom nav */
@@ -1625,6 +1692,9 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .ttm-presence{position:absolute;top:50%;height:4px;border-radius:2px;
   background:linear-gradient(90deg,rgba(34,197,94,.3),rgba(34,197,94,.15));
   transform:translateY(-50%);pointer-events:none;z-index:1}
+.ttm-caption{display:none}
+.ttm-caption-time{font-weight:800;color:var(--gold)}
+.ttm-caption-name{min-width:0;flex:1;color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Mobile responsive cho tactics viewer */
 @media (max-width: 768px) {
@@ -1633,6 +1703,11 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .tactics-timeline-mini{padding:4px 6px}
   .ttm-track{height:20px}
   .tc-mark-label{font-size:10px}
+  .ttm-caption{
+    display:flex;align-items:center;gap:8px;min-width:0;
+    font-size:11px;font-weight:700
+  }
+  .ttm-caption.is-empty{display:none}
 
   /* Timeline + controls: giữ absolute trong map-box */
   /* Không override position ở đây — dùng .map-box .tactics-timeline-mini (specificity cao hơn) */
@@ -4288,22 +4363,25 @@ function toggleMapMode() {
 }
 
 // ═══ MAP ICONS - Tự động khớp vị trí icon với ảnh cover ═══
-function calcCoverFit(boxW, boxH, natW, natH) {
+function calcImageFit(boxW, boxH, natW, natH, fitMode = 'cover') {
     const boxRatio = boxW / boxH;
     const imgRatio = natW / natH;
     let renderW, renderH, offsetX, offsetY;
-    if (imgRatio > boxRatio) {
+    const shouldFitWidth = fitMode === 'contain'
+        ? imgRatio > boxRatio
+        : imgRatio <= boxRatio;
+    if (shouldFitWidth) {
         // Ảnh rộng hơn container → fit theo chiều cao, crop trái/phải
-        renderH = boxH;
-        renderW = boxH * imgRatio;
-        offsetX = (boxW - renderW) / 2;
-        offsetY = 0;
-    } else {
-        // Ảnh cao hơn container → fit theo chiều ngang, crop trên/dưới
         renderW = boxW;
         renderH = boxW / imgRatio;
         offsetX = 0;
         offsetY = (boxH - renderH) / 2;
+    } else {
+        // Ảnh cao hơn container → fit theo chiều ngang, crop trên/dưới
+        renderH = boxH;
+        renderW = boxH * imgRatio;
+        offsetX = (boxW - renderW) / 2;
+        offsetY = 0;
     }
     return { renderW, renderH, offsetX, offsetY };
 }
@@ -4319,16 +4397,17 @@ function applyIconLayerPosition(layer, offsetX, offsetY, renderW, renderH) {
 }
 
 function updateMapIconsPosition() {
-    const mapBox = document.getElementById('mapBox');
-    if (!mapBox) return;
-    const boxW = mapBox.clientWidth;
-    const boxH = mapBox.clientHeight;
+    const mapContainer = document.getElementById('mapContainer');
+    if (!mapContainer) return;
+    const boxW = mapContainer.clientWidth;
+    const boxH = mapContainer.clientHeight;
     if (!boxW || !boxH) return;
 
-    const mapBg = mapBox.querySelector('.map-bg');
+    const mapBg = mapContainer.querySelector('.map-bg');
     const mapIcons = document.getElementById('mapIcons');
     if (mapBg && mapIcons && mapBg.naturalWidth) {
-        const fit = calcCoverFit(boxW, boxH, mapBg.naturalWidth, mapBg.naturalHeight);
+        const fitMode = (getComputedStyle(mapBg).objectFit || '').includes('contain') ? 'contain' : 'cover';
+        const fit = calcImageFit(boxW, boxH, mapBg.naturalWidth, mapBg.naturalHeight, fitMode);
         applyIconLayerPosition(mapIcons, fit.offsetX, fit.offsetY, fit.renderW, fit.renderH);
         // mapBgGiay nằm trong zoom-wrapper với inset:0, không cần set position riêng
     }
@@ -4995,10 +5074,80 @@ function switchRTab(el, paneId) {
     document.querySelectorAll('.r-pane').forEach(p => p.classList.remove('active'));
     document.getElementById(paneId)?.classList.add('active');
     if (paneId === 'pane-tasks') loadTasksTab();
+    scheduleMobileViewportSync();
 }
 
 
 // ═══ MOBILE TAB SWITCHING ═══
+let _mobileViewportSyncRaf = null;
+function ensureTimelineCaption() {
+    const timeline = document.getElementById('tacticsTimeline');
+    if (!timeline) return null;
+    let caption = timeline.querySelector('.ttm-caption');
+    if (!caption) {
+        caption = document.createElement('div');
+        caption.className = 'ttm-caption is-empty';
+        caption.innerHTML = '<span class="ttm-caption-time" id="ttmCaptionTime"></span><span class="ttm-caption-name" id="ttmCaptionName"></span>';
+        timeline.appendChild(caption);
+    }
+    return caption;
+}
+
+function updateTimelineCaption(timeText, nameText) {
+    const caption = ensureTimelineCaption();
+    if (!caption) return;
+    const captionTime = caption.querySelector('#ttmCaptionTime');
+    const captionName = caption.querySelector('#ttmCaptionName');
+    if (captionTime) captionTime.textContent = timeText || '';
+    if (captionName) captionName.textContent = nameText || '';
+    caption.classList.toggle('is-empty', !timeText && !nameText);
+}
+
+function syncMobileViewportLayout() {
+    const root = document.documentElement;
+    const header = document.querySelector('.header');
+    const dayBar = document.querySelector('.day-bar');
+    const mobileNav = document.getElementById('mobileNav');
+    const tacticsControls = document.getElementById('tacticsControls');
+    const tacticsTimeline = document.getElementById('tacticsTimeline');
+
+    root.style.setProperty('--mobile-header-height', `${Math.ceil(header?.getBoundingClientRect().height || 0)}px`);
+    root.style.setProperty('--mobile-daybar-height', `${Math.ceil(dayBar?.getBoundingClientRect().height || 0)}px`);
+    root.style.setProperty('--mobile-nav-height', `${Math.ceil(mobileNav?.getBoundingClientRect().height || 0)}px`);
+
+    const controlsH = tacticsControls && tacticsControls.style.display !== 'none'
+        ? Math.ceil(tacticsControls.getBoundingClientRect().height)
+        : 0;
+    const timelineH = tacticsTimeline && tacticsTimeline.style.display !== 'none'
+        ? Math.ceil(tacticsTimeline.getBoundingClientRect().height)
+        : 0;
+    root.style.setProperty('--mobile-timeline-height', `${Math.max(48, timelineH)}px`);
+    root.style.setProperty('--mobile-map-ui-height', `${Math.max(84, controlsH + timelineH + 10)}px`);
+
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        scheduleMapUpdate();
+    }
+}
+
+function scheduleMobileViewportSync() {
+    if (_mobileViewportSyncRaf) cancelAnimationFrame(_mobileViewportSyncRaf);
+    _mobileViewportSyncRaf = requestAnimationFrame(() => {
+        _mobileViewportSyncRaf = null;
+        syncMobileViewportLayout();
+    });
+}
+
+window.addEventListener('resize', scheduleMobileViewportSync, { passive: true });
+window.addEventListener('orientationchange', scheduleMobileViewportSync);
+if (window.ResizeObserver) {
+    const mobileLayoutObserver = new ResizeObserver(() => scheduleMobileViewportSync());
+    ['.header', '.day-bar', '#mobileNav', '#tacticsControls', '#tacticsTimeline', '#mapContainer'].forEach((selector) => {
+        const el = document.querySelector(selector);
+        if (el) mobileLayoutObserver.observe(el);
+    });
+}
+scheduleMobileViewportSync();
+
 function switchMobileTab(el) {
     document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
@@ -5021,6 +5170,7 @@ function switchMobileTab(el) {
             requestAnimationFrame(() => {
                 scheduleMapUpdate();
                 tvUpdateLayerPositions();
+                scheduleMobileViewportSync();
             });
         });
     } else if (target === 'mob-tasks') {
@@ -5033,6 +5183,7 @@ function switchMobileTab(el) {
     } else if (target === 'mob-tactics') {
         openTactics();
     }
+    scheduleMobileViewportSync();
 }
 
 // Map tooltip touch: chạm để hiện/ẩn tooltip thay vì hover
@@ -5052,6 +5203,7 @@ if ('ontouchstart' in window) {
 if (window.matchMedia('(max-width: 768px)').matches) {
     document.getElementById('leftPanel')?.classList.add('mob-active');
 }
+scheduleMobileViewportSync();
 
 // ═══ TACTICS VIEWER — Hiển thị chiến thuật cho member xem (chỉ đọc) ═══
 let _tvTacticsData = null;    // Parsed tactics {marks, global_notes, enemyList, ...}
@@ -5180,7 +5332,7 @@ async function _tvLoadTacticsNow(day) {
         // Hiện controls + timeline + render mark
         tvShowAll();
         tvRenderTimeline();
-        tvRenderMark(_tvActiveMarkIdx);
+        tvSelectMark(_tvActiveMarkIdx);
         
         console.log(`[TacticsViewer] ✅ Loaded ${_tvTacticsData.marks.length} marks (day=${day}, mark=${_tvActiveMarkIdx})`);
     } catch(e) {
@@ -5200,6 +5352,8 @@ function tvHideAll() {
     if (track) {
         track.innerHTML = '<div style="padding:8px 16px;font-size:11px;color:rgba(255,255,255,.3);text-align:center;font-style:italic">Chưa có chiến thuật — Mở Biương với chiến thuật đã lưu để xem timeline</div>';
     }
+    updateTimelineCaption('', '');
+    scheduleMobileViewportSync();
 }
 
 function tvShowAll() {
@@ -5213,6 +5367,7 @@ function tvShowAll() {
     if (mapTab && !mapTab.classList.contains('active')) {
         switchRTab(mapTab, 'pane-map');
     }
+    scheduleMobileViewportSync();
 }
 
 // Render timeline mini
@@ -5221,6 +5376,7 @@ function tvRenderTimeline() {
     const track = document.getElementById('ttmTrack');
     if (!track) return;
     track.innerHTML = '';
+    ensureTimelineCaption();
 
     const marks = _tvTacticsData.marks;
     const myId = window.currentDiscordId;
@@ -5282,6 +5438,7 @@ function tvRenderTimeline() {
         };
         track.appendChild(dot);
     });
+    scheduleMobileViewportSync();
 }
 
 // Chọn mark trên timeline với animation
@@ -5304,6 +5461,8 @@ function tvSelectMark(idx) {
     const nameEl = document.getElementById('tcMarkName');
     if (timeEl) timeEl.textContent = tvFormatTime(time);
     if (nameEl) nameEl.textContent = MARK_NAMES[time] || mark.label || '';
+    updateTimelineCaption(tvFormatTime(time), MARK_NAMES[time] || mark.label || '');
+    scheduleMobileViewportSync();
 
     // Animate render (CSS transition sẽ tự animate vị trí)
     tvRenderMark(idx);
@@ -5691,6 +5850,13 @@ function switchMobileTab(el) {
         if (right) right.classList.add('mob-active');
         const mapTab = document.querySelector('.r-tab');
         if (mapTab) { document.querySelectorAll('.r-tab').forEach(t=>t.classList.remove('active')); mapTab.classList.add('active'); document.querySelectorAll('.r-pane').forEach(p=>p.classList.remove('active')); document.getElementById('pane-map')?.classList.add('active'); }
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                scheduleMapUpdate();
+                tvUpdateLayerPositions();
+                scheduleMobileViewportSync();
+            });
+        });
     } else if (target === 'mob-tasks') {
         if (right) right.classList.add('mob-active');
         const taskTabs = document.querySelectorAll('.r-tab');
@@ -5710,6 +5876,7 @@ function switchMobileTab(el) {
         document.getElementById('pane-timer')?.classList.add('active');
         initTimerPane();
     }
+    scheduleMobileViewportSync();
 }
 
 // ═══ MOBILE NAV: Ẩn tab theo quyền ═══
@@ -6108,8 +6275,12 @@ async function renderPmLevelTab(container, discordId) {
     if (!mapBox || !mapContainer) return;
 
     // Đảm bảo mapBox clip đúng, mapContainer không tự clip khi kéo
-    mapContainer.style.overflow = 'visible';
     mapContainer.style.willChange = 'transform';
+    function syncMapContainerOverflow() {
+        mapContainer.style.overflow = window.matchMedia('(max-width: 768px)').matches ? 'hidden' : 'visible';
+    }
+    syncMapContainerOverflow();
+    window.addEventListener('resize', syncMapContainerOverflow, { passive: true });
 
     // Thêm hint
     const hint = document.createElement('div');
@@ -6138,19 +6309,30 @@ async function renderPmLevelTab(container, discordId) {
         }
     }
 
+    function getRenderedMapMetrics() {
+        const viewportRect = mapContainer.getBoundingClientRect();
+        const mapBg = mapContainer.querySelector('.map-bg');
+        if (!mapBg || !mapBg.naturalWidth || !viewportRect.width || !viewportRect.height) {
+            return { renderW: viewportRect.width, renderH: viewportRect.height };
+        }
+        const fitMode = (getComputedStyle(mapBg).objectFit || '').includes('contain') ? 'contain' : 'cover';
+        return calcImageFit(viewportRect.width, viewportRect.height, mapBg.naturalWidth, mapBg.naturalHeight, fitMode);
+    }
+
     function clampPan() {
-        const boxRect = mapBox.getBoundingClientRect();
+        const viewportRect = mapContainer.getBoundingClientRect();
         const scale = isZoomed ? ZOOM_LEVEL : 1;
+        const fit = getRenderedMapMetrics();
         if (scale <= 1) {
             // Chưa zoom: cho kéo rộng hơn (25% container) để xem các góc
-            const limitX = boxRect.width  * 0.25;
-            const limitY = boxRect.height * 0.25;
-            panX = Math.max(-limitX, Math.min(limitX, panX));
-            panY = Math.max(-limitY, Math.min(limitY, panY));
+            const maxX = Math.max(0, (fit.renderW * scale - viewportRect.width) / (2 * scale));
+            const maxY = Math.max(0, (fit.renderH * scale - viewportRect.height) / (2 * scale));
+            panX = Math.max(-maxX, Math.min(maxX, panX));
+            panY = Math.max(-maxY, Math.min(maxY, panY));
         } else {
             // Zoom: clamp chặt để không lộ vùng đen
-            const maxX = (boxRect.width  * (scale - 1)) / (2 * scale);
-            const maxY = (boxRect.height * (scale - 1)) / (2 * scale);
+            const maxX = Math.max(0, (fit.renderW * scale - viewportRect.width) / (2 * scale));
+            const maxY = Math.max(0, (fit.renderH * scale - viewportRect.height) / (2 * scale));
             panX = Math.max(-maxX, Math.min(maxX, panX));
             panY = Math.max(-maxY, Math.min(maxY, panY));
         }
@@ -6294,7 +6476,7 @@ async function renderPmLevelTab(container, discordId) {
     });
 
     let touchStartX, touchStartY, touchPanX, touchPanY;
-    mapBox.addEventListener('touchstart', (e) => {
+    mapContainer.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) return;
         if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
         stopInertia();
@@ -6305,7 +6487,7 @@ async function renderPmLevelTab(container, discordId) {
         lastTouchX = touchStartX; lastTouchY = touchStartY; lastTouchTime = performance.now();
     }, { passive: true });
 
-    mapBox.addEventListener('touchmove', (e) => {
+    mapContainer.addEventListener('touchmove', (e) => {
         if (e.touches.length !== 1) return;
         if (e.target.closest('.map-icon, .tv-player, .tv-enemy, .ttm-mark, button')) return;
         const now = performance.now();
@@ -6323,6 +6505,11 @@ async function renderPmLevelTab(container, discordId) {
         lastTouchX = e.touches[0].clientX; lastTouchY = e.touches[0].clientY; lastTouchTime = now;
         e.preventDefault();
     }, { passive: false });
+
+    window.addEventListener('resize', () => {
+        clampPan();
+        applyTransform(false);
+    }, { passive: true });
 })();
 
 // ═══ FULLSCREEN MAP MODE (CSS overlay — không dùng F11 browser) ═══

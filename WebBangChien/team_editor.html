@@ -260,18 +260,33 @@
       display:flex;
       align-items:center;
       gap:10px;
-      padding:10px 10px 10px 12px;
+      padding:10px 12px;
       border-radius:12px;
       border:1px solid rgba(255,255,255,.04);
       background:rgba(255,255,255,.025);
-      cursor:default;
+      cursor:grab;
       user-select:none;
       touch-action:pan-y;
       position:relative;
-      transition:border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
+      transition:border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s cubic-bezier(.25,.46,.45,.94), opacity .2s ease;
     }
-    .member-row.dragging{opacity:.45;transform:scale(.98)}
+    .member-row:active{cursor:grabbing}
+    /* Khi đang kéo: row gốc mờ + thu nhỏ nhẹ */
+    .member-row.dragging{
+      opacity:.3;
+      transform:scale(.96);
+      border-color:rgba(58,208,126,.15);
+    }
     .member-row.locked{cursor:default}
+    /* Ghost (bản sao kéo theo chuột) — đẹp + nổi bật */
+    .member-row.drag-chosen{
+      background:rgba(58,208,126,.12);
+      border-color:rgba(58,208,126,.4);
+      box-shadow:0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(58,208,126,.2), 0 0 20px rgba(58,208,126,.1);
+      transform:scale(1.03);
+      z-index:100;
+    }
+    .member-row.drag-active{opacity:0}
     .member-row.drop-swap{
       border-color:rgba(94,169,255,.4);
       background:rgba(94,169,255,.1);
@@ -296,23 +311,11 @@
       background:rgba(255,107,107,.08);
       box-shadow:0 0 0 1px rgba(255,107,107,.18);
     }
-    .drag-handle{
-      color:var(--muted);
-      font-size:18px;
-      min-width:32px;
-      min-height:32px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      -webkit-user-select:none;
-      user-select:none;
-      pointer-events:auto;
-      cursor:grab;
-      touch-action:none;
-      flex-shrink:0;
-      opacity:.6;
+    /* Các nút bên trong row: không kéo qua chúng */
+    .member-row .leader-btn,
+    .member-row .kick-btn{
+      cursor:pointer;
     }
-    .drag-handle:active{cursor:grabbing}
     .slot-badge{
       min-width:34px;
       height:32px;
@@ -545,9 +548,14 @@
     }
 
     /* ═══ SORTABLEJS: Visual feedback khi kéo thả ═══ */
-    .member-row.drag-chosen{background:rgba(58,208,126,.12);border-color:rgba(58,208,126,.3)}
-    .member-row.drag-active{opacity:0}
-    .sortable-fallback{pointer-events:none!important}
+    .sortable-fallback{
+      pointer-events:none!important;
+      box-shadow:0 12px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(58,208,126,.25), 0 0 24px rgba(58,208,126,.12);
+      border-color:rgba(58,208,126,.5)!important;
+      background:linear-gradient(180deg,rgba(13,27,18,.98),rgba(10,22,14,.98))!important;
+      transform:scale(1.04)!important;
+      border-radius:14px!important;
+    }
 
     /* ═══ MOBILE RESPONSIVE ═══ */
     @media (max-width: 768px) {
@@ -1270,6 +1278,78 @@
       return null;
     }
 
+    // ═══ Hàm mới: xử lý kết quả reorder từ SortableJS (sort: true) ═══
+    // SortableJS đã di chuyển DOM → ta cần áp dụng thay đổi tương ứng vào localState
+    function simulateDropIntentFromDOM(intent) {
+      if (!intent || !localState) return { ok: false, reason: null, silent: true };
+      const nextState = cloneSessionState(localState);
+      normalizeLeaderState(nextState);
+
+      const sourceInfo = findMemberLocation(intent.userId, nextState);
+      if (!sourceInfo) return { ok: false, reason: 'Không tìm thấy thành viên để di chuyển.' };
+
+      const sourceList = nextState[sourceInfo.teamKey] || [];
+      const movingMember = sourceList[sourceInfo.index];
+      if (!movingMember) return { ok: false, reason: 'Không tìm thấy thành viên.' };
+
+      // Leader không được rời team
+      if (isLeaderMember(movingMember) && intent.targetTeam !== sourceInfo.teamKey) {
+        return { ok: false, reason: 'Leader không thể rời team. Hãy đổi leader trước.' };
+      }
+
+      const targetList = nextState[intent.targetTeam] || [];
+
+      if (intent.targetTeam === sourceInfo.teamKey) {
+        // Di chuyển trong cùng team → reorder
+        const list = nextState[sourceInfo.teamKey];
+        const [member] = list.splice(sourceInfo.index, 1);
+        const insertIdx = Math.min(intent.targetIndex, list.length);
+        list.splice(insertIdx, 0, member);
+        normalizeLeaderState(nextState);
+        return { ok: true, state: nextState, action: 'move', overflowMember: null };
+      }
+
+      // Di chuyển sang team khác
+      const [member] = sourceList.splice(sourceInfo.index, 1);
+      clearLeaderFlag(member);
+
+      let insertIdx = Math.min(intent.targetIndex, targetList.length);
+      let overflowMember = null;
+
+      if (intent.targetTeam !== 'waiting_list') {
+        const cap = getTeamCapacityFor(intent.targetTeam, nextState);
+        // Kiểm tra team đầy → đẩy người cuối xuống hàng chờ
+        if (targetList.length >= cap) {
+          // Nếu đang insert vào cuối cùng của team đã đầy → từ chối
+          if (insertIdx >= targetList.length) {
+            // Hoàn lại
+            sourceList.splice(sourceInfo.index, 0, member);
+            return { ok: false, reason: 'Team đích đã đầy. Hãy thả ở trên hoặc giữa một người trong team.' };
+          }
+          const overflowCandidate = targetList[targetList.length - 1];
+          if (isLeaderMember(overflowCandidate)) {
+            sourceList.splice(sourceInfo.index, 0, member);
+            return { ok: false, reason: 'Không thể đẩy leader xuống hàng chờ. Hãy đổi leader trước.' };
+          }
+        }
+      }
+
+      targetList.splice(insertIdx, 0, member);
+
+      if (intent.targetTeam !== 'waiting_list') {
+        const cap = getTeamCapacityFor(intent.targetTeam, nextState);
+        if (targetList.length > cap) {
+          overflowMember = targetList.pop();
+          clearLeaderFlag(overflowMember);
+          nextState.waiting_list = nextState.waiting_list || [];
+          nextState.waiting_list.unshift(overflowMember);
+        }
+      }
+
+      normalizeLeaderState(nextState);
+      return { ok: true, state: nextState, action: 'move', overflowMember };
+    }
+
     function simulateDropIntent(intent, sourceState = localState) {
       if (!intent || !sourceState) return { ok: false, reason: null, silent: true };
       const nextState = cloneSessionState(sourceState);
@@ -1619,7 +1699,6 @@
       row.dataset.index = String(index);
       row.dataset.slot = String(slotNumber);
       row.innerHTML = `
-        <div class="drag-handle">⠿</div>
         <div class="slot-badge">${slotNumber}</div>
         <div class="avatar ${cls}">${roleShort(member.role)}</div>
         <div class="member-main">
@@ -1658,10 +1737,10 @@
 
       body._sortable = new Sortable(body, {
         group: { name: 'teams', pull: true, put: true },
-        handle: '.drag-handle',
-        sort: false,
-        animation: 110,
-        delay: 110,
+        sort: true,
+        animation: 280,
+        easing: 'cubic-bezier(.22,1,.36,1)',
+        delay: 120,
         delayOnTouchOnly: true,
         touchStartThreshold: 6,
         ghostClass: 'dragging',
@@ -1670,7 +1749,7 @@
         fallbackOnBody: true,
         fallbackTolerance: 2,
         swapThreshold: 0.65,
-        filter: '.empty',
+        filter: '.empty, .leader-btn, .kick-btn',
         preventOnFilter: true,
         forceFallback: false,
         onStart(evt) {
@@ -1686,38 +1765,79 @@
         onMove(evt, originalEvent) {
           const point = getEventPoint(originalEvent);
           if (point) {
-            updateDropPreview(point);
             maybeAutoScroll(point);
           }
-          return false;
+          // Validate: kiểm tra member đang kéo có phải leader không
+          if (dragPayload) {
+            const movingId = dragPayload.userId;
+            const fromTeam = dragPayload.fromTeam;
+            const toPanel = evt.to?.closest?.('[data-team]');
+            const toTeam = toPanel?.dataset?.team || teamKey;
+            // Leader không được rời team
+            const movingMember = (localState?.[fromTeam] || []).find(m => m.id === movingId);
+            if (movingMember && isLeaderMember(movingMember) && toTeam !== fromTeam) {
+              return false;
+            }
+            // Nếu đang ở sort mode (swapOnly) → chỉ cho swap, không cho insert
+            if (shouldSwapOnly(fromTeam) || shouldSwapOnly(toTeam)) {
+              return false;
+            }
+          }
+          // Cho SortableJS tự animate di chuyển các member
+          return true;
         },
         async onEnd(evt) {
-          const point = getEventPoint(evt.originalEvent);
-          if (point) updateDropPreview(point);
-
-          const finalIntent = currentDropIntent;
           isDragging = false;
-          dragPayload = null;
+          if (!dragPayload) { clearDropPreview(); renderEditor(); return; }
 
-          if (!finalIntent?.evaluation?.ok) {
-            const reason = finalIntent?.evaluation?.reason || finalIntent?.invalidReason || null;
-            const silent = finalIntent?.evaluation?.silent !== false;
-            clearDropPreview();
+          const movedUserId = dragPayload.userId;
+          const fromTeam = dragPayload.fromTeam;
+          const fromIndex = dragPayload.fromIndex;
+          dragPayload = null;
+          clearDropPreview();
+
+          // Đọc thứ tự mới từ DOM sau khi SortableJS đã di chuyển element
+          const toBody = evt.to;
+          const toPanel = toBody?.closest?.('[data-team]');
+          const toTeam = toPanel?.dataset?.team || fromTeam;
+          const newIndexInDOM = evt.newIndex;
+
+          // Nếu không di chuyển gì (cùng team, cùng vị trí)
+          if (fromTeam === toTeam && evt.oldIndex === newIndexInDOM) {
+            renderEditor();
+            return;
+          }
+
+          // Tạo intent tương ứng để dùng simulateDropIntent
+          const intent = {
+            userId: movedUserId,
+            fromTeam: fromTeam,
+            fromIndex: fromIndex,
+            targetTeam: toTeam,
+            targetIndex: newIndexInDOM,
+            placement: 'insert-at'
+          };
+
+          // Simulate với logic mới hỗ trợ 'insert-at'
+          const evaluation = simulateDropIntentFromDOM(intent);
+
+          if (!evaluation?.ok) {
+            const reason = evaluation?.reason || null;
+            const silent = evaluation?.silent !== false;
             renderEditor();
             if (reason && !silent) await customAlert(reason);
             return;
           }
 
-          localState = finalIntent.evaluation.state;
+          localState = evaluation.state;
           normalizeLeaderState();
           markLocalMutation();
-          const overflowMember = finalIntent.evaluation.overflowMember;
-          clearDropPreview();
+          const overflowMember = evaluation.overflowMember;
           renderEditor();
           if (overflowMember) {
             showCenterNotice(`${getMemberDisplayName(overflowMember)} đã được đẩy xuống Hàng Chờ`);
           }
-          scheduleSync(finalIntent.evaluation.action || 'move', 'Đã cập nhật trên web, đang gom thay đổi đội hình...');
+          scheduleSync(evaluation.action || 'move', 'Đã cập nhật trên web, đang gom thay đổi đội hình...');
         }
       });
     }

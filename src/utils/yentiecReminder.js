@@ -2,7 +2,7 @@
  * YenTiec Time Change Reminder
  * Tự động nhắc @Kỳ Cựu đổi giờ Yến Tiệc trong game:
  * - Thứ 7 lúc 12h: Hỏi chọn 19h hoặc 22h30 (áp dụng cho T7 và CN)
- * - Thứ 2 lúc 12h: Nhắc đổi về 21h
+ * - Thứ 2 lúc 12h: Nhắc đổi về 20h
  * Chỉ nhắc 1 lần, không lặp lại.
  */
 
@@ -37,21 +37,21 @@ function createWeekendReminderEmbed(guildId, previousPref) {
         .setFooter({ text: 'Chọn giờ bên dưới và đổi trong game' });
 }
 
-// Tạo embed nhắc nhở WEEKDAY (chỉ nhắc đổi 21h)
+// Tạo embed nhắc nhở WEEKDAY (chỉ nhắc đổi 20h)
 function createWeekdayReminderEmbed() {
     return new EmbedBuilder()
         .setColor(0xFF9900)
         .setTitle('⚙️ NHẮC ĐỔI GIỜ YẾN TIỆC TRONG GAME!')
-        .setDescription(`📢 Vui lòng **đổi giờ Yến Tiệc** trong cài đặt Guild thành **21h00**!\n\n⬇️ Bấm nút bên dưới khi đã đổi xong.`)
+        .setDescription(`📢 Vui lòng **đổi giờ Yến Tiệc** trong cài đặt Guild thành **20h00**!\n\n⬇️ Bấm nút bên dưới khi đã đổi xong.`)
         .addFields(
-            { name: '🎯 Giờ cần đổi', value: '**21:00**', inline: true },
+            { name: '🎯 Giờ cần đổi', value: '**20:00**', inline: true },
             { name: '📍 Vị trí', value: 'Guild → Cài đặt → Yến Tiệc', inline: true }
         )
         .setTimestamp()
         .setFooter({ text: 'Bấm nút bên dưới khi đã đổi xong' });
 }
 
-// Tạo buttons cho WEEKEND (chọn 19h, 22h30, hoặc giữ nguyên 21h)
+// Tạo buttons cho WEEKEND (chọn 19h, 22h30, hoặc giữ nguyên 20h)
 function createWeekendButtons(guildId) {
     return new ActionRowBuilder()
         .addComponents(
@@ -60,8 +60,8 @@ function createWeekendButtons(guildId) {
                 .setLabel('🕐 19h00')
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
-                .setCustomId(`yentiec_weekend_21_${guildId}`)
-                .setLabel('🕘 Giữ nguyên 21h')
+                .setCustomId(`yentiec_weekend_20_${guildId}`)
+                .setLabel('🕗 Giữ nguyên 20h')
                 .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId(`yentiec_weekend_2230_${guildId}`)
@@ -70,13 +70,13 @@ function createWeekendButtons(guildId) {
         );
 }
 
-// Tạo button cho WEEKDAY (chỉ xác nhận 21h)
+// Tạo button cho WEEKDAY (chỉ xác nhận 20h)
 function createWeekdayButton(guildId) {
     return new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId(`yentiec_weekday_confirm_${guildId}`)
-                .setLabel('✅ Đã đổi về 21h00')
+                .setLabel('✅ Đã đổi về 20h00')
                 .setStyle(ButtonStyle.Success)
         );
 }
@@ -157,10 +157,10 @@ async function handleConfirmButton(interaction) {
         return await handleWeekendChoice(interaction, guildId, 19, 0);
     }
 
-    // === WEEKEND: Chọn giữ nguyên 21h ===
-    if (customId.startsWith('yentiec_weekend_21_')) {
-        const guildId = customId.replace('yentiec_weekend_21_', '');
-        return await handleWeekendChoice(interaction, guildId, 21, 0, true); // skipWeekday = true
+    // === WEEKEND: Chọn giữ nguyên 20h ===
+    if (customId.startsWith('yentiec_weekend_20_')) {
+        const guildId = customId.replace('yentiec_weekend_20_', '');
+        return await handleWeekendChoice(interaction, guildId, 20, 0, true); // skipWeekday = true
     }
 
     // === WEEKEND: Chọn 22h30 ===
@@ -169,7 +169,7 @@ async function handleConfirmButton(interaction) {
         return await handleWeekendChoice(interaction, guildId, 22, 30);
     }
 
-    // === WEEKDAY: Xác nhận 21h ===
+    // === WEEKDAY: Xác nhận 20h ===
     if (customId.startsWith('yentiec_weekday_confirm_')) {
         const guildId = customId.replace('yentiec_weekday_confirm_', '');
         return await handleWeekdayConfirm(interaction, guildId);
@@ -195,13 +195,13 @@ async function handleWeekendChoice(interaction, guildId, hours, minutes, skipWee
         return true;
     }
 
-    // Lưu preference (bao gồm cả skipWeekday flag nếu chọn giữ nguyên 21h)
+    // Lưu preference (bao gồm cả skipWeekday flag nếu chọn giữ nguyên 20h)
     saveWeekendPreference(guildId, hours, minutes, skipWeekday);
 
     // Lưu ngày xác nhận để tránh hỏi lại khi bot restart
     saveConfirmationDate(guildId, 'weekend');
 
-    // Nếu chọn giữ nguyên 21h, cũng đánh dấu weekday đã xác nhận để skip nhắc thứ 2
+    // Nếu chọn giữ nguyên 20h, cũng đánh dấu weekday đã xác nhận để skip nhắc thứ 2
     if (skipWeekday) {
         saveConfirmationDate(guildId, 'weekday');
     }
@@ -230,7 +230,7 @@ async function handleWeekendChoice(interaction, guildId, hours, minutes, skipWee
     await interaction.update({ embeds: [confirmEmbed], components: [] });
 
     // Kiểm tra xem đã có thông báo YenTiec chưa và có cần gửi thêm không
-    // Không cần schedule thêm nếu giữ nguyên 21h (vì đã có sẵn thông báo 21h)
+    // Không cần schedule thêm nếu giữ nguyên 20h (vì đã có sẵn thông báo 20h)
     if (!skipWeekday) {
         await scheduleAdditionalNotification(interaction.client, guildId, hours, minutes);
     }
@@ -259,7 +259,7 @@ async function handleWeekdayConfirm(interaction, guildId) {
     const confirmEmbed = new EmbedBuilder()
         .setColor(0x00FF00)
         .setTitle('✅ ĐÃ XÁC NHẬN ĐỔI GIỜ YẾN TIỆC!')
-        .setDescription(`**${interaction.user.username}** đã xác nhận đổi giờ Yến Tiệc thành **21h00** trong game.`)
+        .setDescription(`**${interaction.user.username}** đã xác nhận đổi giờ Yến Tiệc thành **20h00** trong game.`)
         .setTimestamp();
 
     await interaction.update({ embeds: [confirmEmbed], components: [] });
@@ -447,7 +447,7 @@ function scheduleWeeklyReminders(client, channelId) {
         })();
     }
 
-    // Nếu bot khởi động vào Thứ 2 (sau 12h) đến Thứ 6 → gửi nhắc đổi 21h
+    // Nếu bot khởi động vào Thứ 2 (sau 12h) đến Thứ 6 → gửi nhắc đổi 20h
     if ((currentDay === 1 && currentHour >= 12) || (currentDay >= 2 && currentDay <= 5)) {
         (async () => {
             try {
@@ -470,7 +470,7 @@ function scheduleWeeklyReminders(client, channelId) {
                             currentDay >= confirmDay // Chưa quay lại thứ đã confirm
                         );
 
-                        // Case 2: Confirm vào cuối tuần (T7/CN) - do chọn "Giữ nguyên 21h"
+                        // Case 2: Confirm vào cuối tuần (T7/CN) - do chọn "Giữ nguyên 20h"
                         // Nếu confirm T7 (day=6) hoặc CN (day=0) và hôm nay là T2-T6, trong vòng 6 ngày
                         const confirmedOnWeekend = (
                             (confirmDay === 6 || confirmDay === 0) && // Confirm vào T7 hoặc CN
@@ -483,7 +483,7 @@ function scheduleWeeklyReminders(client, channelId) {
                             return;
                         }
                     }
-                    await startReminder(channel, 21, false); // isWeekend = false
+                    await startReminder(channel, 20, false); // isWeekend = false
                 }
             } catch (e) {
                 console.error('[yentiecReminder] Error sending immediate weekday reminder:', e.message);
@@ -541,7 +541,7 @@ function scheduleWeeklyReminders(client, channelId) {
                         }
 
                         if (!shouldSkip) {
-                            const targetTime = isWeekend ? 19 : 21;
+                            const targetTime = isWeekend ? 19 : 20;
                             await startReminder(channel, targetTime, isWeekend);
                         } else {
                             console.log(`[yentiecReminder] Already confirmed (${lastConfirm}), skipping scheduled reminder`);
@@ -562,7 +562,7 @@ function scheduleWeeklyReminders(client, channelId) {
     // Thứ 7 (6) lúc 12h → nhắc chọn giờ weekend (19h hoặc 22h30)
     scheduleReminder(6, 12, true);
 
-    // Thứ 2 (1) lúc 12h → nhắc đổi về 21h
+    // Thứ 2 (1) lúc 12h → nhắc đổi về 20h
     scheduleReminder(1, 12, false);
 }
 

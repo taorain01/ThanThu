@@ -1479,6 +1479,7 @@ try {
 
 // ═══ STATE ═══
 let isLeader = false;
+const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440']);
 let currentDay = null;
 let sessionData = null;
 let marks = [];         // Array of mark snapshots
@@ -1518,6 +1519,69 @@ let tacticsSessionChannel = null;
 let tacticsSourceSnapshotMeta = null;
 let supportsTacticsSessionIdColumn = true;
 let supportsTacticsHistorySessionIdColumn = true;
+let memberAccessWatchChannel = null;
+
+function hasKcWebAccess(discordId = window.currentDiscordId) {
+    return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
+}
+
+function normalizeWebRole(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function hasElevatedWebRole(position) {
+    return ['bc', 'pbc', 'kc', 'ql', 'quan ly', 'ky cuu'].includes(normalizeWebRole(position));
+}
+
+function applyKcWebAccessPosition(position, discordId = window.currentDiscordId) {
+    return hasKcWebAccess(discordId) ? 'kc' : position;
+}
+
+function normalizeAccessRole(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function isLeftWebPosition(position) {
+    return ['khong co', 'left', 'out'].includes(normalizeAccessRole(position));
+}
+
+function canBypassMemberGate(params, discordId = window.currentDiscordId) {
+    return params?.get('admin') === '1' || hasKcWebAccess(discordId);
+}
+
+function redirectToGuestMinigame() {
+    window.location.replace('./index.html');
+}
+
+function setupMemberAccessWatch(discordId) {
+    if (!sb || !discordId || memberAccessWatchChannel) return;
+    memberAccessWatchChannel = sb.channel(`tactics-access-${discordId}`)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'bc_users',
+            filter: `discord_id=eq.${discordId}`
+        }, (payload) => {
+            const params = new URLSearchParams(window.location.search);
+            if (canBypassMemberGate(params, discordId)) return;
+            const user = payload.new || {};
+            if (user.lang_gia_member !== true || isLeftWebPosition(user.position)) {
+                redirectToGuestMinigame();
+            }
+        })
+        .subscribe((status) => console.log(`[Tactics] Access watch: ${status}`));
+}
+
 const DAY_LABELS_ASCII = {
     mon: 'Thu 2',
     tue: 'Thu 3',
@@ -2512,11 +2576,8 @@ async function checkAuth() {
         const { data } = await sb.from('bc_users').select('position').eq('discord_id', meta.provider_id).single();
         if (data?.position) position = data.position;
     } catch(e) {}
-    isLeader = ['kc','pbc','bc','Kỳ Cựu','Quản Lý'].includes(position);
-
-    // UID Discord được cấp quyền leader cố định (bypass role)
-    const BYPASS_LEADER_IDS = ['403644798667325440'];
-    if (BYPASS_LEADER_IDS.includes(window.currentDiscordId)) isLeader = true;
+    position = applyKcWebAccessPosition(position, window.currentDiscordId);
+    isLeader = hasElevatedWebRole(position);
 
     // Bypass qua URL param
     if (params.get('admin') === '1') isLeader = true;
@@ -13302,12 +13363,26 @@ checkAuth = async function() {
     window.currentUserName = meta.full_name || meta.name || 'User';
 
     let position = 'mem';
+    let accessUser = null;
     try {
-        const { data } = await sb.from('bc_users').select('position').eq('discord_id', meta.provider_id).single();
-        if (data?.position) position = data.position;
+        const { data, error } = await sb.from('bc_users')
+            .select('position, lang_gia_member')
+            .eq('discord_id', meta.provider_id)
+            .maybeSingle();
+        if (error) console.warn('[Tactics] Load user access failed:', error);
+        accessUser = data || null;
+        if (accessUser?.position) position = accessUser.position;
     } catch (error) {
-        console.warn('[Tactics] Load user position failed:', error);
+        console.warn('[Tactics] Load user access failed:', error);
     }
+
+    const isActiveLangGiaMember = accessUser?.lang_gia_member === true && !isLeftWebPosition(accessUser?.position);
+    if (!isActiveLangGiaMember && !canBypassMemberGate(params, window.currentDiscordId)) {
+        redirectToGuestMinigame();
+        return;
+    }
+    setupMemberAccessWatch(window.currentDiscordId);
+    position = applyKcWebAccessPosition(position, window.currentDiscordId);
 
     currentDay = getRequestedTacticsDay() || currentDay;
 
@@ -13318,13 +13393,7 @@ checkAuth = async function() {
 
     await loadSessionData();
 
-    const normalizedPosition = String(position || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    const hasElevatedPosition = ['bc', 'pbc', 'kc', 'ql', 'quan ly', 'ky cuu'].includes(normalizedPosition);
+    const hasElevatedPosition = hasElevatedWebRole(position);
     const isSessionLeader = (() => {
         if (!sessionData || !window.currentDiscordId) return false;
         try {

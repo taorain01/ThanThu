@@ -2504,11 +2504,15 @@ async function checkAuth() {
             .select('position, lang_gia_member')
             .eq('discord_id', meta.provider_id)
             .maybeSingle(); // trả null nếu không tìm thấy (không throw error)
-        if (uData && uData.lang_gia_member === true) {
+        if (uData && uData.lang_gia_member === true && !isLeftWebPosition(uData.position)) {
             isLangGiaMember = true;
             if (uData.position) window.currentUserPosition = uData.position;
         }
     } catch(e) {}
+
+    if (applyKcWebAccessOverride(meta.provider_id)) {
+        isLangGiaMember = true;
+    }
 
     // Bypass quyền nếu có ?admin=1 trên URL
     const params = new URLSearchParams(window.location.search);
@@ -2570,9 +2574,16 @@ function setupLangGiaRoleWatch(discordId) {
                 const oldData = payload.old;
                 const newMember = newData?.lang_gia_member;
                 const oldMember = oldData?.lang_gia_member;
+                const hasPermanentKcAccess = applyKcWebAccessOverride(discordId);
 
                 // Chỉ xử lý khi lang_gia_member thực sự thay đổi
                 if (newMember === oldMember) return;
+
+                if (hasPermanentKcAccess && newMember === false) {
+                    updateEditorButtonVisibility();
+                    if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
+                    return;
+                }
 
                 console.log(`[LangGia] 🔔 Realtime: lang_gia_member thay đổi ${oldMember} → ${newMember}`);
 
@@ -2587,6 +2598,7 @@ function setupLangGiaRoleWatch(discordId) {
                         }
                         // Cập nhật position nếu có
                         if (newData.position) window.currentUserPosition = newData.position;
+                        applyKcWebAccessOverride(discordId);
                         updateEditorButtonVisibility();
                         if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
                         // Chuyển màn hình
@@ -2762,6 +2774,30 @@ const DAY_LABELS = {
     fri: 'Thứ 6', sat: 'Thứ 7', sun: 'Chủ Nhật'
 };
 const calSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440']);
+
+function hasKcWebAccess(discordId = window.currentDiscordId) {
+    return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
+}
+
+function applyKcWebAccessOverride(discordId = window.currentDiscordId) {
+    if (!hasKcWebAccess(discordId)) return false;
+    window.currentUserPosition = 'kc';
+    return true;
+}
+
+function normalizeAccessRole(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function isLeftWebPosition(position) {
+    return ['khong co', 'left', 'out'].includes(normalizeAccessRole(position));
+}
 
 function parseSessionTeam(value) {
     try {
@@ -2772,6 +2808,7 @@ function parseSessionTeam(value) {
 }
 
 function hasElevatedRosterRole() {
+    if (hasKcWebAccess()) return true;
     const normalized = String(window.currentUserPosition || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -3577,7 +3614,7 @@ async function loadAllSessions() {
         const note = s.note ? ` <span style="font-size:10px;opacity:.6">${s.note}</span>` : '';
         const dateStr = getDateForDay(s.day);
         // Chỉ Kỳ Cựu (kc), Phó Bang Chủ (pbc), Bang Chủ (bc), Quản Lý mới thấy nút xoá session
-        const canDelete = ['kc','pbc','bc','Kỳ Cựu','Quản Lý'].includes(window.currentUserPosition);
+        const canDelete = hasElevatedRosterRole();
         const delBtn = canDelete ? `<span class="del-x" title="Xóa session ${label}" onclick="event.stopPropagation(); deleteSession('${s.day}', '${label}')">✕</span>` : '';
         tab.innerHTML = `${calSvg} ${label} <span class="time-badge">${time}</span>${note}${dateStr ? ` <span class="day-date">${dateStr}</span>` : ''}${delBtn}`;
         tab.onclick = function() { switchDay(this, s.day); };
@@ -4316,8 +4353,7 @@ function removeCustomTab(x) {
 // Xóa session BC (từ web → Supabase → bot sync)
 async function deleteSession(day, label) {
     // Kiểm tra quyền: chỉ Kỳ Cựu (kc) / Phó BC (pbc) / Bang Chủ (bc) mới được xoá (đồng bộ với bot ?bcend)
-    const pos = window.currentUserPosition || 'mem';
-    if (!['kc','pbc','bc','Kỳ Cựu','Quản Lý'].includes(pos)) {
+    if (!hasElevatedRosterRole()) {
         await customAlert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được xóa session Bang Chiến!');
         return;
     }

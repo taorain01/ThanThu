@@ -13,6 +13,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const supaSync = require('../../utils/supabaseSync');
 
 const LANG_GIA_ROLE_NAME = 'LangGia';
 
@@ -248,6 +249,28 @@ async function execute(message, args) {
         }
     } catch (e) {
         console.error('[roiguild] Loi xoa role:', e.message);
+    }
+
+    try {
+        if (supaSync.isReady()) {
+            const updatedUser = db.getUserByDiscordId(targetDiscordId) || {
+                ...userData,
+                position: 'Khong co'
+            };
+            await supaSync.syncOneUser(updatedUser, message.guild.id, message.guild);
+            await supaSync.removeBcRegular(message.guild.id, targetDiscordId, 'sat');
+            await supaSync.removeBcRegular(message.guild.id, targetDiscordId, 'sun');
+
+            for (const session of activeSessions) {
+                const updatedSession = db.getActiveBangchien(session.party_key);
+                const formatted = updatedSession
+                    ? supaSync.formatActiveSession(updatedSession, db, message.guild)
+                    : null;
+                if (formatted) await supaSync.syncBCSession(message.guild.id, updatedSession.day || session.day, formatted);
+            }
+        }
+    } catch (syncError) {
+        console.error('[roiguild] Supabase sync failed:', syncError.message);
     }
 
     if (result.success) {

@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const supaSync = require('../../utils/supabaseSync');
 
 // Channel ID to send leave notifications
 const LEAVE_NOTIFICATION_CHANNEL = '1465959064575152263';
@@ -42,6 +43,29 @@ module.exports = {
                     db.removeBangchienParticipant(session.party_key, member.id);
                 }
                 console.log(`[guildMemberRemove] Đã xóa ${member.id} khỏi BC + regular`);
+
+                // Sync Supabase immediately so the web moves this user to the guest minigame.
+                try {
+                    if (supaSync.isReady()) {
+                        const updatedUser = db.getUserByDiscordId(member.id) || {
+                            ...userData,
+                            position: 'Khong co'
+                        };
+                        await supaSync.syncOneUser(updatedUser, member.guild.id, member.guild);
+                        await supaSync.removeBcRegular(member.guild.id, member.id, 'sat');
+                        await supaSync.removeBcRegular(member.guild.id, member.id, 'sun');
+
+                        for (const session of activeSessions) {
+                            const updatedSession = db.getActiveBangchien(session.party_key);
+                            const formatted = updatedSession
+                                ? supaSync.formatActiveSession(updatedSession, db, member.guild)
+                                : null;
+                            if (formatted) await supaSync.syncBCSession(member.guild.id, updatedSession.day || session.day, formatted);
+                        }
+                    }
+                } catch (syncError) {
+                    console.error('[guildMemberRemove] Supabase sync failed:', syncError.message);
+                }
 
                 // Send notification to designated channel
                 try {

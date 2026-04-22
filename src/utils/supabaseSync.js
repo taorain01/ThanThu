@@ -849,6 +849,19 @@ async function deleteAllBCSessions(guildId) {
  * @param {string} guildId - Guild ID
  * @param {Object} guild - Discord guild object (de kiem tra role LangGia)
  */
+function normalizeAccessPosition(position) {
+    return String(position || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function isLeftUserRecord(user) {
+    return !!user?.left_at || ['khong co', 'left', 'out'].includes(normalizeAccessPosition(user?.position));
+}
+
 async function syncUsers(users, guildId, guild = null) {
     if (!isReady()) return;
     try {
@@ -858,7 +871,8 @@ async function syncUsers(users, guildId, guild = null) {
         const records = [];
         for (const u of users) {
             let hasLangGia = false;
-            if (langGiaRole && guild) {
+            const isLeft = isLeftUserRecord(u);
+            if (!isLeft && langGiaRole && guild) {
                 try {
                     const member = guild.members.cache.get(u.discord_id);
                     if (member) {
@@ -872,10 +886,10 @@ async function syncUsers(users, guildId, guild = null) {
                 discord_name: u.discord_name,
                 game_username: u.game_username,
                 game_uid: u.game_uid,
-                position: u.position || 'mem',
+                position: isLeft ? 'Khong co' : (u.position || 'mem'),
                 sub_role: u.sub_role || null,
                 guild_id: guildId,
-                lang_gia_member: hasLangGia
+                lang_gia_member: isLeft ? false : hasLangGia
             });
         }
 
@@ -889,6 +903,37 @@ async function syncUsers(users, guildId, guild = null) {
             if (error) {
                 console.error(`[Supabase] Sync users batch ${i} loi:`, error.message);
             }
+        }
+
+        // Clear stale Supabase access for users no longer active in SQLite.
+        try {
+            const activeIds = new Set(records.map(r => String(r.discord_id)));
+            const { data: existingUsers, error: listError } = await supabase
+                .from('bc_users')
+                .select('discord_id')
+                .eq('guild_id', guildId);
+
+            if (listError) {
+                console.error('[Supabase] List stale users loi:', listError.message);
+            } else {
+                const staleIds = (existingUsers || [])
+                    .map(u => String(u.discord_id))
+                    .filter(id => id && !activeIds.has(id));
+
+                for (let i = 0; i < staleIds.length; i += 50) {
+                    const batch = staleIds.slice(i, i + 50);
+                    const { error } = await supabase
+                        .from('bc_users')
+                        .update({ lang_gia_member: false, position: 'Khong co' })
+                        .in('discord_id', batch);
+
+                    if (error) {
+                        console.error(`[Supabase] Clear stale users batch ${i} loi:`, error.message);
+                    }
+                }
+            }
+        } catch (staleErr) {
+            console.error('[Supabase] Clear stale users exception:', staleErr.message);
         }
 
         const memberCount = records.filter(r => r.lang_gia_member).length;
@@ -909,7 +954,8 @@ async function syncOneUser(user, guildId, guild = null) {
     try {
         // Kiem tra role LangGia
         let hasLangGia = false;
-        if (guild) {
+        const isLeft = isLeftUserRecord(user);
+        if (!isLeft && guild) {
             const langGiaRole = guild.roles?.cache?.find(r => r.name === 'LangGia');
             if (langGiaRole) {
                 try {
@@ -927,10 +973,10 @@ async function syncOneUser(user, guildId, guild = null) {
                 discord_name: user.discord_name,
                 game_username: user.game_username,
                 game_uid: user.game_uid,
-                position: user.position || 'mem',
+                position: isLeft ? 'Khong co' : (user.position || 'mem'),
                 sub_role: user.sub_role || null,
                 guild_id: guildId,
-                lang_gia_member: hasLangGia
+                lang_gia_member: isLeft ? false : hasLangGia
             }, { onConflict: 'discord_id' });
 
         if (error) {

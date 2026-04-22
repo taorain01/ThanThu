@@ -821,6 +821,58 @@
     let lastRemoteFingerprint = null;
     let centerNoticeTimer = null;
     let localMutationAt = 0;
+    let memberAccessWatchChannel = null;
+    const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440']);
+
+    function hasKcWebAccess(discordId = currentDiscordId) {
+      return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
+    }
+
+    function applyKcWebAccessOverride(discordId = currentDiscordId) {
+      if (!hasKcWebAccess(discordId)) return false;
+      currentUserPosition = 'kc';
+      return true;
+    }
+
+    function normalizeAccessRole(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function isLeftWebPosition(position) {
+      return ['khong co', 'left', 'out'].includes(normalizeAccessRole(position));
+    }
+
+    function canBypassMemberGate(params, discordId = currentDiscordId) {
+      return params?.get('admin') === '1' || hasKcWebAccess(discordId);
+    }
+
+    function redirectToGuestMinigame() {
+      window.location.replace('./index.html');
+    }
+
+    function setupMemberAccessWatch(discordId) {
+      if (!sb || !discordId || memberAccessWatchChannel) return;
+      memberAccessWatchChannel = sb.channel(`team-editor-access-${discordId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'bc_users',
+          filter: `discord_id=eq.${discordId}`
+        }, (payload) => {
+          const params = new URLSearchParams(window.location.search);
+          if (canBypassMemberGate(params, discordId)) return;
+          const user = payload.new || {};
+          if (user.lang_gia_member !== true || isLeftWebPosition(user.position)) {
+            redirectToGuestMinigame();
+          }
+        })
+        .subscribe((status) => console.log(`[TeamEditor] Access watch: ${status}`));
+    }
 
     function safeParse(value, fallback = []) {
       if (Array.isArray(value)) return value;
@@ -832,6 +884,7 @@
     }
 
     function hasElevatedEditorRole() {
+      if (hasKcWebAccess()) return true;
       const normalized = String(currentUserPosition || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -867,9 +920,7 @@
       const params = new URLSearchParams(window.location.search);
       let canEdit = hasElevatedEditorRole() || isCurrentUserSessionLeader();
 
-      // UID Discord được cấp quyền leader cố định (bypass role)
-      const BYPASS_LEADER_IDS = ['403644798667325440'];
-      if (BYPASS_LEADER_IDS.includes(currentDiscordId)) canEdit = true;
+      if (hasKcWebAccess()) canEdit = true;
 
       if (params.get('admin') === '1' || params.get('leader') === '1') canEdit = true;
       if (params.get('leader') === '0') canEdit = false;
@@ -2391,16 +2442,30 @@
       currentDiscordId = meta.provider_id;
       currentUserName = meta.full_name || meta.name || 'User';
 
+      let accessUser = null;
       try {
-        const { data } = await sb
+        const { data, error } = await sb
           .from('bc_users')
-          .select('position')
+          .select('position, lang_gia_member')
           .eq('discord_id', currentDiscordId)
           .maybeSingle();
-        if (data?.position) currentUserPosition = data.position;
-      } catch (error) {}
+        if (error) console.warn('[TeamEditor] Load user access failed:', error);
+        accessUser = data || null;
+        if (accessUser?.position) currentUserPosition = accessUser.position;
+      } catch (error) {
+        console.warn('[TeamEditor] Load user access failed:', error);
+      }
+
+      applyKcWebAccessOverride(currentDiscordId);
 
       const params = new URLSearchParams(window.location.search);
+      const isActiveLangGiaMember = accessUser?.lang_gia_member === true && !isLeftWebPosition(accessUser?.position);
+      if (!isActiveLangGiaMember && !canBypassMemberGate(params, currentDiscordId)) {
+        redirectToGuestMinigame();
+        return;
+      }
+      setupMemberAccessWatch(currentDiscordId);
+
       if (params.get('admin') === '1' || params.get('leader') === '1') currentUserPosition = 'bc';
       if (params.get('leader') === '0') currentUserPosition = 'mem';
 

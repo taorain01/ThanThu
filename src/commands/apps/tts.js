@@ -37,6 +37,15 @@ async function execute(message, args) {
 }
 
 /**
+ * Kiểm tra một channel có phải "phòng kín" không
+ * (everyone không có quyền ViewChannel)
+ */
+function isPrivateChannel(channel) {
+    if (!channel) return false;
+    return !channel.permissionsFor(channel.guild.roles.everyone).has('ViewChannel');
+}
+
+/**
  * Handle ?join command
  */
 async function handleJoin(message) {
@@ -51,10 +60,10 @@ async function handleJoin(message) {
     if (currentConnection) {
         // Kiểm tra connection có thực sự hoạt động không
         const { VoiceConnectionStatus } = require('@discordjs/voice');
-        const isAlive = currentConnection.state.status === VoiceConnectionStatus.Ready 
+        const isAlive = currentConnection.state.status === VoiceConnectionStatus.Ready
                      || currentConnection.state.status === VoiceConnectionStatus.Signalling
                      || currentConnection.state.status === VoiceConnectionStatus.Connecting;
-        
+
         if (!isAlive) {
             // Connection "chết" (Disconnected/Destroyed) → dọn dẹp và cho join lại
             console.log(`[TTS] Connection cũ status: ${currentConnection.state.status} → destroy và join lại`);
@@ -62,13 +71,36 @@ async function handleJoin(message) {
             // Tiếp tục xuống phần join bình thường
         } else {
             const currentChannelId = currentConnection.joinConfig.channelId;
-            if (currentChannelId !== voiceChannel.id) {
-                const currentChannel = message.guild.channels.cache.get(currentChannelId);
-                const channelName = currentChannel?.name || 'một phòng khác';
-                return message.reply(`🦆 Đại Ngỗng đang ở **${channelName}** rồi! Gõ \`?leave\` ở phòng đó trước hoặc chờ Đại Ngỗng rời đi nhé~`);
+
+            // Đã ở cùng phòng → thông báo
+            if (currentChannelId === voiceChannel.id) {
+                return message.reply(`🎤 Đại Ngỗng đã ở **${voiceChannel.name}** rồi! Gõ \`.nội dung\` để bot đọc.`);
             }
-            // Nếu đã ở cùng phòng → thông báo
-            return message.reply(`🎤 Đại Ngỗng đã ở **${voiceChannel.name}** rồi! Gõ \`.nội dung\` để bot đọc.`);
+
+            // Đang ở phòng khác → kiểm tra phòng đó có người thật không
+            const currentChannel = message.guild.channels.cache.get(currentChannelId);
+            const membersInCurrent = currentChannel?.members;
+
+            // Phòng được coi là "chỉ có bot" nếu không có member nào là người (user.bot = false)
+            const hasHuman = membersInCurrent
+                ? membersInCurrent.some(m => !m.user.bot)
+                : false;
+
+            if (hasHuman) {
+                // Phòng đang có người thật → không tự chuyển
+                // Nếu phòng kín → ẩn tên phòng
+                if (isPrivateChannel(currentChannel)) {
+                    return message.reply(`🦆 Đại Ngỗng đang bận ở một phòng riêng tư rồi! Gõ \`?leave\` ở phòng đó trước nhé~`);
+                } else {
+                    const channelName = currentChannel?.name || 'một phòng khác';
+                    return message.reply(`🦆 Đại Ngỗng đang ở **${channelName}** rồi! Gõ \`?leave\` ở phòng đó trước hoặc chờ Đại Ngỗng rời đi nhé~`);
+                }
+            }
+
+            // Phòng chỉ có bot (hoặc trống) → tự động leave và join phòng người dùng
+            console.log(`[TTS] Phòng ${currentChannelId} chỉ có bots → tự leave và join ${voiceChannel.id}`);
+            try { ttsService.leaveChannel(message.guild.id); } catch (e) { }
+            // Tiếp tục xuống phần join bình thường
         }
     }
 
@@ -77,7 +109,7 @@ async function handleJoin(message) {
         '1484078950312316968', // Tiểu Ngỗng
         '513423712582762502'   // TTS Bot
     ];
-    
+
     const botsInChannel = voiceChannel.members.filter(m => TTS_BOTS.includes(m.id));
     if (botsInChannel.size > 0) {
         const botNames = botsInChannel.map(m => m.displayName).join(', ');

@@ -80,9 +80,13 @@ module.exports = {
         let leaderboard, totalUsers, myExpValue;
 
         if (periodType) {
-            // === Bảng xếp hạng theo chu kỳ ===
-            leaderboard = getPeriodicLeaderboard(periodType, 5);
-            totalUsers = leaderboard.length;
+            // === Bảng xếp hạng theo chu kỳ (lọc theo server) ===
+            const rawLeaderboard = getPeriodicLeaderboard(periodType, 100);
+            await message.guild.members.fetch().catch(() => {});
+            const guildMembersPeriodic = message.guild.members.cache;
+            const filteredPeriodic = rawLeaderboard.filter(r => guildMembersPeriodic.has(r.discord_id));
+            leaderboard = filteredPeriodic.slice(0, 5);
+            totalUsers = filteredPeriodic.length;
             const myPeriodic = getPeriodicExpInfo(message.author.id, periodType);
             myExpValue = myPeriodic?.total_exp || 0;
         } else {

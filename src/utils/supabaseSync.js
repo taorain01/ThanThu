@@ -498,9 +498,20 @@ function remapTacticsPayloadUnitId(payload, oldId, replacementUnit) {
     }
 }
 
+function isTacticsBotLikeId(id) {
+    return typeof id === 'string' && /^(bot_|slotbot_|slot_tmp_|idx_slot_tmp_|svc_slot_tmp_)/.test(id);
+}
+
+function getReservedHumanSlotId(slot) {
+    const ids = [slot?.reserved_for, slot?.player_id, slot?.tactical_id, slot?.id];
+    return ids.find((id) => id && !isTacticsBotLikeId(id)) || null;
+}
+
 function syncTacticsPayloadToSessionRoster(rawPayload, sessionRow) {
     const payload = normalizeLiveTacticsPayload(rawPayload, {}, getSessionRosterSnapshot(sessionRow));
     const humans = getSessionFlatActiveRoster(sessionRow);
+    const humansById = new Map(humans.map((player) => [player.id, player]));
+    const usedHumanIds = new Set();
     const layout = getSessionActiveSlotLayout(sessionRow);
     const savedBindings = Array.isArray(payload.slot_template) && payload.slot_template.length
         ? payload.slot_template.map((entry, index) => normalizeTacticsSlotTemplateEntry(entry, index, entry?.team || 'team_attack1'))
@@ -516,14 +527,41 @@ function syncTacticsPayloadToSessionRoster(rawPayload, sessionRow) {
     const slotCount = savedBindings.length
         ? Math.max(layout.length, savedBindings.length, humans.length)
         : humans.length;
+    const reservedRosterIds = new Set(savedBindings
+        .map((entry, index) => getReservedHumanSlotId(normalizeTacticsSlotTemplateEntry(entry || {}, index, entry?.team || layout[index] || 'team_attack1')))
+        .filter((id) => id && humansById.has(id)));
     const nextBindings = [];
     const nextBots = [];
     const pendingRemaps = [];
+    const claimHumanById = (id) => {
+        if (!id || usedHumanIds.has(id)) return null;
+        const human = humansById.get(id);
+        if (!human) return null;
+        usedHumanIds.add(id);
+        return human;
+    };
+    const claimFallbackHuman = (index, options = {}) => {
+        const unreservedOnly = Boolean(options.unreservedOnly);
+        const canUse = (player) => player?.id
+            && !usedHumanIds.has(player.id)
+            && (!unreservedOnly || !reservedRosterIds.has(player.id));
+        const indexed = humans[index];
+        if (canUse(indexed)) {
+            usedHumanIds.add(indexed.id);
+            return indexed;
+        }
+        const next = humans.find(canUse);
+        if (!next) return null;
+        usedHumanIds.add(next.id);
+        return next;
+    };
 
     for (let index = 0; index < slotCount; index++) {
         const teamKey = layout[index] || savedBindings[index]?.team || humans[index]?.team || 'team_attack1';
         const previous = normalizeTacticsSlotTemplateEntry(savedBindings[index] || {}, index, teamKey);
-        const human = humans[index] || null;
+        const reservedHumanId = getReservedHumanSlotId(previous);
+        const preferredHuman = claimHumanById(previous.reserved_for) || claimHumanById(previous.tactical_id);
+        const human = preferredHuman || claimFallbackHuman(index, { unreservedOnly: Boolean(reservedHumanId) });
         const slot = normalizeTacticsSlotTemplateEntry({
             ...previous,
             slot_index: index,
@@ -549,7 +587,9 @@ function syncTacticsPayloadToSessionRoster(rawPayload, sessionRow) {
         nextBindings.push(normalizeTacticsSlotTemplateEntry({
             ...slot,
             tactical_id: replacementUnit.id,
-            reserved_for: slot.reserved_for || replacementUnit.replacement_for || replacementUnit.id || null,
+            reserved_for: replacementUnit.isBot
+                ? (slot.reserved_for || replacementUnit.replacement_for || null)
+                : (replacementUnit.id || null),
             original_name: slot.original_name || replacementUnit.original_name || replacementUnit.gn || replacementUnit.name || ''
         }, index, teamKey));
     }
@@ -699,10 +739,25 @@ async function upsertSessionScopedTacticsPayload(guildId, sessionRow, payload) {
         }
     }
 
-    const fallback = await supabase
+    const fallback = await upsertTacticsPayloadByDay(upsertPayload);
+    return fallback?.error || null;
+}
+
+async function upsertTacticsPayloadByDay(upsertPayload) {
+    const existing = await supabase
         .from('bc_tactics')
-        .upsert(upsertPayload, { onConflict: 'guild_id,day' });
-    return fallback.error || null;
+        .select('id')
+        .eq('guild_id', upsertPayload.guild_id)
+        .eq('day', upsertPayload.day)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+    if (existing.error) return { error: existing.error };
+
+    const existingId = existing.data?.[0]?.id;
+    if (existingId) {
+        return supabase.from('bc_tactics').update(upsertPayload).eq('id', existingId);
+    }
+    return supabase.from('bc_tactics').insert(upsertPayload);
 }
 
 async function ensureSessionScopedTacticsPayload(guildId, sessionRow) {

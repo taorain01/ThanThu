@@ -1222,6 +1222,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 
   <div style="flex:1; display:flex; justify-content:flex-end; gap:8px;">
     <button class="hdr-btn primary" id="btnSave" onclick="saveTactics()" disabled>💾 Lưu</button>
+    <button class="hdr-btn" id="btnChecklist" onclick="runTacticsChecklist()" disabled>✅ Kiểm tra</button>
     <button class="hdr-btn danger" id="btnResetTactics" onclick="resetTacticsFromScratch()" disabled>🗑️ Xóa chiến thuật</button>
     <button class="hdr-btn" id="btnExport" onclick="exportTactics()" disabled>📤 Export</button>
     <button class="hdr-btn" id="btnImport" onclick="importTactics()" disabled>📥 Import</button>
@@ -1525,6 +1526,12 @@ function hasKcWebAccess(discordId = window.currentDiscordId) {
     return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
 }
 
+function isUrlPrivilegeBypassAllowed(params, discordId = window.currentDiscordId) {
+    if (!params) return false;
+    const wantsBypass = params.get('admin') === '1' || params.get('leader') === '1';
+    return wantsBypass && params.get('test') === '1' && hasKcWebAccess(discordId);
+}
+
 function normalizeWebRole(value) {
     return String(value || '')
         .normalize('NFD')
@@ -1556,7 +1563,7 @@ function isLeftWebPosition(position) {
 }
 
 function canBypassMemberGate(params, discordId = window.currentDiscordId) {
-    return params?.get('admin') === '1' || hasKcWebAccess(discordId);
+    return isUrlPrivilegeBypassAllowed(params, discordId) || hasKcWebAccess(discordId);
 }
 
 function redirectToGuestMinigame() {
@@ -2579,9 +2586,9 @@ async function checkAuth() {
     position = applyKcWebAccessPosition(position, window.currentDiscordId);
     isLeader = hasElevatedWebRole(position);
 
-    // Bypass qua URL param
-    if (params.get('admin') === '1') isLeader = true;
-    if (params.get('leader') === '1' || params.get('admin') === '1') isLeader = true;
+    // URL bypass chỉ mở trong test mode và Discord ID whitelist.
+    if (isUrlPrivilegeBypassAllowed(params, window.currentDiscordId)) isLeader = true;
+    else if (params.get('admin') === '1' || params.get('leader') === '1') console.warn('[Tactics] Ignored URL privilege bypass outside whitelist test mode.');
     if (params.get('leader') === '0') isLeader = false;
 
     // Lấy day từ URL param
@@ -2815,7 +2822,7 @@ async function loadSessionData() {
     // Cập nhật tên team + ẩn/hiện sections theo team_sizes
     syncTeamSectionLabels();
 
-    // Giả lập full team 30 người nếu session chưa đủ (DEBUG)
+    // Mock team chỉ chạy trong test mode (?test=1); production là no-op.
     fillMockTeams();
     ensureEnemyRoster();
 
@@ -2826,7 +2833,7 @@ async function loadSessionData() {
     initDefaultMarks();
 }
 
-// ═══ MOCK TEAMS (DEBUG — tạo 30 thành viên giả để test) ═══
+// ═══ MOCK TEAMS (chỉ tạo thành viên giả khi mở ?test=1) ═══
 function fillMockTeams() {
     if (!sessionData) return;
     const parseTeam = v => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
@@ -3387,6 +3394,7 @@ function initDefaultMarks() {
 // ═══ ENABLE LEADER UI ═══
 function enableLeaderUI() {
     document.getElementById('btnSave').disabled = false;
+    document.getElementById('btnChecklist').disabled = false;
     document.getElementById('btnResetTactics').disabled = false;
     document.getElementById('btnExport').disabled = false;
     document.getElementById('btnImport').disabled = false;
@@ -3410,6 +3418,7 @@ function enableLeaderUI() {
 
 function disableLeaderUI() {
     document.getElementById('btnSave').disabled = true;
+    document.getElementById('btnChecklist').disabled = true;
     document.getElementById('btnResetTactics').disabled = true;
     document.getElementById('btnExport').disabled = true;
     document.getElementById('btnImport').disabled = true;
@@ -6409,12 +6418,14 @@ function buildPersistedSlotTemplate() {
         : buildFallbackSlotTemplate();
     return bindings.map((binding, index) => {
         const normalized = normalizeSlotTemplateEntry(binding || {}, index, binding?.team || 'team_attack1');
-        const occupant = humansById.get(normalized.tactical_id) || botsById.get(normalized.tactical_id) || null;
+        const humanOccupant = humansById.get(normalized.tactical_id) || humansById.get(normalized.reserved_for) || null;
+        const botOccupant = botsById.get(normalized.tactical_id) || null;
+        const occupant = humanOccupant || botOccupant;
         return normalizeSlotTemplateEntry({
             slot_index: index,
             team: normalized.team,
             tactical_id: occupant?.id || normalized.tactical_id || null,
-            reserved_for: normalized.reserved_for || occupant?.replacement_for || occupant?.id || null,
+            reserved_for: humanOccupant?.id || normalized.reserved_for || botOccupant?.replacement_for || botOccupant?.id || null,
             original_name: normalized.original_name || occupant?.original_name || occupant?.gn || occupant?.name || '',
             role: normalized.role || occupant?.role || 'DPS',
             sub: normalized.sub || occupant?.sub || ''
@@ -6437,6 +6448,15 @@ function createReservedBotForSlot(slot, existingBot = null) {
         original_team: slot.team || existingBot?.original_team || 'team_attack1',
         original_name: slot.original_name || existingBot?.original_name || existingBot?.name || ''
     }, slot.slot_index);
+}
+
+function isTacticalBotLikeId(id) {
+    return typeof id === 'string' && /^(bot_|slotbot_|slot_tmp_|idx_slot_tmp_|svc_slot_tmp_)/.test(id);
+}
+
+function getReservedHumanSlotId(slot) {
+    const ids = [slot?.reserved_for, slot?.player_id, slot?.tactical_id, slot?.id];
+    return ids.find((id) => id && !isTacticalBotLikeId(id)) || null;
 }
 
 function remapUnitIdAcrossTactics(oldId, replacementUnit) {
@@ -6505,6 +6525,8 @@ function syncTacticalSlotsWithRoster(options = {}) {
     if (!sessionData) return false;
 
     const humans = getFlattenedSessionRoster();
+    const humansById = new Map(humans.map((player) => [player.id, player]));
+    const usedHumanIds = new Set();
     const layout = getSessionSlotLayout();
     const savedBindings = Array.isArray(options.baseTemplate) && options.baseTemplate.length
         ? options.baseTemplate
@@ -6520,14 +6542,41 @@ function syncTacticalSlotsWithRoster(options = {}) {
     const slotCount = savedBindings.length
         ? Math.max(layout.length, savedBindings.length, humans.length)
         : humans.length;
+    const reservedRosterIds = new Set(savedBindings
+        .map((entry, index) => getReservedHumanSlotId(normalizeSlotTemplateEntry(entry || {}, index, entry?.team || layout[index] || 'team_attack1')))
+        .filter((id) => id && humansById.has(id)));
     const nextBindings = [];
     const nextBots = [];
     const pendingRemaps = [];
+    const claimHumanById = (id) => {
+        if (!id || usedHumanIds.has(id)) return null;
+        const human = humansById.get(id);
+        if (!human) return null;
+        usedHumanIds.add(id);
+        return human;
+    };
+    const claimFallbackHuman = (index, options = {}) => {
+        const unreservedOnly = Boolean(options.unreservedOnly);
+        const canUse = (player) => player?.id
+            && !usedHumanIds.has(player.id)
+            && (!unreservedOnly || !reservedRosterIds.has(player.id));
+        const indexed = humans[index];
+        if (canUse(indexed)) {
+            usedHumanIds.add(indexed.id);
+            return indexed;
+        }
+        const next = humans.find(canUse);
+        if (!next) return null;
+        usedHumanIds.add(next.id);
+        return next;
+    };
 
     for (let index = 0; index < slotCount; index++) {
         const teamKey = layout[index] || savedBindings[index]?.team || humans[index]?.team || 'team_attack1';
         const previous = normalizeSlotTemplateEntry(savedBindings[index] || {}, index, teamKey);
-        const human = humans[index] || null;
+        const reservedHumanId = getReservedHumanSlotId(previous);
+        const preferredHuman = claimHumanById(previous.reserved_for) || claimHumanById(previous.tactical_id);
+        const human = preferredHuman || claimFallbackHuman(index, { unreservedOnly: Boolean(reservedHumanId) });
         const originalName = previous.original_name || human?.gn || human?.name || human?.username || '';
         const slot = normalizeSlotTemplateEntry({
             ...previous,
@@ -6554,7 +6603,9 @@ function syncTacticalSlotsWithRoster(options = {}) {
         nextBindings.push(normalizeSlotTemplateEntry({
             ...slot,
             tactical_id: replacementUnit.id,
-            reserved_for: slot.reserved_for || replacementUnit.replacement_for || replacementUnit.id || null,
+            reserved_for: replacementUnit.isBot
+                ? (slot.reserved_for || replacementUnit.replacement_for || null)
+                : (replacementUnit.id || null),
             original_name: slot.original_name || replacementUnit.original_name || replacementUnit.gn || replacementUnit.name || ''
         }, index, teamKey));
     }
@@ -7182,13 +7233,107 @@ async function persistTacticsPayload(tacticsData) {
             return scoped.error;
         }
     }
-    const fallback = await sb.from('bc_tactics').upsert(payload, { onConflict: 'guild_id,day' });
-    return fallback.error || null;
+    const fallback = await upsertTacticsPayloadByDay(payload);
+    return fallback?.error || null;
+}
+
+async function upsertTacticsPayloadByDay(payload) {
+    const existing = await sb.from('bc_tactics')
+        .select('id')
+        .eq('guild_id', payload.guild_id)
+        .eq('day', payload.day)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+    if (existing.error) return { error: existing.error };
+
+    const existingId = existing.data?.[0]?.id;
+    if (existingId) {
+        return sb.from('bc_tactics').update(payload).eq('id', existingId);
+    }
+    return sb.from('bc_tactics').insert(payload);
+}
+
+function buildTacticsChecklist() {
+    const errors = [];
+    const warnings = [];
+    if (!sessionData) {
+        errors.push('Chưa có session chiến thuật.');
+        return { errors, warnings };
+    }
+    if (!Array.isArray(marks) || !marks.length) {
+        errors.push('Payload chiến thuật chưa có mốc timeline.');
+        return { errors, warnings };
+    }
+
+    let payload = null;
+    try {
+        payload = buildPersistedTacticsPayload();
+    } catch (error) {
+        errors.push('Không dựng được payload lưu chiến thuật: ' + (error.message || error));
+    }
+
+    const setupMark = marks[0] || null;
+    const blueGuardCount = setupMark ? getGuardIds('blue', setupMark).length : 0;
+    if (blueGuardCount < 9) warnings.push(`Mới có ${blueGuardCount}/9 người giữ trụ xanh ở mốc đầu trận.`);
+
+    if (Array.isArray(botSlots) && botSlots.length > 0) {
+        warnings.push(`Còn ${botSlots.length} bot placeholder trong sa bàn.`);
+    }
+
+    const hasJungleDefault = Array.isArray(sessionData?.jungle_default_player_ids) && sessionData.jungle_default_player_ids.length > 0;
+    const hasJungleAssignments = marks.some(mark =>
+        Object.values(mark?.jungle_assignments || {}).some(entry =>
+            (entry?.blue || []).length || Object.values(entry?.windows || {}).some(win => (win?.blue || []).length)
+        )
+    );
+    if (!hasJungleDefault && !hasJungleAssignments) warnings.push('Chưa thấy gán người đi rừng mặc định hoặc theo bãi.');
+
+    ['boss_minor', 'boss_major'].forEach((eventType) => {
+        const hasBlue = marks.some(mark => (mark?.boss_assignments?.[eventType]?.blue || []).length > 0);
+        const label = eventType === 'boss_minor' ? 'Boss phụ' : 'Boss chính';
+        if (!hasBlue) warnings.push(`${label} chưa có đội ứng phó phe ta.`);
+    });
+
+    if (payload) {
+        const rosterIssues = collectPayloadRosterWarnings(payload);
+        if (rosterIssues.orphan.length) {
+            warnings.push(`Có ${rosterIssues.orphan.length} người không còn trong roster hiện tại.`);
+        }
+        if (rosterIssues.drift.length) {
+            warnings.push(`Có ${rosterIssues.drift.length} người lệch role so với roster hiện tại.`);
+        }
+    }
+
+    if (markDirty) warnings.push('Mốc hiện tại có thay đổi chưa bấm lưu mốc.');
+    return { errors, warnings };
+}
+
+function formatTacticsChecklistReport(report) {
+    const lines = [];
+    if (!report.errors.length && !report.warnings.length) {
+        lines.push('✅ Checklist ổn: chiến thuật sẵn sàng lưu.');
+    } else {
+        if (report.errors.length) lines.push(`❌ Lỗi cần xử lý:\n- ${report.errors.join('\n- ')}`);
+        if (report.warnings.length) lines.push(`⚠️ Cảnh báo:\n- ${report.warnings.join('\n- ')}`);
+    }
+    return lines.join('\n\n');
+}
+
+async function runTacticsChecklist() {
+    const report = buildTacticsChecklist();
+    await customAlert(formatTacticsChecklistReport(report));
+    return report;
 }
 
 async function saveTactics() {
     if (!isLeader) { toast('👁️ Chế độ xem không thể lưu chiến thuật'); return; }
     if (!sb || !sessionData) { toast('❌ Chưa kết nối Supabase'); return; }
+    const checklist = buildTacticsChecklist();
+    if (checklist.errors.length) {
+        await customAlert(formatTacticsChecklistReport(checklist));
+        return;
+    }
+    if (checklist.warnings.length) toast(`Checklist có ${checklist.warnings.length} cảnh báo. Vẫn tiếp tục lưu.`);
     const tacticsData = buildPersistedTacticsPayload();
     const error = await persistTacticsPayload(tacticsData);
     if (error) {
@@ -8762,21 +8907,37 @@ function remapPlayerToBotInTactics(oldPlayerId, botSlot) {
     remapUnitIdAcrossTactics(oldPlayerId, { ...botSlot, isBot: true });
 }
 
+function findSlotBindingForPlayer(playerId) {
+    if (!playerId) return null;
+    const bindings = (Array.isArray(currentSlotBindings) && currentSlotBindings.length)
+        ? currentSlotBindings
+        : buildFallbackSlotTemplate();
+    for (let index = 0; index < bindings.length; index++) {
+        const normalized = normalizeSlotTemplateEntry(bindings[index] || {}, index, bindings[index]?.team || 'team_attack1');
+        if (normalized.tactical_id === playerId || normalized.reserved_for === playerId) return normalized;
+    }
+    return null;
+}
+
 // Tạo bot mới kế thừa team/role của người rời đi
 function createReplacementBotForPlayer(player) {
     const seq = ++botIdCounter;
+    const slotBinding = findSlotBindingForPlayer(player.id);
+    const reservedSlotIndex = Number.isFinite(Number(player.slot_index))
+        ? Number(player.slot_index)
+        : (Number.isFinite(Number(slotBinding?.slot_index)) ? Number(slotBinding.slot_index) : null);
     return normalizeBotSlot({
         id: `bot_${seq}`,
         seq,
         name: `Bot ${String(seq).padStart(2, '0')}`,
-        role: player.role || 'DPS',
-        sub: player.sub || '',
-        team: player.team || 'team_attack1',
+        role: player.role || slotBinding?.role || 'DPS',
+        sub: player.sub || slotBinding?.sub || '',
+        team: slotBinding?.team || player.team || 'team_attack1',
         isBot: true,
         replacement_for: player.id || null,
-        reserved_slot_index: Number.isFinite(Number(player.slot_index)) ? Number(player.slot_index) : null,
-        original_team: player.team || 'team_attack1',
-        original_name: player.gn || player.name || player.username || ''
+        reserved_slot_index: reservedSlotIndex,
+        original_team: slotBinding?.team || player.team || 'team_attack1',
+        original_name: slotBinding?.original_name || player.gn || player.name || player.username || ''
     });
 }
 
@@ -8788,6 +8949,21 @@ function autoHandleDepartedPlayers(departed) {
         const newBot = createReplacementBotForPlayer(player);
         botSlots.push(newBot);
         remapPlayerToBotInTactics(player.id, newBot);
+        currentSlotBindings = (Array.isArray(currentSlotBindings) && currentSlotBindings.length ? currentSlotBindings : buildFallbackSlotTemplate())
+            .map((binding, index) => {
+                const normalized = normalizeSlotTemplateEntry(binding || {}, index, binding?.team || newBot.team);
+                const sameSlot = Number.isFinite(Number(newBot.reserved_slot_index)) && Number(newBot.reserved_slot_index) === index;
+                if (normalized.tactical_id !== player.id && normalized.reserved_for !== player.id && !sameSlot) return normalized;
+                return normalizeSlotTemplateEntry({
+                    ...normalized,
+                    team: normalized.team || newBot.team,
+                    tactical_id: newBot.id,
+                    reserved_for: player.id,
+                    original_name: normalized.original_name || newBot.original_name || player.gn || player.name || player.username || '',
+                    role: newBot.role,
+                    sub: newBot.sub
+                }, index, normalized.team || newBot.team);
+            });
         replaced++;
         const displayName = player.gn || player.name || player.username || 'Unknown';
         toast(`🔄 ${displayName} rời → ${newBot.name} (đã thay thế)`);
@@ -8938,6 +9114,18 @@ function autoReplaceBots(oldRoster, newRoster) {
         const crossTeam = bot.team !== (player.team || 'team_attack1');
         remapBotIdAcrossTactics(bot.id, player);
         botSlots = botSlots.filter(entry => entry.id !== bot.id);
+        currentSlotBindings = (currentSlotBindings || []).map((binding, index) => {
+            const normalized = normalizeSlotTemplateEntry(binding || {}, index, binding?.team || bot.team);
+            if (normalized.tactical_id !== bot.id && normalized.reserved_for !== player.id) return normalized;
+            return normalizeSlotTemplateEntry({
+                ...normalized,
+                tactical_id: player.id,
+                reserved_for: player.id,
+                original_name: normalized.original_name || player.gn || player.name || player.username || '',
+                role: player.role || normalized.role || 'DPS',
+                sub: player.sub || normalized.sub || ''
+            }, index, normalized.team || player.team || 'team_attack1');
+        });
         replaced++;
         const displayName = player.gn || player.name || player.username || 'Unknown';
         toast(crossTeam ? `🔄 ${bot.name} → ${displayName} (kiểm tra vị trí)` : `🔄 ${bot.name} → ${displayName}`);
@@ -8976,7 +9164,11 @@ function replaceBotManual(botId, realPlayerId) {
         if (normalized.tactical_id !== botId) return normalized;
         return normalizeSlotTemplateEntry({
             ...normalized,
-            tactical_id: realPlayer.id
+            tactical_id: realPlayer.id,
+            reserved_for: realPlayer.id,
+            original_name: realPlayer.gn || realPlayer.name || realPlayer.username || normalized.original_name || '',
+            role: realPlayer.role || normalized.role || 'DPS',
+            sub: realPlayer.sub || normalized.sub || ''
         }, index, normalized.team);
     });
     // Rebuild marks kế thừa + cập nhật snapshot tránh stale dirty
@@ -12824,8 +13016,63 @@ persistEditHistorySnapshot = async function(tacticsData, options = {}) {
 
 const originalLoadStorageHistoryEntriesForFallback = loadStorageHistoryEntries;
 loadStorageHistoryEntries = async function() {
-    await originalLoadStorageHistoryEntriesForFallback();
     const localEdits = readLocalEditHistoryEntries();
+    if (!sb || !sessionData) {
+        storageHistoryEntries = { edit: localEdits, battle: [] };
+        return storageHistoryEntries;
+    }
+
+    const guildId = getActiveGuildId();
+    const sessionId = getTacticsSessionId();
+    try {
+        let query = sb.from('bc_tactics_history')
+            .select('id,type,saved_at,saved_by,roster,markers,result_note,day,session_id')
+            .eq('guild_id', guildId)
+            .order('saved_at', { ascending: false })
+            .limit(20);
+        if (supportsTacticsHistorySessionIdColumn && sessionId) query = query.eq('session_id', sessionId);
+        else query = query.eq('day', currentDay);
+
+        let { data, error } = await query;
+        if (error && /session_id/i.test(error.message || '')) {
+            supportsTacticsHistorySessionIdColumn = false;
+            const retry = await sb.from('bc_tactics_history')
+                .select('id,type,saved_at,saved_by,roster,markers,result_note,day')
+                .eq('guild_id', guildId)
+                .eq('day', currentDay)
+                .order('saved_at', { ascending: false })
+                .limit(20);
+            data = retry.data;
+            error = retry.error || null;
+        }
+        if (error) throw error;
+
+        const entries = data || [];
+        const missingIds = [...new Set(entries
+            .filter(entry => !entry?.markers?._history_meta?.actor_name && entry?.saved_by)
+            .map(entry => entry.saved_by))];
+        const nameMap = new Map();
+        if (missingIds.length > 0) {
+            const { data: users } = await sb.from('bc_users')
+                .select('discord_id,discord_name')
+                .in('discord_id', missingIds);
+            (users || []).forEach(user => {
+                if (user?.discord_id) nameMap.set(user.discord_id, user.discord_name || user.discord_id);
+            });
+        }
+        const mapped = entries.map(entry => ({
+            ...entry,
+            actor_display_name: entry?.markers?._history_meta?.actor_name || nameMap.get(entry?.saved_by) || entry?.saved_by || ''
+        }));
+        storageHistoryEntries = {
+            battle: mapped.filter(entry => entry.type === 'battle').slice(0, 10),
+            edit: mapped.filter(entry => entry.type === 'edit').slice(0, 10)
+        };
+    } catch (error) {
+        console.warn('[Tactics] Load session history failed:', error);
+        storageHistoryEntries = { edit: [], battle: [] };
+    }
+
     if (localEdits.length) {
         const merged = new Map();
         [...localEdits, ...(storageHistoryEntries.edit || [])].forEach(entry => {
@@ -13104,7 +13351,10 @@ applyTacticsPreset = async function(id) {
     else toast(`Da load preset \"${entry.preset_name}\" va luu 1 ban vao lich su chinh sua.`);
 };
 
+const __fillMockTeamsForTest = typeof fillMockTeams === 'function' ? fillMockTeams : null;
 fillMockTeams = function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('test') === '1' && __fillMockTeamsForTest) return __fillMockTeamsForTest();
     return;
 };
 
@@ -13427,7 +13677,8 @@ checkAuth = async function() {
     })();
 
     isLeader = hasElevatedPosition || isSessionLeader;
-    if (params.get('admin') === '1' || params.get('leader') === '1') isLeader = true;
+    if (isUrlPrivilegeBypassAllowed(params, window.currentDiscordId)) isLeader = true;
+    else if (params.get('admin') === '1' || params.get('leader') === '1') console.warn('[Tactics] Ignored URL privilege bypass outside whitelist test mode.');
     if (params.get('leader') === '0') isLeader = false;
 
     if (isLeader) {
@@ -13452,28 +13703,14 @@ checkAuth = async function() {
 };
 
 saveTactics = async function() {
-    if (!isLeader) { toast('👁️ Chế độ xem không thể lưu chiến thuật'); return; }
-    if (!sb || !sessionData) { toast('❌ Chưa kết nối Supabase'); return; }
-    const tacticsData = buildPersistedTacticsPayload();
-    const saveError = await persistTacticsPayload(tacticsData);
-    if (saveError) {
-        toast('❌ Lưu thất bại: ' + saveError.message);
-        console.error('[Save]', saveError);
-        return;
-    }
-    const historyError = await persistEditHistorySnapshot(tacticsData);
-    captureMarkSnapshot();
-    if (document.getElementById('storageDrawer')?.classList.contains('show') && storageDrawerTab === 'history') {
-        await loadStorageHistoryEntries();
-        renderStorageDrawer();
-    }
-    if (historyError) toast('💾 Đã lưu chiến thuật, nhưng không ghi được lịch sử.');
-    else toast('💾 Đã lưu chiến thuật!');
-};
-
-saveTactics = async function() {
     if (!isLeader) { toast('Che do xem khong the luu chien thuat'); return; }
     if (!sb || !sessionData) { toast('Chua ket noi Supabase'); return; }
+    const checklist = buildTacticsChecklist();
+    if (checklist.errors.length) {
+        await customAlert(formatTacticsChecklistReport(checklist));
+        return;
+    }
+    if (checklist.warnings.length) toast(`Checklist co ${checklist.warnings.length} canh bao. Van tiep tuc luu.`);
     const tacticsData = buildPersistedTacticsPayload();
     const saveError = await persistTacticsPayload(tacticsData);
     if (saveError) {
@@ -13691,7 +13928,7 @@ function navigateTo(target) {
   const day = params.get('day') || '';
   const session = params.get('session') || '';
   const isTest = params.get('test');
-  const isAdmin = params.get('admin');
+  const isAdmin = isUrlPrivilegeBypassAllowed(params, window.currentDiscordId) ? params.get('admin') : null;
 
   let url = '';
   let icon = '';

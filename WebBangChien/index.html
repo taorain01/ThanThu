@@ -2514,12 +2514,14 @@ async function checkAuth() {
         isLangGiaMember = true;
     }
 
-    // Bypass quyền nếu có ?admin=1 trên URL
+    // URL bypass chỉ mở trong test mode và Discord ID whitelist.
     const params = new URLSearchParams(window.location.search);
-    if (params.get('admin') === '1') {
+    if (isUrlPrivilegeBypassAllowed(params, meta.provider_id)) {
         window.currentUserPosition = 'bc';
         isLangGiaMember = true;
-        console.log('[LangGia] ⚡ ADMIN MODE ACTIVATED VIA URL');
+        console.log('[LangGia] TEST ADMIN MODE ACTIVATED VIA URL');
+    } else if (params.get('admin') === '1' || params.get('leader') === '1') {
+        console.warn('[LangGia] Ignored URL privilege bypass outside whitelist test mode.');
     }
 
     console.log('[LangGia] position:', window.currentUserPosition, '| LangGia member:', isLangGiaMember);
@@ -2780,6 +2782,12 @@ function hasKcWebAccess(discordId = window.currentDiscordId) {
     return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
 }
 
+function isUrlPrivilegeBypassAllowed(params, discordId = window.currentDiscordId) {
+    if (!params) return false;
+    const wantsBypass = params.get('admin') === '1' || params.get('leader') === '1';
+    return wantsBypass && params.get('test') === '1' && hasKcWebAccess(discordId);
+}
+
 function applyKcWebAccessOverride(discordId = window.currentDiscordId) {
     if (!hasKcWebAccess(discordId)) return false;
     window.currentUserPosition = 'kc';
@@ -2978,21 +2986,20 @@ function updateTacticsButtonTarget(day) {
 }
 
 function updateEditorButtonVisibility() {
-    // Quyền leader dựa trên role guild (Kỳ Cựu/PBC/BC/QL), KHÔNG dựa vào session leader
-    const isElevated = hasElevatedRosterRole();
+    const canEditCurrentSession = canEditTeamRoster(currentSessionData);
 
     // Nút Đội Hình
     const editorSide = document.getElementById('btnTeamEditor');
     if (editorSide) {
-        editorSide.style.display = isElevated ? '' : 'none';
+        editorSide.style.display = canEditCurrentSession ? '' : 'none';
         // Ẩn divider nếu ẩn Đội Hình
         const divider = editorSide.parentElement?.querySelector('.split-divider');
-        if (divider) divider.style.display = isElevated ? '' : 'none';
+        if (divider) divider.style.display = canEditCurrentSession ? '' : 'none';
     }
 
     // Nút Chiến Thuật
     const tacticsSide = document.getElementById('btnTactics');
-    if (tacticsSide) tacticsSide.style.display = isElevated ? '' : 'none';
+    if (tacticsSide) tacticsSide.style.display = canEditCurrentSession ? '' : 'none';
 
     // Ẩn toàn bộ split button nếu cả 2 nút đều bị ẩn
     const splitBtn = document.getElementById('splitActionBtn');
@@ -3277,9 +3284,20 @@ function remapIndexUnitIdAcrossPayload(payload, oldId, replacementUnit) {
     }
 }
 
+function isIndexTacticalBotLikeId(id) {
+    return typeof id === 'string' && /^(bot_|slotbot_|slot_tmp_|idx_slot_tmp_|svc_slot_tmp_)/.test(id);
+}
+
+function getIndexReservedHumanSlotId(slot) {
+    const ids = [slot?.reserved_for, slot?.player_id, slot?.tactical_id, slot?.id];
+    return ids.find((id) => id && !isIndexTacticalBotLikeId(id)) || null;
+}
+
 function syncIndexPayloadToSessionRoster(rawPayload, sessionLike) {
     const payload = normalizeIndexSeedTacticsPayload(rawPayload, {}, getIndexRosterSnapshot(sessionLike));
     const humans = getIndexFlatActiveRoster(sessionLike);
+    const humansById = new Map(humans.map((player) => [player.id, player]));
+    const usedHumanIds = new Set();
     const layout = getIndexActiveSlotLayout(sessionLike);
     const savedBindings = Array.isArray(payload.slot_template) && payload.slot_template.length
         ? payload.slot_template.map((entry, index) => normalizeIndexSlotTemplateEntry(entry, index, entry?.team || 'team_attack1'))
@@ -3295,14 +3313,41 @@ function syncIndexPayloadToSessionRoster(rawPayload, sessionLike) {
     const slotCount = savedBindings.length
         ? Math.max(layout.length, savedBindings.length, humans.length)
         : humans.length;
+    const reservedRosterIds = new Set(savedBindings
+        .map((entry, index) => getIndexReservedHumanSlotId(normalizeIndexSlotTemplateEntry(entry || {}, index, entry?.team || layout[index] || 'team_attack1')))
+        .filter((id) => id && humansById.has(id)));
     const nextBindings = [];
     const nextBots = [];
     const pendingRemaps = [];
+    const claimHumanById = (id) => {
+        if (!id || usedHumanIds.has(id)) return null;
+        const human = humansById.get(id);
+        if (!human) return null;
+        usedHumanIds.add(id);
+        return human;
+    };
+    const claimFallbackHuman = (index, options = {}) => {
+        const unreservedOnly = Boolean(options.unreservedOnly);
+        const canUse = (player) => player?.id
+            && !usedHumanIds.has(player.id)
+            && (!unreservedOnly || !reservedRosterIds.has(player.id));
+        const indexed = humans[index];
+        if (canUse(indexed)) {
+            usedHumanIds.add(indexed.id);
+            return indexed;
+        }
+        const next = humans.find(canUse);
+        if (!next) return null;
+        usedHumanIds.add(next.id);
+        return next;
+    };
 
     for (let index = 0; index < slotCount; index++) {
         const teamKey = layout[index] || savedBindings[index]?.team || humans[index]?.team || 'team_attack1';
         const previous = normalizeIndexSlotTemplateEntry(savedBindings[index] || {}, index, teamKey);
-        const human = humans[index] || null;
+        const reservedHumanId = getIndexReservedHumanSlotId(previous);
+        const preferredHuman = claimHumanById(previous.reserved_for) || claimHumanById(previous.tactical_id);
+        const human = preferredHuman || claimFallbackHuman(index, { unreservedOnly: Boolean(reservedHumanId) });
         const slot = normalizeIndexSlotTemplateEntry({
             ...previous,
             slot_index: index,
@@ -3328,7 +3373,9 @@ function syncIndexPayloadToSessionRoster(rawPayload, sessionLike) {
         nextBindings.push(normalizeIndexSlotTemplateEntry({
             ...slot,
             tactical_id: replacementUnit.id,
-            reserved_for: slot.reserved_for || replacementUnit.replacement_for || replacementUnit.id || null,
+            reserved_for: replacementUnit.isBot
+                ? (slot.reserved_for || replacementUnit.replacement_for || null)
+                : (replacementUnit.id || null),
             original_name: slot.original_name || replacementUnit.original_name || replacementUnit.gn || replacementUnit.name || ''
         }, index, teamKey));
     }
@@ -3391,8 +3438,25 @@ async function persistIndexTacticsPayloadForSession(sessionRow, payload) {
         }
     }
 
-    const fallback = await sb.from('bc_tactics').upsert(upsertPayload, { onConflict: 'guild_id,day' });
-    return fallback.error || null;
+    const fallback = await upsertIndexTacticsPayloadByDay(upsertPayload);
+    return fallback?.error || null;
+}
+
+async function upsertIndexTacticsPayloadByDay(upsertPayload) {
+    const existing = await sb
+        .from('bc_tactics')
+        .select('id')
+        .eq('guild_id', upsertPayload.guild_id)
+        .eq('day', upsertPayload.day)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+    if (existing.error) return { error: existing.error };
+
+    const existingId = existing.data?.[0]?.id;
+    if (existingId) {
+        return sb.from('bc_tactics').update(upsertPayload).eq('id', existingId);
+    }
+    return sb.from('bc_tactics').insert(upsertPayload);
 }
 
 async function fetchCurrentSessionTacticsRow(selectClause = 'markers,notes,updated_at,updated_by,day,session_id', sessionRow = currentSessionData) {
@@ -3580,6 +3644,8 @@ async function loadAllSessions() {
         currentDay = null;
         currentSessionData = null;
         updateTacticsButtonTarget(null);
+        updateEditorButtonVisibility();
+        if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
         document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chưa có phiên bang chiến nào.<br><br>Sử dụng lệnh <b>?bc</b> trên Discord để bắt đầu.</div>';
         updateStats(null);
         updateSignupBar(null);
@@ -3627,6 +3693,7 @@ async function loadAllSessions() {
     currentSessionData = activeSession;
     updateTacticsButtonTarget(activeSession.day);
     updateEditorButtonVisibility();
+    if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
     renderTeams(activeSession);
     updateStats(activeSession);
     updateSignupBar(activeSession);
@@ -3648,6 +3715,8 @@ async function loadBCData(day) {
     if (error || !data) {
         currentSessionData = null;
         updateTacticsButtonTarget(null);
+        updateEditorButtonVisibility();
+        if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
         document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chưa có phiên bang chiến nào cho ngày này.<br><br>Sử dụng lệnh <b>?bc</b> trên Discord để bắt đầu.</div>';
         updateStats(null);
         updateSignupBar(null);
@@ -3658,6 +3727,7 @@ async function loadBCData(day) {
     currentSessionData = data;
     updateTacticsButtonTarget(data.day || day);
     updateEditorButtonVisibility();
+    if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
     renderTeams(data);
     updateStats(data);
     updateSignupBar(data);
@@ -4481,7 +4551,7 @@ checkAuth();
 
 // ═══ MỞ TRANG CHIẾN THUẬT ═══
 function openTactics() {
-    if (!hasElevatedRosterRole()) return;
+    if (!canEditTeamRoster(currentSessionData)) return;
     const day = document.getElementById('btnTactics')?.dataset.day || currentSessionData?.day || currentDay;
     if (!day) return;
     try {
@@ -4510,7 +4580,7 @@ function openTactics() {
 }
 
 function openTeamEditor() {
-    if (!hasElevatedRosterRole()) return;
+    if (!canEditTeamRoster(currentSessionData)) return;
     const day = document.getElementById('btnTeamEditor')?.dataset.day || currentSessionData?.day || currentDay;
     if (!day) return;
     try {
@@ -5919,11 +5989,11 @@ function switchMobileTab(el) {
 // Gọi sau khi window.currentUserPosition đã có giá trị
 function updateMobileNavForRole() {
     if (!window.matchMedia('(max-width: 768px)').matches) return;
-    const isElevated = hasElevatedRosterRole();
+    const canEditCurrentSession = canEditTeamRoster(currentSessionData);
     const editorTab = document.querySelector('.mob-tab[data-target="mob-editor"]');
     const tacticsTab = document.querySelector('.mob-tab[data-target="mob-tactics"]');
-    if (editorTab) editorTab.classList.toggle('hidden-for-member', !isElevated);
-    if (tacticsTab) tacticsTab.classList.toggle('hidden-for-member', !isElevated);
+    if (editorTab) editorTab.classList.toggle('hidden-for-member', !canEditCurrentSession);
+    if (tacticsTab) tacticsTab.classList.toggle('hidden-for-member', !canEditCurrentSession);
 }
 window.updateMobileNavForRole = updateMobileNavForRole;
 

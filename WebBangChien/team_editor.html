@@ -687,6 +687,7 @@
       <div class="toolbar" style="flex:1; justify-content:flex-end;">
         <span class="badge open" id="lockBadge">📂 Chưa chốt</span>
         <button class="btn" id="btnRefresh">📡 Fetch Bot</button>
+        <button class="btn" id="btnValidateRoster">✅ Kiểm tra</button>
         <button class="btn warn" id="btnResize">Resize</button>
         <button class="btn primary" id="btnLockToggle">📋 Chốt danh sách</button>
       </div>
@@ -828,6 +829,12 @@
       return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
     }
 
+    function isUrlPrivilegeBypassAllowed(params, discordId = currentDiscordId) {
+      if (!params) return false;
+      const wantsBypass = params.get('admin') === '1' || params.get('leader') === '1';
+      return wantsBypass && params.get('test') === '1' && hasKcWebAccess(discordId);
+    }
+
     function applyKcWebAccessOverride(discordId = currentDiscordId) {
       if (!hasKcWebAccess(discordId)) return false;
       currentUserPosition = 'kc';
@@ -848,7 +855,7 @@
     }
 
     function canBypassMemberGate(params, discordId = currentDiscordId) {
-      return params?.get('admin') === '1' || hasKcWebAccess(discordId);
+      return isUrlPrivilegeBypassAllowed(params, discordId) || hasKcWebAccess(discordId);
     }
 
     function redirectToGuestMinigame() {
@@ -881,6 +888,19 @@
         try { return JSON.parse(value); } catch (error) { return fallback; }
       }
       return fallback;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeHtmlAttr(value) {
+      return escapeHtml(value).replace(/`/g, '&#96;');
     }
 
     function hasElevatedEditorRole() {
@@ -922,7 +942,7 @@
 
       if (hasKcWebAccess()) canEdit = true;
 
-      if (params.get('admin') === '1' || params.get('leader') === '1') canEdit = true;
+      if (isUrlPrivilegeBypassAllowed(params)) canEdit = true;
       if (params.get('leader') === '0') canEdit = false;
       isLeaderEditor = canEdit;
     }
@@ -1739,10 +1759,78 @@
       });
     }
 
+    function getValidationTeamName(teamKey) {
+      const nameKey = TEAM_NAME_KEY_MAP[teamKey];
+      return (nameKey && localState?.team_names?.[nameKey]) || TEAM_META[teamKey]?.title || teamKey;
+    }
+
+    function buildRosterValidationReport() {
+      const errors = [];
+      const warnings = [];
+      if (!localState) {
+        errors.push('Chưa có dữ liệu đội hình.');
+        return { errors, warnings };
+      }
+
+      const seen = new Map();
+      [...TEAM_ORDER, 'waiting_list'].forEach((teamKey) => {
+        (localState[teamKey] || []).forEach((member) => {
+          const id = String(member?.id || '');
+          if (!id) {
+            warnings.push(`${getValidationTeamName(teamKey)} có thành viên thiếu Discord ID.`);
+            return;
+          }
+          if (seen.has(id)) {
+            errors.push(`${getMemberDisplayName(member)} bị trùng ở ${seen.get(id)} và ${getValidationTeamName(teamKey)}.`);
+          } else {
+            seen.set(id, getValidationTeamName(teamKey));
+          }
+        });
+      });
+
+      TEAM_ORDER.forEach((teamKey) => {
+        const members = localState[teamKey] || [];
+        const teamName = getValidationTeamName(teamKey);
+        const cap = getTeamCapacityFor(teamKey, localState);
+        if (members.length > cap) errors.push(`${teamName} vượt slot: ${members.length}/${cap}.`);
+        if (!members.length) return;
+
+        const leaders = members.filter(isLeaderMember);
+        if (leaders.length === 0) warnings.push(`${teamName} chưa có leader.`);
+        if (leaders.length > 1) errors.push(`${teamName} có nhiều hơn 1 leader.`);
+
+        const roleCounts = members.reduce((acc, member) => {
+          const role = ['Healer', 'Tanker', 'DPS'].includes(member?.role) ? member.role : 'DPS';
+          acc[role] = (acc[role] || 0) + 1;
+          return acc;
+        }, {});
+        if (!roleCounts.Healer) warnings.push(`${teamName} chưa có Healer.`);
+        if (!roleCounts.Tanker) warnings.push(`${teamName} chưa có Tanker.`);
+      });
+
+      if (hasPendingSyncWork()) warnings.push('Đang có thay đổi chưa đồng bộ xong.');
+      return { errors, warnings };
+    }
+
+    async function runRosterValidation() {
+      const { errors, warnings } = buildRosterValidationReport();
+      const lines = [];
+      if (!errors.length && !warnings.length) {
+        lines.push('✅ Đội hình ổn: không thấy lỗi trùng người, vượt slot, thiếu leader/healer/tanker.');
+      } else {
+        if (errors.length) lines.push(`❌ Lỗi cần xử lý:\n- ${errors.join('\n- ')}`);
+        if (warnings.length) lines.push(`⚠️ Cảnh báo:\n- ${warnings.join('\n- ')}`);
+      }
+      await customAlert(lines.join('\n\n'));
+    }
+
     function renderMemberRow(member, teamKey, index) {
       const row = document.createElement('div');
       const cls = roleClass(member.role);
       const slotNumber = getMemberSlotNumber(teamKey, index);
+      const displayName = escapeHtml(getMemberDisplayName(member));
+      const secondaryName = escapeHtml(getMemberSecondaryName(member));
+      const roleTag = escapeHtml(getMemberRoleTagText(member));
       row.className = `member-row${(!canDragInCurrentView(teamKey) ? ' locked' : '')}`;
       row.draggable = false; // SortableJS quản lý kéo thả qua drag-handle
       row.dataset.userId = member.id;
@@ -1753,11 +1841,11 @@
         <div class="slot-badge">${slotNumber}</div>
         <div class="avatar ${cls}">${roleShort(member.role)}</div>
         <div class="member-main">
-          <div class="member-name">${getMemberDisplayName(member)}</div>
-          <div class="member-sub">${getMemberSecondaryName(member)}</div>
+          <div class="member-name">${displayName}</div>
+          <div class="member-sub">${secondaryName}</div>
         </div>
         <button class="leader-btn ${(member.isTeamLeader || member.ld) ? 'active' : ''}" type="button">👑</button>
-        <div class="role-tag ${cls}">${getMemberRoleTagText(member)}</div>
+        <div class="role-tag ${cls}">${roleTag}</div>
         <button class="kick-btn" type="button">✕</button>
       `;
       const leaderBtn = row.querySelector('.leader-btn');
@@ -1804,6 +1892,7 @@
         preventOnFilter: true,
         forceFallback: false,
         onStart(evt) {
+          _lockScrollForDrag();
           dragPayload = {
             userId: evt.item.dataset.userId,
             fromTeam: evt.item.dataset.team,
@@ -1839,6 +1928,7 @@
         },
         async onEnd(evt) {
           isDragging = false;
+          _unlockScrollAfterDrag();
           if (!dragPayload) { clearDropPreview(); renderEditor(); return; }
 
           const movedUserId = dragPayload.userId;
@@ -1951,7 +2041,7 @@
         const sortMenuHtml = activeSortMenu === team.key
           ? `<div class="sort-menu">${SORT_OPTIONS.map((option) => `
               <button class="sort-option ${sortMode === option.value ? 'active' : ''}" type="button" data-sort-team="${team.key}" data-sort-mode="${option.value}">
-                ${option.label}
+                ${escapeHtml(option.label)}
               </button>
             `).join('')}</div>`
           : '';
@@ -1961,11 +2051,11 @@
         card.innerHTML = `
           <div class="panel-head">
             <div class="panel-head-main">
-              <div class="panel-title">${team.title}</div>
+              <div class="panel-title">${escapeHtml(team.title)}</div>
               <div class="panel-meta">${members.length}/${team.max} thành viên${isFilterActive() ? ` • ${viewEntries.length} đang hiện` : ''}</div>
             </div>
             <div class="panel-actions">
-              <button class="sort-btn ${sortMode !== 'default' ? 'active' : ''}" type="button" data-sort-btn="${team.key}">${sortButtonText}</button>
+              <button class="sort-btn ${sortMode !== 'default' ? 'active' : ''}" type="button" data-sort-btn="${team.key}">${escapeHtml(sortButtonText)}</button>
               ${sortMenuHtml}
               <div class="badge">${members.length}</div>
             </div>
@@ -2052,6 +2142,38 @@
         debounceTimer = null;
         syncSessionState();
       }, SYNC_IDLE_MS);
+    }
+
+    function hasPendingSyncWork() {
+      return !!(debounceTimer || pendingSyncActions.size || pendingEditorAction || isSyncing);
+    }
+
+    function waitForSyncIdle(maxMs = 5000) {
+      const startedAt = Date.now();
+      return new Promise((resolve) => {
+        const tick = () => {
+          if (!isSyncing || Date.now() - startedAt >= maxMs) return resolve(!isSyncing);
+          setTimeout(tick, 120);
+        };
+        tick();
+      });
+    }
+
+    async function flushPendingSyncBeforeNavigation() {
+      if (!hasPendingSyncWork()) return true;
+      updateSyncBadge('Đang lưu thay đổi trước khi chuyển trang...', true);
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      if (isSyncing) await waitForSyncIdle();
+      if (pendingSyncActions.size || pendingEditorAction) {
+        await syncSessionState(true);
+      }
+      if (isSyncing) await waitForSyncIdle();
+      const done = !debounceTimer && !pendingSyncActions.size && !pendingEditorAction && !isSyncing;
+      if (!done) updateSyncBadge('Chưa đồng bộ xong, vui lòng thử lại', true);
+      return done;
     }
 
     async function syncSessionState(force = false) {
@@ -2233,15 +2355,17 @@
       RESIZE_TEAMS.forEach(t => {
         const curSize = sizes[t.key] ?? (t.key.startsWith('attack') ? 10 : 5);
         const curName = names[t.key] || t.defaultName;
+        const safeCurName = escapeHtmlAttr(curName);
+        const safeDefaultName = escapeHtmlAttr(t.defaultName);
         const row = document.createElement('div');
         row.style.cssText = 'background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px';
         row.innerHTML = `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
             <span style="font-size:1.1rem">${t.emoji}</span>
-            <input id="rName_${t.key}" type="text" maxlength="20" value="${curName}"
-              style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
-                     border-radius:8px;padding:6px 10px;color:#fff;font-size:.88rem;outline:none"
-              placeholder="${t.defaultName}">
+            <input id="rName_${t.key}" type="text" maxlength="20" value="${safeCurName}"
+               style="flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
+                      border-radius:8px;padding:6px 10px;color:#fff;font-size:.88rem;outline:none"
+              placeholder="${safeDefaultName}">
           </div>
           <div style="display:flex;align-items:center;gap:10px">
             <span style="font-size:.78rem;opacity:.6;min-width:70px">Số slot (${t.min}-${t.max}):</span>
@@ -2415,6 +2539,8 @@
           if (!nextFingerprint || nextFingerprint === lastRemoteFingerprint) return;
           if (shouldDeferRemoteHydrate()) {
             console.log('[Realtime] Bỏ qua vì đang có pending changes (drag/sync/debounce)');
+            updateSyncBadge('Có cập nhật mới; hãy đồng bộ xong rồi Fetch Bot', true);
+            showCenterNotice('Có cập nhật mới từ bot/web. Đồng bộ xong hãy Fetch Bot.');
             return;
           }
           hydrateFromRealtime(payload.new);
@@ -2466,7 +2592,8 @@
       }
       setupMemberAccessWatch(currentDiscordId);
 
-      if (params.get('admin') === '1' || params.get('leader') === '1') currentUserPosition = 'bc';
+      if (isUrlPrivilegeBypassAllowed(params, currentDiscordId)) currentUserPosition = 'bc';
+      else if (params.get('admin') === '1' || params.get('leader') === '1') console.warn('[TeamEditor] Ignored URL privilege bypass outside whitelist test mode.');
       if (params.get('leader') === '0') currentUserPosition = 'mem';
 
       try {
@@ -2499,6 +2626,7 @@
       setTimeout(() => { btn.textContent = '📡 Fetch Bot'; }, 3000);
     });
     document.getElementById('btnResize').addEventListener('click', openResizeModal);
+    document.getElementById('btnValidateRoster').addEventListener('click', runRosterValidation);
     document.getElementById('btnResizeCancel').addEventListener('click', closeResizeModal);
     document.getElementById('btnResizeSave').addEventListener('click', applyResize);
     document.getElementById('btnLockToggle').addEventListener('click', toggleLocked);
@@ -2519,6 +2647,8 @@
     // Flush pending sync trước khi rời trang (tránh mất data khi debounce chưa kịp chạy)
     window.addEventListener('beforeunload', (event) => {
       if (debounceTimer || pendingSyncActions.size) {
+        event.preventDefault();
+        event.returnValue = '';
         clearTimeout(debounceTimer);
         debounceTimer = null;
         if (localState && sb && currentDay) {
@@ -2541,12 +2671,12 @@
     }
 
     // ═══ CHUYỂN TRANG VỚI ANIMATION ═══
-    function navigateTo(target) {
+    async function navigateTo(target) {
       const params = new URLSearchParams(window.location.search);
       const day = params.get('day') || currentDay || '';
       const session = params.get('session') || currentSessionId || '';
       const isTest = params.get('test');
-      const isAdmin = params.get('admin');
+      const isAdmin = isUrlPrivilegeBypassAllowed(params, currentDiscordId) ? params.get('admin') : null;
 
       let url = '';
       let icon = '';
@@ -2569,6 +2699,10 @@
       }
 
       if (!url) return;
+      if (!(await flushPendingSyncBeforeNavigation())) {
+        await customAlert('Đội hình chưa đồng bộ xong. Vui lòng thử lại sau vài giây.');
+        return;
+      }
 
       let overlay = document.querySelector('.page-transition-overlay');
       if (!overlay) {

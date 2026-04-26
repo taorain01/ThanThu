@@ -3036,7 +3036,7 @@ function updateEditorButtonVisibility() {
 
     // Nút tạo session (+)
     const addBtn = document.getElementById('addBcBtn');
-    if (addBtn) addBtn.style.display = isElevated ? '' : 'none';
+    if (addBtn) addBtn.style.display = hasElevatedRosterRole() ? '' : 'none';
 }
 
 // Cache sessions data để dùng xuyên suốt

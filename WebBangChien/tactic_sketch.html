@@ -80,7 +80,15 @@ button{border:0}
 .map-stage.zoomed{cursor:grab}
 .map-stage.zoomed.panning{cursor:grabbing;transition:none}
 .map-stage img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
-.draw-layer,.dot-layer{position:absolute;inset:0;width:100%;height:100%}
+.map-stage > img.map-bg{position:relative;z-index:1}
+.map-stage > img.map-bg.hidden-map{visibility:hidden}
+.map-bg-giay{position:absolute;inset:0;display:none;z-index:0;overflow:hidden;pointer-events:none;background:url('./anh/MapGiay.png') no-repeat;background-size:108.5% 132.5%;background-position:48% 50%}
+.map-bg-giay.show{display:block}
+.draw-layer,.dot-layer,.object-layer{position:absolute;inset:0;width:100%;height:100%}
+.object-layer{z-index:2;pointer-events:none}
+.map-object{position:absolute;transform:translate(-50%,-50%);filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(3px 4px 6px rgba(0,0,0,.78));opacity:.96}
+.map-object.tower{width:4.6%}.map-object.boss{width:4.9%}.map-object.goose{width:4.2%}.map-object.tree{width:4.8%}.map-object.jungle{width:2.3%}
+.map-object img{width:100%;height:100%;display:block;pointer-events:none}
 .draw-layer{z-index:3;pointer-events:none;overflow:visible}
 .dot-layer{z-index:4;pointer-events:none}
 .sk-dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.55),0 0 14px currentColor;pointer-events:auto;cursor:grab;transition:box-shadow .18s,transform .18s,outline-color .18s}
@@ -100,6 +108,8 @@ button{border:0}
 .zoom-btn.active{border-color:rgba(96,165,250,.6);background:rgba(37,99,150,.28);color:#eff6ff}
 .map-badge{position:absolute;left:24px;top:22px;z-index:8;display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100% - 48px));padding:8px 11px;border-radius:10px;background:rgba(5,10,7,.82);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);font-size:12px;color:var(--muted);box-shadow:0 8px 24px rgba(0,0,0,.28)}
 .map-badge strong{color:#bbf7d0}
+.map-badge.warn{background:rgba(20,14,4,.78);border-color:rgba(251,191,36,.3)}
+.map-badge.warn strong{color:#fde68a}
 .map-badge.saved{position:relative;overflow:hidden}
 .map-badge.saved::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);animation:badgeSweep .95s ease}
 .toast{position:fixed;left:50%;bottom:calc(var(--timeline-h) + 18px);z-index:70;transform:translateX(-50%) translateY(22px) scale(.96);opacity:0;pointer-events:none;max-width:min(520px,92vw);padding:10px 14px;border-radius:10px;background:rgba(10,18,12,.94);border:1px solid rgba(251,191,36,.26);color:#fde68a;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,0,0,.42);transition:opacity .22s,transform .38s cubic-bezier(.2,1.35,.25,1)}
@@ -107,7 +117,7 @@ button{border:0}
 .timeline{height:var(--timeline-h);flex-shrink:0;border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(13,29,19,.98),rgba(8,20,13,.99));padding:10px 16px}
 .timeline-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .active-time{min-width:70px;color:var(--gold);font-size:17px;font-weight:900}
-.time-range{flex:1;accent-color:var(--gold)}
+.time-range{flex:1;accent-color:var(--gold);direction:rtl}
 .time-readout{width:58px;text-align:center;color:#fde68a;font-size:12px;font-weight:800}
 .timeline-track{position:relative;height:46px;border-radius:12px;background:linear-gradient(90deg,rgba(251,191,36,.08),rgba(96,165,250,.08),rgba(248,113,113,.08));border:1px solid rgba(255,255,255,.07);overflow:hidden}
 .timeline-track::before{content:'';position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.12)}
@@ -124,6 +134,9 @@ button{border:0}
 .count-row{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
 .count-pill{font-size:10px;font-weight:900;border-radius:999px;padding:4px 7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
 .count-pill.blue{color:#bfdbfe;border-color:rgba(96,165,250,.24)}.count-pill.red{color:#fecaca;border-color:rgba(248,113,113,.24)}
+.hotkey-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.hotkey-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 7px;border-radius:8px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--muted)}
+.hotkey-item kbd{min-width:24px;text-align:center;border-radius:6px;border:1px solid rgba(251,191,36,.24);background:rgba(0,0,0,.28);color:#fde68a;padding:2px 5px;font-size:10px;font-weight:900;box-shadow:inset 0 -1px 0 rgba(255,255,255,.08)}
 .ctx-menu{position:fixed;z-index:100;min-width:210px;border-radius:12px;border:1px solid rgba(251,191,36,.22);background:rgba(8,20,13,.98);box-shadow:0 18px 50px rgba(0,0,0,.55);padding:7px;display:none}
 .ctx-menu.show{display:block}
 .ctx-title{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fde68a;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:4px}
@@ -201,11 +214,11 @@ button{border:0}
       <section class="section">
         <div class="section-title"><span>Công cụ</span><span id="toolName">Di chuyển</span></div>
         <div class="tool-grid">
-          <button class="tool-btn active" id="toolSelect" onclick="setTool('select')" title="Di chuyển">↔</button>
-          <button class="tool-btn" id="toolDot" onclick="setTool('dot')" title="Thêm chấm">●</button>
-          <button class="tool-btn" id="toolPen" onclick="setTool('pen')" title="Bút vẽ">✎</button>
-          <button class="tool-btn" id="toolArrow" onclick="setTool('arrow')" title="Mũi tên">➜</button>
-          <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')" title="Tẩy">⌫</button>
+          <button class="tool-btn active" id="toolSelect" onclick="setTool('select')" title="Di chuyển (1)">↔</button>
+          <button class="tool-btn" id="toolDot" onclick="setTool('dot')" title="Thêm chấm (2)">●</button>
+          <button class="tool-btn" id="toolPen" onclick="setTool('pen')" title="Bút vẽ (3)">✎</button>
+          <button class="tool-btn" id="toolArrow" onclick="setTool('arrow')" title="Mũi tên (4)">➜</button>
+          <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')" title="Tẩy (5)">⌫</button>
         </div>
         <div class="range-row">
           <span>Chấm</span>
@@ -242,6 +255,27 @@ button{border:0}
       </section>
 
       <section class="section">
+        <div class="section-title">Phím tắt</div>
+        <div class="hotkey-grid">
+          <div class="hotkey-item"><span>Di chuyển</span><kbd>1</kbd></div>
+          <div class="hotkey-item"><span>Chấm</span><kbd>2</kbd></div>
+          <div class="hotkey-item"><span>Bút</span><kbd>3</kbd></div>
+          <div class="hotkey-item"><span>Mũi tên</span><kbd>4</kbd></div>
+          <div class="hotkey-item"><span>Tẩy</span><kbd>5</kbd></div>
+          <div class="hotkey-item"><span>Scale nét</span><kbd>S</kbd></div>
+          <div class="hotkey-item"><span>Map giấy</span><kbd>G</kbd></div>
+          <div class="hotkey-item"><span>Undo</span><kbd>Ctrl Z</kbd></div>
+          <div class="hotkey-item"><span>Redo</span><kbd>Ctrl Y</kbd></div>
+          <div class="hotkey-item"><span>Thêm mốc</span><kbd>M</kbd></div>
+          <div class="hotkey-item"><span>Copy mốc</span><kbd>Shift M</kbd></div>
+          <div class="hotkey-item"><span>Xóa chọn</span><kbd>Del</kbd></div>
+          <div class="hotkey-item"><span>Bỏ chọn</span><kbd>Esc</kbd></div>
+          <div class="hotkey-item"><span>Reset zoom</span><kbd>0</kbd></div>
+          <div class="hotkey-item"><span>Lưu</span><kbd>Ctrl S</kbd></div>
+        </div>
+      </section>
+
+      <section class="section">
         <div class="section-title"><span>Bản của tôi</span><button class="mini-btn" onclick="createNewSketch()">Bản mới</button></div>
         <div class="sketch-list" id="mySketchList"><div class="empty-note">Đang tải...</div></div>
       </section>
@@ -256,11 +290,14 @@ button{border:0}
       <div class="map-wrap">
         <div class="map-badge" id="mapStatus"><strong>Local</strong><span>Đang chuẩn bị bản vẽ...</span></div>
         <div class="zoom-tools">
-          <button class="zoom-btn" id="zoomResetBtn" onclick="resetZoom()">⌖ Reset</button>
+          <button class="zoom-btn" id="sketchMapToggleBtn" onclick="toggleSketchMapMode()" title="Đổi map giấy (G)">▦ Bản đồ</button>
+          <button class="zoom-btn" id="zoomResetBtn" onclick="resetZoom()" title="Đưa map về zoom mặc định (0)">⌖ Reset zoom</button>
         </div>
         <div class="map-viewport" id="mapViewport">
           <div class="map-stage" id="mapStage">
-            <img src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
+            <img class="map-bg" id="mapImg" src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
+            <div class="map-bg-giay" id="mapBgGiay"></div>
+            <div class="object-layer" id="objectLayer"></div>
             <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="tower-label-layer" id="towerLabelLayer"></div>
             <div class="dot-layer" id="dotLayer"></div>
@@ -324,6 +361,28 @@ const TOWER_ZONES = {
     tr2: { x: 62.5, y: 50.5, name: 'Trụ đỏ Trung' },
     tr3: { x: 62.5, y: 84.5, name: 'Trụ đỏ Nam' }
 };
+const DEFAULT_MAP_OBJECTS = [
+    { id: 'tb1', type: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 15, label: 'Trụ xanh Bắc' },
+    { id: 'tb2', type: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 50.5, label: 'Trụ xanh Trung' },
+    { id: 'tb3', type: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 84.5, label: 'Trụ xanh Nam' },
+    { id: 'tr1', type: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 15, label: 'Trụ đỏ Bắc' },
+    { id: 'tr2', type: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 50.5, label: 'Trụ đỏ Trung' },
+    { id: 'tr3', type: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 84.5, label: 'Trụ đỏ Nam' },
+    { id: 'boss_north', type: 'boss', icon: './anh/icons/sun_boss.png', x: 50, y: 30.5, label: 'Boss vàng Bắc' },
+    { id: 'boss_south', type: 'boss', icon: './anh/icons/sun_boss.png', x: 50, y: 70.5, label: 'Boss vàng Nam' },
+    { id: 'goose_blue', type: 'goose', icon: './anh/icons/goose_blue.png', x: 8.5, y: 51.5, label: 'Ngỗng xanh' },
+    { id: 'goose_red', type: 'goose', icon: './anh/icons/goose_red.png', x: 90.5, y: 50, label: 'Ngỗng đỏ' },
+    { id: 'tree_blue', type: 'tree', icon: './anh/icons/tree_blue.png', x: 4, y: 51, label: 'Cây xanh' },
+    { id: 'tree_red', type: 'tree', icon: './anh/icons/tree_red.png', x: 95.5, y: 50, label: 'Cây đỏ' },
+    { id: 'jg_a1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 29.5, y: 37.5, label: 'Rừng A1' },
+    { id: 'jg_a2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 40.5, y: 37, label: 'Rừng A2' },
+    { id: 'jg_b1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 57.5, y: 27.5, label: 'Rừng B1' },
+    { id: 'jg_b2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 69, y: 37.5, label: 'Rừng B2' },
+    { id: 'jg_c1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 29, y: 64.5, label: 'Rừng C1' },
+    { id: 'jg_d2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 69.5, y: 65, label: 'Rừng D2' },
+    { id: 'jg_c2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 40.5, y: 74, label: 'Rừng C2' },
+    { id: 'jg_d1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 58.5, y: 65.5, label: 'Rừng D1' }
+];
 const EVENT_DOTS = {
     boss_minor: [
         { x: 50, y: 30.5, team: 'neutral', role: 'Boss', label: 'Boss phụ Bắc', color: '#fbbf24', size: 22, shape: 'square', systemId: 'boss_minor_north' },
@@ -364,6 +423,14 @@ try {
 }
 
 const params = new URLSearchParams(window.location.search);
+function readMapPaperPreference() {
+    try { return localStorage.getItem('tactic_sketch_map_mode') === 'paper'; } catch (error) { return false; }
+}
+
+function writeMapPaperPreference(enabled) {
+    try { localStorage.setItem('tactic_sketch_map_mode', enabled ? 'paper' : 'normal'); } catch (error) {}
+}
+
 const state = {
     currentDay: params.get('day') || sessionStorage.getItem('tactic_sketch_target_day') || 'sat',
     requestedSessionId: params.get('session') || sessionStorage.getItem('tactic_sketch_target_session_id') || '',
@@ -391,6 +458,7 @@ const state = {
     zoom: 1,
     panX: 0,
     panY: 0,
+    mapPaperMode: readMapPaperPreference(),
     strokeScaling: false,
     localDraftTimer: null
 };
@@ -416,6 +484,17 @@ function clamp(value, min, max) {
 
 function clampTime(value) {
     return Math.round(clamp(value, 0, TOTAL_SECONDS) / 30) * 30;
+}
+
+function timeToPercent(time) {
+    return ((TOTAL_SECONDS - clampTime(time)) / TOTAL_SECONDS) * 100;
+}
+
+function eventToTimelineTime(event, track) {
+    const rect = track?.getBoundingClientRect();
+    if (!rect?.width) return TOTAL_SECONDS;
+    const pct = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    return clampTime(TOTAL_SECONDS - pct * TOTAL_SECONDS);
 }
 
 function formatTime(seconds) {
@@ -653,6 +732,7 @@ function createDefaultMark(time = TOTAL_SECONDS) {
         type: event?.type || 'custom',
         dots: [],
         strokes: [],
+        mapObjects: getDefaultMapObjects(),
         towerGuards: {},
         jungleAssign: {},
         inherited: false
@@ -689,6 +769,32 @@ function normalizeDot(dot) {
     };
 }
 
+function normalizeMapObject(item) {
+    const fallback = DEFAULT_MAP_OBJECTS.find(obj => obj.id === item?.id) || {};
+    return {
+        id: String(item?.id || fallback.id || newId('obj')),
+        type: String(item?.type || fallback.type || 'jungle').slice(0, 24),
+        icon: String(item?.icon || fallback.icon || './anh/icons/dot_red.png').slice(0, 120),
+        x: clamp(item?.x ?? fallback.x, 0, 100),
+        y: clamp(item?.y ?? fallback.y, 0, 100),
+        label: String(item?.label || fallback.label || '').slice(0, 48)
+    };
+}
+
+function getDefaultMapObjects() {
+    return DEFAULT_MAP_OBJECTS.map(normalizeMapObject);
+}
+
+function ensureMapObjectsForMark(mark) {
+    if (!mark) return mark;
+    const existing = new Map((Array.isArray(mark.mapObjects) ? mark.mapObjects : []).map(obj => [obj.id, normalizeMapObject(obj)]));
+    DEFAULT_MAP_OBJECTS.forEach(obj => {
+        if (!existing.has(obj.id)) existing.set(obj.id, normalizeMapObject(obj));
+    });
+    mark.mapObjects = Array.from(existing.values());
+    return mark;
+}
+
 function normalizeStroke(stroke) {
     const points = Array.isArray(stroke?.points) ? stroke.points.map(normalizePoint).filter(Boolean) : [];
     return {
@@ -710,6 +816,7 @@ function normalizeMark(mark) {
         type: String(mark?.type || event?.type || 'custom').slice(0, 24),
         dots: Array.isArray(mark?.dots) ? mark.dots.map(normalizeDot) : [],
         strokes: Array.isArray(mark?.strokes) ? mark.strokes.map(normalizeStroke) : [],
+        mapObjects: Array.isArray(mark?.mapObjects) ? mark.mapObjects.map(normalizeMapObject) : getDefaultMapObjects(),
         towerGuards: mark?.towerGuards && typeof mark.towerGuards === 'object' ? mark.towerGuards : {},
         jungleAssign: mark?.jungleAssign && typeof mark.jungleAssign === 'object' ? mark.jungleAssign : {},
         inherited: Boolean(mark?.inherited)
@@ -740,6 +847,7 @@ function normalizePayload(raw) {
     const activeMarkId = marks.some(mark => mark.id === base.activeMarkId) ? base.activeMarkId : marks[0].id;
     const payload = { version: 2, activeMarkId, marks };
     payload.marks.forEach(ensureSystemDotsForMark);
+    payload.marks.forEach(ensureMapObjectsForMark);
     return payload;
 }
 
@@ -811,12 +919,13 @@ function updateStatus() {
     document.querySelectorAll('.tool-btn,.mini-btn.edit-only').forEach(btn => { btn.disabled = editDisabled; });
 
     if (!badge) return;
+    badge.classList.toggle('warn', !state.tableAvailable);
     const activeMark = getActiveMark();
     let strong = 'Local';
-    let text = `${formatTime(activeMark?.time || TOTAL_SECONDS)} · ${activeMark?.dots?.length || 0} chấm · ${activeMark?.strokes?.length || 0} nét`;
+    let text = `${formatTime(activeMark?.time ?? TOTAL_SECONDS)} · ${activeMark?.dots?.length || 0} chấm · ${activeMark?.strokes?.length || 0} nét`;
     if (!state.tableAvailable) {
-        strong = 'Chưa có bảng';
-        text = 'Chạy migration bc_tactic_sketches để lưu bản vẽ';
+        strong = 'Chưa lưu online';
+        text = 'Thiếu bảng bc_tactic_sketches. Bản vẽ chỉ lưu local.';
     } else if (state.readOnly) {
         strong = 'Đang xem';
         text = 'Tạo bản sao để chỉnh sửa';
@@ -879,11 +988,33 @@ function applyZoom() {
     byId('zoomResetBtn')?.classList.toggle('active', state.zoom > 1);
 }
 
-function resetZoom() {
+function resetZoom(options = {}) {
+    const moved = state.zoom !== 1 || state.panX !== 0 || state.panY !== 0;
     state.zoom = 1;
     state.panX = 0;
     state.panY = 0;
     applyZoom();
+    if (!options.silent) {
+        showToast(moved ? 'Đã reset zoom' : 'Zoom đang ở mặc định. Muốn xóa nét dùng Dọn mốc.');
+    }
+}
+
+function setSketchMapMode(enabled, options = {}) {
+    state.mapPaperMode = Boolean(enabled);
+    byId('mapImg')?.classList.toggle('hidden-map', state.mapPaperMode);
+    byId('mapBgGiay')?.classList.toggle('show', state.mapPaperMode);
+    const btn = byId('sketchMapToggleBtn');
+    if (btn) {
+        btn.classList.toggle('active', state.mapPaperMode);
+        btn.textContent = state.mapPaperMode ? '▦ 3D Map' : '▦ Bản đồ';
+        btn.title = state.mapPaperMode ? 'Đổi sang map thường (G)' : 'Đổi map giấy (G)';
+    }
+    if (options.persist !== false) writeMapPaperPreference(state.mapPaperMode);
+    if (!options.silent) showToast(state.mapPaperMode ? 'Đã bật map giấy' : 'Đã bật map thường');
+}
+
+function toggleSketchMapMode() {
+    setSketchMapMode(!state.mapPaperMode);
 }
 
 function toggleZoomAtEvent(event) {
@@ -905,6 +1036,87 @@ function hideContextMenu() {
     byId('ctxMenu')?.classList.remove('show');
 }
 
+function isTypingTarget(target) {
+    const tag = target?.tagName;
+    return Boolean(target?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+}
+
+function toggleStrokeScaleSetting() {
+    const input = byId('strokeScaleToggle');
+    state.strokeScaling = !state.strokeScaling;
+    if (input) input.checked = state.strokeScaling;
+    renderStrokes();
+    showToast(state.strokeScaling ? 'Nét vẽ scale theo zoom' : 'Nét vẽ giữ kích thước');
+}
+
+function handleSketchHotkey(event) {
+    const key = String(event.key || '').toLowerCase();
+    const hasCommand = event.ctrlKey || event.metaKey;
+
+    if (hasCommand && key === 's') {
+        event.preventDefault();
+        saveSketch();
+        return;
+    }
+    if (isTypingTarget(event.target)) return;
+    if (hasCommand && key === 'z') {
+        event.preventDefault();
+        event.shiftKey ? redoSketch() : undoSketch();
+        return;
+    }
+    if (hasCommand && key === 'y') {
+        event.preventDefault();
+        redoSketch();
+        return;
+    }
+    if (hasCommand || event.altKey) return;
+
+    const toolByKey = {
+        1: 'select',
+        2: 'dot',
+        3: 'pen',
+        4: 'arrow',
+        5: 'eraser'
+    };
+    if (toolByKey[key]) {
+        setTool(toolByKey[key]);
+        event.preventDefault();
+        return;
+    }
+    if (key === 's') {
+        toggleStrokeScaleSetting();
+        event.preventDefault();
+        return;
+    }
+    if (key === 'g') {
+        toggleSketchMapMode();
+        event.preventDefault();
+        return;
+    }
+    if (key === 'm') {
+        addMarkAtCursor(event.shiftKey);
+        event.preventDefault();
+        return;
+    }
+    if (key === '0') {
+        resetZoom();
+        event.preventDefault();
+        return;
+    }
+    if ((key === 'delete' || key === 'backspace') && state.selectedDotIds.size && canEditActiveSketch()) {
+        deleteSelectedDots();
+        event.preventDefault();
+        return;
+    }
+    if (key === 'escape') {
+        state.selectedDotIds.clear();
+        hideContextMenu();
+        renderDots();
+        updateStatus();
+        event.preventDefault();
+    }
+}
+
 function bindUi() {
     const mapStage = byId('mapStage');
     if (mapStage && !mapStage.dataset.bound) {
@@ -924,19 +1136,9 @@ function bindUi() {
         document.addEventListener('click', (event) => {
             if (!event.target.closest?.('#ctxMenu')) hideContextMenu();
         });
-        document.addEventListener('keydown', (event) => {
-            if ((event.key === 'Delete' || event.key === 'Backspace') && state.selectedDotIds.size && canEditActiveSketch()) {
-                deleteSelectedDots();
-                event.preventDefault();
-            }
-            if (event.key === 'Escape') {
-                state.selectedDotIds.clear();
-                hideContextMenu();
-                renderDots();
-                updateStatus();
-            }
-        });
+        document.addEventListener('keydown', handleSketchHotkey);
     }
+    setSketchMapMode(state.mapPaperMode, { silent: true, persist: false });
 
     const dotSize = byId('dotSize');
     const brushSize = byId('brushSize');
@@ -969,9 +1171,7 @@ function bindUi() {
         timelineTrack.dataset.bound = '1';
         timelineTrack.addEventListener('click', (event) => {
             if (event.target.closest?.('.mark-btn')) return;
-            const rect = timelineTrack.getBoundingClientRect();
-            const pct = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-            const time = clampTime(TOTAL_SECONDS - pct * TOTAL_SECONDS);
+            const time = eventToTimelineTime(event, timelineTrack);
             byId('timeCursor').value = String(time);
             byId('timeCursorLabel').textContent = formatTime(time);
         });
@@ -1127,19 +1327,20 @@ function deleteSelectedDots() {
     setDirty(true);
 }
 
-function snapDotsToTowers(dots) {
+function snapDotsToTowers(dots, options = {}) {
     const mark = getActiveMark();
     mark.towerGuards = mark.towerGuards || {};
+    const allowSnap = options.allowSnap !== false;
     dots.forEach(dot => {
         let best = null;
         Object.entries(TOWER_ZONES).forEach(([towerId, tower]) => {
             const dist = Math.hypot(dot.x - tower.x, dot.y - tower.y);
-            if (dist <= 4.8 && (!best || dist < best.dist)) best = { towerId, tower, dist };
+            if (dist <= 2.8 && (!best || dist < best.dist)) best = { towerId, tower, dist };
         });
         Object.keys(mark.towerGuards).forEach(towerId => {
             mark.towerGuards[towerId] = (mark.towerGuards[towerId] || []).filter(id => id !== dot.id);
         });
-        if (best) {
+        if (allowSnap && best) {
             const list = mark.towerGuards[best.towerId] || [];
             if (!list.includes(dot.id)) list.push(dot.id);
             mark.towerGuards[best.towerId] = list.slice(0, 8);
@@ -1168,7 +1369,7 @@ function onPointerDown(event) {
         if (!state.selectedDotIds.has(dotId)) state.selectedDotIds = new Set([dotId]);
         const originals = {};
         getSelectedDots().forEach(dot => { originals[dot.id] = { x: dot.x, y: dot.y }; });
-        state.pointer = { type: 'drag-dots', dotId, pointerId: event.pointerId, start: point, originals };
+        state.pointer = { type: 'drag-dots', dotId, pointerId: event.pointerId, start: point, originals, moved: false };
         byId('mapStage').setPointerCapture?.(event.pointerId);
         renderDots();
         event.preventDefault();
@@ -1230,10 +1431,9 @@ function onPointerDown(event) {
 function onPointerMove(event) {
     if (!state.pointer || state.pointer.pointerId !== event.pointerId || state.readOnly) return;
     if (state.pointer.type === 'timeline-drag') {
-        const rect = byId('timelineTrack')?.getBoundingClientRect();
-        if (!rect) return;
-        const pct = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-        const time = clampTime(TOTAL_SECONDS - pct * TOTAL_SECONDS);
+        const track = byId('timelineTrack');
+        if (!track) return;
+        const time = eventToTimelineTime(event, track);
         state.pointer.moved = true;
         const mark = state.payload.marks.find(item => item.id === state.pointer.markId);
         if (mark) {
@@ -1260,6 +1460,7 @@ function onPointerMove(event) {
     } else if (state.pointer.type === 'drag-dots') {
         const dx = point.x - state.pointer.start.x;
         const dy = point.y - state.pointer.start.y;
+        if (Math.hypot(dx, dy) > 0.08) state.pointer.moved = true;
         getSelectedDots().forEach(dot => {
             const original = state.pointer.originals[dot.id];
             if (!original) return;
@@ -1312,7 +1513,15 @@ function onPointerUp(event) {
         finishSelectionBox(state.pointer.start, state.pointer.end || state.pointer.start);
     }
     if (state.pointer.type === 'drag-dots') {
-        snapDotsToTowers(getSelectedDots());
+        if (!state.pointer.moved) {
+            state.history.pop();
+            state.pointer = null;
+            renderDots();
+            updateStatus();
+            return;
+        }
+        const selected = getSelectedDots();
+        snapDotsToTowers(selected, { allowSnap: selected.length === 1 });
         renderAll();
         setDirty(true);
     }
@@ -1375,11 +1584,32 @@ function eraseAt(point, fromPointer = false) {
 }
 
 function renderAll() {
+    renderMapObjects();
     renderDots();
     renderStrokes();
     renderTowerLabels();
     renderTimeline();
     updateStatus();
+}
+
+function renderMapObjects() {
+    const layer = byId('objectLayer');
+    if (!layer) return;
+    const mark = ensureMapObjectsForMark(getActiveMark());
+    layer.innerHTML = '';
+    (mark.mapObjects || []).forEach(obj => {
+        const el = document.createElement('div');
+        el.className = `map-object ${obj.type || 'jungle'}`;
+        el.style.left = `${obj.x}%`;
+        el.style.top = `${obj.y}%`;
+        el.title = obj.label || obj.id;
+        const img = document.createElement('img');
+        img.src = obj.icon;
+        img.alt = obj.label || obj.id;
+        img.draggable = false;
+        el.appendChild(img);
+        layer.appendChild(el);
+    });
 }
 
 function renderDots() {
@@ -1505,16 +1735,17 @@ function renderStrokes() {
 function renderTimeline() {
     const track = byId('timelineTrack');
     const active = getActiveMark();
-    byId('activeTime').textContent = `${formatTime(active?.time || TOTAL_SECONDS)} ${getSystemEvent(active?.time)?.icon || ''}`.trim();
+    const activeTime = active?.time ?? TOTAL_SECONDS;
+    byId('activeTime').textContent = `${formatTime(activeTime)} ${getSystemEvent(activeTime)?.icon || ''}`.trim();
     if (byId('timeCursor')) {
-        byId('timeCursor').value = String(active?.time || TOTAL_SECONDS);
-        byId('timeCursorLabel').textContent = formatTime(active?.time || TOTAL_SECONDS);
+        byId('timeCursor').value = String(activeTime);
+        byId('timeCursorLabel').textContent = formatTime(activeTime);
     }
     if (!track) return;
     track.innerHTML = '';
     const playhead = document.createElement('div');
     playhead.className = 'timeline-playhead';
-    playhead.style.left = `${((TOTAL_SECONDS - (active?.time || TOTAL_SECONDS)) / TOTAL_SECONDS) * 100}%`;
+    playhead.style.left = `${timeToPercent(activeTime)}%`;
     track.appendChild(playhead);
     const markTimes = new Set(state.payload.marks.map(mark => mark.time));
     SYSTEM_EVENTS.forEach(event => {
@@ -1522,7 +1753,7 @@ function renderTimeline() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `mark-btn ghost ${event.cls}`;
-        btn.style.left = `${((TOTAL_SECONDS - event.time) / TOTAL_SECONDS) * 100}%`;
+        btn.style.left = `${timeToPercent(event.time)}%`;
         btn.title = `${formatTime(event.time)} · ${event.label}`;
         btn.onclick = () => addTimelineEventMark(event);
         const label = document.createElement('span');
@@ -1535,7 +1766,7 @@ function renderTimeline() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `mark-btn ghost ${event.cls}`;
-        btn.style.left = `${((TOTAL_SECONDS - event.time) / TOTAL_SECONDS) * 100}%`;
+        btn.style.left = `${timeToPercent(event.time)}%`;
         btn.title = `${formatTime(event.time)} · ${event.label}`;
         btn.onclick = () => addTimelineEventMark(event);
         const label = document.createElement('span');
@@ -1551,7 +1782,7 @@ function renderTimeline() {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = `mark-btn ${getMarkClass(mark)}${mark.id === state.payload.activeMarkId ? ' active' : ''}`;
-            btn.style.left = `${((TOTAL_SECONDS - mark.time) / TOTAL_SECONDS) * 100}%`;
+            btn.style.left = `${timeToPercent(mark.time)}%`;
             btn.title = `${formatTime(mark.time)} · ${mark.label || event?.label || 'Custom'}`;
             btn.onclick = () => selectMark(mark.id);
             btn.onpointerdown = (event) => {
@@ -1585,11 +1816,13 @@ function cloneMarkForTime(source, time) {
         type: event?.type || 'custom',
         dots: (source?.dots || []).map(dot => ({ ...cloneJson(dot), id: newId('d'), systemId: dot.systemId || null })),
         strokes: (source?.strokes || []).map(stroke => ({ ...cloneJson(stroke), id: newId('s') })),
+        mapObjects: (source?.mapObjects || getDefaultMapObjects()).map(obj => normalizeMapObject(cloneJson(obj))),
         towerGuards: {},
         jungleAssign: {},
         inherited: Boolean(source)
     };
     ensureSystemDotsForMark(next);
+    ensureMapObjectsForMark(next);
     return next;
 }
 
@@ -1604,6 +1837,7 @@ function createInheritedMark(time, source = null) {
     if (source) return cloneMarkForTime(source, time);
     const mark = createDefaultMark(time);
     ensureSystemDotsForMark(mark);
+    ensureMapObjectsForMark(mark);
     return {
         ...mark,
         inherited: false
@@ -1786,7 +2020,7 @@ async function loadSketchLists() {
         state.publicSketches = publicRows.data || [];
     } catch (error) {
         markSketchTableUnavailable(error);
-        if (!state.tableAvailable) showToast('Chưa có bảng bc_tactic_sketches');
+        if (!state.tableAvailable) showToast('Chưa lưu online: thiếu bảng bc_tactic_sketches');
         else console.warn('[Sketch] Load lists failed:', error);
     }
     renderSketchLists();
@@ -1957,7 +2191,7 @@ async function saveSketch() {
     } catch (error) {
         markSketchTableUnavailable(error);
         console.warn('[Sketch] Save failed:', error);
-        showToast(state.tableAvailable ? `Lưu lỗi: ${error.message || error}` : 'Chưa có bảng bc_tactic_sketches');
+        showToast(state.tableAvailable ? `Lưu lỗi: ${error.message || error}` : 'Chưa lưu online: thiếu bảng bc_tactic_sketches');
     } finally {
         updateStatus();
     }

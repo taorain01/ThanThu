@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Phác Thảo Chiến Thuật - Lang Gia</title>
+<meta name="description" content="Phác thảo chiến thuật tự do cho Bang Chiến Lang Gia">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#08140d">
+<link rel="apple-touch-icon" href="./anh/langgia_icon.png">
+<link rel="icon" type="image/png" href="./anh/langgia_icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="./cpopup.css">
+<script src="./cpopup.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08140d;--panel:#0d1d13;--panel2:#102619;--line:rgba(134,239,172,.15);
+  --text:#e5edf0;--muted:#95a3ad;--faint:#61717b;--gold:#fbbf24;--green:#4ade80;
+  --red:#f87171;--blue:#60a5fa;--violet:#a78bfa;--cyan:#22d3ee;
+  --header-h:56px;--timeline-h:128px;--side-w:292px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:radial-gradient(circle at 50% 0,#12351f 0,#08140d 42%,#040806 100%);color:var(--text);user-select:none;-webkit-user-select:none}
+button,input{font-family:inherit}
+button{border:0}
+.auth-overlay,.denied-overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(4,8,6,.96);padding:20px}
+.auth-card{width:min(420px,92vw);border:1px solid rgba(251,191,36,.22);border-radius:14px;background:linear-gradient(180deg,rgba(16,38,25,.96),rgba(8,20,13,.96));padding:24px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.auth-card img{width:72px;height:72px;border-radius:18px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(251,191,36,.28))}
+.auth-card h1{font-size:22px;color:var(--gold);margin-bottom:8px}
+.auth-card p{font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:16px}
+.auth-card .login-btn,.auth-card .back-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 18px;border-radius:10px;cursor:pointer;font-weight:800;font-size:13px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.36);color:#fde68a}
+.auth-card .back-btn{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--text);margin-left:8px}
+.app{height:100%;display:flex;flex-direction:column;min-height:0}
+.topbar{height:var(--header-h);display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,rgba(8,20,13,.96),rgba(16,38,25,.94));flex-shrink:0}
+.topbar .back{height:34px;padding:0 12px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--muted);cursor:pointer;font-weight:700;font-size:12px}
+.topbar .back:hover{color:#bbf7d0;border-color:rgba(74,222,128,.35)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.brand img{width:34px;height:34px;border-radius:9px}
+.brand-main{font-size:15px;font-weight:900;color:var(--gold);white-space:nowrap}
+.brand-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title-input{width:min(320px,30vw);height:34px;border-radius:9px;border:1px solid rgba(251,191,36,.22);background:rgba(0,0,0,.22);color:#fde68a;padding:0 10px;font-size:12px;font-weight:700;outline:none}
+.title-input:focus{border-color:rgba(251,191,36,.62);box-shadow:0 0 0 3px rgba(251,191,36,.08)}
+.public-toggle{height:34px;display:inline-flex;align-items:center;gap:7px;padding:0 10px;border-radius:9px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);font-size:12px;color:var(--muted);white-space:nowrap}
+.public-toggle input{accent-color:var(--green)}
+.hdr-btn{height:34px;padding:0 13px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer;font-size:12px;font-weight:800;white-space:nowrap}
+.hdr-btn.primary{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fde68a}
+.hdr-btn.warn{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.35);color:#bfdbfe}
+.hdr-btn:disabled,.title-input:disabled,.public-toggle.disabled{opacity:.45;cursor:not-allowed}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);overflow:hidden}
+.side{background:linear-gradient(180deg,rgba(13,29,19,.96),rgba(8,20,13,.97));border-right:1px solid var(--line);overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.side::-webkit-scrollbar{width:5px}.side::-webkit-scrollbar-thumb{background:rgba(251,191,36,.18);border-radius:4px}
+.section{border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.025);border-radius:10px;padding:10px}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--gold);font-weight:900;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tool-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tool-btn{height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.045);color:var(--muted);cursor:pointer;font-weight:900;font-size:16px}
+.tool-btn.active{background:rgba(74,222,128,.14);border-color:rgba(74,222,128,.52);color:#bbf7d0;box-shadow:0 0 18px rgba(74,222,128,.12)}
+.tool-btn:disabled{opacity:.35;cursor:not-allowed}
+.color-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.color-btn{height:26px;border-radius:999px;border:2px solid rgba(255,255,255,.14);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.color-btn.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.08),0 0 16px color-mix(in srgb,currentColor 45%,transparent)}
+.range-row{display:grid;grid-template-columns:72px 1fr 34px;gap:8px;align-items:center;margin-top:8px;color:var(--muted);font-size:11px;font-weight:700}
+.range-row input{width:100%;accent-color:var(--gold)}
+.action-row{display:flex;gap:6px;flex-wrap:wrap}
+.mini-btn{height:30px;padding:0 9px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);color:var(--text);cursor:pointer;font-size:11px;font-weight:800}
+.mini-btn.danger{color:#fecaca;border-color:rgba(248,113,113,.22);background:rgba(248,113,113,.06)}
+.mini-btn:disabled{opacity:.35;cursor:not-allowed}
+.sketch-list{display:flex;flex-direction:column;gap:6px;min-height:42px}
+.sketch-item{width:100%;text-align:left;border-radius:9px;border:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.14);color:var(--text);padding:8px;cursor:pointer}
+.sketch-item:hover{border-color:rgba(74,222,128,.32);background:rgba(74,222,128,.06)}
+.sketch-item.active{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.08)}
+.sketch-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sketch-meta{font-size:10px;color:var(--faint);margin-top:3px;display:flex;justify-content:space-between;gap:8px}
+.empty-note{font-size:12px;color:var(--faint);line-height:1.45;padding:7px 2px}
+.workspace{display:flex;flex-direction:column;min-width:0;min-height:0}
+.map-wrap{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 50%,rgba(20,43,29,.7),rgba(4,8,6,.92))}
+.map-stage{position:relative;width:min(100%,calc((100vh - var(--header-h) - var(--timeline-h) - 42px) * 43 / 24));max-width:100%;max-height:100%;aspect-ratio:43/24;touch-action:none;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-stage img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.draw-layer,.dot-layer{position:absolute;inset:0;width:100%;height:100%}
+.draw-layer{z-index:3;pointer-events:none;overflow:visible}
+.dot-layer{z-index:4;pointer-events:none}
+.sk-dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.55),0 0 14px currentColor;pointer-events:auto;cursor:grab}
+.sk-dot:active{cursor:grabbing}
+.sk-dot.square{border-radius:5px}
+.readonly .sk-dot{cursor:default}
+.map-badge{position:absolute;left:24px;top:22px;z-index:8;display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100% - 48px));padding:8px 11px;border-radius:10px;background:rgba(5,10,7,.82);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);font-size:12px;color:var(--muted);box-shadow:0 8px 24px rgba(0,0,0,.28)}
+.map-badge strong{color:#bbf7d0}
+.toast{position:fixed;left:50%;bottom:calc(var(--timeline-h) + 18px);z-index:70;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;max-width:min(520px,92vw);padding:10px 14px;border-radius:10px;background:rgba(10,18,12,.94);border:1px solid rgba(251,191,36,.26);color:#fde68a;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,0,0,.42);transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.timeline{height:var(--timeline-h);flex-shrink:0;border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(13,29,19,.98),rgba(8,20,13,.99));padding:10px 16px}
+.timeline-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.active-time{min-width:70px;color:var(--gold);font-size:17px;font-weight:900}
+.time-range{flex:1;accent-color:var(--gold)}
+.time-readout{width:58px;text-align:center;color:#fde68a;font-size:12px;font-weight:800}
+.timeline-track{position:relative;height:46px;border-radius:12px;background:linear-gradient(90deg,rgba(251,191,36,.08),rgba(96,165,250,.08),rgba(248,113,113,.08));border:1px solid rgba(255,255,255,.07);overflow:hidden}
+.timeline-track::before{content:'';position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.12)}
+.mark-btn{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;transform:translate(-50%,-50%);background:var(--gold);border:2px solid rgba(0,0,0,.5);box-shadow:0 0 12px rgba(251,191,36,.45);cursor:pointer}
+.mark-btn.active{width:22px;height:22px;background:#fef3c7;box-shadow:0 0 18px rgba(251,191,36,.72)}
+.mark-btn span{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted);white-space:nowrap}
+.readonly .tool-btn,.readonly .mini-btn.edit-only{opacity:.35;cursor:not-allowed}
+@media (max-width: 900px){
+  :root{--header-h:96px;--timeline-h:142px;--side-w:100%}
+  .topbar{height:var(--header-h);flex-wrap:wrap;align-content:center;padding:8px 10px}
+  .brand{order:1;flex:1 1 calc(100% - 78px)}
+  .topbar .back{order:0}
+  .title-input{order:2;width:calc(100% - 168px);flex:1 1 160px}
+  .public-toggle{order:3}
+  .hdr-btn{order:4;height:32px;padding:0 10px}
+  .main{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .side{max-height:214px;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr;overflow:auto}
+  .workspace{min-height:0}
+  .map-wrap{padding:8px}
+  .map-stage{width:100%;height:auto}
+  .map-badge{left:12px;top:12px;font-size:11px}
+  .timeline{padding:8px 10px}
+  .tool-grid{grid-template-columns:repeat(5,42px)}
+}
+@media (max-width: 560px){
+  .brand-sub{display:none}
+  .title-input{width:100%;flex-basis:100%}
+  .public-toggle{height:30px}
+  .hdr-btn{font-size:11px}
+  .side{max-height:238px}
+  .timeline-top{flex-wrap:wrap}
+  .time-range{flex-basis:100%;order:4}
+}
+</style>
+</head>
+<body>
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <img src="./anh/langgia_icon.png" alt="Lang Gia">
+    <h1>Phác Thảo Chiến Thuật</h1>
+    <p id="authText">Đăng nhập Discord để mở bản phác thảo.</p>
+    <button class="login-btn" onclick="loginDiscord()">Đăng nhập Discord</button>
+    <button class="back-btn" onclick="goBack()">Về trang chính</button>
+  </div>
+</div>
+
+<div class="denied-overlay" id="deniedOverlay" style="display:none">
+  <div class="auth-card">
+    <img src="./anh/langgia_icon.png" alt="Lang Gia">
+    <h1>Chưa có quyền</h1>
+    <p>Account này chưa thuộc Lang Gia hoặc đã rời guild.</p>
+    <button class="back-btn" onclick="goBack()">Về trang chính</button>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
+  <header class="topbar">
+    <button class="back" onclick="goBack()">← Web chính</button>
+    <div class="brand">
+      <img src="./anh/langgia_icon.png" alt="">
+      <div>
+        <div class="brand-main">Phác Thảo</div>
+        <div class="brand-sub" id="sessionLabel">Đang tải session...</div>
+      </div>
+    </div>
+    <input class="title-input" id="sketchTitle" maxlength="80" value="Phác thảo mới" aria-label="Tên bản vẽ">
+    <label class="public-toggle" id="publicWrap"><input type="checkbox" id="publicToggle" checked> Công khai</label>
+    <button class="hdr-btn warn" id="copyBtn" onclick="copyCurrentSketch()" style="display:none">Tạo bản sao</button>
+    <button class="hdr-btn primary" id="saveBtn" onclick="saveSketch()">Lưu</button>
+  </header>
+
+  <main class="main">
+    <aside class="side">
+      <section class="section">
+        <div class="section-title"><span>Công cụ</span><span id="toolName">Di chuyển</span></div>
+        <div class="tool-grid">
+          <button class="tool-btn active" id="toolSelect" onclick="setTool('select')" title="Di chuyển">↔</button>
+          <button class="tool-btn" id="toolDot" onclick="setTool('dot')" title="Thêm chấm">●</button>
+          <button class="tool-btn" id="toolPen" onclick="setTool('pen')" title="Bút vẽ">✎</button>
+          <button class="tool-btn" id="toolArrow" onclick="setTool('arrow')" title="Mũi tên">➜</button>
+          <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')" title="Tẩy">⌫</button>
+        </div>
+        <div class="range-row">
+          <span>Chấm</span>
+          <input type="range" id="dotSize" min="10" max="34" value="18">
+          <strong id="dotSizeLabel">18</strong>
+        </div>
+        <div class="range-row">
+          <span>Bút</span>
+          <input type="range" id="brushSize" min="2" max="12" value="4">
+          <strong id="brushSizeLabel">4</strong>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Màu</div>
+        <div class="color-grid" id="colorGrid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Thao tác</div>
+        <div class="action-row">
+          <button class="mini-btn edit-only" onclick="undoSketch()">Undo</button>
+          <button class="mini-btn edit-only" onclick="redoSketch()">Redo</button>
+          <button class="mini-btn edit-only" onclick="duplicateActiveMark()">Copy mốc</button>
+          <button class="mini-btn edit-only" onclick="clearActiveMark()">Dọn mốc</button>
+          <button class="mini-btn danger edit-only" onclick="deleteActiveMark()">Xóa mốc</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title"><span>Bản của tôi</span><button class="mini-btn" onclick="createNewSketch()">Bản mới</button></div>
+        <div class="sketch-list" id="mySketchList"><div class="empty-note">Đang tải...</div></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Bản công khai</div>
+        <div class="sketch-list" id="publicSketchList"><div class="empty-note">Đang tải...</div></div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="map-wrap">
+        <div class="map-badge" id="mapStatus"><strong>Local</strong><span>Đang chuẩn bị bản vẽ...</span></div>
+        <div class="map-stage" id="mapStage">
+          <img src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
+          <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="dot-layer" id="dotLayer"></div>
+        </div>
+      </div>
+      <footer class="timeline">
+        <div class="timeline-top">
+          <div class="active-time" id="activeTime">30:00</div>
+          <input class="time-range" type="range" id="timeCursor" min="0" max="1800" step="30" value="1800">
+          <div class="time-readout" id="timeCursorLabel">30:00</div>
+          <button class="mini-btn edit-only" onclick="addMarkAtCursor(false)">Thêm mốc</button>
+          <button class="mini-btn edit-only" onclick="addMarkAtCursor(true)">Thêm + copy</button>
+        </div>
+        <div class="timeline-track" id="timelineTrack"></div>
+      </footer>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
+const GUILD_ID = '450633680000385036';
+const SKETCH_TABLE = 'bc_tactic_sketches';
+const TOTAL_SECONDS = 1800;
+const DAY_LABELS = {
+    mon: 'Thứ 2', tue: 'Thứ 3', wed: 'Thứ 4', thu: 'Thứ 5',
+    fri: 'Thứ 6', sat: 'Thứ 7', sun: 'Chủ Nhật'
+};
+const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440']);
+const TOOL_LABELS = {
+    select: 'Di chuyển',
+    dot: 'Thêm chấm',
+    pen: 'Bút vẽ',
+    arrow: 'Mũi tên',
+    eraser: 'Tẩy'
+};
+const COLORS = ['#60a5fa', '#f87171', '#4ade80', '#fbbf24', '#a78bfa', '#22d3ee', '#f8fafc'];
+
+let sb = null;
+try {
+    const createFn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
+    if (createFn) {
+        sb = createFn(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { flowType: 'implicit', autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+        });
+    }
+} catch (error) {
+    console.error('[Sketch] Supabase init failed:', error);
+}
+
+const params = new URLSearchParams(window.location.search);
+const state = {
+    currentDay: params.get('day') || sessionStorage.getItem('tactic_sketch_target_day') || 'sat',
+    requestedSessionId: params.get('session') || sessionStorage.getItem('tactic_sketch_target_session_id') || '',
+    requestedSketchId: params.get('sketch') || '',
+    sessionRow: null,
+    discordId: '',
+    userName: 'User',
+    payload: null,
+    currentSketch: null,
+    mySketches: [],
+    publicSketches: [],
+    activeTool: 'select',
+    activeColor: COLORS[0],
+    dotSize: 18,
+    brushSize: 4,
+    dirty: false,
+    readOnly: false,
+    tableAvailable: true,
+    history: [],
+    future: [],
+    pointer: null,
+    toastTimer: null
+};
+
+function byId(id) {
+    return document.getElementById(id);
+}
+
+function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function newId(prefix) {
+    if (window.crypto?.randomUUID) return `${prefix}_${crypto.randomUUID()}`;
+    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function clamp(value, min, max) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.min(max, Math.max(min, n));
+}
+
+function clampTime(value) {
+    return Math.round(clamp(value, 0, TOTAL_SECONDS) / 30) * 30;
+}
+
+function formatTime(seconds) {
+    const safe = clampTime(seconds);
+    const minutes = Math.floor(safe / 60);
+    const rest = safe % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
+}
+
+function formatDate(value) {
+    if (!value) return '';
+    try {
+        return new Date(value).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+        return '';
+    }
+}
+
+function normalizeRoleText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function isLeftWebPosition(position) {
+    return ['khong co', 'left', 'out'].includes(normalizeRoleText(position));
+}
+
+function hasKcWebAccess(discordId = state.discordId) {
+    return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
+}
+
+function canBypassMemberGate() {
+    return params.get('test') === '1' && hasKcWebAccess();
+}
+
+function showToast(message, kind = '') {
+    const el = byId('toast');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `toast show ${kind}`.trim();
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => { el.className = 'toast'; }, 2600);
+}
+
+async function loginDiscord() {
+    if (!sb) {
+        byId('authText').textContent = 'Supabase chưa sẵn sàng, hãy refresh trang.';
+        return;
+    }
+    const { error } = await sb.auth.signInWithOAuth({
+        provider: 'discord',
+        options: { redirectTo: window.location.origin + window.location.pathname + window.location.search }
+    });
+    if (error) byId('authText').textContent = `Lỗi đăng nhập: ${error.message}`;
+}
+
+function goBack() {
+    const sessionParam = state.sessionRow?.id ? `&session=${encodeURIComponent(state.sessionRow.id)}` : '';
+    window.location.href = `./index.html?day=${encodeURIComponent(state.currentDay || 'sat')}${sessionParam}`;
+}
+
+async function checkAuth() {
+    if (!sb) return;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+
+    const meta = session.user.user_metadata || {};
+    state.discordId = String(meta.provider_id || meta.sub || '');
+    state.userName = meta.full_name || meta.name || 'User';
+    if (!state.discordId) {
+        showDenied();
+        return;
+    }
+
+    let accessUser = null;
+    try {
+        const { data, error } = await sb.from('bc_users')
+            .select('position, lang_gia_member')
+            .eq('discord_id', state.discordId)
+            .maybeSingle();
+        if (error) console.warn('[Sketch] Load user failed:', error);
+        accessUser = data || null;
+    } catch (error) {
+        console.warn('[Sketch] Load user exception:', error);
+    }
+
+    const activeMember = accessUser?.lang_gia_member === true && !isLeftWebPosition(accessUser?.position);
+    if (!activeMember && !canBypassMemberGate()) {
+        showDenied();
+        return;
+    }
+
+    byId('authOverlay').style.display = 'none';
+    byId('app').style.display = 'flex';
+
+    bindUi();
+    setupColors();
+    createNewSketch({ silent: true });
+    await loadSessionContext();
+    await loadSketchLists();
+
+    if (state.requestedSketchId) {
+        const loaded = await loadSketchById(state.requestedSketchId);
+        if (!loaded) await loadLatestOrBlank();
+    } else {
+        await loadLatestOrBlank();
+    }
+    updateStatus();
+}
+
+function showDenied() {
+    byId('authOverlay').style.display = 'none';
+    byId('deniedOverlay').style.display = 'flex';
+}
+
+async function loadSessionContext() {
+    let row = null;
+    if (state.requestedSessionId) {
+        try {
+            const { data, error } = await sb.from('bc_sessions')
+                .select('id, guild_id, day, time, note, status, updated_at')
+                .eq('guild_id', GUILD_ID)
+                .eq('id', state.requestedSessionId)
+                .maybeSingle();
+            if (error) console.warn('[Sketch] Load requested session failed:', error);
+            row = data || null;
+        } catch (error) {
+            console.warn('[Sketch] Load requested session exception:', error);
+        }
+    }
+
+    if (!row) {
+        try {
+            const { data, error } = await sb.from('bc_sessions')
+                .select('id, guild_id, day, time, note, status, updated_at')
+                .eq('guild_id', GUILD_ID)
+                .eq('day', state.currentDay)
+                .order('updated_at', { ascending: false })
+                .limit(1);
+            if (error) console.warn('[Sketch] Load day session failed:', error);
+            row = Array.isArray(data) ? data[0] : null;
+        } catch (error) {
+            console.warn('[Sketch] Load day session exception:', error);
+        }
+    }
+
+    state.sessionRow = row;
+    if (row?.day) state.currentDay = row.day;
+    try {
+        sessionStorage.setItem('tactic_sketch_target_day', state.currentDay);
+        if (row?.id) sessionStorage.setItem('tactic_sketch_target_session_id', row.id);
+    } catch (error) {}
+
+    const label = DAY_LABELS[state.currentDay] || state.currentDay;
+    const timeText = row?.time ? ` · ${row.time}` : '';
+    byId('sessionLabel').textContent = row ? `${label}${timeText}` : `${label} · chưa có session`;
+}
+
+function createDefaultMark(time = TOTAL_SECONDS) {
+    return {
+        id: newId('m'),
+        time: clampTime(time),
+        label: formatTime(time),
+        dots: [],
+        strokes: []
+    };
+}
+
+function createDefaultPayload() {
+    const mark = createDefaultMark(TOTAL_SECONDS);
+    return { version: 1, activeMarkId: mark.id, marks: [mark] };
+}
+
+function normalizePoint(point) {
+    return {
+        x: clamp(point?.x, 0, 100),
+        y: clamp(point?.y, 0, 100)
+    };
+}
+
+function normalizeDot(dot) {
+    return {
+        id: String(dot?.id || newId('d')),
+        x: clamp(dot?.x, 0, 100),
+        y: clamp(dot?.y, 0, 100),
+        color: COLORS.includes(dot?.color) ? dot.color : String(dot?.color || state.activeColor || COLORS[0]),
+        size: clamp(dot?.size, 10, 40),
+        shape: dot?.shape === 'square' ? 'square' : 'circle'
+    };
+}
+
+function normalizeStroke(stroke) {
+    const points = Array.isArray(stroke?.points) ? stroke.points.map(normalizePoint).filter(Boolean) : [];
+    return {
+        id: String(stroke?.id || newId('s')),
+        tool: stroke?.tool === 'arrow' ? 'arrow' : 'pen',
+        color: COLORS.includes(stroke?.color) ? stroke.color : String(stroke?.color || state.activeColor || COLORS[0]),
+        width: clamp(stroke?.width, 1, 16),
+        points: points.length ? points : [{ x: 50, y: 50 }, { x: 52, y: 52 }]
+    };
+}
+
+function normalizeMark(mark) {
+    const time = clampTime(mark?.time ?? TOTAL_SECONDS);
+    return {
+        id: String(mark?.id || newId('m')),
+        time,
+        label: String(mark?.label || formatTime(time)).slice(0, 24),
+        dots: Array.isArray(mark?.dots) ? mark.dots.map(normalizeDot) : [],
+        strokes: Array.isArray(mark?.strokes) ? mark.strokes.map(normalizeStroke) : []
+    };
+}
+
+function normalizePayload(raw) {
+    let parsed = raw || null;
+    if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch (error) { parsed = null; }
+    }
+    const base = parsed && typeof parsed === 'object' ? parsed : createDefaultPayload();
+    let marks = Array.isArray(base.marks) ? base.marks.map(normalizeMark) : [];
+    if (!marks.length) marks = [createDefaultMark(TOTAL_SECONDS)];
+    marks.sort((a, b) => b.time - a.time);
+    const activeMarkId = marks.some(mark => mark.id === base.activeMarkId) ? base.activeMarkId : marks[0].id;
+    return { version: 1, activeMarkId, marks };
+}
+
+function getActiveMark() {
+    if (!state.payload) state.payload = createDefaultPayload();
+    const mark = state.payload.marks.find(item => item.id === state.payload.activeMarkId);
+    if (mark) return mark;
+    state.payload.activeMarkId = state.payload.marks[0]?.id;
+    return state.payload.marks[0];
+}
+
+function canEditActiveSketch() {
+    return !state.readOnly;
+}
+
+function setDirty(value = true) {
+    if (state.readOnly && value) return;
+    state.dirty = value;
+    updateStatus();
+}
+
+function recordHistory() {
+    if (state.readOnly) return;
+    state.history.push(JSON.stringify(state.payload || createDefaultPayload()));
+    if (state.history.length > 60) state.history.shift();
+    state.future = [];
+}
+
+function restoreSnapshot(snapshot) {
+    try {
+        state.payload = normalizePayload(JSON.parse(snapshot));
+        renderAll();
+        setDirty(true);
+    } catch (error) {
+        console.warn('[Sketch] Restore snapshot failed:', error);
+    }
+}
+
+function undoSketch() {
+    if (state.readOnly || !state.history.length) return;
+    state.future.push(JSON.stringify(state.payload));
+    restoreSnapshot(state.history.pop());
+}
+
+function redoSketch() {
+    if (state.readOnly || !state.future.length) return;
+    state.history.push(JSON.stringify(state.payload));
+    restoreSnapshot(state.future.pop());
+}
+
+function updateStatus() {
+    const badge = byId('mapStatus');
+    const saveBtn = byId('saveBtn');
+    const copyBtn = byId('copyBtn');
+    const titleInput = byId('sketchTitle');
+    const publicToggle = byId('publicToggle');
+    const publicWrap = byId('publicWrap');
+    document.body.classList.toggle('readonly', state.readOnly);
+
+    const editDisabled = state.readOnly;
+    const saveDisabled = state.readOnly || !state.tableAvailable;
+    if (saveBtn) saveBtn.disabled = saveDisabled;
+    if (titleInput) titleInput.disabled = state.readOnly;
+    if (publicToggle) publicToggle.disabled = state.readOnly;
+    if (publicWrap) publicWrap.classList.toggle('disabled', state.readOnly);
+    if (copyBtn) copyBtn.style.display = state.readOnly ? '' : 'none';
+    document.querySelectorAll('.tool-btn,.mini-btn.edit-only').forEach(btn => { btn.disabled = editDisabled; });
+
+    if (!badge) return;
+    const activeMark = getActiveMark();
+    let strong = 'Local';
+    let text = `${formatTime(activeMark?.time || TOTAL_SECONDS)} · ${activeMark?.dots?.length || 0} chấm · ${activeMark?.strokes?.length || 0} nét`;
+    if (!state.tableAvailable) {
+        strong = 'Chưa có bảng';
+        text = 'Chạy migration bc_tactic_sketches để lưu bản vẽ';
+    } else if (state.readOnly) {
+        strong = 'Đang xem';
+        text = 'Tạo bản sao để chỉnh sửa';
+    } else if (state.dirty) {
+        strong = 'Chưa lưu';
+    } else if (state.currentSketch?.id) {
+        strong = 'Đã lưu';
+    }
+    badge.innerHTML = '';
+    const s = document.createElement('strong');
+    s.textContent = strong;
+    const span = document.createElement('span');
+    span.textContent = text;
+    badge.append(s, span);
+}
+
+function setupColors() {
+    const grid = byId('colorGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    COLORS.forEach(color => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `color-btn${color === state.activeColor ? ' active' : ''}`;
+        btn.style.background = color;
+        btn.style.color = color;
+        btn.title = color;
+        btn.onclick = () => selectColor(color);
+        grid.appendChild(btn);
+    });
+}
+
+function selectColor(color) {
+    state.activeColor = color;
+    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.toggle('active', btn.title === color));
+}
+
+function setTool(tool) {
+    state.activeTool = TOOL_LABELS[tool] ? tool : 'select';
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    byId(`tool${state.activeTool[0].toUpperCase()}${state.activeTool.slice(1)}`)?.classList.add('active');
+    byId('toolName').textContent = TOOL_LABELS[state.activeTool] || TOOL_LABELS.select;
+}
+
+function bindUi() {
+    const mapStage = byId('mapStage');
+    if (mapStage && !mapStage.dataset.bound) {
+        mapStage.dataset.bound = '1';
+        mapStage.addEventListener('pointerdown', onPointerDown);
+        mapStage.addEventListener('contextmenu', event => event.preventDefault());
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+    }
+
+    const dotSize = byId('dotSize');
+    const brushSize = byId('brushSize');
+    const timeCursor = byId('timeCursor');
+    const title = byId('sketchTitle');
+    const pub = byId('publicToggle');
+    if (dotSize && !dotSize.dataset.bound) {
+        dotSize.dataset.bound = '1';
+        dotSize.addEventListener('input', () => {
+            state.dotSize = Number(dotSize.value) || 18;
+            byId('dotSizeLabel').textContent = String(state.dotSize);
+        });
+    }
+    if (brushSize && !brushSize.dataset.bound) {
+        brushSize.dataset.bound = '1';
+        brushSize.addEventListener('input', () => {
+            state.brushSize = Number(brushSize.value) || 4;
+            byId('brushSizeLabel').textContent = String(state.brushSize);
+        });
+    }
+    if (timeCursor && !timeCursor.dataset.bound) {
+        timeCursor.dataset.bound = '1';
+        timeCursor.addEventListener('input', () => {
+            byId('timeCursorLabel').textContent = formatTime(timeCursor.value);
+        });
+    }
+    if (title && !title.dataset.bound) {
+        title.dataset.bound = '1';
+        title.addEventListener('input', () => setDirty(true));
+    }
+    if (pub && !pub.dataset.bound) {
+        pub.dataset.bound = '1';
+        pub.addEventListener('change', () => setDirty(true));
+    }
+    if (!window.__sketchBeforeUnloadBound) {
+        window.__sketchBeforeUnloadBound = true;
+        window.addEventListener('beforeunload', event => {
+            if (!state.readOnly && state.dirty) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+    }
+}
+
+function pointFromEvent(event) {
+    const rect = byId('mapStage').getBoundingClientRect();
+    return {
+        x: clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100),
+        y: clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100)
+    };
+}
+
+function findDot(id) {
+    return getActiveMark()?.dots?.find(dot => dot.id === id);
+}
+
+function onPointerDown(event) {
+    if (!canEditActiveSketch()) return;
+    const dotEl = event.target.closest?.('.sk-dot');
+    const point = pointFromEvent(event);
+
+    if (state.activeTool === 'eraser') {
+        state.pointer = { type: 'erase', recorded: false, pointerId: event.pointerId };
+        eraseAt(point, true);
+        event.preventDefault();
+        return;
+    }
+
+    if (dotEl && state.activeTool === 'select') {
+        recordHistory();
+        state.pointer = { type: 'drag-dot', dotId: dotEl.dataset.id, pointerId: event.pointerId };
+        byId('mapStage').setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+        return;
+    }
+
+    if (dotEl) return;
+
+    if (state.activeTool === 'dot') {
+        recordHistory();
+        getActiveMark().dots.push({
+            id: newId('d'),
+            x: point.x,
+            y: point.y,
+            color: state.activeColor,
+            size: state.dotSize,
+            shape: 'circle'
+        });
+        renderDots();
+        setDirty(true);
+        event.preventDefault();
+        return;
+    }
+
+    if (state.activeTool === 'pen' || state.activeTool === 'arrow') {
+        recordHistory();
+        const stroke = {
+            id: newId('s'),
+            tool: state.activeTool === 'arrow' ? 'arrow' : 'pen',
+            color: state.activeColor,
+            width: state.brushSize,
+            points: [point, state.activeTool === 'arrow' ? point : null].filter(Boolean)
+        };
+        getActiveMark().strokes.push(stroke);
+        state.pointer = { type: 'stroke', strokeId: stroke.id, pointerId: event.pointerId };
+        byId('mapStage').setPointerCapture?.(event.pointerId);
+        renderStrokes();
+        event.preventDefault();
+    }
+}
+
+function onPointerMove(event) {
+    if (!state.pointer || state.pointer.pointerId !== event.pointerId || state.readOnly) return;
+    const point = pointFromEvent(event);
+    if (state.pointer.type === 'drag-dot') {
+        const dot = findDot(state.pointer.dotId);
+        if (dot) {
+            dot.x = point.x;
+            dot.y = point.y;
+            renderDots();
+            setDirty(true);
+        }
+    } else if (state.pointer.type === 'stroke') {
+        const stroke = getActiveMark().strokes.find(item => item.id === state.pointer.strokeId);
+        if (stroke) {
+            if (stroke.tool === 'arrow') {
+                stroke.points[1] = point;
+            } else {
+                const last = stroke.points[stroke.points.length - 1];
+                if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 0.35) stroke.points.push(point);
+            }
+            renderStrokes();
+            setDirty(true);
+        }
+    } else if (state.pointer.type === 'erase') {
+        eraseAt(point, true);
+    }
+    event.preventDefault();
+}
+
+function onPointerUp(event) {
+    if (!state.pointer || state.pointer.pointerId !== event.pointerId) return;
+    if (state.pointer.type === 'stroke') {
+        const mark = getActiveMark();
+        const stroke = mark.strokes.find(item => item.id === state.pointer.strokeId);
+        if (stroke && stroke.points.length < 2) {
+            mark.strokes = mark.strokes.filter(item => item.id !== stroke.id);
+            renderStrokes();
+        }
+    }
+    byId('mapStage')?.releasePointerCapture?.(event.pointerId);
+    state.pointer = null;
+    updateStatus();
+}
+
+function findEraseTarget(point) {
+    const mark = getActiveMark();
+    let best = null;
+    for (const dot of mark.dots) {
+        const dist = Math.hypot(point.x - dot.x, point.y - dot.y);
+        if (dist <= 2.6 && (!best || dist < best.dist)) best = { kind: 'dot', id: dot.id, dist };
+    }
+    for (const stroke of mark.strokes) {
+        const points = stroke.points || [];
+        for (let i = 1; i < points.length; i++) {
+            const dist = distancePointToSegment(point, points[i - 1], points[i]);
+            if (dist <= 1.8 && (!best || dist < best.dist)) best = { kind: 'stroke', id: stroke.id, dist };
+        }
+    }
+    return best;
+}
+
+function distancePointToSegment(point, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    if (!dx && !dy) return Math.hypot(point.x - a.x, point.y - a.y);
+    const t = clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy), 0, 1);
+    return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}
+
+function eraseAt(point, fromPointer = false) {
+    const target = findEraseTarget(point);
+    if (!target) return false;
+    if (fromPointer && state.pointer?.type === 'erase' && !state.pointer.recorded) {
+        recordHistory();
+        state.pointer.recorded = true;
+    }
+    const mark = getActiveMark();
+    if (target.kind === 'dot') {
+        mark.dots = mark.dots.filter(dot => dot.id !== target.id);
+        renderDots();
+    } else {
+        mark.strokes = mark.strokes.filter(stroke => stroke.id !== target.id);
+        renderStrokes();
+    }
+    setDirty(true);
+    return true;
+}
+
+function renderAll() {
+    renderDots();
+    renderStrokes();
+    renderTimeline();
+    updateStatus();
+}
+
+function renderDots() {
+    const layer = byId('dotLayer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const mark = getActiveMark();
+    mark.dots.forEach(dot => {
+        const el = document.createElement('div');
+        el.className = `sk-dot ${dot.shape === 'square' ? 'square' : ''}`;
+        el.dataset.id = dot.id;
+        el.style.left = `${dot.x}%`;
+        el.style.top = `${dot.y}%`;
+        el.style.width = `${dot.size}px`;
+        el.style.height = `${dot.size}px`;
+        el.style.background = dot.color;
+        el.style.color = dot.color;
+        layer.appendChild(el);
+    });
+}
+
+function renderStrokes() {
+    const svg = byId('drawLayer');
+    if (!svg) return;
+    svg.innerHTML = '';
+
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    marker.setAttribute('id', 'arrowHead');
+    marker.setAttribute('viewBox', '0 0 10 10');
+    marker.setAttribute('refX', '8');
+    marker.setAttribute('refY', '5');
+    marker.setAttribute('markerWidth', '5');
+    marker.setAttribute('markerHeight', '5');
+    marker.setAttribute('orient', 'auto-start-reverse');
+    marker.setAttribute('markerUnits', 'strokeWidth');
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrow.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    arrow.setAttribute('fill', 'context-stroke');
+    marker.appendChild(arrow);
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+
+    const mark = getActiveMark();
+    mark.strokes.forEach(stroke => {
+        if (!stroke.points?.length) return;
+        if (stroke.tool === 'arrow') {
+            const a = stroke.points[0];
+            const b = stroke.points[1] || a;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', a.x);
+            line.setAttribute('y1', a.y);
+            line.setAttribute('x2', b.x);
+            line.setAttribute('y2', b.y);
+            line.setAttribute('stroke', stroke.color);
+            line.setAttribute('stroke-width', stroke.width);
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('marker-end', 'url(#arrowHead)');
+            line.setAttribute('vector-effect', 'non-scaling-stroke');
+            svg.appendChild(line);
+            return;
+        }
+        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        poly.setAttribute('points', stroke.points.map(point => `${point.x},${point.y}`).join(' '));
+        poly.setAttribute('fill', 'none');
+        poly.setAttribute('stroke', stroke.color);
+        poly.setAttribute('stroke-width', stroke.width);
+        poly.setAttribute('stroke-linecap', 'round');
+        poly.setAttribute('stroke-linejoin', 'round');
+        poly.setAttribute('vector-effect', 'non-scaling-stroke');
+        svg.appendChild(poly);
+    });
+}
+
+function renderTimeline() {
+    const track = byId('timelineTrack');
+    const active = getActiveMark();
+    byId('activeTime').textContent = formatTime(active?.time || TOTAL_SECONDS);
+    if (byId('timeCursor')) {
+        byId('timeCursor').value = String(active?.time || TOTAL_SECONDS);
+        byId('timeCursorLabel').textContent = formatTime(active?.time || TOTAL_SECONDS);
+    }
+    if (!track) return;
+    track.innerHTML = '';
+    state.payload.marks
+        .slice()
+        .sort((a, b) => b.time - a.time)
+        .forEach(mark => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `mark-btn${mark.id === state.payload.activeMarkId ? ' active' : ''}`;
+            btn.style.left = `${((TOTAL_SECONDS - mark.time) / TOTAL_SECONDS) * 100}%`;
+            btn.title = formatTime(mark.time);
+            btn.onclick = () => selectMark(mark.id);
+            const label = document.createElement('span');
+            label.textContent = formatTime(mark.time);
+            btn.appendChild(label);
+            track.appendChild(btn);
+        });
+}
+
+function selectMark(markId) {
+    if (!state.payload.marks.some(mark => mark.id === markId)) return;
+    state.payload.activeMarkId = markId;
+    renderAll();
+}
+
+function cloneMarkForTime(source, time) {
+    return {
+        id: newId('m'),
+        time: clampTime(time),
+        label: formatTime(time),
+        dots: (source?.dots || []).map(dot => ({ ...cloneJson(dot), id: newId('d') })),
+        strokes: (source?.strokes || []).map(stroke => ({ ...cloneJson(stroke), id: newId('s') }))
+    };
+}
+
+function addMarkAtCursor(copyCurrent = false) {
+    if (!canEditActiveSketch()) return;
+    const time = clampTime(byId('timeCursor')?.value || TOTAL_SECONDS);
+    const existing = state.payload.marks.find(mark => mark.time === time);
+    if (existing) {
+        selectMark(existing.id);
+        showToast('Mốc này đã có sẵn');
+        return;
+    }
+    recordHistory();
+    const base = copyCurrent ? getActiveMark() : null;
+    const mark = copyCurrent ? cloneMarkForTime(base, time) : createDefaultMark(time);
+    state.payload.marks.push(mark);
+    state.payload.marks.sort((a, b) => b.time - a.time);
+    state.payload.activeMarkId = mark.id;
+    renderAll();
+    setDirty(true);
+}
+
+function duplicateActiveMark() {
+    if (!canEditActiveSketch()) return;
+    const active = getActiveMark();
+    const usedTimes = new Set(state.payload.marks.map(mark => mark.time));
+    let time = clampTime(active.time - 30);
+    while (usedTimes.has(time) && time > 0) time -= 30;
+    if (usedTimes.has(time)) {
+        time = clampTime(active.time + 30);
+        while (usedTimes.has(time) && time < TOTAL_SECONDS) time += 30;
+    }
+    if (usedTimes.has(time)) {
+        showToast('Không còn mốc trống');
+        return;
+    }
+    recordHistory();
+    const mark = cloneMarkForTime(active, time);
+    state.payload.marks.push(mark);
+    state.payload.marks.sort((a, b) => b.time - a.time);
+    state.payload.activeMarkId = mark.id;
+    renderAll();
+    setDirty(true);
+}
+
+function clearActiveMark() {
+    if (!canEditActiveSketch()) return;
+    const mark = getActiveMark();
+    if (!mark || (!mark.dots.length && !mark.strokes.length)) return;
+    if (!window.confirm('Dọn toàn bộ chấm và nét ở mốc này?')) return;
+    recordHistory();
+    mark.dots = [];
+    mark.strokes = [];
+    renderAll();
+    setDirty(true);
+}
+
+function deleteActiveMark() {
+    if (!canEditActiveSketch()) return;
+    if (state.payload.marks.length <= 1) {
+        showToast('Cần giữ ít nhất một mốc');
+        return;
+    }
+    if (!window.confirm('Xóa mốc thời gian hiện tại?')) return;
+    recordHistory();
+    const activeId = state.payload.activeMarkId;
+    state.payload.marks = state.payload.marks.filter(mark => mark.id !== activeId);
+    state.payload.activeMarkId = state.payload.marks[0].id;
+    renderAll();
+    setDirty(true);
+}
+
+function buildSketchRows(containerId, rows, isPublicList) {
+    const el = byId(containerId);
+    if (!el) return;
+    el.innerHTML = '';
+    if (!state.tableAvailable) {
+        const msg = document.createElement('div');
+        msg.className = 'empty-note';
+        msg.textContent = 'Chưa đọc được bảng phác thảo.';
+        el.appendChild(msg);
+        return;
+    }
+    if (!rows.length) {
+        const msg = document.createElement('div');
+        msg.className = 'empty-note';
+        msg.textContent = isPublicList ? 'Chưa có bản công khai.' : 'Chưa có bản đã lưu.';
+        el.appendChild(msg);
+        return;
+    }
+    rows.forEach(row => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `sketch-item${row.id === state.currentSketch?.id ? ' active' : ''}`;
+        btn.onclick = () => loadSketchRowWithConfirm(row);
+        const name = document.createElement('div');
+        name.className = 'sketch-name';
+        name.textContent = row.title || 'Phác thảo';
+        const meta = document.createElement('div');
+        meta.className = 'sketch-meta';
+        const left = document.createElement('span');
+        left.textContent = isPublicList ? 'Public' : (row.is_public ? 'Công khai' : 'Riêng tư');
+        const right = document.createElement('span');
+        right.textContent = formatDate(row.updated_at);
+        meta.append(left, right);
+        btn.append(name, meta);
+        el.appendChild(btn);
+    });
+}
+
+function applySessionFilter(query) {
+    if (state.sessionRow?.id) return query.eq('session_id', state.sessionRow.id);
+    return query.is('session_id', null);
+}
+
+function isMissingSketchTableError(error) {
+    const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+    return text.includes('bc_tactic_sketches') || text.includes('42p01') || text.includes('pgrst205');
+}
+
+function markSketchTableUnavailable(error) {
+    if (isMissingSketchTableError(error)) {
+        state.tableAvailable = false;
+        console.warn('[Sketch] Table unavailable:', error);
+    }
+}
+
+async function loadSketchLists() {
+    if (!sb || !state.tableAvailable) {
+        renderSketchLists();
+        return;
+    }
+    const columns = 'id,title,is_public,discord_id,updated_at,created_at,payload';
+    try {
+        let ownQuery = sb.from(SKETCH_TABLE)
+            .select(columns)
+            .eq('guild_id', GUILD_ID)
+            .eq('day', state.currentDay)
+            .eq('discord_id', state.discordId)
+            .order('updated_at', { ascending: false })
+            .limit(24);
+        ownQuery = applySessionFilter(ownQuery);
+        const own = await ownQuery;
+        if (own.error) throw own.error;
+        state.mySketches = own.data || [];
+
+        let publicQuery = sb.from(SKETCH_TABLE)
+            .select(columns)
+            .eq('guild_id', GUILD_ID)
+            .eq('day', state.currentDay)
+            .eq('is_public', true)
+            .neq('discord_id', state.discordId)
+            .order('updated_at', { ascending: false })
+            .limit(24);
+        publicQuery = applySessionFilter(publicQuery);
+        const publicRows = await publicQuery;
+        if (publicRows.error) throw publicRows.error;
+        state.publicSketches = publicRows.data || [];
+    } catch (error) {
+        markSketchTableUnavailable(error);
+        if (!state.tableAvailable) showToast('Chưa có bảng bc_tactic_sketches');
+        else console.warn('[Sketch] Load lists failed:', error);
+    }
+    renderSketchLists();
+}
+
+function renderSketchLists() {
+    buildSketchRows('mySketchList', state.mySketches, false);
+    buildSketchRows('publicSketchList', state.publicSketches, true);
+}
+
+async function loadLatestOrBlank() {
+    if (state.mySketches.length) {
+        await loadSketchRow(state.mySketches[0]);
+        return;
+    }
+    createNewSketch({ silent: true });
+}
+
+async function loadSketchById(id) {
+    if (!id || !sb || !state.tableAvailable) return false;
+    try {
+        const { data, error } = await sb.from(SKETCH_TABLE)
+            .select('id,title,is_public,discord_id,updated_at,created_at,payload')
+            .eq('id', id)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) return false;
+        await loadSketchRow(data);
+        return true;
+    } catch (error) {
+        markSketchTableUnavailable(error);
+        console.warn('[Sketch] Load sketch by id failed:', error);
+        return false;
+    }
+}
+
+async function loadSketchRowWithConfirm(row) {
+    if (!row) return;
+    if (state.dirty && !state.readOnly && !window.confirm('Bản hiện tại chưa lưu. Vẫn mở bản khác?')) return;
+    await loadSketchRow(row);
+}
+
+async function loadSketchRow(row) {
+    state.currentSketch = row;
+    state.payload = normalizePayload(row.payload);
+    state.readOnly = String(row.discord_id || '') !== String(state.discordId || '');
+    state.dirty = false;
+    state.history = [];
+    state.future = [];
+    byId('sketchTitle').value = row.title || 'Phác thảo';
+    byId('publicToggle').checked = row.is_public !== false;
+    replaceSketchParam(row.id);
+    renderAll();
+    renderSketchLists();
+}
+
+function replaceSketchParam(sketchId) {
+    const next = new URLSearchParams(window.location.search);
+    next.set('day', state.currentDay || 'sat');
+    if (state.sessionRow?.id) next.set('session', state.sessionRow.id);
+    else next.delete('session');
+    if (sketchId) next.set('sketch', sketchId);
+    else next.delete('sketch');
+    history.replaceState(null, '', `${window.location.pathname}?${next.toString()}`);
+}
+
+function createNewSketch(options = {}) {
+    if (state.dirty && !state.readOnly && !options.silent && !window.confirm('Bản hiện tại chưa lưu. Tạo bản mới?')) return;
+    state.currentSketch = null;
+    state.payload = createDefaultPayload();
+    state.readOnly = false;
+    state.dirty = !options.silent;
+    state.history = [];
+    state.future = [];
+    byId('sketchTitle').value = 'Phác thảo mới';
+    byId('publicToggle').checked = true;
+    replaceSketchParam(null);
+    renderAll();
+    renderSketchLists();
+}
+
+function copyCurrentSketch() {
+    const oldPayload = normalizePayload(state.payload);
+    const idMap = new Map();
+    const payload = {
+        version: 1,
+        activeMarkId: '',
+        marks: oldPayload.marks.map(mark => {
+            const nextMarkId = newId('m');
+            idMap.set(mark.id, nextMarkId);
+            return {
+                ...cloneJson(mark),
+                id: nextMarkId,
+                dots: (mark.dots || []).map(dot => ({ ...cloneJson(dot), id: newId('d') })),
+                strokes: (mark.strokes || []).map(stroke => ({ ...cloneJson(stroke), id: newId('s') }))
+            };
+        })
+    };
+    payload.activeMarkId = idMap.get(oldPayload.activeMarkId) || payload.marks[0]?.id;
+    state.currentSketch = null;
+    state.payload = normalizePayload(payload);
+    state.readOnly = false;
+    state.dirty = true;
+    state.history = [];
+    state.future = [];
+    byId('sketchTitle').value = `${byId('sketchTitle').value || 'Phác thảo'} copy`.slice(0, 80);
+    byId('publicToggle').checked = true;
+    replaceSketchParam(null);
+    renderAll();
+    showToast('Đã tạo bản sao local');
+}
+
+async function saveSketch() {
+    if (state.readOnly) {
+        showToast('Tạo bản sao để chỉnh sửa');
+        return;
+    }
+    if (!sb || !state.tableAvailable) {
+        showToast('Chưa thể lưu bản vẽ');
+        return;
+    }
+    const title = (byId('sketchTitle').value || 'Phác thảo').trim().slice(0, 80) || 'Phác thảo';
+    const row = {
+        guild_id: GUILD_ID,
+        session_id: state.sessionRow?.id || null,
+        day: state.currentDay || 'sat',
+        discord_id: state.discordId,
+        title,
+        is_public: byId('publicToggle').checked,
+        payload: normalizePayload(state.payload)
+    };
+    byId('saveBtn').disabled = true;
+    try {
+        let result;
+        if (state.currentSketch?.id) {
+            result = await sb.from(SKETCH_TABLE)
+                .update(row)
+                .eq('id', state.currentSketch.id)
+                .eq('discord_id', state.discordId)
+                .select('id,title,is_public,discord_id,updated_at,created_at,payload')
+                .single();
+        } else {
+            result = await sb.from(SKETCH_TABLE)
+                .insert(row)
+                .select('id,title,is_public,discord_id,updated_at,created_at,payload')
+                .single();
+        }
+        if (result.error) throw result.error;
+        state.currentSketch = result.data;
+        state.payload = normalizePayload(result.data.payload);
+        state.readOnly = false;
+        state.dirty = false;
+        state.history = [];
+        state.future = [];
+        replaceSketchParam(result.data.id);
+        await loadSketchLists();
+        renderAll();
+        showToast('Đã lưu bản phác thảo');
+    } catch (error) {
+        markSketchTableUnavailable(error);
+        console.warn('[Sketch] Save failed:', error);
+        showToast(state.tableAvailable ? `Lưu lỗi: ${error.message || error}` : 'Chưa có bảng bc_tactic_sketches');
+    } finally {
+        updateStatus();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    bindUi();
+    setupColors();
+    checkAuth();
+});
+</script>
+</body>
+</html>

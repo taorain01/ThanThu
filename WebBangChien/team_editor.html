@@ -528,6 +528,13 @@
       outline:none;
     }
     .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+    .history-modal{width:min(620px,100%);max-height:min(78vh,720px);display:flex;flex-direction:column}
+    .history-list{display:flex;flex-direction:column;gap:10px;overflow:auto;padding-right:4px;min-height:160px}
+    .history-item{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.045);padding:12px 14px}
+    .history-top{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted)}
+    .history-title{margin-top:6px;font-weight:800;color:var(--text)}
+    .history-meta{margin-top:5px;font-size:12px;color:var(--muted)}
+    .history-empty{padding:28px 12px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
     @media (max-width: 1100px){
       .content{grid-template-columns:1fr}
       .teams-grid{grid-template-columns:1fr}
@@ -688,6 +695,7 @@
         <span class="badge open" id="lockBadge">📂 Chưa chốt</span>
         <button class="btn" id="btnRefresh">📡 Fetch Bot</button>
         <button class="btn" id="btnValidateRoster">✅ Kiểm tra</button>
+        <button class="btn" id="btnHistory">🕘 Lịch sử</button>
         <button class="btn warn" id="btnResize">Resize</button>
         <button class="btn primary" id="btnLockToggle">📋 Chốt danh sách</button>
       </div>
@@ -741,6 +749,18 @@
       <div class="modal-actions">
         <button class="btn" id="btnResizeCancel">Hủy</button>
         <button class="btn primary" id="btnResizeSave">💾 Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-wrap" id="historyModal">
+    <div class="modal history-modal">
+      <h3>Lịch sử chỉnh đội hình</h3>
+      <div class="history-list" id="historyList">
+        <div class="history-empty">Đang tải lịch sử...</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="btnHistoryClose">Đóng</button>
       </div>
     </div>
   </div>
@@ -820,9 +840,11 @@
     let autoScrollRaf = null;
     let pollingTimer = null;
     let lastRemoteFingerprint = null;
+    let lastSyncedFingerprint = null;
     let centerNoticeTimer = null;
     let localMutationAt = 0;
     let memberAccessWatchChannel = null;
+    const ROSTER_DRAFT_VERSION = 1;
     const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440']);
 
     function hasKcWebAccess(discordId = currentDiscordId) {
@@ -1226,6 +1248,261 @@
     function markLocalMutation() {
       localMutationAt = Date.now();
       rememberCurrentSnapshot();
+    }
+
+    function getRosterDraftKey(sessionId = currentSessionId, day = currentDay) {
+      const sessionPart = sessionId ? `session:${sessionId}` : `day:${day || 'unknown'}`;
+      return `team-editor-draft:${GUILD_ID}:${sessionPart}`;
+    }
+
+    function buildRosterDraft(action = 'sync') {
+      const snapshot = buildCurrentSessionSnapshot();
+      if (!snapshot || !currentDay) return null;
+      return {
+        version: ROSTER_DRAFT_VERSION,
+        guild_id: GUILD_ID,
+        session_id: currentSessionId || snapshot.id || null,
+        day: currentDay || snapshot.day || null,
+        saved_at: new Date().toISOString(),
+        actor: {
+          id: currentDiscordId || null,
+          name: currentUserName || 'Web'
+        },
+        action: action || 'sync',
+        snapshot,
+        fingerprint: getSessionFingerprint(snapshot),
+        base_fingerprint: lastSyncedFingerprint || lastRemoteFingerprint || null,
+        remote_updated_at: currentSessionData?.updated_at || null
+      };
+    }
+
+    function saveRosterDraft(action = 'sync') {
+      try {
+        const draft = buildRosterDraft(action);
+        if (!draft) return null;
+        window.localStorage?.setItem(getRosterDraftKey(draft.session_id, draft.day), JSON.stringify(draft));
+        return draft;
+      } catch (error) {
+        console.warn('[TeamEditor] Save draft failed:', error);
+        return null;
+      }
+    }
+
+    function readRosterDraft() {
+      try {
+        const key = getRosterDraftKey();
+        const raw = window.localStorage?.getItem(key);
+        if (!raw) return null;
+        const draft = JSON.parse(raw);
+        const sameSession = draft?.session_id
+          ? String(draft.session_id) === String(currentSessionId || '')
+          : String(draft?.day || '') === String(currentDay || '');
+        if (!draft?.snapshot || !draft?.fingerprint || !sameSession) {
+          window.localStorage?.removeItem(key);
+          return null;
+        }
+        return draft;
+      } catch (error) {
+        console.warn('[TeamEditor] Read draft failed:', error);
+        try { window.localStorage?.removeItem(getRosterDraftKey()); } catch (removeError) {}
+        return null;
+      }
+    }
+
+    function removeRosterDraft(sessionId = currentSessionId, day = currentDay) {
+      try {
+        window.localStorage?.removeItem(getRosterDraftKey(sessionId, day));
+      } catch (error) {
+        console.warn('[TeamEditor] Remove draft failed:', error);
+      }
+    }
+
+    function shouldOfferRosterDraft(draft, remoteSession = currentSessionData) {
+      if (!draft || !remoteSession) return false;
+      const remoteFingerprint = getSessionFingerprint(remoteSession);
+      if (!draft.fingerprint || draft.fingerprint === remoteFingerprint) return false;
+      if (draft.base_fingerprint && draft.base_fingerprint === remoteFingerprint) return true;
+      const draftTime = new Date(draft.saved_at || 0).getTime();
+      const remoteTime = new Date(remoteSession.updated_at || 0).getTime();
+      return Number.isFinite(draftTime) && (!Number.isFinite(remoteTime) || draftTime > remoteTime);
+    }
+
+    function applyRosterDraft(draft) {
+      if (!draft?.snapshot) return false;
+      currentDay = draft.day || currentDay;
+      currentSessionId = draft.session_id || currentSessionId;
+      localState = cloneSessionState({
+        ...draft.snapshot,
+        id: currentSessionId,
+        day: currentDay
+      });
+      if (!supportsSessionLocked) localState.locked = false;
+      normalizeLeaderState();
+      markLocalMutation();
+      renderEditor();
+      scheduleSync('restore_draft', 'Đã khôi phục bản nháp, đang đồng bộ...');
+      return true;
+    }
+
+    async function maybeOfferRosterDraftRestore() {
+      const draft = readRosterDraft();
+      if (!shouldOfferRosterDraft(draft)) return;
+      const savedAt = draft.saved_at
+        ? new Date(draft.saved_at).toLocaleString('vi-VN', { hour12: false })
+        : 'không rõ thời gian';
+      const actorName = draft.actor?.name || 'Web';
+      const ok = await customConfirm(
+        `Có bản nháp đội hình chưa đồng bộ (${savedAt}) từ ${actorName}. Khôi phục bản nháp này?`,
+        {
+          title: 'Khôi phục bản nháp',
+          icon: '💾',
+          type: 'warn',
+          okText: 'Khôi phục',
+          cancelText: 'Bỏ qua'
+        }
+      );
+      if (ok) {
+        if (!applyRosterDraft(draft)) {
+          removeRosterDraft();
+          await customAlert('Bản nháp không hợp lệ, đã bỏ qua.', { type: 'warn' });
+        }
+      } else {
+        removeRosterDraft();
+      }
+    }
+
+    function normalizeRosterActions(actions) {
+      return [...new Set([...(actions || [])].filter(Boolean))];
+    }
+
+    function getRosterActionLabel(action) {
+      const labels = {
+        move: 'Đổi vị trí',
+        kick: 'Đưa xuống hàng chờ',
+        setleader: 'Đổi leader',
+        resize: 'Resize đội',
+        lock: 'Chốt/mở khóa',
+        restore_draft: 'Khôi phục bản nháp',
+        sync: 'Đồng bộ'
+      };
+      return labels[action] || action || 'Đồng bộ';
+    }
+
+    function summarizeRosterActions(actions) {
+      const normalized = normalizeRosterActions(actions);
+      if (!normalized.length) return 'Đồng bộ đội hình';
+      return normalized.map(getRosterActionLabel).join(', ');
+    }
+
+    async function recordRosterWebLog(actions, beforeFingerprint, afterFingerprint, snapshot) {
+      if (!sb || !snapshot || !currentDay) return;
+      const actionList = normalizeRosterActions(actions);
+      const details = {
+        session_id: currentSessionId || snapshot.id || null,
+        day: currentDay || snapshot.day || null,
+        actions: actionList,
+        primary_action: getRepresentativePendingAction(new Set(actionList)),
+        summary: summarizeRosterActions(actionList),
+        editor_id: currentDiscordId || null,
+        editor_name: currentUserName || 'Web',
+        before_fingerprint: beforeFingerprint || null,
+        after_fingerprint: afterFingerprint || null,
+        edited_at: new Date().toISOString()
+      };
+      try {
+        const { error } = await sb.from('bc_logs').insert({
+          guild_id: GUILD_ID,
+          action: 'roster_sync',
+          details,
+          performed_by: currentDiscordId || null,
+          source: 'web'
+        });
+        if (error) console.warn('[TeamEditor] Write roster log failed:', error);
+      } catch (error) {
+        console.warn('[TeamEditor] Write roster log exception:', error);
+      }
+    }
+
+    function normalizeRosterLogDetails(details) {
+      if (!details) return {};
+      if (typeof details === 'string') {
+        try { return JSON.parse(details); } catch (error) { return {}; }
+      }
+      return details && typeof details === 'object' ? details : {};
+    }
+
+    function formatRosterLogTime(value) {
+      const time = value ? new Date(value) : null;
+      if (!time || Number.isNaN(time.getTime())) return 'Không rõ giờ';
+      return time.toLocaleString('vi-VN', {
+        hour12: false,
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    async function loadRosterHistoryEntries() {
+      if (!sb || !currentDay) return [];
+      let query = sb.from('bc_logs')
+        .select('id,action,details,performed_by,source,created_at')
+        .eq('guild_id', GUILD_ID)
+        .eq('source', 'web')
+        .eq('action', 'roster_sync')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (currentSessionId) query = query.contains('details', { session_id: currentSessionId });
+      else query = query.contains('details', { day: currentDay });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    }
+
+    function renderRosterHistoryEntries(entries) {
+      const container = document.getElementById('historyList');
+      if (!container) return;
+      if (!entries.length) {
+        container.innerHTML = '<div class="history-empty">Chưa có lịch sử chỉnh sửa web cho session này.</div>';
+        return;
+      }
+      container.innerHTML = entries.map((entry) => {
+        const details = normalizeRosterLogDetails(entry.details);
+        const actions = normalizeRosterActions(details.actions || [details.primary_action || 'sync']);
+        const title = details.summary || summarizeRosterActions(actions);
+        const editor = details.editor_name || entry.performed_by || 'Web';
+        const time = formatRosterLogTime(entry.created_at || details.edited_at);
+        const sessionText = details.session_id ? `Session ${String(details.session_id).slice(0, 8)}` : `Ngày ${details.day || currentDay}`;
+        return `
+          <div class="history-item">
+            <div class="history-top">
+              <span>${escapeHtml(time)}</span>
+              <span>${escapeHtml(editor)}</span>
+            </div>
+            <div class="history-title">${escapeHtml(title)}</div>
+            <div class="history-meta">${escapeHtml(sessionText)} · ${escapeHtml(actions.map(getRosterActionLabel).join(', '))}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function openRosterHistoryModal() {
+      const modal = document.getElementById('historyModal');
+      const container = document.getElementById('historyList');
+      if (!modal || !container) return;
+      modal.classList.add('show');
+      container.innerHTML = '<div class="history-empty">Đang tải lịch sử...</div>';
+      try {
+        const entries = await loadRosterHistoryEntries();
+        renderRosterHistoryEntries(entries);
+      } catch (error) {
+        console.warn('[TeamEditor] Load roster history failed:', error);
+        container.innerHTML = '<div class="history-empty">Chưa đọc được lịch sử chỉnh sửa.</div>';
+      }
+    }
+
+    function closeRosterHistoryModal() {
+      document.getElementById('historyModal')?.classList.remove('show');
     }
 
     function getRepresentativePendingAction(actions = pendingSyncActions) {
@@ -2134,6 +2411,7 @@
 
     function scheduleSync(action = 'sync', statusText = 'Đã cập nhật trên web, đang gom thay đổi để đồng bộ...') {
       if (!localState || !currentDay) return;
+      saveRosterDraft(action || 'sync');
       pendingSyncActions.add(action || 'sync');
       pendingEditorAction = getRepresentativePendingAction();
       updateSyncBadge(statusText, true);
@@ -2201,6 +2479,7 @@
         editor_action: pendingEditorAction || 'sync',
         edited_at: Date.now()
       };
+      const beforeFingerprint = lastSyncedFingerprint || lastRemoteFingerprint;
       const snapshotFingerprint = getSessionFingerprint(snapshot);
 
       isSyncing = true;
@@ -2274,8 +2553,11 @@
 
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
       rememberSnapshot(snapshot);
+      lastSyncedFingerprint = snapshotFingerprint;
+      await recordRosterWebLog(actionsToSync, beforeFingerprint, snapshotFingerprint, snapshot);
       const stillPending = pendingSyncActions.size || debounceTimer;
       if (!stillPending && getSessionFingerprint(buildCurrentSessionSnapshot()) === snapshotFingerprint) {
+        removeRosterDraft(snapshot.id || currentSessionId, snapshot.day || currentDay);
         localMutationAt = 0;
         pendingEditorAction = null;
         updateSyncBadge('Đã đồng bộ');
@@ -2466,6 +2748,7 @@
       currentSessionId = data.id;
       currentSessionData = data;
       lastRemoteFingerprint = getSessionFingerprint(data);
+      lastSyncedFingerprint = lastRemoteFingerprint;
       localMutationAt = 0;
       pendingEditorAction = null;
       pendingSyncActions = new Set();
@@ -2479,12 +2762,16 @@
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit' });
       updateSyncBadge('Đã cập nhật');
       renderEditor();
+      setTimeout(() => {
+        maybeOfferRosterDraftRestore().catch((error) => console.warn('[TeamEditor] Draft restore prompt failed:', error));
+      }, 0);
     }
 
     function hydrateFromRealtime(nextSession) {
       currentSessionId = nextSession?.id || currentSessionId;
       currentSessionData = nextSession;
       lastRemoteFingerprint = getSessionFingerprint(nextSession);
+      lastSyncedFingerprint = lastRemoteFingerprint;
       localMutationAt = 0;
       pendingEditorAction = null;
       pendingSyncActions = new Set();
@@ -2627,14 +2914,19 @@
     });
     document.getElementById('btnResize').addEventListener('click', openResizeModal);
     document.getElementById('btnValidateRoster').addEventListener('click', runRosterValidation);
+    document.getElementById('btnHistory').addEventListener('click', openRosterHistoryModal);
     document.getElementById('btnResizeCancel').addEventListener('click', closeResizeModal);
     document.getElementById('btnResizeSave').addEventListener('click', applyResize);
+    document.getElementById('btnHistoryClose').addEventListener('click', closeRosterHistoryModal);
     document.getElementById('btnLockToggle').addEventListener('click', toggleLocked);
     // Fix: Dùng mousedown thay vì click để tránh modal bị đóng khi người dùng
     // giữ chuột quét chọn văn bản bên trong modal rồi thả chuột ra vùng backdrop.
     // Với mousedown: chỉ đóng khi chuột BẮT ĐẦU nhấn trên backdrop (không phải từ bên trong).
     document.getElementById('resizeModal').addEventListener('mousedown', (event) => {
       if (event.target.id === 'resizeModal') closeResizeModal();
+    });
+    document.getElementById('historyModal').addEventListener('mousedown', (event) => {
+      if (event.target.id === 'historyModal') closeRosterHistoryModal();
     });
     document.addEventListener('click', (event) => {
       if (!activeSortMenu) return;

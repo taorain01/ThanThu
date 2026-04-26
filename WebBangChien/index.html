@@ -1132,6 +1132,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   font-weight:700;letter-spacing:.5px;animation:tacticsPulse 2s ease-in-out infinite}
 .map-toggle.tactics-btn:hover{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(234,88,12,.18));border-color:var(--gold);
   box-shadow:0 0 16px rgba(251,191,36,.3);transform:translateY(-1px)}
+.map-toggle.sketch-free-btn{border-color:rgba(96,165,250,.42);background:linear-gradient(135deg,rgba(37,99,150,.2),rgba(8,24,36,.74));color:#bfdbfe;
+  font-weight:800;letter-spacing:.35px}
+.map-toggle.sketch-free-btn:hover{border-color:rgba(96,165,250,.78);background:linear-gradient(135deg,rgba(37,99,150,.32),rgba(8,24,36,.9));
+  color:#eff6ff;box-shadow:0 0 16px rgba(96,165,250,.22);transform:translateY(-1px)}
 @keyframes tacticsPulse{0%,100%{box-shadow:0 0 4px rgba(251,191,36,.1)}50%{box-shadow:0 0 12px rgba(251,191,36,.25)}}
 
 /* ═══ NÚT SPLIT — Game RPG Diagonal Style ═══ */
@@ -1143,6 +1147,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .split-btn::before{content:'';position:absolute;inset:2px;border-radius:5px;
   border:1px solid rgba(255,255,255,.05);pointer-events:none;z-index:5}
 .split-btn.disabled{opacity:.35;pointer-events:none;filter:saturate(.4) brightness(.7)}
+
+.sketch-action-btn{height:44px;margin-left:4px;margin-bottom:5px;padding:0 15px;border-radius:8px;
+  border:2px solid rgba(96,165,250,.32);background:linear-gradient(135deg,rgba(20,45,65,.62),rgba(8,22,30,.86));
+  color:#bfdbfe;display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;font-weight:900;
+  letter-spacing:.6px;text-transform:uppercase;box-shadow:0 4px 18px rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.04);
+  transition:all .25s ease;white-space:nowrap}
+.sketch-action-btn:hover{border-color:rgba(96,165,250,.72);background:linear-gradient(135deg,rgba(37,99,150,.72),rgba(12,36,54,.92));
+  color:#eff6ff;box-shadow:0 0 22px rgba(96,165,250,.18),0 4px 18px rgba(0,0,0,.42)}
+.sketch-action-btn.disabled{opacity:.35;pointer-events:none;filter:saturate(.4) brightness(.75)}
 
 .split-side{position:relative;display:flex;align-items:center;justify-content:center;
   padding:0 28px;cursor:pointer;z-index:2;user-select:none;
@@ -1535,6 +1548,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   /* Split button nhỏ lại */
   .split-btn { height: 34px }
   .split-side > span { font-size: 10px }
+  .sketch-action-btn { height: 34px; padding: 0 10px; font-size: 10px }
 
   /* Tabs header: gọn */
   .r-tabs { padding: 8px 10px 0; gap: 4px; flex-wrap: wrap }
@@ -2148,6 +2162,7 @@ html, body { overflow-x: hidden; }
           <div class="split-divider"></div>
           <div class="split-side right" id="btnTactics" data-day="" onclick="openTactics()" title="Lập chiến thuật"><span>⚔️ Chiến Thuật</span></div>
         </div>
+        <button class="sketch-action-btn disabled" id="btnSketch" data-day="" onclick="openTacticSketch()" title="Phác thảo tự do"><span>✎</span><span>Phác thảo</span></button>
       </div>
       <div class="r-content">
         <div class="r-pane active" id="pane-map">
@@ -2200,7 +2215,7 @@ html, body { overflow-x: hidden; }
             </div> <!-- End mapContainer -->
             <!-- Overlay + Controls nằm NGOÀI mapContainer → không bị zoom/pan kéo theo -->
             <div class="map-ov"></div>
-            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle fullscreen-btn" id="mapFullscreenBtn" onclick="toggleMapFullscreen()">⛶ Toàn màn hình</button><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
+            <div class="map-top"><span class="tt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Battle Map</span><div style="display:flex;gap:6px;align-items:center"><button class="map-toggle sketch-free-btn" id="mapSketchBtn" onclick="openTacticSketch()" title="Mở trang vẽ tự do">✎ Vẽ tự do</button><button class="map-toggle fullscreen-btn" id="mapFullscreenBtn" onclick="toggleMapFullscreen()">⛶ Toàn màn hình</button><button class="map-toggle" id="mapToggleBtn" onclick="toggleMapMode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Bản đồ</button></div></div>
           <!-- Controls + Timeline đã nằm TRONG mapBox, overlay phía dưới -->
           <div class="tactics-controls" id="tacticsControls" style="display:none">
             <div class="tc-toggle" id="tcMe" onclick="toggleTacticsMe()">
@@ -2242,6 +2257,7 @@ html, body { overflow-x: hidden; }
     <div class="mob-tab" data-target="mob-tasks" onclick="switchMobileTab(this)">📋<span>Nhiệm vụ</span></div>
     <div class="mob-tab" data-target="mob-editor" onclick="switchMobileTab(this)">✏️<span>Đội Hình</span></div>
     <div class="mob-tab" data-target="mob-tactics" onclick="switchMobileTab(this)">⚔️<span>Chiến Thuật</span></div>
+    <div class="mob-tab" data-target="mob-sketch" onclick="switchMobileTab(this)">✎<span>Phác thảo</span></div>
     <div class="mob-tab" data-target="mob-timer" onclick="switchMobileTab(this);initTimerPane()">⏱<span>Timer</span></div>
   </div>
 </div>
@@ -2965,14 +2981,20 @@ async function toggleRegularSession() {
 function updateTacticsButtonTarget(day) {
     const btn = document.getElementById('btnTactics');
     const editorBtn = document.getElementById('btnTeamEditor');
+    const sketchBtn = document.getElementById('btnSketch');
     const splitBtn = document.getElementById('splitActionBtn');
     const safeDay = day || '';
     if (btn) btn.dataset.day = safeDay;
     if (editorBtn) editorBtn.dataset.day = safeDay;
+    if (sketchBtn) sketchBtn.dataset.day = safeDay;
     if (!safeDay) {
         if (splitBtn) {
             splitBtn.classList.add('disabled');
             splitBtn.title = 'Chua co session';
+        }
+        if (sketchBtn) {
+            sketchBtn.classList.add('disabled');
+            sketchBtn.title = 'Chua co session';
         }
         return;
     }
@@ -2980,6 +3002,10 @@ function updateTacticsButtonTarget(day) {
     if (splitBtn) {
         splitBtn.classList.remove('disabled');
         splitBtn.title = '';
+    }
+    if (sketchBtn) {
+        sketchBtn.classList.remove('disabled');
+        sketchBtn.title = `Mo phac thao ${label}`;
     }
     if (btn) btn.title = `Vao chien thuat ${label}`;
     if (editorBtn) editorBtn.title = `Mo chinh sua doi hinh ${label}`;
@@ -4579,6 +4605,39 @@ function openTactics() {
     });
 }
 
+function openTacticSketch() {
+    const day = document.getElementById('btnSketch')?.dataset.day || currentSessionData?.day || currentDay;
+    if (!day) return;
+    try {
+        sessionStorage.setItem('tactic_sketch_target_day', day);
+        if (currentSessionData?.id) sessionStorage.setItem('tactic_sketch_target_session_id', String(currentSessionData.id));
+        else sessionStorage.removeItem('tactic_sketch_target_session_id');
+    } catch (error) {
+        console.warn('[Index] Remember tactic sketch target failed:', error);
+    }
+
+    const sessionParam = currentSessionData?.id ? `&session=${encodeURIComponent(currentSessionData.id)}` : '';
+    const url = `./tactic_sketch.html?day=${encodeURIComponent(day)}${sessionParam}&ts=${Date.now()}`;
+
+    let overlay = document.querySelector('.page-transition');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'page-transition';
+        overlay.innerHTML = '<div class="pt-content"><span class="pt-icon">✎</span><div class="pt-text">Đang mở Phác Thảo...</div></div>';
+        document.body.appendChild(overlay);
+    } else {
+        const icon = overlay.querySelector('.pt-icon');
+        const text = overlay.querySelector('.pt-text');
+        if (icon) icon.textContent = '✎';
+        if (text) text.textContent = 'Đang mở Phác Thảo...';
+    }
+
+    requestAnimationFrame(() => {
+        overlay.classList.add('active');
+        setTimeout(() => { window.location.href = url; }, 600);
+    });
+}
+
 function openTeamEditor() {
     if (!canEditTeamRoster(currentSessionData)) return;
     const day = document.getElementById('btnTeamEditor')?.dataset.day || currentSessionData?.day || currentDay;
@@ -5288,6 +5347,8 @@ function switchMobileTab(el) {
         openTeamEditor();
     } else if (target === 'mob-tactics') {
         openTactics();
+    } else if (target === 'mob-sketch') {
+        openTacticSketch();
     }
     scheduleMobileViewportSync();
 }
@@ -5973,6 +6034,8 @@ function switchMobileTab(el) {
     } else if (target === 'mob-tactics') {
         // Chuyển trang Chiến Thuật
         openTactics();
+    } else if (target === 'mob-sketch') {
+        openTacticSketch();
     } else if (target === 'mob-timer') {
         // Timer Bang Chiến
         if (right) right.classList.add('mob-active');

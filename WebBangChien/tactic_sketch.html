@@ -75,19 +75,35 @@ button{border:0}
 .empty-note{font-size:12px;color:var(--faint);line-height:1.45;padding:7px 2px}
 .workspace{display:flex;flex-direction:column;min-width:0;min-height:0}
 .map-wrap{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 50%,rgba(20,43,29,.7),rgba(4,8,6,.92))}
-.map-stage{position:relative;width:min(100%,calc((100vh - var(--header-h) - var(--timeline-h) - 42px) * 43 / 24));max-width:100%;max-height:100%;aspect-ratio:43/24;touch-action:none;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-viewport{position:relative;width:min(100%,calc((100vh - var(--header-h) - var(--timeline-h) - 42px) * 43 / 24));max-width:100%;max-height:100%;aspect-ratio:43/24;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-stage{position:absolute;inset:0;width:100%;height:100%;touch-action:none;overflow:hidden;transform-origin:50% 50%;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.map-stage.zoomed{cursor:grab}
+.map-stage.zoomed.panning{cursor:grabbing;transition:none}
 .map-stage img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
 .draw-layer,.dot-layer{position:absolute;inset:0;width:100%;height:100%}
 .draw-layer{z-index:3;pointer-events:none;overflow:visible}
 .dot-layer{z-index:4;pointer-events:none}
-.sk-dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.55),0 0 14px currentColor;pointer-events:auto;cursor:grab}
+.sk-dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.55),0 0 14px currentColor;pointer-events:auto;cursor:grab;transition:box-shadow .18s,transform .18s,outline-color .18s}
+.sk-dot::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid currentColor;opacity:0;animation:dotPulse .72s ease-out}
+.sk-dot.selected{outline:3px solid rgba(255,255,255,.82);outline-offset:3px;box-shadow:0 0 0 3px rgba(251,191,36,.22),0 0 20px currentColor,0 4px 12px rgba(0,0,0,.6)}
+.sk-dot.dragging{transform:translate(-50%,-50%) scale(1.15);box-shadow:0 0 24px currentColor,0 8px 18px rgba(0,0,0,.64)}
 .sk-dot:active{cursor:grabbing}
 .sk-dot.square{border-radius:5px}
 .readonly .sk-dot{cursor:default}
+.selection-box{position:absolute;z-index:7;border:1px solid rgba(96,165,250,.95);background:rgba(96,165,250,.12);box-shadow:0 0 16px rgba(96,165,250,.28);pointer-events:none;display:none}
+.tower-label-layer{position:absolute;inset:0;z-index:6;pointer-events:none}
+.tower-label{position:absolute;transform:translate(-50%,-50%);min-width:74px;max-width:140px;padding:5px 7px;border-radius:8px;background:rgba(4,10,7,.76);border:1px solid rgba(96,165,250,.24);box-shadow:0 6px 16px rgba(0,0,0,.36);font-size:10px;color:#dbeafe}
+.tower-label strong{display:block;color:#fde68a;font-size:10px;margin-bottom:2px}
+.tower-label span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zoom-tools{position:absolute;right:24px;top:22px;z-index:9;display:flex;gap:6px}
+.zoom-btn{height:30px;padding:0 10px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(5,10,7,.82);color:#dbeafe;font-size:11px;font-weight:800;cursor:pointer;backdrop-filter:blur(8px)}
+.zoom-btn.active{border-color:rgba(96,165,250,.6);background:rgba(37,99,150,.28);color:#eff6ff}
 .map-badge{position:absolute;left:24px;top:22px;z-index:8;display:flex;align-items:center;gap:8px;max-width:min(520px,calc(100% - 48px));padding:8px 11px;border-radius:10px;background:rgba(5,10,7,.82);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);font-size:12px;color:var(--muted);box-shadow:0 8px 24px rgba(0,0,0,.28)}
 .map-badge strong{color:#bbf7d0}
-.toast{position:fixed;left:50%;bottom:calc(var(--timeline-h) + 18px);z-index:70;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;max-width:min(520px,92vw);padding:10px 14px;border-radius:10px;background:rgba(10,18,12,.94);border:1px solid rgba(251,191,36,.26);color:#fde68a;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,0,0,.42);transition:opacity .2s,transform .2s}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.map-badge.saved{position:relative;overflow:hidden}
+.map-badge.saved::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);animation:badgeSweep .95s ease}
+.toast{position:fixed;left:50%;bottom:calc(var(--timeline-h) + 18px);z-index:70;transform:translateX(-50%) translateY(22px) scale(.96);opacity:0;pointer-events:none;max-width:min(520px,92vw);padding:10px 14px;border-radius:10px;background:rgba(10,18,12,.94);border:1px solid rgba(251,191,36,.26);color:#fde68a;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,0,0,.42);transition:opacity .22s,transform .38s cubic-bezier(.2,1.35,.25,1)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
 .timeline{height:var(--timeline-h);flex-shrink:0;border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(13,29,19,.98),rgba(8,20,13,.99));padding:10px 16px}
 .timeline-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .active-time{min-width:70px;color:var(--gold);font-size:17px;font-weight:900}
@@ -95,10 +111,27 @@ button{border:0}
 .time-readout{width:58px;text-align:center;color:#fde68a;font-size:12px;font-weight:800}
 .timeline-track{position:relative;height:46px;border-radius:12px;background:linear-gradient(90deg,rgba(251,191,36,.08),rgba(96,165,250,.08),rgba(248,113,113,.08));border:1px solid rgba(255,255,255,.07);overflow:hidden}
 .timeline-track::before{content:'';position:absolute;left:0;right:0;top:50%;height:2px;background:rgba(255,255,255,.12)}
-.mark-btn{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;transform:translate(-50%,-50%);background:var(--gold);border:2px solid rgba(0,0,0,.5);box-shadow:0 0 12px rgba(251,191,36,.45);cursor:pointer}
+.timeline-playhead{position:absolute;top:6px;bottom:6px;width:2px;background:rgba(255,255,255,.82);box-shadow:0 0 10px rgba(255,255,255,.45);transform:translateX(-50%);pointer-events:none}
+.timeline-playhead::before,.timeline-playhead::after{content:'';position:absolute;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent}
+.timeline-playhead::before{top:-1px;border-top:0;border-bottom:6px solid rgba(255,255,255,.85)}
+.timeline-playhead::after{bottom:-1px;border-bottom:0;border-top:6px solid rgba(255,255,255,.85)}
+.mark-btn{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;transform:translate(-50%,-50%);background:var(--gold);border:2px solid rgba(0,0,0,.5);box-shadow:0 0 12px rgba(251,191,36,.45);cursor:pointer;transition:width .18s,height .18s,box-shadow .18s,background .18s}
+.mark-btn.ev-start{background:#4ade80}.mark-btn.ev-boss{background:#fbbf24}.mark-btn.ev-solo{background:#60a5fa}.mark-btn.ev-end{background:#e5e7eb}.mark-btn.ev-jungle{background:#22c55e}
+.mark-btn.ghost{opacity:.34;width:12px;height:12px}
 .mark-btn.active{width:22px;height:22px;background:#fef3c7;box-shadow:0 0 18px rgba(251,191,36,.72)}
 .mark-btn span{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted);white-space:nowrap}
 .readonly .tool-btn,.readonly .mini-btn.edit-only{opacity:.35;cursor:not-allowed}
+.count-row{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.count-pill{font-size:10px;font-weight:900;border-radius:999px;padding:4px 7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.count-pill.blue{color:#bfdbfe;border-color:rgba(96,165,250,.24)}.count-pill.red{color:#fecaca;border-color:rgba(248,113,113,.24)}
+.ctx-menu{position:fixed;z-index:100;min-width:210px;border-radius:12px;border:1px solid rgba(251,191,36,.22);background:rgba(8,20,13,.98);box-shadow:0 18px 50px rgba(0,0,0,.55);padding:7px;display:none}
+.ctx-menu.show{display:block}
+.ctx-title{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#fde68a;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:4px}
+.ctx-item{width:100%;height:30px;border-radius:8px;background:transparent;color:var(--text);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 8px;font-size:12px;font-weight:800;cursor:pointer}
+.ctx-item:hover{background:rgba(74,222,128,.1);color:#bbf7d0}
+.ctx-sep{height:1px;background:rgba(255,255,255,.07);margin:5px}
+@keyframes dotPulse{0%{opacity:.6;transform:scale(.55)}100%{opacity:0;transform:scale(1.55)}}
+@keyframes badgeSweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 @media (max-width: 900px){
   :root{--header-h:96px;--timeline-h:142px;--side-w:100%}
   .topbar{height:var(--header-h);flex-wrap:wrap;align-content:center;padding:8px 10px}
@@ -111,7 +144,7 @@ button{border:0}
   .side{max-height:214px;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr;overflow:auto}
   .workspace{min-height:0}
   .map-wrap{padding:8px}
-  .map-stage{width:100%;height:auto}
+  .map-viewport{width:100%;height:auto}
   .map-badge{left:12px;top:12px;font-size:11px}
   .timeline{padding:8px 10px}
   .tool-grid{grid-template-columns:repeat(5,42px)}
@@ -184,6 +217,12 @@ button{border:0}
           <input type="range" id="brushSize" min="2" max="12" value="4">
           <strong id="brushSizeLabel">4</strong>
         </div>
+        <label class="public-toggle" style="height:30px;margin-top:8px;width:100%;justify-content:space-between"><span>Nét scale theo zoom</span><input type="checkbox" id="strokeScaleToggle"></label>
+        <div class="count-row">
+          <span class="count-pill blue" id="blueCount">Xanh 0/30</span>
+          <span class="count-pill red" id="redCount">Đỏ 0/30</span>
+          <span class="count-pill" id="selectedCount">Chọn 0</span>
+        </div>
       </section>
 
       <section class="section">
@@ -216,10 +255,17 @@ button{border:0}
     <section class="workspace">
       <div class="map-wrap">
         <div class="map-badge" id="mapStatus"><strong>Local</strong><span>Đang chuẩn bị bản vẽ...</span></div>
-        <div class="map-stage" id="mapStage">
-          <img src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
-          <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
-          <div class="dot-layer" id="dotLayer"></div>
+        <div class="zoom-tools">
+          <button class="zoom-btn" id="zoomResetBtn" onclick="resetZoom()">⌖ Reset</button>
+        </div>
+        <div class="map-viewport" id="mapViewport">
+          <div class="map-stage" id="mapStage">
+            <img src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
+            <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="tower-label-layer" id="towerLabelLayer"></div>
+            <div class="dot-layer" id="dotLayer"></div>
+            <div class="selection-box" id="selectionBox"></div>
+          </div>
         </div>
       </div>
       <footer class="timeline">
@@ -237,6 +283,7 @@ button{border:0}
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="ctx-menu" id="ctxMenu"></div>
 
 <script>
 const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
@@ -257,6 +304,52 @@ const TOOL_LABELS = {
     eraser: 'Tẩy'
 };
 const COLORS = ['#60a5fa', '#f87171', '#4ade80', '#fbbf24', '#a78bfa', '#22d3ee', '#f8fafc'];
+const MAX_TEAM_DOTS = 30;
+const SYSTEM_EVENTS = [
+    { time: 1800, type: 'start', cls: 'ev-start', icon: '🏁', label: 'Bắt đầu' },
+    { time: 1500, type: 'boss_minor', cls: 'ev-boss', icon: '☀', label: 'Boss phụ' },
+    { time: 1200, type: 'solo', cls: 'ev-solo', icon: '⚔', label: 'PVP Solo' },
+    { time: 900, type: 'boss_major', cls: 'ev-boss', icon: '🔥', label: 'Boss chính' },
+    { time: 0, type: 'end', cls: 'ev-end', icon: '🏆', label: 'Kết thúc' }
+];
+const JUNGLE_EVENTS = [
+    { time: 600, type: 'jungle', cls: 'ev-jungle', icon: '🌲', label: 'Rừng respawn' },
+    { time: 300, type: 'jungle', cls: 'ev-jungle', icon: '🌲', label: 'Rừng respawn' }
+];
+const TOWER_ZONES = {
+    tb1: { x: 36, y: 15, name: 'Trụ xanh Bắc' },
+    tb2: { x: 36, y: 50.5, name: 'Trụ xanh Trung' },
+    tb3: { x: 36, y: 84.5, name: 'Trụ xanh Nam' },
+    tr1: { x: 62.5, y: 15, name: 'Trụ đỏ Bắc' },
+    tr2: { x: 62.5, y: 50.5, name: 'Trụ đỏ Trung' },
+    tr3: { x: 62.5, y: 84.5, name: 'Trụ đỏ Nam' }
+};
+const EVENT_DOTS = {
+    boss_minor: [
+        { x: 50, y: 30.5, team: 'neutral', role: 'Boss', label: 'Boss phụ Bắc', color: '#fbbf24', size: 22, shape: 'square', systemId: 'boss_minor_north' },
+        { x: 50, y: 70.5, team: 'neutral', role: 'Boss', label: 'Boss phụ Nam', color: '#fbbf24', size: 22, shape: 'square', systemId: 'boss_minor_south' }
+    ],
+    boss_major: [
+        { x: 50, y: 30.5, team: 'neutral', role: 'Boss', label: 'Boss chính Bắc', color: '#fb923c', size: 24, shape: 'square', systemId: 'boss_major_north' },
+        { x: 50, y: 70.5, team: 'neutral', role: 'Boss', label: 'Boss chính Nam', color: '#fb923c', size: 24, shape: 'square', systemId: 'boss_major_south' }
+    ],
+    solo: [
+        { x: 50, y: 50.5, team: 'neutral', role: 'PVP', label: 'PVP Solo', color: '#60a5fa', size: 20, shape: 'square', systemId: 'solo_center' }
+    ],
+    jungle: [
+        { x: 29.5, y: 37.5, team: 'neutral', role: 'Rừng', label: 'Rừng A1', color: '#22c55e', size: 16, systemId: 'jungle_a1' },
+        { x: 69.5, y: 65, team: 'neutral', role: 'Rừng', label: 'Rừng D2', color: '#22c55e', size: 16, systemId: 'jungle_d2' }
+    ]
+};
+const ROLE_PRESETS = {
+    blue_dps_qd: { team: 'blue', role: 'DPS', subRole: 'QD', label: 'Quạt Dù', color: '#60a5fa' },
+    blue_dps_vd: { team: 'blue', role: 'DPS', subRole: 'VD', label: 'Vô Danh', color: '#38bdf8' },
+    blue_healer: { team: 'blue', role: 'Healer', subRole: '', label: 'Healer', color: '#4ade80' },
+    blue_tanker: { team: 'blue', role: 'Tanker', subRole: '', label: 'Tanker', color: '#fb923c' },
+    red_dps: { team: 'red', role: 'DPS', subRole: '', label: 'Địch DPS', color: '#f87171' },
+    red_healer: { team: 'red', role: 'Healer', subRole: '', label: 'Địch Healer', color: '#f472b6' },
+    red_tanker: { team: 'red', role: 'Tanker', subRole: '', label: 'Địch Tanker', color: '#ef4444' }
+};
 
 let sb = null;
 try {
@@ -292,7 +385,14 @@ const state = {
     history: [],
     future: [],
     pointer: null,
-    toastTimer: null
+    toastTimer: null,
+    selectedDotIds: new Set(),
+    contextPoint: null,
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    strokeScaling: false,
+    localDraftTimer: null
 };
 
 function byId(id) {
@@ -331,6 +431,72 @@ function formatDate(value) {
         return new Date(value).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     } catch (error) {
         return '';
+    }
+}
+
+function getSystemEvent(time) {
+    return SYSTEM_EVENTS.find(event => event.time === clampTime(time)) || null;
+}
+
+function getMarkClass(mark) {
+    if (mark?.type === 'jungle') return 'ev-jungle';
+    const event = getSystemEvent(mark?.time);
+    if (!event) return '';
+    if (event.type === 'boss_minor' || event.type === 'boss_major') return 'ev-boss';
+    return event.cls || '';
+}
+
+function getTeamCount(team, mark = getActiveMark()) {
+    return (mark?.dots || []).filter(dot => dot.team === team).length;
+}
+
+function getDraftKey() {
+    const sessionId = state.sessionRow?.id || state.requestedSessionId || 'none';
+    return `bc_tactic_sketch_draft:${GUILD_ID}:${sessionId}:${state.currentDay}:${state.discordId || 'guest'}`;
+}
+
+function scheduleLocalDraftSave() {
+    if (state.readOnly || !state.discordId) return;
+    clearTimeout(state.localDraftTimer);
+    state.localDraftTimer = setTimeout(() => {
+        try {
+            localStorage.setItem(getDraftKey(), JSON.stringify({
+                savedAt: new Date().toISOString(),
+                title: byId('sketchTitle')?.value || 'Phác thảo',
+                isPublic: byId('publicToggle')?.checked !== false,
+                payload: normalizePayload(state.payload)
+            }));
+        } catch (error) {
+            console.warn('[Sketch] Draft save failed:', error);
+        }
+    }, 450);
+}
+
+function clearLocalDraft() {
+    try { localStorage.removeItem(getDraftKey()); } catch (error) {}
+}
+
+function tryRestoreLocalDraft() {
+    if (!state.discordId || state.currentSketch?.id) return false;
+    try {
+        const raw = localStorage.getItem(getDraftKey());
+        if (!raw) return false;
+        const draft = JSON.parse(raw);
+        if (!draft?.payload) return false;
+        if (!window.confirm('Có bản nháp phác thảo chưa lưu. Khôi phục?')) {
+            localStorage.removeItem(getDraftKey());
+            return false;
+        }
+        state.payload = normalizePayload(draft.payload);
+        byId('sketchTitle').value = draft.title || 'Phác thảo';
+        byId('publicToggle').checked = draft.isPublic !== false;
+        state.dirty = true;
+        renderAll();
+        return true;
+    } catch (error) {
+        console.warn('[Sketch] Draft restore failed:', error);
+        clearLocalDraft();
+        return false;
     }
 }
 
@@ -479,18 +645,23 @@ async function loadSessionContext() {
 }
 
 function createDefaultMark(time = TOTAL_SECONDS) {
+    const event = getSystemEvent(time);
     return {
         id: newId('m'),
         time: clampTime(time),
-        label: formatTime(time),
+        label: event?.label || formatTime(time),
+        type: event?.type || 'custom',
         dots: [],
-        strokes: []
+        strokes: [],
+        towerGuards: {},
+        jungleAssign: {},
+        inherited: false
     };
 }
 
 function createDefaultPayload() {
     const mark = createDefaultMark(TOTAL_SECONDS);
-    return { version: 1, activeMarkId: mark.id, marks: [mark] };
+    return { version: 2, activeMarkId: mark.id, marks: [mark] };
 }
 
 function normalizePoint(point) {
@@ -501,13 +672,20 @@ function normalizePoint(point) {
 }
 
 function normalizeDot(dot) {
+    const team = ['blue', 'red', 'neutral'].includes(dot?.team) ? dot.team : 'blue';
+    const role = String(dot?.role || 'DPS').slice(0, 24);
     return {
         id: String(dot?.id || newId('d')),
         x: clamp(dot?.x, 0, 100),
         y: clamp(dot?.y, 0, 100),
         color: COLORS.includes(dot?.color) ? dot.color : String(dot?.color || state.activeColor || COLORS[0]),
         size: clamp(dot?.size, 10, 40),
-        shape: dot?.shape === 'square' ? 'square' : 'circle'
+        shape: dot?.shape === 'square' ? 'square' : 'circle',
+        team,
+        role,
+        subRole: String(dot?.subRole || '').slice(0, 16),
+        label: String(dot?.label || dot?.subRole || role).slice(0, 40),
+        systemId: dot?.systemId ? String(dot.systemId).slice(0, 48) : null
     };
 }
 
@@ -524,13 +702,30 @@ function normalizeStroke(stroke) {
 
 function normalizeMark(mark) {
     const time = clampTime(mark?.time ?? TOTAL_SECONDS);
+    const event = getSystemEvent(time);
     return {
         id: String(mark?.id || newId('m')),
         time,
-        label: String(mark?.label || formatTime(time)).slice(0, 24),
+        label: String(mark?.label || event?.label || formatTime(time)).slice(0, 24),
+        type: String(mark?.type || event?.type || 'custom').slice(0, 24),
         dots: Array.isArray(mark?.dots) ? mark.dots.map(normalizeDot) : [],
-        strokes: Array.isArray(mark?.strokes) ? mark.strokes.map(normalizeStroke) : []
+        strokes: Array.isArray(mark?.strokes) ? mark.strokes.map(normalizeStroke) : [],
+        towerGuards: mark?.towerGuards && typeof mark.towerGuards === 'object' ? mark.towerGuards : {},
+        jungleAssign: mark?.jungleAssign && typeof mark.jungleAssign === 'object' ? mark.jungleAssign : {},
+        inherited: Boolean(mark?.inherited)
     };
+}
+
+function ensureSystemDotsForMark(mark) {
+    if (!mark) return mark;
+    const eventDots = EVENT_DOTS[mark.type] || EVENT_DOTS[getSystemEvent(mark.time)?.type] || [];
+    if (!eventDots.length) return mark;
+    const existing = new Set((mark.dots || []).map(dot => dot.systemId).filter(Boolean));
+    eventDots.forEach(template => {
+        if (existing.has(template.systemId)) return;
+        mark.dots.push(normalizeDot({ ...template, id: newId('d') }));
+    });
+    return mark;
 }
 
 function normalizePayload(raw) {
@@ -543,7 +738,9 @@ function normalizePayload(raw) {
     if (!marks.length) marks = [createDefaultMark(TOTAL_SECONDS)];
     marks.sort((a, b) => b.time - a.time);
     const activeMarkId = marks.some(mark => mark.id === base.activeMarkId) ? base.activeMarkId : marks[0].id;
-    return { version: 1, activeMarkId, marks };
+    const payload = { version: 2, activeMarkId, marks };
+    payload.marks.forEach(ensureSystemDotsForMark);
+    return payload;
 }
 
 function getActiveMark() {
@@ -561,6 +758,7 @@ function canEditActiveSketch() {
 function setDirty(value = true) {
     if (state.readOnly && value) return;
     state.dirty = value;
+    if (value) scheduleLocalDraftSave();
     updateStatus();
 }
 
@@ -601,6 +799,7 @@ function updateStatus() {
     const publicToggle = byId('publicToggle');
     const publicWrap = byId('publicWrap');
     document.body.classList.toggle('readonly', state.readOnly);
+    updateCounters();
 
     const editDisabled = state.readOnly;
     const saveDisabled = state.readOnly || !state.tableAvailable;
@@ -634,6 +833,16 @@ function updateStatus() {
     badge.append(s, span);
 }
 
+function updateCounters() {
+    const mark = getActiveMark();
+    const blue = getTeamCount('blue', mark);
+    const red = getTeamCount('red', mark);
+    const selected = state.selectedDotIds?.size || 0;
+    if (byId('blueCount')) byId('blueCount').textContent = `Xanh ${blue}/${MAX_TEAM_DOTS}`;
+    if (byId('redCount')) byId('redCount').textContent = `Đỏ ${red}/${MAX_TEAM_DOTS}`;
+    if (byId('selectedCount')) byId('selectedCount').textContent = `Chọn ${selected}`;
+}
+
 function setupColors() {
     const grid = byId('colorGrid');
     if (!grid) return;
@@ -662,15 +871,71 @@ function setTool(tool) {
     byId('toolName').textContent = TOOL_LABELS[state.activeTool] || TOOL_LABELS.select;
 }
 
+function applyZoom() {
+    const stage = byId('mapStage');
+    if (!stage) return;
+    stage.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+    stage.classList.toggle('zoomed', state.zoom > 1);
+    byId('zoomResetBtn')?.classList.toggle('active', state.zoom > 1);
+}
+
+function resetZoom() {
+    state.zoom = 1;
+    state.panX = 0;
+    state.panY = 0;
+    applyZoom();
+}
+
+function toggleZoomAtEvent(event) {
+    if (state.zoom > 1) {
+        resetZoom();
+        return;
+    }
+    const viewport = byId('mapViewport')?.getBoundingClientRect();
+    if (!viewport) return;
+    const dx = viewport.left + viewport.width / 2 - event.clientX;
+    const dy = viewport.top + viewport.height / 2 - event.clientY;
+    state.zoom = 2;
+    state.panX = dx;
+    state.panY = dy;
+    applyZoom();
+}
+
+function hideContextMenu() {
+    byId('ctxMenu')?.classList.remove('show');
+}
+
 function bindUi() {
     const mapStage = byId('mapStage');
     if (mapStage && !mapStage.dataset.bound) {
         mapStage.dataset.bound = '1';
         mapStage.addEventListener('pointerdown', onPointerDown);
-        mapStage.addEventListener('contextmenu', event => event.preventDefault());
+        mapStage.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            toggleZoomAtEvent(event);
+        });
+        mapStage.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            openContextMenu(event);
+        });
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('pointercancel', onPointerUp);
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest?.('#ctxMenu')) hideContextMenu();
+        });
+        document.addEventListener('keydown', (event) => {
+            if ((event.key === 'Delete' || event.key === 'Backspace') && state.selectedDotIds.size && canEditActiveSketch()) {
+                deleteSelectedDots();
+                event.preventDefault();
+            }
+            if (event.key === 'Escape') {
+                state.selectedDotIds.clear();
+                hideContextMenu();
+                renderDots();
+                updateStatus();
+            }
+        });
     }
 
     const dotSize = byId('dotSize');
@@ -678,6 +943,7 @@ function bindUi() {
     const timeCursor = byId('timeCursor');
     const title = byId('sketchTitle');
     const pub = byId('publicToggle');
+    const strokeScale = byId('strokeScaleToggle');
     if (dotSize && !dotSize.dataset.bound) {
         dotSize.dataset.bound = '1';
         dotSize.addEventListener('input', () => {
@@ -698,6 +964,18 @@ function bindUi() {
             byId('timeCursorLabel').textContent = formatTime(timeCursor.value);
         });
     }
+    const timelineTrack = byId('timelineTrack');
+    if (timelineTrack && !timelineTrack.dataset.bound) {
+        timelineTrack.dataset.bound = '1';
+        timelineTrack.addEventListener('click', (event) => {
+            if (event.target.closest?.('.mark-btn')) return;
+            const rect = timelineTrack.getBoundingClientRect();
+            const pct = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+            const time = clampTime(TOTAL_SECONDS - pct * TOTAL_SECONDS);
+            byId('timeCursor').value = String(time);
+            byId('timeCursorLabel').textContent = formatTime(time);
+        });
+    }
     if (title && !title.dataset.bound) {
         title.dataset.bound = '1';
         title.addEventListener('input', () => setDirty(true));
@@ -705,6 +983,13 @@ function bindUi() {
     if (pub && !pub.dataset.bound) {
         pub.dataset.bound = '1';
         pub.addEventListener('change', () => setDirty(true));
+    }
+    if (strokeScale && !strokeScale.dataset.bound) {
+        strokeScale.dataset.bound = '1';
+        strokeScale.addEventListener('change', () => {
+            state.strokeScaling = strokeScale.checked;
+            renderStrokes();
+        });
     }
     if (!window.__sketchBeforeUnloadBound) {
         window.__sketchBeforeUnloadBound = true;
@@ -725,12 +1010,148 @@ function pointFromEvent(event) {
     };
 }
 
+function createDotAt(point, preset = {}) {
+    const team = preset.team || 'blue';
+    if ((team === 'blue' || team === 'red') && getTeamCount(team) >= MAX_TEAM_DOTS) {
+        showToast(team === 'blue' ? 'Phe xanh đã đủ 30 chấm' : 'Phe đỏ đã đủ 30 chấm');
+        return null;
+    }
+    const dot = normalizeDot({
+        id: newId('d'),
+        x: point.x,
+        y: point.y,
+        color: preset.color || state.activeColor,
+        size: state.dotSize,
+        shape: preset.shape || 'circle',
+        team,
+        role: preset.role || 'DPS',
+        subRole: preset.subRole || '',
+        label: preset.label || preset.subRole || preset.role || 'DPS'
+    });
+    getActiveMark().dots.push(dot);
+    return dot;
+}
+
+function openContextMenu(event) {
+    if (!canEditActiveSketch()) return;
+    state.contextPoint = pointFromEvent(event);
+    const menu = byId('ctxMenu');
+    if (!menu) return;
+    const blue = getTeamCount('blue');
+    const red = getTeamCount('red');
+    const selected = state.selectedDotIds.size;
+    const item = (label, action, right = '') => `<button class="ctx-item" type="button" data-action="${action}"><span>${label}</span><small>${right}</small></button>`;
+    menu.innerHTML = `
+        <div class="ctx-title">Thêm chấm · Xanh ${blue}/30 · Đỏ ${red}/30</div>
+        ${item('🔵 DPS · Quạt Dù', 'blue_dps_qd')}
+        ${item('🔵 DPS · Vô Danh', 'blue_dps_vd')}
+        ${item('🟢 Healer phe ta', 'blue_healer')}
+        ${item('🟠 Tanker phe ta', 'blue_tanker')}
+        <div class="ctx-sep"></div>
+        ${item('🔴 DPS địch', 'red_dps')}
+        ${item('💗 Healer địch', 'red_healer')}
+        ${item('🟥 Tanker địch', 'red_tanker')}
+        ${selected ? `<div class="ctx-sep"></div>${item('Xóa nhóm đang chọn', 'delete_selected', selected)}` : ''}
+    `;
+    menu.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const action = btn.dataset.action;
+            if (action === 'delete_selected') deleteSelectedDots();
+            else addPresetDot(action);
+            hideContextMenu();
+        });
+    });
+    menu.style.left = `${Math.min(event.clientX, window.innerWidth - 230)}px`;
+    menu.style.top = `${Math.min(event.clientY, window.innerHeight - 330)}px`;
+    menu.classList.add('show');
+}
+
+function addPresetDot(presetKey) {
+    const preset = ROLE_PRESETS[presetKey];
+    if (!preset || !state.contextPoint) return;
+    recordHistory();
+    const dot = createDotAt(state.contextPoint, preset);
+    if (!dot) return;
+    state.selectedDotIds = new Set([dot.id]);
+    renderAll();
+    setDirty(true);
+}
+
 function findDot(id) {
     return getActiveMark()?.dots?.find(dot => dot.id === id);
 }
 
+function getSelectedDots() {
+    const mark = getActiveMark();
+    return (mark?.dots || []).filter(dot => state.selectedDotIds.has(dot.id));
+}
+
+function updateSelectionBox(start, end) {
+    const box = byId('selectionBox');
+    if (!box) return;
+    const left = Math.min(start.x, end.x);
+    const top = Math.min(start.y, end.y);
+    const width = Math.abs(end.x - start.x);
+    const height = Math.abs(end.y - start.y);
+    box.style.display = 'block';
+    box.style.left = `${left}%`;
+    box.style.top = `${top}%`;
+    box.style.width = `${width}%`;
+    box.style.height = `${height}%`;
+}
+
+function finishSelectionBox(start, end) {
+    const box = byId('selectionBox');
+    if (box) box.style.display = 'none';
+    const left = Math.min(start.x, end.x);
+    const right = Math.max(start.x, end.x);
+    const top = Math.min(start.y, end.y);
+    const bottom = Math.max(start.y, end.y);
+    state.selectedDotIds = new Set((getActiveMark().dots || [])
+        .filter(dot => dot.x >= left && dot.x <= right && dot.y >= top && dot.y <= bottom)
+        .map(dot => dot.id));
+    renderDots();
+    updateStatus();
+}
+
+function deleteSelectedDots() {
+    if (!state.selectedDotIds.size || state.readOnly) return;
+    recordHistory();
+    const mark = getActiveMark();
+    mark.dots = mark.dots.filter(dot => !state.selectedDotIds.has(dot.id));
+    Object.keys(mark.towerGuards || {}).forEach(towerId => {
+        mark.towerGuards[towerId] = (mark.towerGuards[towerId] || []).filter(id => !state.selectedDotIds.has(id));
+    });
+    state.selectedDotIds.clear();
+    renderAll();
+    setDirty(true);
+}
+
+function snapDotsToTowers(dots) {
+    const mark = getActiveMark();
+    mark.towerGuards = mark.towerGuards || {};
+    dots.forEach(dot => {
+        let best = null;
+        Object.entries(TOWER_ZONES).forEach(([towerId, tower]) => {
+            const dist = Math.hypot(dot.x - tower.x, dot.y - tower.y);
+            if (dist <= 4.8 && (!best || dist < best.dist)) best = { towerId, tower, dist };
+        });
+        Object.keys(mark.towerGuards).forEach(towerId => {
+            mark.towerGuards[towerId] = (mark.towerGuards[towerId] || []).filter(id => id !== dot.id);
+        });
+        if (best) {
+            const list = mark.towerGuards[best.towerId] || [];
+            if (!list.includes(dot.id)) list.push(dot.id);
+            mark.towerGuards[best.towerId] = list.slice(0, 8);
+            dot.x = best.tower.x + (list.length - 1) * 1.3;
+            dot.y = best.tower.y + 3.8;
+        }
+    });
+}
+
 function onPointerDown(event) {
     if (!canEditActiveSketch()) return;
+    hideContextMenu();
     const dotEl = event.target.closest?.('.sk-dot');
     const point = pointFromEvent(event);
 
@@ -743,25 +1164,47 @@ function onPointerDown(event) {
 
     if (dotEl && state.activeTool === 'select') {
         recordHistory();
-        state.pointer = { type: 'drag-dot', dotId: dotEl.dataset.id, pointerId: event.pointerId };
+        const dotId = dotEl.dataset.id;
+        if (!state.selectedDotIds.has(dotId)) state.selectedDotIds = new Set([dotId]);
+        const originals = {};
+        getSelectedDots().forEach(dot => { originals[dot.id] = { x: dot.x, y: dot.y }; });
+        state.pointer = { type: 'drag-dots', dotId, pointerId: event.pointerId, start: point, originals };
         byId('mapStage').setPointerCapture?.(event.pointerId);
+        renderDots();
         event.preventDefault();
         return;
     }
 
     if (dotEl) return;
 
+    if (state.activeTool === 'select' && state.zoom > 1) {
+        state.pointer = {
+            type: 'pan',
+            pointerId: event.pointerId,
+            startClient: { x: event.clientX, y: event.clientY },
+            startPan: { x: state.panX, y: state.panY }
+        };
+        byId('mapStage').classList.add('panning');
+        byId('mapStage').setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+        return;
+    }
+
+    if (state.activeTool === 'select') {
+        state.pointer = { type: 'select-box', pointerId: event.pointerId, start: point, end: point };
+        state.selectedDotIds.clear();
+        updateSelectionBox(point, point);
+        byId('mapStage').setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+        return;
+    }
+
     if (state.activeTool === 'dot') {
         recordHistory();
-        getActiveMark().dots.push({
-            id: newId('d'),
-            x: point.x,
-            y: point.y,
-            color: state.activeColor,
-            size: state.dotSize,
-            shape: 'circle'
-        });
-        renderDots();
+        const dot = createDotAt(point, { color: state.activeColor, team: 'blue', role: 'DPS', label: 'DPS' });
+        if (!dot) return;
+        state.selectedDotIds = new Set([dot.id]);
+        renderAll();
         setDirty(true);
         event.preventDefault();
         return;
@@ -786,15 +1229,45 @@ function onPointerDown(event) {
 
 function onPointerMove(event) {
     if (!state.pointer || state.pointer.pointerId !== event.pointerId || state.readOnly) return;
-    const point = pointFromEvent(event);
-    if (state.pointer.type === 'drag-dot') {
-        const dot = findDot(state.pointer.dotId);
-        if (dot) {
-            dot.x = point.x;
-            dot.y = point.y;
-            renderDots();
-            setDirty(true);
+    if (state.pointer.type === 'timeline-drag') {
+        const rect = byId('timelineTrack')?.getBoundingClientRect();
+        if (!rect) return;
+        const pct = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+        const time = clampTime(TOTAL_SECONDS - pct * TOTAL_SECONDS);
+        state.pointer.moved = true;
+        const mark = state.payload.marks.find(item => item.id === state.pointer.markId);
+        if (mark) {
+            mark.time = time;
+            const ev = getSystemEvent(time);
+            mark.type = ev?.type || mark.type || 'custom';
+            mark.label = ev?.label || formatTime(time);
+            ensureSystemDotsForMark(mark);
+            byId('timeCursor').value = String(time);
+            byId('timeCursorLabel').textContent = formatTime(time);
+            renderTimeline();
         }
+        event.preventDefault();
+        return;
+    }
+    const point = pointFromEvent(event);
+    if (state.pointer.type === 'pan') {
+        state.panX = state.pointer.startPan.x + (event.clientX - state.pointer.startClient.x);
+        state.panY = state.pointer.startPan.y + (event.clientY - state.pointer.startClient.y);
+        applyZoom();
+    } else if (state.pointer.type === 'select-box') {
+        state.pointer.end = point;
+        updateSelectionBox(state.pointer.start, point);
+    } else if (state.pointer.type === 'drag-dots') {
+        const dx = point.x - state.pointer.start.x;
+        const dy = point.y - state.pointer.start.y;
+        getSelectedDots().forEach(dot => {
+            const original = state.pointer.originals[dot.id];
+            if (!original) return;
+            dot.x = clamp(original.x + dx, 0, 100);
+            dot.y = clamp(original.y + dy, 0, 100);
+        });
+        renderDots();
+        setDirty(true);
     } else if (state.pointer.type === 'stroke') {
         const stroke = getActiveMark().strokes.find(item => item.id === state.pointer.strokeId);
         if (stroke) {
@@ -802,7 +1275,7 @@ function onPointerMove(event) {
                 stroke.points[1] = point;
             } else {
                 const last = stroke.points[stroke.points.length - 1];
-                if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 0.35) stroke.points.push(point);
+                if (!last || Math.hypot(point.x - last.x, point.y - last.y) >= 0.15) stroke.points.push(point);
             }
             renderStrokes();
             setDirty(true);
@@ -815,6 +1288,34 @@ function onPointerMove(event) {
 
 function onPointerUp(event) {
     if (!state.pointer || state.pointer.pointerId !== event.pointerId) return;
+    if (state.pointer.type === 'timeline-drag') {
+        const mark = state.payload.marks.find(item => item.id === state.pointer.markId);
+        if (!state.pointer.moved) {
+            state.history.pop();
+            const markId = state.pointer.markId;
+            state.pointer = null;
+            selectMark(markId);
+            return;
+        }
+        const duplicate = mark && state.payload.marks.some(item => item.id !== mark.id && item.time === mark.time);
+        if (duplicate) {
+            mark.time = state.pointer.originalTime;
+            showToast('Mốc thời gian này đã có sẵn');
+        }
+        state.payload.marks.sort((a, b) => b.time - a.time);
+        renderAll();
+        setDirty(true);
+        state.pointer = null;
+        return;
+    }
+    if (state.pointer.type === 'select-box') {
+        finishSelectionBox(state.pointer.start, state.pointer.end || state.pointer.start);
+    }
+    if (state.pointer.type === 'drag-dots') {
+        snapDotsToTowers(getSelectedDots());
+        renderAll();
+        setDirty(true);
+    }
     if (state.pointer.type === 'stroke') {
         const mark = getActiveMark();
         const stroke = mark.strokes.find(item => item.id === state.pointer.strokeId);
@@ -823,6 +1324,7 @@ function onPointerUp(event) {
             renderStrokes();
         }
     }
+    byId('mapStage')?.classList.remove('panning');
     byId('mapStage')?.releasePointerCapture?.(event.pointerId);
     state.pointer = null;
     updateStatus();
@@ -875,6 +1377,7 @@ function eraseAt(point, fromPointer = false) {
 function renderAll() {
     renderDots();
     renderStrokes();
+    renderTowerLabels();
     renderTimeline();
     updateStatus();
 }
@@ -886,7 +1389,7 @@ function renderDots() {
     const mark = getActiveMark();
     mark.dots.forEach(dot => {
         const el = document.createElement('div');
-        el.className = `sk-dot ${dot.shape === 'square' ? 'square' : ''}`;
+        el.className = `sk-dot ${dot.shape === 'square' ? 'square' : ''}${state.selectedDotIds.has(dot.id) ? ' selected' : ''}${state.pointer?.type === 'drag-dots' && state.selectedDotIds.has(dot.id) ? ' dragging' : ''}`;
         el.dataset.id = dot.id;
         el.style.left = `${dot.x}%`;
         el.style.top = `${dot.y}%`;
@@ -894,8 +1397,54 @@ function renderDots() {
         el.style.height = `${dot.size}px`;
         el.style.background = dot.color;
         el.style.color = dot.color;
+        el.title = [dot.team, dot.role, dot.subRole || dot.label].filter(Boolean).join(' · ');
         layer.appendChild(el);
     });
+}
+
+function renderTowerLabels() {
+    const layer = byId('towerLabelLayer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const mark = getActiveMark();
+    const dotsById = new Map((mark.dots || []).map(dot => [dot.id, dot]));
+    Object.entries(TOWER_ZONES).forEach(([towerId, tower]) => {
+        const ids = (mark.towerGuards?.[towerId] || []).filter(id => dotsById.has(id));
+        if (!ids.length) return;
+        const el = document.createElement('div');
+        el.className = 'tower-label';
+        el.style.left = `${tower.x}%`;
+        el.style.top = `${Math.max(5, tower.y - 8)}%`;
+        const title = document.createElement('strong');
+        title.textContent = `${tower.name} (${ids.length})`;
+        el.appendChild(title);
+        ids.slice(0, 4).forEach(id => {
+            const dot = dotsById.get(id);
+            const line = document.createElement('span');
+            line.textContent = dot.subRole || dot.label || dot.role || id;
+            el.appendChild(line);
+        });
+        layer.appendChild(el);
+    });
+}
+
+function pointsToSmoothPath(points) {
+    if (!points?.length) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+    if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+        const c1x = p1.x + (p2.x - p0.x) / 6;
+        const c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6;
+        const c2y = p2.y - (p3.y - p1.y) / 6;
+        d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`;
+    }
+    return d;
 }
 
 function renderStrokes() {
@@ -935,44 +1484,86 @@ function renderStrokes() {
             line.setAttribute('stroke-width', stroke.width);
             line.setAttribute('stroke-linecap', 'round');
             line.setAttribute('marker-end', 'url(#arrowHead)');
-            line.setAttribute('vector-effect', 'non-scaling-stroke');
+            line.setAttribute('stroke-opacity', '0.85');
+            if (!state.strokeScaling) line.setAttribute('vector-effect', 'non-scaling-stroke');
             svg.appendChild(line);
             return;
         }
-        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-        poly.setAttribute('points', stroke.points.map(point => `${point.x},${point.y}`).join(' '));
-        poly.setAttribute('fill', 'none');
-        poly.setAttribute('stroke', stroke.color);
-        poly.setAttribute('stroke-width', stroke.width);
-        poly.setAttribute('stroke-linecap', 'round');
-        poly.setAttribute('stroke-linejoin', 'round');
-        poly.setAttribute('vector-effect', 'non-scaling-stroke');
-        svg.appendChild(poly);
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', pointsToSmoothPath(stroke.points));
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', stroke.color);
+        path.setAttribute('stroke-width', stroke.width);
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-opacity', '0.85');
+        if (!state.strokeScaling) path.setAttribute('vector-effect', 'non-scaling-stroke');
+        svg.appendChild(path);
     });
 }
 
 function renderTimeline() {
     const track = byId('timelineTrack');
     const active = getActiveMark();
-    byId('activeTime').textContent = formatTime(active?.time || TOTAL_SECONDS);
+    byId('activeTime').textContent = `${formatTime(active?.time || TOTAL_SECONDS)} ${getSystemEvent(active?.time)?.icon || ''}`.trim();
     if (byId('timeCursor')) {
         byId('timeCursor').value = String(active?.time || TOTAL_SECONDS);
         byId('timeCursorLabel').textContent = formatTime(active?.time || TOTAL_SECONDS);
     }
     if (!track) return;
     track.innerHTML = '';
+    const playhead = document.createElement('div');
+    playhead.className = 'timeline-playhead';
+    playhead.style.left = `${((TOTAL_SECONDS - (active?.time || TOTAL_SECONDS)) / TOTAL_SECONDS) * 100}%`;
+    track.appendChild(playhead);
+    const markTimes = new Set(state.payload.marks.map(mark => mark.time));
+    SYSTEM_EVENTS.forEach(event => {
+        if (markTimes.has(event.time)) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `mark-btn ghost ${event.cls}`;
+        btn.style.left = `${((TOTAL_SECONDS - event.time) / TOTAL_SECONDS) * 100}%`;
+        btn.title = `${formatTime(event.time)} · ${event.label}`;
+        btn.onclick = () => addTimelineEventMark(event);
+        const label = document.createElement('span');
+        label.textContent = event.icon;
+        btn.appendChild(label);
+        track.appendChild(btn);
+    });
+    JUNGLE_EVENTS.forEach(event => {
+        if (markTimes.has(event.time)) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `mark-btn ghost ${event.cls}`;
+        btn.style.left = `${((TOTAL_SECONDS - event.time) / TOTAL_SECONDS) * 100}%`;
+        btn.title = `${formatTime(event.time)} · ${event.label}`;
+        btn.onclick = () => addTimelineEventMark(event);
+        const label = document.createElement('span');
+        label.textContent = event.icon;
+        btn.appendChild(label);
+        track.appendChild(btn);
+    });
     state.payload.marks
         .slice()
         .sort((a, b) => b.time - a.time)
         .forEach(mark => {
+            const event = getSystemEvent(mark.time);
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = `mark-btn${mark.id === state.payload.activeMarkId ? ' active' : ''}`;
+            btn.className = `mark-btn ${getMarkClass(mark)}${mark.id === state.payload.activeMarkId ? ' active' : ''}`;
             btn.style.left = `${((TOTAL_SECONDS - mark.time) / TOTAL_SECONDS) * 100}%`;
-            btn.title = formatTime(mark.time);
+            btn.title = `${formatTime(mark.time)} · ${mark.label || event?.label || 'Custom'}`;
             btn.onclick = () => selectMark(mark.id);
+            btn.onpointerdown = (event) => {
+                if (state.readOnly) return;
+                recordHistory();
+                state.pointer = { type: 'timeline-drag', pointerId: event.pointerId, markId: mark.id, originalTime: mark.time, moved: false };
+                btn.setPointerCapture?.(event.pointerId);
+                event.preventDefault();
+                event.stopPropagation();
+            };
             const label = document.createElement('span');
-            label.textContent = formatTime(mark.time);
+            label.textContent = event?.icon || formatTime(mark.time);
             btn.appendChild(label);
             track.appendChild(btn);
         });
@@ -981,16 +1572,41 @@ function renderTimeline() {
 function selectMark(markId) {
     if (!state.payload.marks.some(mark => mark.id === markId)) return;
     state.payload.activeMarkId = markId;
+    state.selectedDotIds.clear();
     renderAll();
 }
 
 function cloneMarkForTime(source, time) {
-    return {
+    const event = getSystemEvent(time);
+    const next = {
         id: newId('m'),
         time: clampTime(time),
-        label: formatTime(time),
-        dots: (source?.dots || []).map(dot => ({ ...cloneJson(dot), id: newId('d') })),
-        strokes: (source?.strokes || []).map(stroke => ({ ...cloneJson(stroke), id: newId('s') }))
+        label: event?.label || formatTime(time),
+        type: event?.type || 'custom',
+        dots: (source?.dots || []).map(dot => ({ ...cloneJson(dot), id: newId('d'), systemId: dot.systemId || null })),
+        strokes: (source?.strokes || []).map(stroke => ({ ...cloneJson(stroke), id: newId('s') })),
+        towerGuards: {},
+        jungleAssign: {},
+        inherited: Boolean(source)
+    };
+    ensureSystemDotsForMark(next);
+    return next;
+}
+
+function findCascadeSource(time) {
+    const target = clampTime(time);
+    return state.payload.marks
+        .filter(mark => mark.time > target)
+        .sort((a, b) => a.time - b.time)[0] || null;
+}
+
+function createInheritedMark(time, source = null) {
+    if (source) return cloneMarkForTime(source, time);
+    const mark = createDefaultMark(time);
+    ensureSystemDotsForMark(mark);
+    return {
+        ...mark,
+        inherited: false
     };
 }
 
@@ -1004,8 +1620,27 @@ function addMarkAtCursor(copyCurrent = false) {
         return;
     }
     recordHistory();
-    const base = copyCurrent ? getActiveMark() : null;
-    const mark = copyCurrent ? cloneMarkForTime(base, time) : createDefaultMark(time);
+    const base = copyCurrent ? getActiveMark() : findCascadeSource(time);
+    const mark = createInheritedMark(time, base);
+    state.payload.marks.push(mark);
+    state.payload.marks.sort((a, b) => b.time - a.time);
+    state.payload.activeMarkId = mark.id;
+    renderAll();
+    setDirty(true);
+}
+
+function addTimelineEventMark(event) {
+    if (!event || !canEditActiveSketch()) return;
+    const existing = state.payload.marks.find(mark => mark.time === event.time);
+    if (existing) {
+        selectMark(existing.id);
+        return;
+    }
+    recordHistory();
+    const mark = createInheritedMark(event.time, findCascadeSource(event.time));
+    mark.type = event.type;
+    mark.label = event.label;
+    ensureSystemDotsForMark(mark);
     state.payload.marks.push(mark);
     state.payload.marks.sort((a, b) => b.time - a.time);
     state.payload.activeMarkId = mark.id;
@@ -1168,6 +1803,7 @@ async function loadLatestOrBlank() {
         return;
     }
     createNewSketch({ silent: true });
+    tryRestoreLocalDraft();
 }
 
 async function loadSketchById(id) {
@@ -1201,6 +1837,7 @@ async function loadSketchRow(row) {
     state.dirty = false;
     state.history = [];
     state.future = [];
+    state.selectedDotIds.clear();
     byId('sketchTitle').value = row.title || 'Phác thảo';
     byId('publicToggle').checked = row.is_public !== false;
     replaceSketchParam(row.id);
@@ -1226,6 +1863,7 @@ function createNewSketch(options = {}) {
     state.dirty = !options.silent;
     state.history = [];
     state.future = [];
+    state.selectedDotIds.clear();
     byId('sketchTitle').value = 'Phác thảo mới';
     byId('publicToggle').checked = true;
     replaceSketchParam(null);
@@ -1237,7 +1875,7 @@ function copyCurrentSketch() {
     const oldPayload = normalizePayload(state.payload);
     const idMap = new Map();
     const payload = {
-        version: 1,
+        version: 2,
         activeMarkId: '',
         marks: oldPayload.marks.map(mark => {
             const nextMarkId = newId('m');
@@ -1309,6 +1947,12 @@ async function saveSketch() {
         replaceSketchParam(result.data.id);
         await loadSketchLists();
         renderAll();
+        clearLocalDraft();
+        const badge = byId('mapStatus');
+        if (badge) {
+            badge.classList.add('saved');
+            setTimeout(() => badge.classList.remove('saved'), 1100);
+        }
         showToast('Đã lưu bản phác thảo');
     } catch (error) {
         markSketchTableUnavailable(error);

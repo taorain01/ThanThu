@@ -9,10 +9,13 @@ CREATE TABLE IF NOT EXISTS bc_tactic_sketches (
     discord_id TEXT NOT NULL,
     title TEXT NOT NULL DEFAULT 'Phác thảo',
     is_public BOOLEAN NOT NULL DEFAULT true,
-    payload JSONB NOT NULL DEFAULT '{"version":1,"marks":[]}'::jsonb,
+    payload JSONB NOT NULL DEFAULT '{"version":2,"marks":[]}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE bc_tactic_sketches
+    ALTER COLUMN payload SET DEFAULT '{"version":2,"marks":[]}'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_tactic_sketches_owner
     ON bc_tactic_sketches(guild_id, session_id, day, discord_id, updated_at DESC);

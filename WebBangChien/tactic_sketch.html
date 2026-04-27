@@ -84,13 +84,25 @@ button{border:0}
 .map-stage > img.map-bg.hidden-map{visibility:hidden}
 .map-bg-giay{position:absolute;inset:0;display:none;z-index:0;overflow:hidden;pointer-events:none;background:url('./anh/MapGiay.png') no-repeat;background-size:108.5% 132.5%;background-position:48% 50%}
 .map-bg-giay.show{display:block}
-.draw-layer,.dot-layer,.object-layer{position:absolute;inset:0;width:100%;height:100%}
-.object-layer{z-index:2;pointer-events:none}
-.map-object{position:absolute;transform:translate(-50%,-50%);filter:drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(3px 4px 6px rgba(0,0,0,.78));opacity:.96}
-.map-object.tower{width:4.6%}.map-object.boss{width:4.9%}.map-object.goose{width:4.2%}.map-object.tree{width:4.8%}.map-object.jungle{width:2.3%}
-.map-object img{width:100%;height:100%;display:block;pointer-events:none}
+.draw-layer,.dot-layer,.map-icons-layer{position:absolute;inset:0;width:100%;height:100%}
+.map-icons-layer{z-index:4;pointer-events:none}
+.map-icon{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+.map-icon img{width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
+.map-icon.tower{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1))}
+.map-icon.tower img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.56)}
+.map-icon.tower[data-type="tower_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.09)}
+.map-icon.goose{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1))}
+.map-icon.goose img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.63)}
+.map-icon.goose[data-type="goose_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.14)}
+.map-icon.boss{width:calc(60px * var(--map-scale,1));height:calc(60px * var(--map-scale,1))}
+.map-icon.dot{width:calc(52px * var(--map-scale,1));height:calc(55px * var(--map-scale,1))}
+.map-icon.dot img{filter:drop-shadow(0 0 1.3px rgba(255,255,255,.9)) drop-shadow(0 0 .8px rgba(255,255,255,.8)) drop-shadow(3px 4px 1px rgba(0,0,0,.8)) brightness(1.97) saturate(1.1) hue-rotate(54deg)}
+.map-icon.tree{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1))}
+.map-icon.tree img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.58)}
+.map-icon.tree[data-type="tree_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.11)}
+.map-icon-tooltip{display:none}
 .draw-layer{z-index:3;pointer-events:none;overflow:visible}
-.dot-layer{z-index:4;pointer-events:none}
+.dot-layer{z-index:5;pointer-events:none}
 .sk-dot{position:absolute;border-radius:50%;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(0,0,0,.55),0 0 14px currentColor;pointer-events:auto;cursor:grab;transition:box-shadow .18s,transform .18s,outline-color .18s}
 .sk-dot::after{content:'';position:absolute;inset:-6px;border-radius:inherit;border:1px solid currentColor;opacity:0;animation:dotPulse .72s ease-out}
 .sk-dot.selected{outline:3px solid rgba(255,255,255,.82);outline-offset:3px;box-shadow:0 0 0 3px rgba(251,191,36,.22),0 0 20px currentColor,0 4px 12px rgba(0,0,0,.6)}
@@ -297,7 +309,7 @@ button{border:0}
           <div class="map-stage" id="mapStage">
             <img class="map-bg" id="mapImg" src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
             <div class="map-bg-giay" id="mapBgGiay"></div>
-            <div class="object-layer" id="objectLayer"></div>
+            <div class="map-icons-layer" id="mapIconsLayer"></div>
             <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="tower-label-layer" id="towerLabelLayer"></div>
             <div class="dot-layer" id="dotLayer"></div>
@@ -362,44 +374,27 @@ const TOWER_ZONES = {
     tr3: { x: 62.5, y: 84.5, name: 'Trụ đỏ Nam' }
 };
 const DEFAULT_MAP_OBJECTS = [
-    { id: 'tb1', type: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 15, label: 'Trụ xanh Bắc' },
-    { id: 'tb2', type: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 50.5, label: 'Trụ xanh Trung' },
-    { id: 'tb3', type: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 84.5, label: 'Trụ xanh Nam' },
-    { id: 'tr1', type: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 15, label: 'Trụ đỏ Bắc' },
-    { id: 'tr2', type: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 50.5, label: 'Trụ đỏ Trung' },
-    { id: 'tr3', type: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 84.5, label: 'Trụ đỏ Nam' },
-    { id: 'boss_north', type: 'boss', icon: './anh/icons/sun_boss.png', x: 50, y: 30.5, label: 'Boss vàng Bắc' },
-    { id: 'boss_south', type: 'boss', icon: './anh/icons/sun_boss.png', x: 50, y: 70.5, label: 'Boss vàng Nam' },
-    { id: 'goose_blue', type: 'goose', icon: './anh/icons/goose_blue.png', x: 8.5, y: 51.5, label: 'Ngỗng xanh' },
-    { id: 'goose_red', type: 'goose', icon: './anh/icons/goose_red.png', x: 90.5, y: 50, label: 'Ngỗng đỏ' },
-    { id: 'tree_blue', type: 'tree', icon: './anh/icons/tree_blue.png', x: 4, y: 51, label: 'Cây xanh' },
-    { id: 'tree_red', type: 'tree', icon: './anh/icons/tree_red.png', x: 95.5, y: 50, label: 'Cây đỏ' },
-    { id: 'jg_a1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 29.5, y: 37.5, label: 'Rừng A1' },
-    { id: 'jg_a2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 40.5, y: 37, label: 'Rừng A2' },
-    { id: 'jg_b1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 57.5, y: 27.5, label: 'Rừng B1' },
-    { id: 'jg_b2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 69, y: 37.5, label: 'Rừng B2' },
-    { id: 'jg_c1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 29, y: 64.5, label: 'Rừng C1' },
-    { id: 'jg_d2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 69.5, y: 65, label: 'Rừng D2' },
-    { id: 'jg_c2', type: 'jungle', icon: './anh/icons/dot_red.png', x: 40.5, y: 74, label: 'Rừng C2' },
-    { id: 'jg_d1', type: 'jungle', icon: './anh/icons/dot_red.png', x: 58.5, y: 65.5, label: 'Rừng D1' }
+    { id: 'tb1', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 15, label: '⛫ Trụ Xanh Bắc' },
+    { id: 'tb2', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 50.5, label: '⛫ Trụ Xanh Trung' },
+    { id: 'tb3', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 84.5, label: '⛫ Trụ Xanh Nam' },
+    { id: 'tr1', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 15, label: '⛫ Trụ Đỏ Bắc' },
+    { id: 'tr2', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 50.5, label: '⛫ Trụ Đỏ Trung' },
+    { id: 'tr3', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 84.5, label: '⛫ Trụ Đỏ Nam' },
+    { id: 'boss1', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 50, y: 30.5, label: '☀ Boss Vàng' },
+    { id: 'boss2', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 50, y: 70.5, label: '☀ Boss Vàng' },
+    { id: 'gb', type: 'goose_blue', className: 'goose', icon: './anh/icons/goose_blue.png', x: 8.5, y: 51.5, label: 'Ngỗng Xanh' },
+    { id: 'gr', type: 'goose_red', className: 'goose', icon: './anh/icons/goose_red.png', x: 90.5, y: 50, label: 'Ngỗng Đỏ' },
+    { id: 'ctb', type: 'tree_blue', className: 'tree', icon: './anh/icons/tree_blue.png', x: 4, y: 51, label: 'Cây Xanh' },
+    { id: 'ctr', type: 'tree_red', className: 'tree', icon: './anh/icons/tree_red.png', x: 95.5, y: 50, label: 'Cây Đỏ' },
+    { id: 'd1', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 29.5, y: 37.5, label: 'Rừng A1' },
+    { id: 'd2', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 40.5, y: 37, label: 'Rừng A2' },
+    { id: 'd3', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 57.5, y: 27.5, label: 'Rừng B1' },
+    { id: 'd4', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 69, y: 37.5, label: 'Rừng B2' },
+    { id: 'd5', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 29, y: 64.5, label: 'Rừng C1' },
+    { id: 'd6', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 69.5, y: 65, label: 'Rừng D2' },
+    { id: 'd7', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 40.5, y: 74, label: 'Rừng C2' },
+    { id: 'd8', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 58.5, y: 65.5, label: 'Rừng D1' }
 ];
-const EVENT_DOTS = {
-    boss_minor: [
-        { x: 50, y: 30.5, team: 'neutral', role: 'Boss', label: 'Boss phụ Bắc', color: '#fbbf24', size: 22, shape: 'square', systemId: 'boss_minor_north' },
-        { x: 50, y: 70.5, team: 'neutral', role: 'Boss', label: 'Boss phụ Nam', color: '#fbbf24', size: 22, shape: 'square', systemId: 'boss_minor_south' }
-    ],
-    boss_major: [
-        { x: 50, y: 30.5, team: 'neutral', role: 'Boss', label: 'Boss chính Bắc', color: '#fb923c', size: 24, shape: 'square', systemId: 'boss_major_north' },
-        { x: 50, y: 70.5, team: 'neutral', role: 'Boss', label: 'Boss chính Nam', color: '#fb923c', size: 24, shape: 'square', systemId: 'boss_major_south' }
-    ],
-    solo: [
-        { x: 50, y: 50.5, team: 'neutral', role: 'PVP', label: 'PVP Solo', color: '#60a5fa', size: 20, shape: 'square', systemId: 'solo_center' }
-    ],
-    jungle: [
-        { x: 29.5, y: 37.5, team: 'neutral', role: 'Rừng', label: 'Rừng A1', color: '#22c55e', size: 16, systemId: 'jungle_a1' },
-        { x: 69.5, y: 65, team: 'neutral', role: 'Rừng', label: 'Rừng D2', color: '#22c55e', size: 16, systemId: 'jungle_d2' }
-    ]
-};
 const ROLE_PRESETS = {
     blue_dps_qd: { team: 'blue', role: 'DPS', subRole: 'QD', label: 'Quạt Dù', color: '#60a5fa' },
     blue_dps_vd: { team: 'blue', role: 'DPS', subRole: 'VD', label: 'Vô Danh', color: '#38bdf8' },
@@ -773,7 +768,8 @@ function normalizeMapObject(item) {
     const fallback = DEFAULT_MAP_OBJECTS.find(obj => obj.id === item?.id) || {};
     return {
         id: String(item?.id || fallback.id || newId('obj')),
-        type: String(item?.type || fallback.type || 'jungle').slice(0, 24),
+        type: String(item?.type || fallback.type || 'dot').slice(0, 24),
+        className: String(item?.className || fallback.className || item?.type || fallback.type || 'dot').slice(0, 48),
         icon: String(item?.icon || fallback.icon || './anh/icons/dot_red.png').slice(0, 120),
         x: clamp(item?.x ?? fallback.x, 0, 100),
         y: clamp(item?.y ?? fallback.y, 0, 100),
@@ -787,12 +783,12 @@ function getDefaultMapObjects() {
 
 function ensureMapObjectsForMark(mark) {
     if (!mark) return mark;
-    const existing = new Map((Array.isArray(mark.mapObjects) ? mark.mapObjects : []).map(obj => [obj.id, normalizeMapObject(obj)]));
-    DEFAULT_MAP_OBJECTS.forEach(obj => {
-        if (!existing.has(obj.id)) existing.set(obj.id, normalizeMapObject(obj));
-    });
-    mark.mapObjects = Array.from(existing.values());
+    mark.mapObjects = getDefaultMapObjects();
     return mark;
+}
+
+function isLegacySystemDot(dot) {
+    return Boolean(dot?.systemId);
 }
 
 function normalizeStroke(stroke) {
@@ -814,7 +810,7 @@ function normalizeMark(mark) {
         time,
         label: String(mark?.label || event?.label || formatTime(time)).slice(0, 24),
         type: String(mark?.type || event?.type || 'custom').slice(0, 24),
-        dots: Array.isArray(mark?.dots) ? mark.dots.map(normalizeDot) : [],
+        dots: Array.isArray(mark?.dots) ? mark.dots.filter(dot => !isLegacySystemDot(dot)).map(normalizeDot) : [],
         strokes: Array.isArray(mark?.strokes) ? mark.strokes.map(normalizeStroke) : [],
         mapObjects: Array.isArray(mark?.mapObjects) ? mark.mapObjects.map(normalizeMapObject) : getDefaultMapObjects(),
         towerGuards: mark?.towerGuards && typeof mark.towerGuards === 'object' ? mark.towerGuards : {},
@@ -825,13 +821,7 @@ function normalizeMark(mark) {
 
 function ensureSystemDotsForMark(mark) {
     if (!mark) return mark;
-    const eventDots = EVENT_DOTS[mark.type] || EVENT_DOTS[getSystemEvent(mark.time)?.type] || [];
-    if (!eventDots.length) return mark;
-    const existing = new Set((mark.dots || []).map(dot => dot.systemId).filter(Boolean));
-    eventDots.forEach(template => {
-        if (existing.has(template.systemId)) return;
-        mark.dots.push(normalizeDot({ ...template, id: newId('d') }));
-    });
+    mark.dots = (mark.dots || []).filter(dot => !isLegacySystemDot(dot));
     return mark;
 }
 
@@ -1199,6 +1189,15 @@ function bindUi() {
                 event.returnValue = '';
             }
         });
+    }
+    if (!window.__sketchMapScaleBound) {
+        window.__sketchMapScaleBound = true;
+        window.addEventListener('resize', recalcMapScale);
+        const img = byId('mapImg');
+        if (img) {
+            if (img.complete) recalcMapScale();
+            else img.addEventListener('load', recalcMapScale, { once: true });
+        }
     }
 }
 
@@ -1592,22 +1591,44 @@ function renderAll() {
     updateStatus();
 }
 
-function renderMapObjects() {
-    const layer = byId('objectLayer');
+function recalcMapScale() {
+    const img = byId('mapImg');
+    const layer = byId('mapIconsLayer');
+    const stage = byId('mapStage');
     if (!layer) return;
+    const renderedW = img?.offsetWidth || stage?.clientWidth || 0;
+    const renderedH = img?.offsetHeight || stage?.clientHeight || 0;
+    if (!renderedW || !renderedH) return;
+    const scaleW = renderedW / 900;
+    const scaleH = renderedH / 500;
+    const scale = Math.max(0.35, Math.min(1.2, Math.min(scaleW, scaleH)));
+    layer.style.setProperty('--map-scale', scale.toFixed(3));
+}
+
+function renderMapObjects() {
+    const layer = byId('mapIconsLayer');
+    if (!layer) return;
+    recalcMapScale();
     const mark = ensureMapObjectsForMark(getActiveMark());
     layer.innerHTML = '';
     (mark.mapObjects || []).forEach(obj => {
         const el = document.createElement('div');
-        el.className = `map-object ${obj.type || 'jungle'}`;
+        el.className = `map-icon ${obj.className || obj.type || 'dot'}`;
         el.style.left = `${obj.x}%`;
         el.style.top = `${obj.y}%`;
+        el.dataset.type = obj.type || '';
+        el.dataset.name = obj.label || obj.id;
+        el.dataset.objId = obj.id;
         el.title = obj.label || obj.id;
         const img = document.createElement('img');
         img.src = obj.icon;
         img.alt = obj.label || obj.id;
         img.draggable = false;
         el.appendChild(img);
+        const tip = document.createElement('span');
+        tip.className = 'map-icon-tooltip';
+        tip.textContent = obj.label || obj.id;
+        el.appendChild(tip);
         layer.appendChild(el);
     });
 }

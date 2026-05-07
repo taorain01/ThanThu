@@ -5529,11 +5529,6 @@ function tvShowAll() {
         if (e) e.style.display = '';
     });
     
-    // Auto chuyển sang tab Bản đồ khi load lần đầu
-    const mapTab = document.querySelector('.r-tab');
-    if (mapTab && !mapTab.classList.contains('active')) {
-        switchRTab(mapTab, 'pane-map');
-    }
     scheduleMobileViewportSync();
 }
 

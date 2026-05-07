@@ -528,13 +528,15 @@ const TASKS=[
 const R = 110; // bán kính SVG
 const CIRC = 2 * Math.PI * R;
 let total = 1800, remain = 1800, tasks = [...TASKS];
-let iv = null, running = false, paused = false;
+let iv = null, running = false, paused = false, timerEndAtMs = null;
 let fired = new Set(), nCnt = 0;
 let optMsg = true, optSnd = true;
 let alertTO = null, audioCtx = null;
 let soundPack = localStorage.getItem('timer-sound-pack') || 'digital';
 let isEditing = false;
 let isDragging = false;
+const TIMER_STATE_KEY = 'bangchien-battle-timer-state-v2';
+let timerWorker = null;
 
 // ── DOM ──
 const ringWrap = document.getElementById('ringWrap');
@@ -547,6 +549,7 @@ const inpMin = document.getElementById('inpMin');
 const inpSec = document.getElementById('inpSec');
 
 // ── INIT ──
+restoreTimerState();
 initParticles();
 renderTicks();
 renderMS();
@@ -554,6 +557,15 @@ renderTasks();
 updateDisplay();
 initPresets();
 updateDragHandle();
+applyTimerUiState();
+restoreMilestoneHighlights();
+if (running && !paused) {
+  syncRunningTimer(true);
+  startTimerTicker();
+}
+document.addEventListener('visibilitychange', () => syncRunningTimer(false));
+window.addEventListener('focus', () => syncRunningTimer(false));
+window.addEventListener('pagehide', saveTimerState);
 
 // ── VẠC CHIA TRÊN VÒNG TRÒN ──
 function renderTicks() {
@@ -638,6 +650,7 @@ function closeEditor(apply) {
   editHint.style.display = 'none';
   updateDisplay();
   updateDragHandle();
+  saveTimerState();
 }
 function updatePresetActive() {
   const min = Math.floor(total / 60);
@@ -754,6 +767,7 @@ function onDragEnd() {
   ringWrap.classList.remove('dragging');
   // Khoi phuc transition muot
   document.getElementById('rTrack').style.transition = 'stroke-dashoffset .15s linear, stroke-dasharray .15s linear, stroke .5s';
+  saveTimerState();
 }
 
 // Cập nhật handle khi resize
@@ -781,35 +795,190 @@ function renderTasks(){
       <span>${t.text}</span>
     </div>`).join('');
 }
-function toggleTask(id){tasks=tasks.map(t=>t.id===id?{...t,done:!t.done}:t);renderTasks();}
+function toggleTask(id){tasks=tasks.map(t=>t.id===id?{...t,done:!t.done}:t);renderTasks();saveTimerState();}
 
 // ── TIMER ──
+function saveTimerState(){
+  try {
+    localStorage.setItem(TIMER_STATE_KEY, JSON.stringify({
+      total, remain, running, paused, timerEndAtMs,
+      fired: Array.from(fired),
+      tasks,
+      savedAt: Date.now()
+    }));
+  } catch(e) {}
+}
+function restoreTimerState(){
+  try {
+    const raw = localStorage.getItem(TIMER_STATE_KEY);
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    total = Math.max(1, Math.min(MAX_TOTAL, Number(state.total) || MAX_TOTAL));
+    remain = Math.max(0, Math.min(MAX_TOTAL, Number(state.remain) || total));
+    running = !!state.running;
+    paused = !!state.paused;
+    timerEndAtMs = Number(state.timerEndAtMs) || null;
+    fired = new Set(Array.isArray(state.fired) ? state.fired : []);
+    if (Array.isArray(state.tasks)) tasks = state.tasks;
+    if (running && !paused && timerEndAtMs) {
+      remain = Math.max(0, Math.ceil((timerEndAtMs - Date.now()) / 1000));
+      if (remain <= 0) {
+        running = false;
+        paused = false;
+        timerEndAtMs = null;
+      }
+    }
+  } catch(e) {
+    try { localStorage.removeItem(TIMER_STATE_KEY); } catch(_) {}
+  }
+}
+function applyTimerUiState(){
+  const btnStart = document.getElementById('btnStart');
+  const btnStartTxt = document.getElementById('btnStartTxt');
+  const btnPause = document.getElementById('btnPause');
+  const status = document.getElementById('rStatus');
+  if (!btnStart || !btnStartTxt || !btnPause || !status) return;
+  if (running && !paused) {
+    btnStart.disabled = true;
+    btnPause.disabled = false;
+    btnStartTxt.textContent = 'Bắt Đầu';
+    status.textContent = '▶ Đang Chạy';
+    document.getElementById('rTrack').style.transition='stroke-dashoffset 1s linear, stroke-dasharray 1s linear, stroke .5s';
+  } else if (running && paused) {
+    btnStart.disabled = false;
+    btnPause.disabled = false;
+    btnStartTxt.textContent = 'Tiếp Tục';
+    status.textContent = '⏸ Tạm Dừng';
+  } else if (remain <= 0) {
+    btnStart.disabled = true;
+    btnPause.disabled = true;
+    btnStartTxt.textContent = 'Bắt Đầu';
+    status.textContent = '✅ Kết Thúc';
+  }
+}
+function restoreMilestoneHighlights(){
+  MS.forEach(m => {
+    const arrived = fired.has(`${m.id}-x`);
+    document.getElementById(`ms-${m.id}`)?.classList.toggle('lit', arrived);
+  });
+}
+function requestTimerNotificationPermission(){
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  try { Notification.requestPermission(); } catch(e) {}
+}
+function notifyTimer(title, body){
+  if (!optMsg || !('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, {
+      body,
+      tag: 'bangchien-timer',
+      renotify: true,
+      silent: false
+    });
+  } catch(e) {}
+}
+function startTimerTicker(){
+  stopTimerTicker();
+  try {
+    const code = `
+      let endAt = 0;
+      let timer = null;
+      function emit(){
+        if (!endAt) return;
+        postMessage({ type: 'tick', remain: Math.max(0, Math.ceil((endAt - Date.now()) / 1000)) });
+      }
+      onmessage = (event) => {
+        if (event.data.type === 'start') {
+          endAt = event.data.endAt;
+          if (timer) clearInterval(timer);
+          emit();
+          timer = setInterval(emit, 250);
+        } else if (event.data.type === 'stop') {
+          endAt = 0;
+          if (timer) clearInterval(timer);
+          timer = null;
+        }
+      };
+    `;
+    const blob = new Blob([code], { type: 'application/javascript' });
+    timerWorker = new Worker(URL.createObjectURL(blob));
+    timerWorker.onmessage = () => syncRunningTimer(false);
+    timerWorker.postMessage({ type: 'start', endAt: timerEndAtMs });
+  } catch(e) {
+    if(iv)clearInterval(iv);
+    iv=setInterval(tick,1000);
+  }
+}
+function stopTimerTicker(){
+  if(iv)clearInterval(iv);
+  iv=null;
+  if(timerWorker){
+    try { timerWorker.postMessage({ type: 'stop' }); timerWorker.terminate(); } catch(e) {}
+    timerWorker = null;
+  }
+}
+function completeTimer(){
+  stopTimerTicker();running=false;paused=false;timerEndAtMs=null;remain=0;
+  document.getElementById('rStatus').textContent='✅ Kết Thúc';
+  document.getElementById('btnStart').disabled=true;
+  document.getElementById('btnPause').disabled=true;
+  updateDisplay();updateDragHandle();
+  addN('🏆','Kết thúc!','Bang chiến kết thúc!','tstart');
+  notifyTimer('🏆 Bang chiến kết thúc', 'Timer đã về 00:00');
+  playS('end');showAl('','KẾT THÚC!','Bang chiến đã kết thúc!','','',5000);
+  saveTimerState();
+}
+function checkMSRange(fromRemain, toRemain){
+  MS.forEach(m=>{
+    const at=m.min*60;
+    m.warns.forEach(w=>{
+      const target = at + w;
+      const k=`${m.id}-${w}`;
+      if(!fired.has(k) && fromRemain > target && toRemain <= target){fired.add(k);fireWarn(m,w);}
+    });
+    const ek=`${m.id}-x`;
+    if(!fired.has(ek) && fromRemain > at && toRemain <= at){fired.add(ek);fireMilestone(m);}
+  });
+}
+function syncRunningTimer(skipAlerts){
+  if (!running || paused || !timerEndAtMs) return;
+  const before = remain;
+  remain = Math.max(0, Math.ceil((timerEndAtMs - Date.now()) / 1000));
+  if (!skipAlerts && before > remain) checkMSRange(before, remain);
+  updateDisplay();updateDragHandle();
+  if (remain <= 0) completeTimer();
+  else saveTimerState();
+}
 function startTimer(){
   if(running&&!paused)return;
   if(remain<=0){resetTimer();return;}
+  requestTimerNotificationPermission();
   running=true;paused=false;
+  timerEndAtMs = Date.now() + remain * 1000;
   document.getElementById('btnStart').disabled=true;
   document.getElementById('btnPause').disabled=false;
   document.getElementById('rStatus').textContent='▶ Đang Chạy';
   // Handle van hien thi khi chay — di chuyen CW cung ring
   // cập nhật transition cho smooth khi chạy
   document.getElementById('rTrack').style.transition='stroke-dashoffset 1s linear, stroke-dasharray 1s linear, stroke .5s';
-  if(iv)clearInterval(iv);
-  iv=setInterval(tick,1000);
+  startTimerTicker();
   addN('▶','Bắt đầu!',`Timer từ ${fmtT(remain)}`,'tstart');
   playS('start');
+  saveTimerState();
 }
 function pauseTimer(){
   if(!running||paused)return;
-  paused=true;clearInterval(iv);iv=null;
+  syncRunningTimer(true);
+  paused=true;timerEndAtMs=null;stopTimerTicker();
   document.getElementById('btnStart').disabled=false;
   document.getElementById('btnStartTxt').textContent='Tiếp Tục';
   document.getElementById('rStatus').textContent='⏸ Tạm Dừng';
   updateDragHandle();
   addN('⏸','Tạm dừng',`Còn ${fmtT(remain)}`,'twarn');
+  saveTimerState();
 }
 function resetTimer(){
-  clearInterval(iv);iv=null;running=false;paused=false;fired.clear();
+  stopTimerTicker();running=false;paused=false;timerEndAtMs=null;fired.clear();
   total=MAX_TOTAL;remain=MAX_TOTAL;
   // Cap nhat input va preset
   var inp=document.getElementById('inpMin');var inpS=document.getElementById('inpSec');
@@ -826,8 +995,13 @@ function resetTimer(){
   updateDragHandle();
   MS.forEach(m=>document.getElementById(`ms-${m.id}`)?.classList.remove('lit'));
   addN('↺','Reset','Timer đã reset','tstart');
+  saveTimerState();
 }
 function tick(){
+  if (running && !paused && timerEndAtMs) {
+    syncRunningTimer(false);
+    return;
+  }
   if(remain<=0){
     clearInterval(iv);iv=null;running=false;
     document.getElementById('rStatus').textContent='✅ Kết Thúc';
@@ -853,12 +1027,14 @@ function checkMS(){
 function fireWarn(m,w){
   const el=document.getElementById(`ms-${m.id}`);el?.classList.add('lit');
   if(optMsg)addN(m.type==='boss'?'💀':'⚔','Cảnh báo · '+m.name,`Còn ${w} giây!`,w===5?'tcrit':'twarn');
+  notifyTimer(`⚠️ ${m.name} còn ${w}s`, `Mốc ${m.min}:00 sắp tới`);
   if(optSnd){if(w===30)playS('w30');else if(w===15)playS('w15');else playS('w5');}
   flashSc(m.type==='boss'?'fb':'fp');
   showAl(m.type==='boss'?'#ico-skull':'#ico-sword',m.name,`Còn ${w} giây!`,m.type==='boss'?'boss':'pvp',m.type==='boss'?'#f87171':'#4ade80',3000);
 }
 function fireMilestone(m){
   if(optMsg)addN('🔴',m.name+' ĐÃ XUẤT HIỆN!',m.desc+' — CHIẾN ĐẤU!',m.type==='boss'?'tboss':'tpvp');
+  notifyTimer(`🚨 ${m.name} xuất hiện`, 'Hành động ngay');
   if(optSnd)playS('ms');
   flashSc(m.type==='boss'?'fb':'fp');
   showAl(m.type==='boss'?'#ico-skull':'#ico-sword',m.name.toUpperCase()+'!','XUẤT HIỆN! HÀNH ĐỘNG NGAY!',m.type==='boss'?'boss':'pvp',m.type==='boss'?'#f87171':'#4ade80',4000);
@@ -1004,6 +1180,7 @@ const SOUND_PACKS={
 // Phát âm thanh theo bộ đã chọn
 function playS(t){
   if(!optSnd)return;
+  try { getAC().resume(); } catch(e) {}
   const pack=SOUND_PACKS[soundPack]||SOUND_PACKS.digital;
   if(pack[t])pack[t]();
 }

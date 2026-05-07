@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "WebBangChien/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/WebBangChien/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/WebBangChien/$1"
+    }
+  ]
+}

@@ -646,11 +646,8 @@ async function checkAuth() {
         console.warn('[Sketch] Load user exception:', error);
     }
 
-    const activeMember = accessUser?.lang_gia_member === true && !isLeftWebPosition(accessUser?.position);
-    if (!activeMember && !canBypassMemberGate()) {
-        showDenied();
-        return;
-    }
+    // Cho phep moi thanh vien LangGia da dang nhap Discord su dung DLAM
+    // (khong can kiem tra lang_gia_member hoac position)
 
     byId('authOverlay').style.display = 'none';
     byId('app').style.display = 'flex';

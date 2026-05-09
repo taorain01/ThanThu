@@ -3003,6 +3003,43 @@ function createEmptyTowerGuards(raw = {}) {
     return towerGuards;
 }
 
+function dedupeUnitsById(units = []) {
+    const seen = new Set();
+    const deduped = [];
+    [...units].reverse().forEach(unit => {
+        if (!unit?.id || seen.has(unit.id)) return;
+        seen.add(unit.id);
+        deduped.push(unit);
+    });
+    return deduped.reverse();
+}
+
+function dedupeTowerGuardIds(towerGuards, towerIds, blockedIds = new Set()) {
+    const seen = new Set();
+    towerIds.forEach(towerId => {
+        const next = [];
+        (towerGuards[towerId] || []).forEach(id => {
+            if (!id || blockedIds.has(id) || seen.has(id)) return;
+            seen.add(id);
+            next.push(id);
+        });
+        towerGuards[towerId] = next.slice(0, 3);
+    });
+}
+
+function normalizeMarkAssignments(mark) {
+    if (!mark) return mark;
+    mark.players = dedupeUnitsById(mark.players || []);
+    mark.enemies = dedupeUnitsById(mark.enemies || []);
+    mark.tower_guards = createEmptyTowerGuards(mark.tower_guards);
+
+    const playerIds = new Set(mark.players.map(player => player.id).filter(Boolean));
+    const enemyIds = new Set(mark.enemies.map(enemy => enemy.id).filter(Boolean));
+    dedupeTowerGuardIds(mark.tower_guards, BLUE_TOWER_IDS, playerIds);
+    dedupeTowerGuardIds(mark.tower_guards, RED_TOWER_IDS, enemyIds);
+    return mark;
+}
+
 function normalizeMapUnit(unit, fallbackName = 'Player') {
     return {
         id: unit?.id,
@@ -3310,6 +3347,7 @@ function normalizeMark(mark) {
     if (type === 'boss_major' && !normalized.boss_state?.boss_major?.id) {
         normalized.boss_state.boss_major = { id: getBossSpawnId('boss_major'), spawned: true };
     }
+    normalizeMarkAssignments(normalized);
     return normalized;
 }
 

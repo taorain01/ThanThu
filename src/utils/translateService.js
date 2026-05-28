@@ -10,6 +10,36 @@ const translatedMessages = new Map();
 // Thời gian giữ cache (1 giờ)
 const CACHE_DURATION = 60 * 60 * 1000;
 
+// Discord chỉ cho phép content của mỗi message tối đa 2000 ký tự.
+const DISCORD_MESSAGE_LIMIT = 2000;
+
+function splitDiscordMessage(content, maxLength = DISCORD_MESSAGE_LIMIT) {
+    if (!content) return [];
+    if (content.length <= maxLength) return [content];
+
+    const chunks = [];
+    let remaining = content;
+
+    while (remaining.length > maxLength) {
+        let splitAt = remaining.lastIndexOf('\n', maxLength);
+
+        if (splitAt < maxLength * 0.6) {
+            splitAt = remaining.lastIndexOf(' ', maxLength);
+        }
+
+        if (splitAt < maxLength * 0.6) {
+            splitAt = maxLength;
+        }
+
+        const chunk = remaining.slice(0, splitAt).trimEnd();
+        if (chunk.length > 0) chunks.push(chunk);
+        remaining = remaining.slice(splitAt).trimStart();
+    }
+
+    if (remaining.length > 0) chunks.push(remaining);
+    return chunks;
+}
+
 /**
  * Kiểm tra xem tin nhắn có cần dịch không
  */
@@ -239,21 +269,28 @@ async function handleTranslation(message) {
 
         // Gửi bản dịch
         if (translatedContent || translatedEmbeds.length > 0) {
+            const baseContent = translatedContent
+                ? `🌐 **Bản dịch:**\n${translatedContent}`
+                : `🌐 **Bản dịch từ bot:**`;
+            const contentChunks = splitDiscordMessage(baseContent);
+
             const replyOptions = {
+                content: contentChunks.shift(),
                 allowedMentions: { repliedUser: false }
             };
-
-            if (translatedContent) {
-                replyOptions.content = `🌐 **Bản dịch:**\n${translatedContent}`;
-            } else {
-                replyOptions.content = `🌐 **Bản dịch từ bot:**`;
-            }
 
             if (translatedEmbeds.length > 0) {
                 replyOptions.embeds = translatedEmbeds;
             }
 
             await message.reply(replyOptions);
+
+            for (const chunk of contentChunks) {
+                await message.channel.send({
+                    content: chunk,
+                    allowedMentions: { parse: [] }
+                });
+            }
         }
     } catch (error) {
         console.error('[Translate] Lỗi xử lý dịch:', error);

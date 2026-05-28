@@ -1145,6 +1145,7 @@ async function logAction(guildId, action, details, performedBy, source = 'bot') 
 
 async function syncBcRegular(guildId, discordId, username, day) {
     if (!isReady()) return;
+    if (!['sat', 'sun'].includes(day)) return false;
     try {
         const { error } = await supabase
             .from('bc_regulars')
@@ -1217,8 +1218,11 @@ async function setSessionLocked(guildId, day, locked = true) {
     }
 }
 
-async function pollBcRegulars(db, guildId) {
+async function pollBcRegulars(db, guildId, options = {}) {
     if (!isReady() || !db) return [];
+    const validateRegular = typeof options.validateRegular === 'function'
+        ? options.validateRegular
+        : null;
     try {
         const { data, error } = await supabase
             .from('bc_regulars')
@@ -1231,8 +1235,26 @@ async function pollBcRegulars(db, guildId) {
         }
 
         const remote = data || [];
+        for (const remoteItem of remote) {
+            if (!['sat', 'sun'].includes(remoteItem.day)) {
+                await removeBcRegular(guildId, remoteItem.discord_id, remoteItem.day);
+            }
+        }
+
         for (const day of ['sat', 'sun']) {
-            const remoteDay = remote.filter((item) => item.day === day);
+            const remoteDay = [];
+            for (const remoteItem of remote.filter((item) => item.day === day)) {
+                let isValid = true;
+                if (validateRegular) {
+                    try {
+                        isValid = await validateRegular(remoteItem, day);
+                    } catch (validateError) {
+                        isValid = false;
+                        console.error('[Supabase] ❌ validate bc_regular lỗi:', validateError.message);
+                    }
+                }
+                if (isValid) remoteDay.push(remoteItem);
+            }
             const localDay = db.getBcRegulars(guildId, day) || [];
 
             for (const remoteItem of remoteDay) {
@@ -1255,6 +1277,38 @@ async function pollBcRegulars(db, guildId) {
         console.error('[Supabase] ❌ pollBcRegulars exception:', err.message);
         return [];
     }
+}
+
+let _bcRegularChangesListening = false;
+
+function listenForBcRegularChanges(guildId, onRegularChange) {
+    if (!isReady()) return;
+    if (_bcRegularChangesListening) {
+        console.warn('[Supabase] listenForBcRegularChanges da duoc goi roi, bo qua');
+        return;
+    }
+    _bcRegularChangesListening = true;
+
+    supabase
+        .channel('bc-regular-changes')
+        .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'bc_regulars', filter: `guild_id=eq.${guildId}` },
+            (payload) => {
+                if (!onRegularChange) return;
+                const record = payload.eventType === 'DELETE' ? payload.old : payload.new;
+                Promise.resolve(onRegularChange({
+                    eventType: payload.eventType,
+                    record,
+                    new: payload.new,
+                    old: payload.old
+                })).catch((err) => {
+                    console.error('[Supabase] bc_regulars handler loi:', err.message);
+                });
+            }
+        )
+        .subscribe((status) => {
+            console.log(`[Supabase] bc_regulars subscription: ${status}`);
+        });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1882,6 +1936,7 @@ module.exports = {
     setSessionLocked,
     pollBcRegulars,
     logAction,
+    listenForBcRegularChanges,
     listenForWebChanges,
     listenForTacticsHistoryChanges,
     formatActiveSession,

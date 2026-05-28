@@ -16,6 +16,47 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 
+function getPendingByUid(gameUid, guildId) {
+    try {
+        if (guildId) {
+            const scoped = db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ? AND guild_id = ?').get(gameUid, guildId);
+            if (scoped) return scoped;
+            return db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ? AND guild_id IS NULL').get(gameUid);
+        }
+        return db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ?').get(gameUid);
+    } catch (e) {
+        return null;
+    }
+}
+
+function getPendingByGameName(gameName, guildId) {
+    try {
+        if (guildId) {
+            const scoped = db.db.prepare('SELECT * FROM pending_ids WHERE game_username = ? COLLATE NOCASE AND guild_id = ?').get(gameName, guildId);
+            if (scoped) return scoped;
+            return db.db.prepare('SELECT * FROM pending_ids WHERE game_username = ? COLLATE NOCASE AND guild_id IS NULL').get(gameName);
+        }
+        return db.db.prepare('SELECT * FROM pending_ids WHERE game_username = ? COLLATE NOCASE').get(gameName);
+    } catch (e) {
+        return null;
+    }
+}
+
+function deletePendingForMember(gameUid, gameName, guildId) {
+    try {
+        if (guildId) {
+            return db.db.prepare(`
+                DELETE FROM pending_ids
+                WHERE (game_uid = ? OR game_username = ? COLLATE NOCASE)
+                  AND (guild_id = ? OR guild_id IS NULL)
+            `).run(gameUid, gameName, guildId);
+        }
+        return db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ? OR game_username = ? COLLATE NOCASE').run(gameUid, gameName);
+    } catch (e) {
+        return null;
+    }
+}
+
 // Position display names with emojis
 const POSITION_CONFIG = {
     bc: { name: 'Bang Chủ', emoji: '👑', color: 0xFF0000 },
@@ -126,6 +167,7 @@ function hasKcRole(member) {
  */
 async function handleEditMode(message, targetUser, existingUser, newData) {
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const guildId = message.guild?.id || null;
 
     // Permission check - only KC
     if (!hasKcRole(message.member)) {
@@ -138,7 +180,7 @@ async function handleEditMode(message, targetUser, existingUser, newData) {
 
     if (newData.gameUid && newData.gameUid !== existingUser.game_uid) {
         // Check if new UID already belongs to another user
-        const uidOwner = db.getUserByGameUid(newData.gameUid);
+        const uidOwner = db.getUserByGameUid(newData.gameUid, guildId);
         if (uidOwner && uidOwner.discord_id !== targetUser.id) {
             return message.channel.send(`❌ UID \`${newData.gameUid}\` đã thuộc về <@${uidOwner.discord_id}>!`);
         }
@@ -163,7 +205,7 @@ async function handleEditMode(message, targetUser, existingUser, newData) {
     if (newData.normalizedPosition && newData.normalizedPosition !== existingUser.position) {
         // Check unique positions
         if (['bc', 'pbc'].includes(newData.normalizedPosition)) {
-            const holder = db.getUniquePositionHolder(newData.normalizedPosition);
+            const holder = db.getUniquePositionHolder(newData.normalizedPosition, guildId);
             if (holder && holder.discord_id !== targetUser.id) {
                 return message.channel.send(`❌ ${newData.normalizedPosition.toUpperCase()} đã tồn tại: <@${holder.discord_id}>`);
             }
@@ -253,6 +295,8 @@ async function execute(message, args) {
             .setFooter({ text: 'Không cần nhập chức vụ = mặc định mem' });
         return message.channel.send({ embeds: [embed] });
     }
+
+    const guildId = message.guild?.id || null;
 
     // ============== SMART ARGUMENT PARSER ==============
     // Parse args to detect: Discord user, UID, name, date, position
@@ -350,38 +394,32 @@ async function execute(message, args) {
 
     // If we have UID but no name, lookup name by UID
     if (gameUid && !gameName) {
-        try {
-            const pending = db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ?').get(gameUid);
-            if (pending) {
-                gameName = pending.game_username;
-                pendingData = pending;
-            }
-        } catch (e) { /* pending_ids table might not exist yet */ }
+        const pending = getPendingByUid(gameUid, guildId);
+        if (pending) {
+            gameName = pending.game_username;
+            pendingData = pending;
+        }
     }
 
     // If we have name but no UID, lookup UID by name
     if (gameName && !gameUid) {
-        try {
-            const pending = db.db.prepare('SELECT * FROM pending_ids WHERE game_username = ? COLLATE NOCASE').get(gameName);
-            if (pending) {
-                gameUid = pending.game_uid;
-                pendingData = pending;
-            }
-        } catch (e) { /* pending_ids table might not exist yet */ }
+        const pending = getPendingByGameName(gameName, guildId);
+        if (pending) {
+            gameUid = pending.game_uid;
+            pendingData = pending;
+        }
     }
 
     // If both UID and name exist, still check pending_ids for joined_at
     if (gameUid && gameName && !pendingData) {
-        try {
-            const pending = db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ?').get(gameUid);
-            if (pending) {
-                pendingData = pending;
-            }
-        } catch (e) { /* ignore */ }
+        const pending = getPendingByUid(gameUid, guildId);
+        if (pending) {
+            pendingData = pending;
+        }
     }
 
     // 7. CHECK IF USER EXISTS FIRST (for edit detection)
-    const existingUser = db.getUserByDiscordId(targetUser.id);
+    const existingUser = db.getUserByDiscordId(targetUser.id, guildId);
 
     // EDIT MODE: If user exists and hasn't left, this is an edit
     if (existingUser && !existingUser.left_at) {
@@ -416,7 +454,7 @@ async function execute(message, args) {
 
     // Check unique positions
     if (['bc', 'pbc'].includes(normalizedPosition)) {
-        const existingHolder = db.getUniquePositionHolder(normalizedPosition);
+        const existingHolder = db.getUniquePositionHolder(normalizedPosition, guildId);
         if (existingHolder && existingHolder.discord_id !== targetUser.id) {
             return message.channel.send(`❌ ${normalizedPosition.toUpperCase()} đã tồn tại: <@${existingHolder.discord_id}>`);
         }
@@ -439,6 +477,8 @@ async function execute(message, args) {
         gameUsername: gameName,
         gameUid: gameUid,
         position: normalizedPosition,
+        guildId,
+        addedBy: message.author.id,
         joinedAt: joinDate.toISOString()
     };
 
@@ -454,9 +494,7 @@ async function execute(message, args) {
         }
 
         // Remove from pending_ids if it exists there (by UID or name)
-        try {
-            db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ? OR game_username = ? COLLATE NOCASE').run(gameUid, gameName);
-        } catch (e) { /* Table might not exist */ }
+        deletePendingForMember(gameUid, gameName, guildId);
 
         // Add custom kc name if needed
         const posValidation = validatePosition(normalizedPosition);
@@ -474,7 +512,8 @@ async function execute(message, args) {
                 { name: `${posDisplay.emoji} Chức vụ`, value: posDisplay.name, inline: true },
                 { name: '🎮 Tên Game', value: gameName, inline: true },
                 { name: '🆔 UID', value: gameUid, inline: true },
-                { name: '📅 Ngày tham gia', value: `<t:${Math.floor(joinDate.getTime() / 1000)}:D>`, inline: true }
+                { name: '📅 Ngày tham gia', value: `<t:${Math.floor(joinDate.getTime() / 1000)}:D>`, inline: true },
+                { name: '📝 Người thêm', value: `<@${message.author.id}>`, inline: true }
             )
             .setFooter({ text: `Thêm bởi ${message.author.username}` })
             .setTimestamp();

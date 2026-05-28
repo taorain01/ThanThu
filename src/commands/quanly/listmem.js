@@ -71,6 +71,51 @@ function shuffleArray(array) {
     return shuffled;
 }
 
+function getPendingIds(guildId) {
+    try {
+        if (guildId) {
+            return db.db.prepare(`
+                SELECT * FROM pending_ids
+                WHERE guild_id = ?
+                ORDER BY added_at DESC
+            `).all(guildId);
+        }
+        return db.db.prepare('SELECT * FROM pending_ids ORDER BY added_at DESC').all();
+    } catch (e) {
+        return [];
+    }
+}
+
+async function filterActiveMembersForGuild(members, guild) {
+    if (!guild) return members;
+
+    const filtered = [];
+    for (const member of members) {
+        if (member.guild_id) {
+            if (member.guild_id === guild.id) filtered.push(member);
+            continue;
+        }
+
+        if (!member.discord_id || member.discord_id.startsWith('pending_')) {
+            continue;
+        }
+
+        if (guild.members.cache.has(member.discord_id)) {
+            filtered.push(member);
+            continue;
+        }
+
+        try {
+            await guild.members.fetch(member.discord_id);
+            filtered.push(member);
+        } catch (e) {
+            // Legacy row is not in this Discord guild.
+        }
+    }
+
+    return filtered;
+}
+
 /**
  * Build member list embed
  */
@@ -147,13 +192,11 @@ function buildButtons(page, totalPages, userId = '') {
 /**
  * Get all members + pending_ids combined (pending at end)
  */
-function getAllMembersWithPending() {
-    const activeMembers = db.getActiveUsers();
-    let pendingIds = [];
-
-    try {
-        pendingIds = db.db.prepare('SELECT * FROM pending_ids ORDER BY added_at DESC').all();
-    } catch (e) { /* ignore */ }
+async function getAllMembersWithPending(guild = null) {
+    const guildId = guild?.id || null;
+    const activeMembers = db.getActiveUsers(guildId);
+    const scopedActiveMembers = await filterActiveMembersForGuild(activeMembers, guild);
+    const pendingIds = getPendingIds(guildId);
 
     // Mark pending entries
     const pendingEntries = pendingIds.map(p => ({
@@ -163,7 +206,7 @@ function getAllMembersWithPending() {
     }));
 
     // Sort active members first, then pending at end
-    const sorted = sortMembers(activeMembers);
+    const sorted = sortMembers(scopedActiveMembers);
     return { members: [...sorted, ...pendingEntries], pendingCount: pendingEntries.length };
 }
 
@@ -171,7 +214,7 @@ function getAllMembersWithPending() {
  * Execute listmem command (only active members)
  */
 async function execute(message, args) {
-    const { members, pendingCount } = getAllMembersWithPending();
+    const { members, pendingCount } = await getAllMembersWithPending(message.guild);
 
     if (members.length === 0) {
         return message.channel.send('Chua co thanh vien nao!');
@@ -224,7 +267,7 @@ async function handleButton(interaction) {
         return interaction.showModal(modal);
     }
 
-    const { members, pendingCount } = getAllMembersWithPending();
+    const { members, pendingCount } = await getAllMembersWithPending(interaction.guild);
 
     if (action === 'prev') page--;
     if (action === 'next') page++;
@@ -279,7 +322,7 @@ async function handleModalSubmit(interaction) {
     }
 
     const query = interaction.fields.getTextInputValue('search_query').trim();
-    const { members, pendingCount } = getAllMembersWithPending();
+    const { members, pendingCount } = await getAllMembersWithPending(interaction.guild);
     const totalPages = Math.ceil(members.length / ITEMS_PER_PAGE);
 
     // Check if query is a page number

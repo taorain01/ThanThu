@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS bc_regulars (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(guild_id, discord_id, day)
 );
+ALTER TABLE bc_regulars REPLICA IDENTITY FULL;
 
 -- 5. Enable Realtime cho các bảng cần đồng bộ
 ALTER PUBLICATION supabase_realtime ADD TABLE bc_sessions;
@@ -119,6 +120,40 @@ ALTER TABLE bc_tactics_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bc_tactics_presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bc_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bc_regulars ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.bc_current_discord_id()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT COALESCE(
+        auth.jwt() -> 'user_metadata' ->> 'provider_id',
+        auth.jwt() ->> 'sub'
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.bc_can_write_own_regular(
+    target_guild_id TEXT,
+    target_discord_id TEXT,
+    target_day TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT target_discord_id = public.bc_current_discord_id()
+       AND target_day IN ('sat', 'sun')
+       AND EXISTS (
+            SELECT 1
+            FROM public.bc_users u
+            WHERE u.guild_id = target_guild_id
+              AND u.discord_id = target_discord_id
+              AND u.lang_gia_member IS TRUE
+              AND lower(coalesce(u.position, '')) NOT IN ('khong co', 'left', 'out')
+       );
+$$;
 
 -- 7. RLS Policies - Cho phép đọc nếu đã đăng nhập
 CREATE POLICY "Authenticated users can read bc_sessions"
@@ -238,21 +273,21 @@ CREATE POLICY "Authenticated users can delete bc_tactics_presets"
     TO authenticated
     USING (true);
 
-CREATE POLICY "Authenticated users can insert bc_regulars"
+CREATE POLICY "Regular owners can insert bc_regulars"
     ON bc_regulars FOR INSERT
     TO authenticated
-    WITH CHECK (true);
+    WITH CHECK (public.bc_can_write_own_regular(guild_id, discord_id, day));
 
-CREATE POLICY "Authenticated users can update bc_regulars"
+CREATE POLICY "Regular owners can update bc_regulars"
     ON bc_regulars FOR UPDATE
     TO authenticated
-    USING (true)
-    WITH CHECK (true);
+    USING (public.bc_can_write_own_regular(guild_id, discord_id, day))
+    WITH CHECK (public.bc_can_write_own_regular(guild_id, discord_id, day));
 
-CREATE POLICY "Authenticated users can delete bc_regulars"
+CREATE POLICY "Regular owners can delete bc_regulars"
     ON bc_regulars FOR DELETE
     TO authenticated
-    USING (true);
+    USING (public.bc_can_write_own_regular(guild_id, discord_id, day));
 
 ALTER TABLE bc_sessions ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false;
 ALTER TABLE bc_sessions ADD COLUMN IF NOT EXISTS team_names JSONB DEFAULT '{}';

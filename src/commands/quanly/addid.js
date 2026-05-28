@@ -33,6 +33,130 @@ function parseJoinDate(arg) {
     return null;
 }
 
+function ensurePendingIdsTable() {
+    try {
+        db.db.prepare(`
+            CREATE TABLE IF NOT EXISTS pending_ids (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_uid TEXT NOT NULL,
+                game_username TEXT NOT NULL,
+                added_by TEXT NOT NULL,
+                added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                joined_at DATETIME,
+                guild_id TEXT
+            )
+        `).run();
+
+        try {
+            db.db.prepare(`ALTER TABLE pending_ids ADD COLUMN joined_at DATETIME`).run();
+        } catch (e) {
+            if (!e.message.includes('duplicate column')) {
+                console.error('Error adding joined_at column:', e);
+            }
+        }
+
+        try {
+            db.db.prepare(`ALTER TABLE pending_ids ADD COLUMN guild_id TEXT`).run();
+        } catch (e) {
+            if (!e.message.includes('duplicate column')) {
+                console.error('Error adding guild_id column:', e);
+            }
+        }
+    } catch (e) {
+        console.error('Error creating pending_ids table:', e);
+    }
+}
+
+function getUserByUidState(gameUid, guildId, isLeft) {
+    const leftClause = isLeft ? 'left_at IS NOT NULL' : 'left_at IS NULL';
+    try {
+        if (guildId) {
+            return db.db.prepare(`
+                SELECT * FROM users
+                WHERE game_uid = ? AND ${leftClause} AND (guild_id = ? OR guild_id IS NULL)
+                ORDER BY CASE WHEN guild_id = ? THEN 0 ELSE 1 END
+                LIMIT 1
+            `).get(gameUid, guildId, guildId);
+        }
+        return db.db.prepare(`SELECT * FROM users WHERE game_uid = ? AND ${leftClause}`).get(gameUid);
+    } catch (e) {
+        return db.db.prepare(`SELECT * FROM users WHERE game_uid = ? AND ${leftClause}`).get(gameUid);
+    }
+}
+
+function getPendingByUid(gameUid, guildId) {
+    try {
+        if (guildId) {
+            const scoped = db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ? AND guild_id = ?').get(gameUid, guildId);
+            if (scoped) return scoped;
+            return db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ? AND guild_id IS NULL').get(gameUid);
+        }
+        return db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ?').get(gameUid);
+    } catch (e) {
+        return null;
+    }
+}
+
+function insertPendingId(gameUid, gameName, authorId, joinedAt, guildId) {
+    try {
+        return db.db.prepare(`
+            INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at, guild_id)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(gameUid, gameName, authorId, joinedAt, guildId || null);
+    } catch (e) {
+        return db.db.prepare(`
+            INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
+            VALUES (?, ?, ?, ?)
+        `).run(gameUid, gameName, authorId, joinedAt);
+    }
+}
+
+function updatePendingId(gameUid, gameName, authorId, joinedAt, guildId) {
+    try {
+        if (guildId) {
+            const result = db.db.prepare(`
+                UPDATE pending_ids
+                SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?, guild_id = ?
+                WHERE game_uid = ? AND (guild_id = ? OR guild_id IS NULL)
+            `).run(gameName, authorId, joinedAt, guildId, gameUid, guildId);
+            return result;
+        }
+        return db.db.prepare(`
+            UPDATE pending_ids
+            SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?
+            WHERE game_uid = ?
+        `).run(gameName, authorId, joinedAt, gameUid);
+    } catch (e) {
+        return db.db.prepare(`
+            UPDATE pending_ids
+            SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?
+            WHERE game_uid = ?
+        `).run(gameName, authorId, joinedAt, gameUid);
+    }
+}
+
+function deletePendingByUid(gameUid, guildId) {
+    try {
+        if (guildId) {
+            return db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ? AND (guild_id = ? OR guild_id IS NULL)').run(gameUid, guildId);
+        }
+        return db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ?').run(gameUid);
+    } catch (e) {
+        return null;
+    }
+}
+
+function deleteLeftUserByUid(gameUid, guildId) {
+    try {
+        if (guildId) {
+            return db.db.prepare('DELETE FROM users WHERE game_uid = ? AND left_at IS NOT NULL AND (guild_id = ? OR guild_id IS NULL)').run(gameUid, guildId);
+        }
+        return db.db.prepare('DELETE FROM users WHERE game_uid = ? AND left_at IS NOT NULL').run(gameUid);
+    } catch (e) {
+        return null;
+    }
+}
+
 async function execute(message, args) {
     // Permission check - only BC, PBC, KC
     if (!hasHighLevelRole(message.member)) {
@@ -65,6 +189,8 @@ async function execute(message, args) {
 
         return message.channel.send({ embeds: [embed] });
     }
+
+    const guildId = message.guild?.id || null;
 
     // Parse arguments - support flexible order with date
     let gameUid = null;
@@ -103,40 +229,16 @@ async function execute(message, args) {
         return message.channel.send('❌ Thiếu thông tin! Cần cả **UID** và **Tên game**');
     }
 
-    // Ensure pending_ids table exists with joined_at column
-    try {
-        db.db.prepare(`
-            CREATE TABLE IF NOT EXISTS pending_ids (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                game_uid TEXT NOT NULL,
-                game_username TEXT NOT NULL,
-                added_by TEXT NOT NULL,
-                added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                joined_at DATETIME
-            )
-        `).run();
-
-        // Migrate: Add joined_at column if it doesn't exist
-        try {
-            db.db.prepare(`ALTER TABLE pending_ids ADD COLUMN joined_at DATETIME`).run();
-        } catch (e) {
-            // Column already exists, ignore
-            if (!e.message.includes('duplicate column')) {
-                console.error('Error adding joined_at column:', e);
-            }
-        }
-    } catch (e) {
-        console.error('Error creating pending_ids table:', e);
-    }
+    ensurePendingIdsTable();
 
     // Check if UID already exists in users table and hasn't left
-    const activeUser = db.db.prepare('SELECT * FROM users WHERE game_uid = ? AND left_at IS NULL').get(gameUid);
+    const activeUser = getUserByUidState(gameUid, guildId, false);
     if (activeUser) {
         return message.channel.send(`❌ UID \`${gameUid}\` đã tồn tại trong database và đang hoạt động!\nUser: <@${activeUser.discord_id}> - ${activeUser.game_username}`);
     }
 
     // Check if UID belongs to a user who was marked as LEFT guild
-    const leftUser = db.db.prepare('SELECT * FROM users WHERE game_uid = ? AND left_at IS NOT NULL').get(gameUid);
+    const leftUser = getUserByUidState(gameUid, guildId, true);
     if (leftUser) {
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
@@ -188,7 +290,8 @@ async function execute(message, args) {
             joinDate,
             leftUser,
             confirmMsg,
-            type: 'reset'
+            type: 'reset',
+            guildId
         });
 
         // Auto-cancel sau 30 giây
@@ -200,7 +303,7 @@ async function execute(message, args) {
     }
 
     // Check if UID already in pending - need confirmation to overwrite
-    const existingPending = db.db.prepare('SELECT * FROM pending_ids WHERE game_uid = ?').get(gameUid);
+    const existingPending = getPendingByUid(gameUid, guildId);
 
     if (existingPending) {
         // Request confirmation
@@ -239,7 +342,8 @@ async function execute(message, args) {
             gameName,
             joinDate,
             existingPending,
-            confirmMsg
+            confirmMsg,
+            guildId
         });
 
         // Auto-cancel after 30 seconds
@@ -252,10 +356,7 @@ async function execute(message, args) {
 
     // Insert new entry
     try {
-        db.db.prepare(`
-            INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
-            VALUES (?, ?, ?, ?)
-        `).run(gameUid, gameName, message.author.id, joinDate.toISOString());
+        insertPendingId(gameUid, gameName, message.author.id, joinDate.toISOString(), guildId);
 
         const embed = new EmbedBuilder()
             .setColor(0x00D166)
@@ -316,22 +417,18 @@ async function handleConfirmation(interaction) {
         }
 
         try {
+            const guildId = data.guildId || interaction.guild?.id || null;
             // Giữ ngày vào cũ từ record gốc
             const keepJoinDate = data.leftUser.joined_at || new Date().toISOString();
 
             // 1. Xóa khỏi bảng users
-            db.db.prepare('DELETE FROM users WHERE game_uid = ? AND left_at IS NOT NULL').run(gameUid);
+            deleteLeftUserByUid(gameUid, guildId);
 
             // 2. Xóa pending cũ nếu có
-            try {
-                db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ?').run(gameUid);
-            } catch (e) { /* ignore */ }
+            deletePendingByUid(gameUid, guildId);
 
             // 3. Thêm vào pending_ids với ngày vào CŨ (giữ nguyên)
-            db.db.prepare(`
-                INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
-                VALUES (?, ?, ?, ?)
-            `).run(gameUid, data.gameName, authorId, keepJoinDate);
+            insertPendingId(gameUid, data.gameName, authorId, keepJoinDate, guildId);
 
             const joinDateObj = new Date(keepJoinDate);
             const embed = new EmbedBuilder()
@@ -373,19 +470,15 @@ async function handleConfirmation(interaction) {
         }
 
         try {
+            const guildId = data.guildId || interaction.guild?.id || null;
             // 1. Xóa khỏi bảng users
-            db.db.prepare('DELETE FROM users WHERE game_uid = ? AND left_at IS NOT NULL').run(gameUid);
+            deleteLeftUserByUid(gameUid, guildId);
 
             // 2. Xóa pending cũ nếu có
-            try {
-                db.db.prepare('DELETE FROM pending_ids WHERE game_uid = ?').run(gameUid);
-            } catch (e) { /* ignore */ }
+            deletePendingByUid(gameUid, guildId);
 
             // 3. Thêm vào pending_ids với ngày vào MỚI (hôm nay hoặc Xnt)
-            db.db.prepare(`
-                INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
-                VALUES (?, ?, ?, ?)
-            `).run(gameUid, data.gameName, authorId, data.joinDate.toISOString());
+            insertPendingId(gameUid, data.gameName, authorId, data.joinDate.toISOString(), guildId);
 
             const embed = new EmbedBuilder()
                 .setColor(0x3498DB)
@@ -438,11 +531,8 @@ async function handleConfirmation(interaction) {
 
     // Confirm - update the entry
     try {
-        db.db.prepare(`
-            UPDATE pending_ids 
-            SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?
-            WHERE game_uid = ?
-        `).run(data.gameName, authorId, data.joinDate.toISOString(), gameUid);
+        const guildId = data.guildId || interaction.guild?.id || null;
+        updatePendingId(gameUid, data.gameName, authorId, data.joinDate.toISOString(), guildId);
 
         const embed = new EmbedBuilder()
             .setColor(0xF59E0B)

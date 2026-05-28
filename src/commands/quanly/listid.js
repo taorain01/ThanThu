@@ -11,6 +11,18 @@ const db = require('../../database/db');
 
 const ITEMS_PER_PAGE = 10;
 
+function getPendingIds(guildId) {
+    try {
+        if (guildId) {
+            return db.db.prepare('SELECT * FROM pending_ids WHERE guild_id = ? ORDER BY added_at DESC').all(guildId);
+        }
+        return db.db.prepare('SELECT * FROM pending_ids ORDER BY added_at DESC').all();
+    } catch (e) {
+        console.error('Error fetching pending_ids:', e);
+        return [];
+    }
+}
+
 /**
  * Build pending IDs list embed
  */
@@ -77,13 +89,7 @@ function buildButtons(page, totalPages) {
  */
 async function execute(message, args) {
     // Get pending IDs from database
-    let pendingIds = [];
-    try {
-        pendingIds = db.db.prepare('SELECT * FROM pending_ids ORDER BY added_at DESC').all();
-    } catch (e) {
-        // Table might not exist yet
-        console.error('Error fetching pending_ids:', e);
-    }
+    const pendingIds = getPendingIds(message.guild?.id || null);
 
     if (pendingIds.length === 0) {
         return message.channel.send('Danh sach cho trong!\nDung `?addid <uid> <ten_game>` de them UID vao danh sach cho.');
@@ -108,12 +114,7 @@ async function handleButton(interaction) {
         let page = parseInt(pageStr) || 0;
 
         // Get pending IDs from database
-        let pendingIds = [];
-        try {
-            pendingIds = db.db.prepare('SELECT * FROM pending_ids ORDER BY added_at DESC').all();
-        } catch (e) {
-            console.error('Error fetching pending_ids:', e);
-        }
+        const pendingIds = getPendingIds(interaction.guild?.id || null);
 
         if (action === 'prev') page--;
         if (action === 'next') page++;

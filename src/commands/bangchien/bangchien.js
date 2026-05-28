@@ -22,6 +22,7 @@ const {
     // Auto-cleanup
     autoCleanupExpiredSessions
 } = require('../../utils/bangchienState');
+const { cleanupWeekendBcRegulars, pruneInvalidBcRegulars } = require('../../utils/bcRegularCleanup');
 
 
 // Tạo embed thông báo bang chiến - HIỂN THỊ 4 TEAM
@@ -690,12 +691,12 @@ module.exports = {
             channelId: message.channel.id,
             messageId: null,
             day: day,
-            time: bcTime || (DAY_CONFIG[day]?.primary ? '19:30' : null),
+            time: bcTime || '19:30',
             note: bcNote || null
         });
 
         // Auto-add regular participants (CHỈ của ngày đó)
-        const regulars = db.getBcRegulars(guildId, day);
+        const regulars = PRIMARY_DAYS.includes(day) ? await pruneInvalidBcRegulars(message.guild, day) : [];
         let addedCount = 0;
         const addedUserIds = []; // Lưu lại để cấp role sau
         for (const reg of regulars) {
@@ -705,7 +706,7 @@ module.exports = {
             const userData = db.getUserByDiscordId(reg.discord_id);
             if (userData && userData.left_at) {
                 // Người đã rời guild → xóa khỏi regular và bỏ qua
-                db.removeBcRegular(guildId, reg.discord_id, day);
+                await cleanupWeekendBcRegulars(message.guild, reg.discord_id, 'auto_add_left_at');
                 console.log(`[bangchien] Bỏ regular ${reg.username} vì đã rời guild`);
                 continue;
             }

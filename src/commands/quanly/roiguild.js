@@ -14,6 +14,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
+const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 
 const LANG_GIA_ROLE_NAME = 'LangGia';
 
@@ -221,8 +222,7 @@ async function execute(message, args) {
 
     // === XÓA KHỎI HỆ THỐNG BANG CHIẾN ===
     // 1. Xóa "Luôn tham gia" cho cả 2 ngày
-    db.removeBcRegular(message.guild.id, targetDiscordId, 'sat');
-    db.removeBcRegular(message.guild.id, targetDiscordId, 'sun');
+    await cleanupWeekendBcRegulars(message.guild, targetDiscordId, 'roiguild');
 
     // 2. Xóa khỏi tất cả session BC active
     const activeSessions = db.getActiveBangchienByGuild(message.guild.id);
@@ -258,9 +258,6 @@ async function execute(message, args) {
                 position: 'Khong co'
             };
             await supaSync.syncOneUser(updatedUser, message.guild.id, message.guild);
-            await supaSync.removeBcRegular(message.guild.id, targetDiscordId, 'sat');
-            await supaSync.removeBcRegular(message.guild.id, targetDiscordId, 'sun');
-
             for (const session of activeSessions) {
                 const updatedSession = db.getActiveBangchien(session.party_key);
                 const formatted = updatedSession

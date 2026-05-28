@@ -15,6 +15,7 @@ const { EmbedBuilder } = require('discord.js');
 const { getRoleMappings, DISPLAY_ROLE_NAME } = require('../../commands/quanly/subrole/addrole');
 const { syncStoredPositionForMember, ensureTrackedMemberFromDiscord, resolveStoredPositionFromDiscord } = require('../../utils/discordPositionSync');
 const supaSync = require('../../utils/supabaseSync');
+const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 
 // ID role Server Booster (Discord cấp tự động)
 const BOOSTER_ROLE_ID = '740457614470545408';
@@ -70,11 +71,14 @@ module.exports = {
                         console.log(`[guildMemberUpdate] 🆕 Tạo/rejoin user trong DB cho ${newMember.user.tag} (position: ${position})`);
                     }
 
+                    const hasRole = newMember.roles.cache.some(r => r.name === 'LangGia');
                     if (user) {
                         await supaSync.syncOneUser(user, guildId, newMember.guild);
-                        const hasRole = newMember.roles.cache.some(r => r.name === 'LangGia');
-                        console.log(`[guildMemberUpdate] 🔄 Role LangGia ${hasRole ? 'ADDED' : 'REMOVED'} → synced lang_gia_member=${hasRole} cho ${newMember.user.tag}`);
                     }
+                    if (!hasRole && removedRoles.some(r => r.name === 'LangGia')) {
+                        await cleanupWeekendBcRegulars(newMember.guild, newMember.id, 'lang_gia_removed');
+                    }
+                    console.log(`[guildMemberUpdate] 🔄 Role LangGia ${hasRole ? 'ADDED' : 'REMOVED'} → synced lang_gia_member=${hasRole} cho ${newMember.user.tag}`);
                 } catch (e) {
                     console.error('[guildMemberUpdate] LangGia role sync error:', e.message);
                 }

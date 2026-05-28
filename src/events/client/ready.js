@@ -5,6 +5,12 @@ const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/qu
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
+const {
+  applyRemoteBcRegularChange,
+  cleanupWeekendBcRegulars,
+  pruneInvalidBcRegulars,
+  validateRemoteBcRegular
+} = require('../../utils/bcRegularCleanup');
 
 // Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
 const _notifDebounceMap = new Map();
@@ -786,6 +792,15 @@ module.exports = {
           console.error('[Supabase] Lỗi sync users:', userSyncErr.message);
         }
 
+        try {
+          await supaSync.pollBcRegulars(db, guild.id, {
+            validateRegular: (item, day) => validateRemoteBcRegular(guild, item, day)
+          });
+          console.log('[Supabase] Synced bc_regulars on start');
+        } catch (regularSyncErr) {
+          console.error('[Supabase] Loi sync bc_regulars:', regularSyncErr.message);
+        }
+
         // Sync exp_levels lên Supabase (cho tab Level trên web profile)
         try {
           const economy = require('../../database/economy');
@@ -879,12 +894,12 @@ module.exports = {
               bangchienChannels.set(guild.id, bcChannelId);
 
               // Auto-add regular participants
-              const regulars = db.getBcRegulars(guild.id, day);
+              const regulars = dayConfig.primary ? await pruneInvalidBcRegulars(guild, day) : [];
               let addedCount = 0;
               for (const reg of regulars) {
                 const userData = db.getUserByDiscordId(reg.discord_id);
                 if (userData && userData.left_at) {
-                  db.removeBcRegular(guild.id, reg.discord_id, day);
+                  await cleanupWeekendBcRegulars(guild, reg.discord_id, 'web_auto_add_left_at');
                   continue;
                 }
                 const result = db.addBangchienParticipant(partyKey, {
@@ -1185,6 +1200,10 @@ module.exports = {
           } catch (syncBackErr) {
             console.error('[Supabase] ❌ Sync ngược lỗi:', syncBackErr.message);
           }
+        });
+
+        supaSync.listenForBcRegularChanges(guild.id, async (change) => {
+          await applyRemoteBcRegularChange(guild, change);
         });
       }
     }

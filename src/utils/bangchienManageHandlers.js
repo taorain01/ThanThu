@@ -16,7 +16,21 @@
  */
 
 const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
-const { bangchienNotifications, bangchienRegistrations, bangchienFinalizedParties, BANGCHIEN_MAX_MEMBERS } = require('./bangchienState');
+const {
+    bangchienNotifications,
+    bangchienRegistrations,
+    bangchienFinalizedParties,
+    BANGCHIEN_MAX_MEMBERS,
+    getDayFromPartyKey
+} = require('./bangchienState');
+const {
+    addBcRegularIfEligible,
+    cleanupWeekendBcRegulars,
+    getBcRegularEligibility,
+    removeBcRegularDay
+} = require('./bcRegularCleanup');
+
+const WEEKEND_DAYS = new Set(['sat', 'sun']);
 
 /**
  * Xử lý button interactions cho quản lý Bang Chiến
@@ -36,9 +50,26 @@ async function handleButton(interaction, client) {
             const db = require('../database/db');
             const guildId = interaction.guild.id;
             const userId = interaction.user.id;
+            const day = getDayFromPartyKey(partyKey);
+
+            if (!WEEKEND_DAYS.has(day)) {
+                if (day) await removeBcRegularDay(guildId, userId, day, 'legacy_invalid_day');
+                return interaction.reply({
+                    content: '"Luon tham gia" chi ap dung cho Thu 7 va Chu Nhat.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
 
             // Kiểm tra trạng thái hiện tại
-            const isRegular = db.isBcRegular(guildId, userId);
+            const isRegular = db.isBcRegular(guildId, userId, day);
+            const eligibility = await getBcRegularEligibility(interaction.guild, userId, interaction.member);
+            if (!eligibility.eligible) {
+                await cleanupWeekendBcRegulars(interaction.guild, userId, `legacy_blocked:${eligibility.reason}`);
+                return interaction.reply({
+                    content: 'Ban can co role LangGia de bat "Luon tham gia". Da xoa dang ky dinh ky cu neu co.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
 
             // Tạo embed xác nhận với hint
             const confirmEmbed = new EmbedBuilder()
@@ -94,19 +125,38 @@ async function handleButton(interaction, client) {
             const guildId = interaction.guild.id;
             const userId = interaction.user.id;
             const username = interaction.user.username;
+            const day = getDayFromPartyKey(partyKey);
+
+            if (!WEEKEND_DAYS.has(day)) {
+                if (day) await removeBcRegularDay(guildId, userId, day, 'legacy_confirm_invalid_day');
+                await interaction.update({
+                    content: '"Luon tham gia" chi ap dung cho Thu 7 va Chu Nhat.',
+                    embeds: [],
+                    components: []
+                });
+                return true;
+            }
 
             // Toggle: nếu đã đăng ký thì hủy, ngược lại thì thêm
-            const isRegular = db.isBcRegular(guildId, userId);
+            const isRegular = db.isBcRegular(guildId, userId, day);
 
             if (isRegular) {
-                db.removeBcRegular(guildId, userId);
+                await removeBcRegularDay(guildId, userId, day, 'legacy_off');
                 await interaction.update({
                     content: '✅ Đã **hủy** đăng ký tham gia định kỳ!\nBạn sẽ không tự động được thêm vào BC lần sau.',
                     embeds: [],
                     components: []
                 });
             } else {
-                db.addBcRegular(guildId, userId, username);
+                const addRegular = await addBcRegularIfEligible(interaction.guild, userId, username, day, interaction.member);
+                if (!addRegular.success) {
+                    await interaction.update({
+                        content: 'Ban can co role LangGia de bat "Luon tham gia". Da xoa dang ky dinh ky cu neu co.',
+                        embeds: [],
+                        components: []
+                    });
+                    return true;
+                }
                 await interaction.update({
                     content: '📌 Đã đăng ký **tham gia định kỳ**!\nBạn sẽ tự động được thêm vào mỗi lần mở ?bc mới.',
                     embeds: [],

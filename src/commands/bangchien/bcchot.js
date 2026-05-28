@@ -2,7 +2,7 @@
  * ?bcchot - Chốt danh sách Bang Chiến (4-TEAM + MULTI-DAY)
  * - Lưu danh sách vào history (snapshot)
  * - Thêm role Bang Chiến 30vs30 cho tất cả người tham gia
- * Cách dùng: ?bcchot t7, ?bcchot cn, ?bcchot all
+ * Cách dùng: ?bcchot t2/t3/t4/t5/t6/t7/cn, ?bcchot all
  */
 
 const { EmbedBuilder } = require('discord.js');
@@ -13,7 +13,7 @@ const BC_ROLE_NAME = 'bc';
 module.exports = {
     name: 'bcchot',
     aliases: ['chotdanhsach', 'finalize', 'chotbc', 'chotbangchien', 'addbcrole'],
-    description: 'Chốt BC + thêm role. Dùng: ?bcchot t7, ?bcchot cn, ?bcchot all',
+    description: 'Chốt BC + thêm role. Dùng: ?bcchot t2/t3/t4/t5/t6/t7/cn, ?bcchot all',
 
     async execute(message, args, client) {
         const db = require('../../database/db');
@@ -40,11 +40,9 @@ module.exports = {
         let sessionsToProcess = [];
 
         if (isAll) {
-            // ?bcchot all → xử lý cả 2 ngày
-            const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-            const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
-            if (satSession) sessionsToProcess.push({ session: satSession, day: 'sat' });
-            if (sunSession) sessionsToProcess.push({ session: sunSession, day: 'sun' });
+            // ?bcchot all -> xu ly tat ca session dang chay
+            sessionsToProcess = db.getActiveBangchienByGuild(guildId)
+                .map(session => ({ session, day: session.day || 'sat' }));
 
             if (sessionsToProcess.length === 0) {
                 return message.reply('📭 Không có bang chiến đang chạy để chốt!');
@@ -60,7 +58,7 @@ module.exports = {
             // ?bcchot (không có tham số) → lấy session đầu tiên
             const activeSessions = db.getActiveBangchienByGuild(guildId);
             if (activeSessions.length === 0) {
-                return message.reply('📭 Không có bang chiến đang chạy để chốt!\nDùng: `?bcchot t7`, `?bcchot cn`, hoặc `?bcchot all`');
+                return message.reply('📭 Không có bang chiến đang chạy để chốt!\nDùng: `?bcchot t2/t3/t4/t5/t6/t7/cn`, hoặc `?bcchot all`');
             }
             const session = activeSessions[0];
             sessionsToProcess.push({ session, day: session.day || 'sat' });

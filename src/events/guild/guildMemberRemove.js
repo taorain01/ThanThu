@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
+const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 
 // Channel ID to send leave notifications
 const LEAVE_NOTIFICATION_CHANNEL = '1465959064575152263';
@@ -34,8 +35,7 @@ module.exports = {
 
                 // === XÓA KHỎI HỆ THỐNG BANG CHIẾN ===
                 // 1. Xóa "Luôn tham gia" cho cả 2 ngày
-                db.removeBcRegular(member.guild.id, member.id, 'sat');
-                db.removeBcRegular(member.guild.id, member.id, 'sun');
+                await cleanupWeekendBcRegulars(member.guild, member.id, 'guild_member_remove');
 
                 // 2. Xóa khỏi tất cả session BC active
                 const activeSessions = db.getActiveBangchienByGuild(member.guild.id);
@@ -52,9 +52,6 @@ module.exports = {
                             position: 'Khong co'
                         };
                         await supaSync.syncOneUser(updatedUser, member.guild.id, member.guild);
-                        await supaSync.removeBcRegular(member.guild.id, member.id, 'sat');
-                        await supaSync.removeBcRegular(member.guild.id, member.id, 'sun');
-
                         for (const session of activeSessions) {
                             const updatedSession = db.getActiveBangchien(session.party_key);
                             const formatted = updatedSession

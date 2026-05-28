@@ -1,6 +1,6 @@
 /**
  * ?huybangchien - Huỷ đăng ký Bang Chiến (MULTI-DAY)
- * Cách dùng: ?huybc t7, ?huybc cn, ?huybc all
+ * Cách dùng: ?huybc t2/t3/t4/t5/t6/t7/cn, ?huybc all
  */
 
 const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
@@ -16,7 +16,7 @@ const {
 module.exports = {
     name: 'huybangchien',
     aliases: ['huybc'],
-    description: 'Huỷ BC đang chạy. Dùng: ?huybc t7, ?huybc cn, ?huybc all',
+    description: 'Huỷ BC đang chạy. Dùng: ?huybc t2/t3/t4/t5/t6/t7/cn, ?huybc all',
 
     async execute(message, args, client) {
         const db = require('../../database/db');
@@ -32,11 +32,9 @@ module.exports = {
         let sessionsToCancel = [];
 
         if (isAll) {
-            // ?huybc all → huỷ cả 2 ngày
-            const satSession = db.getActiveBangchienByDay(guildId, 'sat');
-            const sunSession = db.getActiveBangchienByDay(guildId, 'sun');
-            if (satSession) sessionsToCancel.push({ session: satSession, day: 'sat' });
-            if (sunSession) sessionsToCancel.push({ session: sunSession, day: 'sun' });
+            // ?huybc all -> huy tat ca session dang chay
+            sessionsToCancel = db.getActiveBangchienByGuild(guildId)
+                .map(session => ({ session, day: session.day || 'sat' }));
 
             if (sessionsToCancel.length === 0) {
                 return message.reply('📭 Không có bang chiến đang chạy để huỷ!');
@@ -56,7 +54,7 @@ module.exports = {
             }
 
             if (activeDbSessions.length > 1) {
-                return message.reply('❓ Có nhiều phiên BC đang chạy. Vui lòng chọn:\n`?huybc t7` - Huỷ Thứ 7\n`?huybc cn` - Huỷ Chủ Nhật\n`?huybc all` - Huỷ tất cả');
+                return message.reply('❓ Có nhiều phiên BC đang chạy. Vui lòng chọn:\n`?huybc t2/t3/t4/t5/t6/t7/cn` - Huỷ theo ngày\n`?huybc all` - Huỷ tất cả');
             }
 
             const session = activeDbSessions[0];

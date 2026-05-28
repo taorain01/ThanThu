@@ -35,6 +35,8 @@ function initializeDatabase() {
             game_username TEXT,
             game_uid TEXT,
             position TEXT DEFAULT 'mem',
+            guild_id TEXT,
+            added_by TEXT,
             server_name TEXT,
             notes TEXT,
             joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -128,6 +130,25 @@ function initializeDatabase() {
     } catch (e) {
         // Column already exists, ignore
     }
+
+    // Track which Discord guild/user created a member record.
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN guild_id TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN added_by TEXT').run();
+    } catch (e) { }
+
+    // Scope pending IDs per Discord guild for commands that list or link members.
+    try {
+        db.prepare('ALTER TABLE pending_ids ADD COLUMN guild_id TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_users_guild_active ON users(guild_id, left_at)').run();
+    } catch (e) { }
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_pending_ids_guild ON pending_ids(guild_id)').run();
+    } catch (e) { }
 
     // Create bangchien_history table for storing bang chien session history
     const createBangchienHistoryTable = db.prepare(`
@@ -367,6 +388,13 @@ function initializeDatabase() {
     try {
         db.prepare('ALTER TABLE bc_regular ADD COLUMN day TEXT DEFAULT "sat"').run();
         db.prepare('UPDATE bc_regular SET day = "sat" WHERE day IS NULL').run();
+    } catch (e) { }
+
+    try {
+        const staleRegulars = db.prepare("DELETE FROM bc_regular WHERE day NOT IN ('sat', 'sun')").run();
+        if (staleRegulars.changes > 0) {
+            console.log(`[DB] Removed ${staleRegulars.changes} non-weekend bc_regular rows`);
+        }
     } catch (e) { }
 
     // Thêm column 'time' và 'note' vào bangchien_active (BC custom)
@@ -624,26 +652,28 @@ function setTeamNames(names) {
  * @returns {Object} Result object
  */
 function upsertUser(userData) {
-    const { discordId, discordName, gameUsername, gameUid, position, serverName, notes, joinedAt } = userData;
+    const { discordId, discordName, gameUsername, gameUid, position, guildId, addedBy, serverName, notes, joinedAt } = userData;
 
     // Use provided joinedAt or current timestamp
     const joinDate = joinedAt || new Date().toISOString();
 
     const stmt = db.prepare(`
-        INSERT INTO users (discord_id, discord_name, game_username, game_uid, position, server_name, notes, joined_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (discord_id, discord_name, game_username, game_uid, position, guild_id, added_by, server_name, notes, joined_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(discord_id) DO UPDATE SET
             discord_name = excluded.discord_name,
             game_username = excluded.game_username,
             game_uid = excluded.game_uid,
             position = excluded.position,
+            guild_id = COALESCE(excluded.guild_id, users.guild_id),
+            added_by = COALESCE(users.added_by, excluded.added_by),
             server_name = excluded.server_name,
             notes = excluded.notes,
             joined_at = excluded.joined_at,
             updated_at = CURRENT_TIMESTAMP
     `);
 
-    const result = stmt.run(discordId, discordName, gameUsername, gameUid, position || 'mem', serverName, notes, joinDate);
+    const result = stmt.run(discordId, discordName, gameUsername, gameUid, position || 'mem', guildId || null, addedBy || null, serverName, notes, joinDate);
     return { success: true, changes: result.changes };
 }
 
@@ -652,7 +682,16 @@ function upsertUser(userData) {
  * @param {string} discordId - Discord user ID
  * @returns {Object|null} User object or null
  */
-function getUserByDiscordId(discordId) {
+function getUserByDiscordId(discordId, guildId = null) {
+    if (guildId) {
+        const stmt = db.prepare(`
+            SELECT * FROM users
+            WHERE discord_id = ? AND (guild_id = ? OR guild_id IS NULL)
+            ORDER BY CASE WHEN guild_id = ? THEN 0 ELSE 1 END
+            LIMIT 1
+        `);
+        return stmt.get(discordId, guildId, guildId);
+    }
     const stmt = db.prepare('SELECT * FROM users WHERE discord_id = ?');
     return stmt.get(discordId);
 }
@@ -662,7 +701,16 @@ function getUserByDiscordId(discordId) {
  * @param {string} gameUid - Game UID
  * @returns {Object|null} User object or null
  */
-function getUserByGameUid(gameUid) {
+function getUserByGameUid(gameUid, guildId = null) {
+    if (guildId) {
+        const stmt = db.prepare(`
+            SELECT * FROM users
+            WHERE game_uid = ? AND (guild_id = ? OR guild_id IS NULL)
+            ORDER BY CASE WHEN guild_id = ? THEN 0 ELSE 1 END, left_at ASC
+            LIMIT 1
+        `);
+        return stmt.get(gameUid, guildId, guildId);
+    }
     const stmt = db.prepare('SELECT * FROM users WHERE game_uid = ? ORDER BY left_at ASC');
     return stmt.get(gameUid);
 }
@@ -692,8 +740,17 @@ function getUsersByPosition(position) {
  * @param {string} position - Position to check
  * @returns {Object|null} User with that position or null
  */
-function getUniquePositionHolder(position) {
-    const stmt = db.prepare('SELECT * FROM users WHERE position = ? LIMIT 1');
+function getUniquePositionHolder(position, guildId = null) {
+    if (guildId) {
+        const stmt = db.prepare(`
+            SELECT * FROM users
+            WHERE position = ? AND left_at IS NULL AND (guild_id = ? OR guild_id IS NULL)
+            ORDER BY CASE WHEN guild_id = ? THEN 0 ELSE 1 END
+            LIMIT 1
+        `);
+        return stmt.get(position, guildId, guildId);
+    }
+    const stmt = db.prepare('SELECT * FROM users WHERE position = ? AND left_at IS NULL LIMIT 1');
     return stmt.get(position);
 }
 
@@ -838,7 +895,15 @@ initializeDatabase();
  * Get all active users (not left)
  * @returns {Array} Array of active user objects
  */
-function getActiveUsers() {
+function getActiveUsers(guildId = null) {
+    if (guildId) {
+        const stmt = db.prepare(`
+            SELECT * FROM users
+            WHERE left_at IS NULL AND (guild_id = ? OR guild_id IS NULL)
+            ORDER BY CASE WHEN guild_id = ? THEN 0 ELSE 1 END, discord_name ASC
+        `);
+        return stmt.all(guildId, guildId);
+    }
     const stmt = db.prepare('SELECT * FROM users WHERE left_at IS NULL ORDER BY discord_name ASC');
     return stmt.all();
 }
@@ -863,7 +928,7 @@ function markUserAsLeft(discordId, leftAt) {
  * @returns {Object} Result object
  */
 function rejoinUser(discordId, newData) {
-    const { discordName, gameUsername, gameUid, position, joinedAt } = newData;
+    const { discordName, gameUsername, gameUid, position, guildId, addedBy, joinedAt } = newData;
 
     const stmt = db.prepare(`
         UPDATE users SET 
@@ -871,6 +936,8 @@ function rejoinUser(discordId, newData) {
             game_username = ?,
             game_uid = ?,
             position = ?,
+            guild_id = COALESCE(?, guild_id),
+            added_by = COALESCE(added_by, ?),
             joined_at = ?,
             left_at = NULL,
             rejoin_count = rejoin_count + 1,
@@ -878,7 +945,7 @@ function rejoinUser(discordId, newData) {
         WHERE discord_id = ?
     `);
 
-    const result = stmt.run(discordName, gameUsername, gameUid, position, joinedAt, discordId);
+    const result = stmt.run(discordName, gameUsername, gameUid, position, guildId || null, addedBy || null, joinedAt, discordId);
     return { success: result.changes > 0, changes: result.changes };
 }
 
@@ -1612,6 +1679,10 @@ function clearBcPreset(guildId, presetType, day = 'all') {
 
 // ============== BC REGULAR PARTICIPANTS (MULTI-DAY) ==============
 
+function isBcRegularDayAllowed(day) {
+    return day === 'sat' || day === 'sun';
+}
+
 /**
  * Add user to BC regular participants (MULTI-DAY)
  * @param {string} guildId - Guild ID
@@ -1621,6 +1692,10 @@ function clearBcPreset(guildId, presetType, day = 'all') {
  * @returns {Object} Result
  */
 function addBcRegular(guildId, discordId, username, day = 'sat') {
+    if (!isBcRegularDayAllowed(day)) {
+        return { success: false, error: 'Regular registration is only allowed for sat/sun' };
+    }
+
     // Xóa record cũ trước (để tránh duplicate)
     db.prepare('DELETE FROM bc_regular WHERE guild_id = ? AND discord_id = ? AND day = ?')
         .run(guildId, discordId, day);
@@ -1654,6 +1729,7 @@ function removeBcRegular(guildId, discordId, day = 'sat') {
  * @returns {boolean}
  */
 function isBcRegular(guildId, discordId, day = 'sat') {
+    if (!isBcRegularDayAllowed(day)) return false;
     const stmt = db.prepare('SELECT 1 FROM bc_regular WHERE guild_id = ? AND discord_id = ? AND day = ?');
     return !!stmt.get(guildId, discordId, day);
 }
@@ -1666,6 +1742,7 @@ function isBcRegular(guildId, discordId, day = 'sat') {
  */
 function getBcRegulars(guildId, day = null) {
     if (day) {
+        if (!isBcRegularDayAllowed(day)) return [];
         const stmt = db.prepare('SELECT discord_id, username, day, created_at FROM bc_regular WHERE guild_id = ? AND day = ?');
         return stmt.all(guildId, day) || [];
     }

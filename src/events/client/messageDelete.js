@@ -4,12 +4,14 @@
  */
 
 const db = require('../../database/db');
+const { isAllowedGuildId } = require('../../config/guildAccess');
 
 module.exports = {
     name: 'messageDelete',
     async execute(message, client) {
         // Bỏ qua nếu không có guild
         if (!message.guild) return;
+        if (!isAllowedGuildId(message.guild.id)) return;
 
         // Kiểm tra nếu message từ kênh Phòng Ảnh
         const albumChannelId = db.getAlbumChannelId();

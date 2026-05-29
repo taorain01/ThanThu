@@ -31,6 +31,15 @@ module.exports = (client) => {
     const rest = new REST({ version: "10" }).setToken(process.env.token);
 
     try {
+      try {
+        await rest.put(Routes.applicationCommands(clientId), {
+          body: [],
+        });
+        console.log("Da xoa toan bo slash commands global.");
+      } catch (globalError) {
+        console.error("Khong xoa duoc slash commands global:", globalError.message);
+      }
+
       console.log(`Bắt đầu đăng ký ${client.commandArray.length} lệnh slash...`);
 
       // Đăng ký Guild commands (hiển thị ngay lập tức)

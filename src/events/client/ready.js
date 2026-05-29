@@ -5,6 +5,7 @@ const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/qu
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
+const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
 const {
   applyRemoteBcRegularChange,
   cleanupWeekendBcRegulars,
@@ -28,8 +29,7 @@ const SESSION_DAY_LABELS = {
 };
 
 function resolvePrimaryGuild(client) {
-  const preferredGuildId = process.env.guildId || process.env.GUILD_ID || '1239836342456942643';
-  return client.guilds.cache.get(preferredGuildId) || client.guilds.cache.first() || null;
+  return client.guilds.cache.get(ALLOWED_GUILD_ID) || null;
 }
 
 
@@ -107,6 +107,8 @@ async function migrateDisplayRoles(client) {
   let migratedCount = 0;
 
   for (const [, guild] of client.guilds.cache) {
+    if (!isAllowedGuildId(guild.id)) continue;
+
     try {
       // Find all roles with old names
       const oldRoles = guild.roles.cache.filter(r =>
@@ -161,6 +163,8 @@ async function cleanupAndRescheduleBc(client) {
   console.log('[ready] Bắt đầu cleanup + re-schedule BC...');
 
   for (const [, guild] of client.guilds.cache) {
+    if (!isAllowedGuildId(guild.id)) continue;
+
     const guildId = guild.id;
 
     // 1. Cleanup session hết hạn

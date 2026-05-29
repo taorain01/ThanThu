@@ -1,4 +1,5 @@
 const { handleTranslation, TRANSLATE_CHANNEL_ID } = require('../../utils/translateService');
+const { isAllowedGuildId } = require('../../config/guildAccess');
 
 module.exports = {
     name: 'messageUpdate',
@@ -15,6 +16,7 @@ module.exports = {
             }
 
             // Chỉ xử lý trong kênh translate
+            if (!isAllowedGuildId(newMessage.guild?.id || newMessage.guildId)) return;
             if (newMessage.channel.id !== TRANSLATE_CHANNEL_ID) return;
 
             // Không dịch tin nhắn từ chính bot

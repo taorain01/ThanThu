@@ -1,5 +1,6 @@
 const { Events } = require('discord.js');
 const { getRoleForReaction } = require('../../utils/reactionRoleState');
+const { isAllowedGuildId } = require('../../config/guildAccess');
 
 module.exports = {
     name: Events.MessageReactionRemove,
@@ -15,6 +16,8 @@ module.exports = {
                 return;
             }
         }
+
+        if (!isAllowedGuildId(reaction.message.guild?.id || reaction.message.guildId)) return;
 
         const roleData = getRoleForReaction(reaction.message.id, reaction.emoji.id ? reaction.emoji.id.toString() : reaction.emoji.name);
         if (!roleData) return;

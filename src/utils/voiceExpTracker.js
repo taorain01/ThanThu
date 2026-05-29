@@ -5,6 +5,7 @@
 
 const { addVoiceExp, getLevelReward, addHat } = require('../database/economy');
 const { EmbedBuilder } = require('discord.js');
+const { isAllowedGuildId } = require('../config/guildAccess');
 
 // Map lưu thời gian join voice: { odiscordId: { channelId, joinedAt } }
 const voiceUsers = new Map();
@@ -34,6 +35,8 @@ async function processVoiceExp() {
     if (!clientRef) return;
 
     for (const guild of clientRef.guilds.cache.values()) {
+        if (!isAllowedGuildId(guild.id)) continue;
+
         // Duyệt tất cả voice channels
         for (const channel of guild.channels.cache.values()) {
             if (!channel.isVoiceBased()) continue;
@@ -70,6 +73,8 @@ async function processVoiceExp() {
 async function handleLevelUp(discordId, result, channel) {
     try {
         const guild = channel.guild;
+        if (!isAllowedGuildId(guild?.id)) return;
+
         const member = guild.members.cache.get(discordId);
         if (!member) return;
 

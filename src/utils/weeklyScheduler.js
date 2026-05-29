@@ -13,6 +13,7 @@ const db = require('../database/db');
 const { lastScheduleEmbed, bossChannels } = require('./bossState');
 const { lastPhongAnhMessage, lastGieoQueGuideWeekly } = require('./weeklyState');
 const { sendTacticsStorageReport } = require('./tacticsStorageReport');
+const { isAllowedGuildId } = require('../config/guildAccess');
 
 const WEEKLY_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 ngày
 
@@ -23,9 +24,11 @@ async function sendBossScheduleEmbed(client) {
     try {
         // Lấy tất cả guild channels từ bossChannels Map
         for (const [guildId, channelId] of bossChannels) {
+            if (!isAllowedGuildId(guildId)) continue;
+
             try {
                 const channel = await client.channels.fetch(channelId).catch(() => null);
-                if (!channel) continue;
+                if (!channel || !isAllowedGuildId(channel.guild?.id)) continue;
 
                 // Xóa embed cũ nếu có
                 const oldEmbedId = lastScheduleEmbed.get(channelId);
@@ -70,7 +73,7 @@ async function sendPhongAnhHelp(client) {
         }
 
         const channel = await client.channels.fetch(albumChannelId).catch(() => null);
-        if (!channel) {
+        if (!channel || !isAllowedGuildId(channel.guild?.id)) {
             console.log('[WeeklyScheduler] ⚠️ Không tìm thấy kênh Phòng Ảnh');
             return;
         }
@@ -109,7 +112,7 @@ async function sendGieoQueGuide(client) {
         }
 
         const channel = await client.channels.fetch(gieoQueChannelId).catch(() => null);
-        if (!channel) {
+        if (!channel || !isAllowedGuildId(channel.guild?.id)) {
             console.log('[WeeklyScheduler] ⚠️ Không tìm thấy kênh Gieo Quẻ');
             return;
         }

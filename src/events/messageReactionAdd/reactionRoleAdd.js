@@ -1,5 +1,6 @@
 const { Events } = require('discord.js');
 const { getRoleForReaction, isReactionRoleMessage } = require('../../utils/reactionRoleState');
+const { isAllowedGuildId } = require('../../config/guildAccess');
 
 module.exports = {
     name: Events.MessageReactionAdd,
@@ -16,6 +17,8 @@ module.exports = {
                 return;
             }
         }
+
+        if (!isAllowedGuildId(reaction.message.guild?.id || reaction.message.guildId)) return;
 
         const messageId = reaction.message.id;
         const emojiKey = reaction.emoji.id ? reaction.emoji.id.toString() : reaction.emoji.name;

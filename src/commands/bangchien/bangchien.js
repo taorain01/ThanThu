@@ -21,7 +21,6 @@ const {
     normalizeBcTime,
     isLeagueSession,
     LEAGUE_TIME,
-    WEEKEND_DEFAULT_TIMES,
     refreshOverviewEmbed,
     // Auto-cleanup
     autoCleanupExpiredSessions
@@ -242,7 +241,6 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
 
 // Tạo buttons công khai (cho tất cả người dùng thấy)
 function createBangchienButtons(partyKey, day = null) {
-    const resolvedDay = day || getDayFromPartyKey(partyKey);
     const row = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -253,15 +251,7 @@ function createBangchienButtons(partyKey, day = null) {
                 .setCustomId(`bangchien_leave_${partyKey}`)
                 .setLabel('❌ Hủy đăng ký')
                 .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId(`bangchien_regular_${partyKey}`)
-                .setLabel('🔄 Luôn tham gia')
-                .setStyle(ButtonStyle.Primary)
         );
-
-    if (resolvedDay !== 'sat' && resolvedDay !== 'sun') {
-        row.spliceComponents(2, 1);
-    }
     return row;
 }
 
@@ -357,7 +347,7 @@ function createOverviewEmbed(guildId, guild = null) {
         const dateStr = getDayNameWithDate(dayKey).toUpperCase();
         const isPrimary = dayConfig.primary;
         const timeStr = session?.time || '19:30';
-        const noteStr = session?.note ? ` — _${session.note}_` : '';
+        const noteStr = session?.note ? ` — _${session.note}_` : (isLeagueSession(session) ? ' — _LEAGUE_' : '');
 
         if (session) {
             let line = `📅 **${dateStr}** ⏰${timeStr}${noteStr} (${stats.total}/30)\n⚔️ ${_ovNames.attack1}: ${stats.attack}`;
@@ -372,15 +362,32 @@ function createOverviewEmbed(guildId, guild = null) {
         return null;
     };
 
+    const allSessions = db.getActiveBangchienByGuild(guildId);
+    const sessionsByDay = allSessions.reduce((acc, session) => {
+        if (!session?.day) return acc;
+        if (!acc[session.day]) acc[session.day] = [];
+        acc[session.day].push(session);
+        return acc;
+    }, {});
+    Object.values(sessionsByDay).forEach((items) => {
+        items.sort((a, b) => normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME)));
+    });
+
     // 1. Hiện T7 + CN (luôn hiện dù chưa mở)
     for (const dayKey of PRIMARY_DAYS) {
-        const session = db.getActiveBangchienByDay(guildId, dayKey);
-        const value = renderDay(dayKey, session);
-        if (value) embed.addFields({ name: '\u200b', value, inline: false });
+        const daySessions = sessionsByDay[dayKey] || [];
+        if (daySessions.length === 0) {
+            const value = renderDay(dayKey, null);
+            if (value) embed.addFields({ name: '\u200b', value, inline: false });
+            continue;
+        }
+        for (const session of daySessions) {
+            const value = renderDay(dayKey, session);
+            if (value) embed.addFields({ name: '\u200b', value, inline: false });
+        }
     }
 
     // 2. Hiện các ngày custom có session active
-    const allSessions = db.getActiveBangchienByGuild(guildId);
     for (const session of allSessions) {
         if (PRIMARY_DAYS.includes(session.day)) continue;
         const dayKey = session.day;
@@ -501,8 +508,8 @@ module.exports = {
         // ═══════════════════════════════════════════════════════════════════
         const parsed = parseDayArg(args); // { day, time, note } hoặc null
         const day = parsed?.day || null;
-        const bcTime = parsed?.time || null;
-        const bcNote = parsed?.note || null;
+        const bcTime = normalizeBcTime(parsed?.time || LEAGUE_TIME);
+        const bcNote = parsed?.note || (day && PRIMARY_DAYS.includes(day) && bcTime === LEAGUE_TIME ? 'LEAGUE' : null);
 
         // ═══════════════════════════════════════════════════════════════════
         // CASE 1: ?bc (không có args) → Hiển thị Overview tất cả ngày
@@ -547,7 +554,9 @@ module.exports = {
         const dayConfig = DAY_CONFIG[day];
 
         // Kiểm tra session hiện có trong DB
-        const existingSession = db.getActiveBangchienByDay(guildId, day);
+        const existingSession = db.getActiveBangchienByDayTime
+            ? db.getActiveBangchienByDayTime(guildId, day, bcTime)
+            : db.getActiveBangchienByDay(guildId, day);
 
         if (existingSession) {
             // Session đã tồn tại → chỉ cập nhật overview, KHÔNG gửi embed riêng
@@ -565,7 +574,8 @@ module.exports = {
                     messageId: existingSession.message_id,
                     message: null,
                     startTime: new Date(existingSession.created_at).getTime(),
-                    day: day
+                    day: day,
+                    time: existingSession.time || bcTime
                 });
 
                 // Khôi phục registrations
@@ -592,6 +602,7 @@ module.exports = {
                 if (supaSync.isReady()) {
                     const formatted = supaSync.formatActiveSession(existingSession, db, message.guild);
                     if (formatted) {
+                        formatted.time = existingSession.time || bcTime;
                         await supaSync.syncBCSession(guildId, day, formatted);
                         console.log(`[bangchien] ✅ Sync session ${day} lên Supabase (?bc existing)`);
                     }
@@ -673,7 +684,7 @@ module.exports = {
         }
 
         // Tạo party key mới với day
-        const partyKey = createPartyKey(guildId, day, leaderId);
+        const partyKey = createPartyKey(guildId, day, leaderId, bcTime);
 
         // Khởi tạo trong memory
         bangchienRegistrations.set(partyKey, [{
@@ -694,71 +705,11 @@ module.exports = {
             channelId: message.channel.id,
             messageId: null,
             day: day,
-            time: bcTime || '19:30',
+            time: bcTime,
             note: bcNote || null
         });
 
-        // Auto-add regular participants (CHỈ của ngày đó)
-        const regulars = PRIMARY_DAYS.includes(day) ? await pruneInvalidBcRegulars(message.guild, day) : [];
-        let addedCount = 0;
-        const addedUserIds = []; // Lưu lại để cấp role sau
-        for (const reg of regulars) {
-            if (reg.discord_id === leaderId) continue;
-
-            // Kiểm tra user đã rời guild chưa (left_at)
-            const userData = db.getUserByDiscordId(reg.discord_id);
-            if (userData && userData.left_at) {
-                // Người đã rời guild → xóa khỏi regular và bỏ qua
-                await cleanupWeekendBcRegulars(message.guild, reg.discord_id, 'auto_add_left_at');
-                console.log(`[bangchien] Bỏ regular ${reg.username} vì đã rời guild`);
-                continue;
-            }
-
-            const regGameName = userData?.game_username || '';
-            const result = db.addBangchienParticipant(partyKey, {
-                id: reg.discord_id,
-                username: reg.username,
-                gn: regGameName,
-                name: regGameName || reg.username,
-                joinedAt: Date.now(),
-                isLeader: false,
-                isRegular: true
-            });
-
-            if (result.success) {
-                addedCount++;
-                addedUserIds.push(reg.discord_id);
-                const regs = bangchienRegistrations.get(partyKey) || [];
-                regs.push({
-                    id: reg.discord_id,
-                    username: reg.username,
-                    gn: regGameName,
-                    name: regGameName || reg.username,
-                    joinedAt: Date.now(),
-                    isLeader: false,
-                    isRegular: true
-                });
-                bangchienRegistrations.set(partyKey, regs);
-            }
-        }
-
-        // Cấp role Bang Chiến 30vs30 cho regular participants vừa auto-add
-        if (addedUserIds.length > 0) {
-            const BC_ROLE = 'bc';
-            let bcRole = message.guild.roles.cache.find(r => r.name === BC_ROLE);
-            if (!bcRole) {
-                try { bcRole = await message.guild.roles.create({ name: BC_ROLE, color: 0xE74C3C, reason: 'BC role' }); } catch (e) { }
-            }
-            if (bcRole) {
-                for (const uid of addedUserIds) {
-                    try {
-                        const member = await message.guild.members.fetch(uid).catch(() => null);
-                        if (member && !member.roles.cache.has(bcRole.id)) await member.roles.add(bcRole);
-                    } catch (e) { }
-                }
-            }
-            console.log(`[bangchien] Auto-added ${addedCount} regular participants for ${day} + cấp role BC`);
-        }
+        // "Luon tham gia" is temporarily disabled; keep existing regular data untouched.
 
         // KHÔNG gửi embed riêng - chỉ cập nhật overview
         // Xóa tin nhắn lệnh
@@ -773,7 +724,8 @@ module.exports = {
             messageId: null,
             message: null,
             startTime: Date.now(),
-            day: day
+            day: day,
+            time: bcTime
         });
 
         // Cập nhật overview embed
@@ -795,7 +747,7 @@ module.exports = {
                 if (activeSession) {
                     const formatted = supaSync.formatActiveSession(activeSession, db, message.guild);
                     if (formatted) {
-                        formatted.time = bcTime || '19:30';
+                        formatted.time = bcTime;
                         formatted.note = bcNote || '';
                         await supaSync.syncBCSession(guildId, day, formatted);
                         console.log(`[bangchien] ✅ Đã sync session ${day} lên Supabase`);
@@ -894,7 +846,9 @@ module.exports = {
                         const guild = channel.guild;
 
                         // Lấy session từ DB
-                        const autoEndSession = dbCleanup.getActiveBangchienByDay(guildId, day);
+                        const autoEndSession = dbCleanup.getActiveBangchienByDayTime
+                            ? dbCleanup.getActiveBangchienByDayTime(guildId, day, bcTime)
+                            : dbCleanup.getActiveBangchienByDay(guildId, day);
                         if (!autoEndSession) {
                             console.log(`[bangchien] Auto-end 23:00 ${day}: Session đã được end trước đó, bỏ qua.`);
                             return;
@@ -1002,7 +956,7 @@ module.exports = {
                         // 4.6. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
                         try {
                             const { deleteBCSession } = require('../../utils/supabaseSync');
-                            await deleteBCSession(guildId, day);
+                            await deleteBCSession(guildId, day, autoEndSession.time || bcTime);
                         } catch (e) {
                             console.log('[bangchien] Auto-end: Lỗi xóa Supabase:', e.message);
                         }

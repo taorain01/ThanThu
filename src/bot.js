@@ -2,6 +2,7 @@ require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const { ALLOWED_GUILD_ID, leaveUnauthorizedGuilds } = require("./config/guildAccess");
 
 const token = process.env.token;
 
@@ -39,6 +40,7 @@ client.lastEventMenuMessage = new Map();
 
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  await leaveUnauthorizedGuilds(client);
 
   // Khởi tạo dịch vụ dịch tự động
   const { initTranslateService } = require('./utils/translateService');
@@ -70,7 +72,9 @@ client.once("ready", async () => {
       const savedNotifications = storage.loadNotifications();
 
       if (savedNotifications.length > 0) {
-        const validGuildIds = new Set(client.guilds.cache.keys());
+        const validGuildIds = client.guilds.cache.has(ALLOWED_GUILD_ID)
+          ? new Set([ALLOWED_GUILD_ID])
+          : new Set();
 
         // Safety check: Nếu cache trống, không xóa gì cả
         if (validGuildIds.size === 0) {

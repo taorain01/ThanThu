@@ -634,13 +634,16 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
       .eq('guild_id', guild.id).eq('status', 'active');
     if (!remoteSessions || remoteSessions.length === 0) return;
 
-    const { createPartyKey, bangchienNotifications, bangchienRegistrations, bangchienChannels } = require('../../utils/bangchienState');
+    const { createPartyKey, bangchienNotifications, bangchienRegistrations, bangchienChannels, normalizeBcTime, LEAGUE_TIME } = require('../../utils/bangchienState');
     const bcChannelId = db.getConfig ? db.getConfig(`bc_channel_${guild.id}`) : null;
     let pulledCount = 0;
 
     for (const remoteSession of remoteSessions) {
       if (!remoteSession.day) continue;
-      const existing = db.getActiveBangchienByDay ? db.getActiveBangchienByDay(guild.id, remoteSession.day) : null;
+      const remoteTime = normalizeBcTime(remoteSession.time || LEAGUE_TIME);
+      const existing = db.getActiveBangchienByDayTime
+        ? db.getActiveBangchienByDayTime(guild.id, remoteSession.day, remoteTime)
+        : (db.getActiveBangchienByDay ? db.getActiveBangchienByDay(guild.id, remoteSession.day) : null);
       if (existing) continue; // Đã có trong SQLite, bỏ qua
 
       if (!bcChannelId) {
@@ -652,7 +655,7 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
         try { return typeof remoteSession.leader_ids === 'string' ? JSON.parse(remoteSession.leader_ids || '{}') : (remoteSession.leader_ids || {}); } catch(e) { return {}; }
       })();
       const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
-      const partyKey = createPartyKey(guild.id, remoteSession.day, leaderIds.creator_id || 'web');
+      const partyKey = createPartyKey(guild.id, remoteSession.day, leaderIds.creator_id || 'web', remoteTime);
 
       // Tạo session trong SQLite
       try {
@@ -664,8 +667,9 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           channelId: bcChannelId,
           messageId: null,
           day: remoteSession.day,
-          time: remoteSession.time || '19:30',
-          note: remoteSession.note || null
+          time: remoteTime,
+          note: remoteSession.note || null,
+          supabaseSessionId: remoteSession.id || null
         });
 
         // Ghi dữ liệu team vào SQLite
@@ -781,6 +785,17 @@ module.exports = {
         const supabaseClient = supaSync.getSupabaseClient();
         await pullMissingSessionsFromSupabase(supabaseClient, db, guild);
 
+        try {
+          const { ensureWeekendDefaultSessions, refreshOverviewEmbed } = require('../../utils/bangchienState');
+          const createdDefaults = await ensureWeekendDefaultSessions(guild);
+          if (createdDefaults.length > 0) {
+            console.log(`[Supabase] Created ${createdDefaults.length} default weekend BC sessions`);
+            await refreshOverviewEmbed(client, guild.id);
+          }
+        } catch (defaultSessionErr) {
+          console.error('[Supabase] Loi tao default weekend sessions:', defaultSessionErr.message);
+        }
+
         // Sync tất cả users lên Supabase bc_users
         try {
           const allUsers = db.getAllUsers ? db.getAllUsers() : [];
@@ -792,14 +807,7 @@ module.exports = {
           console.error('[Supabase] Lỗi sync users:', userSyncErr.message);
         }
 
-        try {
-          await supaSync.pollBcRegulars(db, guild.id, {
-            validateRegular: (item, day) => validateRemoteBcRegular(guild, item, day)
-          });
-          console.log('[Supabase] Synced bc_regulars on start');
-        } catch (regularSyncErr) {
-          console.error('[Supabase] Loi sync bc_regulars:', regularSyncErr.message);
-        }
+        // "Luon tham gia" is temporarily disabled; keep existing data untouched.
 
         // Sync exp_levels lên Supabase (cho tab Level trên web profile)
         try {
@@ -842,13 +850,16 @@ module.exports = {
           // CASE: INSERT session từ web
           if (newData._inserted) {
             try {
-              const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, createPartyKey, refreshOverviewEmbed } = require('../../utils/bangchienState');
+              const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, createPartyKey, refreshOverviewEmbed, normalizeBcTime, LEAGUE_TIME } = require('../../utils/bangchienState');
               const day = newData.day;
+              const time = normalizeBcTime(newData.time || LEAGUE_TIME);
               const dayConfig = DAY_CONFIG[day];
               if (!dayConfig) { console.log(`[Supabase] ⚠️ Ngày không hợp lệ: ${day}`); return; }
 
               // Kiểm tra đã có session cho ngày này chưa
-              const existing = db.getActiveBangchienByDay(guild.id, day);
+              const existing = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guild.id, day, time)
+                : db.getActiveBangchienByDay(guild.id, day);
               if (existing) { console.log(`[Supabase] ⚠️ Session ${day} đã tồn tại trong SQLite, bỏ qua INSERT`); return; }
 
               // Lấy kênh BC đã set bằng ?setbc
@@ -859,7 +870,7 @@ module.exports = {
               }
 
               // Tạo party key
-              const partyKey = createPartyKey(guild.id, day, 'web');
+              const partyKey = createPartyKey(guild.id, day, 'web', time);
 
               // Parse creator name từ leader_ids
               const leaderIds = typeof newData.leader_ids === 'string' ? JSON.parse(newData.leader_ids || '{}') : (newData.leader_ids || {});
@@ -875,8 +886,9 @@ module.exports = {
                 channelId: bcChannelId,
                 messageId: null,
                 day: day,
-                time: newData.time || '19:30',
-                note: newData.note || null
+                time,
+                note: newData.note || null,
+                supabaseSessionId: newData.id || null
               });
 
               // Khởi tạo trong memory
@@ -889,12 +901,13 @@ module.exports = {
                 messageId: null,
                 message: null,
                 startTime: Date.now(),
-                day: day
+                day: day,
+                time
               });
               bangchienChannels.set(guild.id, bcChannelId);
 
               // Auto-add regular participants
-              const regulars = dayConfig.primary ? await pruneInvalidBcRegulars(guild, day) : [];
+              const regulars = [];
               let addedCount = 0;
               for (const reg of regulars) {
                 const userData = db.getUserByDiscordId(reg.discord_id);
@@ -945,8 +958,7 @@ module.exports = {
                 const embed = new EmbedBuilder()
                   .setColor(dayConfig.color)
                   .setTitle(`💀 BANG CHIẾN ${dayConfig.name.toUpperCase()} ĐÃ MỞ!`)
-                  .setDescription(`✅ Được tạo từ **${creatorName}**${noteStr}\n⏰ Thời gian: **${newData.time || '19:30'}**\n\n` +
-                    `${addedCount > 0 ? `👥 Đã tự động thêm **${addedCount}** người tham gia thường xuyên\n\n` : ''}` +
+                  .setDescription(`✅ Được tạo từ **${creatorName}**${noteStr}\n⏰ Thời gian: **${time}**\n\n` +
                     `📝 Dùng \`?bc\` để xem tổng quan hoặc Đăng ký trên web.`)
                   .setTimestamp();
                 await channel.send({ embeds: [embed] });
@@ -995,17 +1007,18 @@ module.exports = {
           // CASE: DELETE session từ web
           if (newData._deleted) {
             try {
-              const { bangchienNotifications, bangchienRegistrations, bangchienChannels, getGuildBangchienKeys } = require('../../utils/bangchienState');
+              const { bangchienNotifications, bangchienRegistrations, bangchienChannels, getGuildBangchienKeys, getSessionIdentityKey, LEAGUE_TIME } = require('../../utils/bangchienState');
               const sessions = db.getActiveBangchienByGuild(guild.id);
 
               // Tìm session(s) cần xóa
               let sessionsToDelete = [];
-              if (newData._deleted_unknown && newData.remainingDays) {
-                const remainingSet = new Set(newData.remainingDays);
-                sessionsToDelete = sessions.filter(s => !remainingSet.has(s.day));
+              if (newData._deleted_unknown && newData.remainingKeys) {
+                const remainingSet = new Set(newData.remainingKeys);
+                sessionsToDelete = sessions.filter(s => !remainingSet.has(getSessionIdentityKey(s)));
                 console.log(`[Supabase] x️ Fallback DELETE: tìm ${sessionsToDelete.length} session cần xóa`);
               } else if (newData.day) {
-                const found = sessions.find(s => s.day === newData.day);
+                const targetTime = newData.time || LEAGUE_TIME;
+                const found = sessions.find(s => s.day === newData.day && (s.time || LEAGUE_TIME) === targetTime);
                 if (found) sessionsToDelete = [found];
                 console.log(`[Supabase] x️ Web ã xóa BC session ${newData.day}`);
               }
@@ -1065,7 +1078,11 @@ module.exports = {
           console.log(`[Supabase] 🔄 Web đã sửa BC session (${newData.day})`);
           try {
             const sessions = db.getActiveBangchienByGuild(guild.id);
-            const localSession = sessions.find(s => s.day === newData.day);
+            const targetTime = normalizeBcTime(newData.time || LEAGUE_TIME);
+            const localSession = sessions.find(s =>
+              (newData.id && s.supabase_session_id === newData.id) ||
+              (s.day === newData.day && normalizeBcTime(s.time || LEAGUE_TIME) === targetTime)
+            );
             if (!localSession) return;
             const sessionChangeSummaries = buildSessionChangeSummaries(localSession, newData);
 
@@ -1146,7 +1163,7 @@ module.exports = {
               leaderIds.team4 || null,
               leaderIds.commander || localSession.commander_id || null,
               newData.note || '',
-              newData.time || '19:30',
+              targetTime,
               localSession.party_key
             );
             console.log(`[Supabase] S& Đã sync ngược SQLite cho BC ${newData.day}`);
@@ -1202,9 +1219,7 @@ module.exports = {
           }
         });
 
-        supaSync.listenForBcRegularChanges(guild.id, async (change) => {
-          await applyRemoteBcRegularChange(guild, change);
-        });
+        // bc_regulars realtime is disabled with the temporary "Luon tham gia" removal.
       }
     }
 

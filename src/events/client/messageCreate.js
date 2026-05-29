@@ -1,5 +1,6 @@
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../database/db');
+const { isAllowedGuildId } = require('../../config/guildAccess');
 
 // Import member management commands
 const addmemCommand = require('../../commands/quanly/addmem');
@@ -83,6 +84,7 @@ module.exports = {
     async execute(message, client) {
         // Bỏ qua nếu là bot
         if (message.author.bot) return;
+        if (!isAllowedGuildId(message.guild?.id)) return;
 
         // ============== BOOSTER VIP ROOM — Gọi tên/tag bot để mở bảng điều khiển ==============
         const { handleBotMention } = require('../../utils/boosterVoiceHandlers');

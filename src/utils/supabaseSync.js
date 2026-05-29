@@ -5,6 +5,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { LEAGUE_TIME, normalizeBcTime, getSessionIdentityKey } = require('./bangchienState');
 
 // Khởi tạo Supabase client với service_role key (full quyền)
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -101,10 +102,11 @@ async function syncBCSession(guildId, day, sessionData) {
             team_sizes = { attack1: 10, attack2: 10, defense: 5, forest: 5 },
             team_names = {},
             status = 'active',
-            time = '19:30',
+            time = LEAGUE_TIME,
             note = '',
             locked = false
         } = sessionData;
+        const normalizedTime = normalizeBcTime(time || LEAGUE_TIME);
 
         const payload = {
             guild_id: guildId,
@@ -117,7 +119,7 @@ async function syncBCSession(guildId, day, sessionData) {
             leader_ids: JSON.stringify(leader_ids),
             team_sizes: JSON.stringify(team_sizes),
             status,
-            time: time || '19:30',
+            time: normalizedTime,
             note: note || ''
         };
         if (supportsBcSessionsLockedColumn) {
@@ -130,14 +132,14 @@ async function syncBCSession(guildId, day, sessionData) {
 
         let { error } = await supabase
             .from('bc_sessions')
-            .upsert(payload, { onConflict: 'guild_id,day' });
+            .upsert(payload, { onConflict: 'guild_id,day,time' });
 
         if (error && /locked/i.test(error.message || '')) {
             supportsBcSessionsLockedColumn = false;
             delete payload.locked;
             const retry = await supabase
                 .from('bc_sessions')
-                .upsert(payload, { onConflict: 'guild_id,day' });
+                .upsert(payload, { onConflict: 'guild_id,day,time' });
             error = retry.error || null;
         }
 
@@ -147,20 +149,21 @@ async function syncBCSession(guildId, day, sessionData) {
             delete payload.team_names;
             const retry2 = await supabase
                 .from('bc_sessions')
-                .upsert(payload, { onConflict: 'guild_id,day' });
+                .upsert(payload, { onConflict: 'guild_id,day,time' });
             error = retry2.error || null;
         }
 
         if (error) {
             console.error('[Supabase] ❌ Sync BC session lỗi:', error.message);
         } else {
-            console.log(`[Supabase] ✅ Sync BC ${day} thành công (${team_attack1.length + team_attack2.length + team_defense.length + team_forest.length} người)`);
+            console.log(`[Supabase] ✅ Sync BC ${day} ${normalizedTime} thành công (${team_attack1.length + team_attack2.length + team_defense.length + team_forest.length} người)`);
             try {
                 const { data: savedSession, error: sessionLookupError } = await supabase
                     .from('bc_sessions')
                     .select('*')
                     .eq('guild_id', guildId)
                     .eq('day', day)
+                    .eq('time', normalizedTime)
                     .maybeSingle();
 
                 if (sessionLookupError) {
@@ -183,8 +186,9 @@ async function syncBCSession(guildId, day, sessionData) {
  * @param {string} guildId - Guild ID
  * @param {string} day - 'sat', 'sun', 'mon'...
  */
-async function deleteBCSession(guildId, day) {
-    console.log(`[Supabase] 🗑️ deleteBCSession được gọi: guild=${guildId}, day=${day}, ready=${isReady()}`);
+async function deleteBCSession(guildId, day, time = LEAGUE_TIME) {
+    const normalizedTime = normalizeBcTime(time || LEAGUE_TIME);
+    console.log(`[Supabase] deleteBCSession called: guild=${guildId}, day=${day}, time=${normalizedTime}, ready=${isReady()}`);
     if (!isReady()) {
         console.log('[Supabase] ⚠️ deleteBCSession: Supabase chưa sẵn sàng, bỏ qua!');
         return;
@@ -195,8 +199,9 @@ async function deleteBCSession(guildId, day) {
             .from('bc_sessions')
             .update({ status: 'ended' })
             .eq('guild_id', guildId)
-            .eq('day', day);
-        console.log(`[Supabase] 📡 Signal ended cho ${day}`);
+            .eq('day', day)
+            .eq('time', normalizedTime);
+        console.log(`[Supabase] Signal ended for ${day} ${normalizedTime}`);
 
         // Chờ 500ms để web kịp nhận event
         await new Promise(r => setTimeout(r, 500));
@@ -206,12 +211,13 @@ async function deleteBCSession(guildId, day) {
             .from('bc_sessions')
             .delete()
             .eq('guild_id', guildId)
-            .eq('day', day);
+            .eq('day', day)
+            .eq('time', normalizedTime);
 
         if (error) {
             console.error('[Supabase] ❌ Xóa BC session lỗi:', error.message);
         } else {
-            console.log(`[Supabase] ✅ Đã xóa BC session ${day}`);
+            console.log(`[Supabase] Deleted BC session ${day} ${normalizedTime}`);
         }
     } catch (err) {
         console.error('[Supabase] ❌ deleteBCSession exception:', err.message);
@@ -1190,15 +1196,17 @@ async function removeBcRegular(guildId, discordId, day) {
     }
 }
 
-async function setSessionLocked(guildId, day, locked = true) {
+async function setSessionLocked(guildId, day, locked = true, time = LEAGUE_TIME) {
     if (!isReady()) return;
     if (!supportsBcSessionsLockedColumn) return true;
+    const normalizedTime = normalizeBcTime(time || LEAGUE_TIME);
     try {
         const { error } = await supabase
             .from('bc_sessions')
             .update({ locked: !!locked })
             .eq('guild_id', guildId)
-            .eq('day', day);
+            .eq('day', day)
+            .eq('time', normalizedTime);
 
         if (error && /locked/i.test(error.message || '')) {
             supportsBcSessionsLockedColumn = false;
@@ -1403,12 +1411,12 @@ function listenForWebChanges(guildId, onSessionChange) {
                 // So sánh với SQLite để tìm thay đổi
                 const db = require('../database/db');
                 const localSessions = db.getActiveBangchienByGuild(guildId);
-                const localDays = new Set(localSessions.map(s => s.day));
-                const remoteDays = new Set((data || []).map(s => s.day));
+                const localKeys = new Set(localSessions.map(s => getSessionIdentityKey(s)));
+                const remoteKeys = new Set((data || []).map(s => getSessionIdentityKey(s)));
 
                 // INSERT: session mới từ web (có trong Supabase nhưng không có trong SQLite)
                 for (const remoteSession of (data || [])) {
-                    if (!localDays.has(remoteSession.day) && onSessionChange) {
+                    if (!localKeys.has(getSessionIdentityKey(remoteSession)) && onSessionChange) {
                         console.log(`[Supabase] 🆕 Polling: Web tạo BC session mới (${remoteSession.day})`);
                         onSessionChange({ ...remoteSession, _inserted: true });
                     }
@@ -1416,17 +1424,18 @@ function listenForWebChanges(guildId, onSessionChange) {
 
                 // DELETE: session bị xóa từ web (có trong SQLite nhưng không có trong Supabase)
                 for (const localSession of localSessions) {
-                    if (!remoteDays.has(localSession.day) && onSessionChange) {
+                    if (!remoteKeys.has(getSessionIdentityKey(localSession)) && onSessionChange) {
                         console.log(`[Supabase] 🗑️ Polling: Web xóa BC session (${localSession.day})`);
-                        onSessionChange({ day: localSession.day, _deleted: true });
+                        onSessionChange({ day: localSession.day, time: localSession.time || LEAGUE_TIME, _deleted: true });
                     }
                 }
 
                 // UPDATE: session thay đổi từ web
                 for (const remoteSession of (data || [])) {
-                    if (localDays.has(remoteSession.day) && onSessionChange) {
+                    if (localKeys.has(getSessionIdentityKey(remoteSession)) && onSessionChange) {
                         // So sánh nội dung
-                        const local = localSessions.find(s => s.day === remoteSession.day);
+                        const remoteKey = getSessionIdentityKey(remoteSession);
+                        const local = localSessions.find(s => getSessionIdentityKey(s) === remoteKey);
                         if (local) {
                             if (normalizeSessionSignature(remoteSession) !== normalizeSessionSignature(local, true)) {
                                 console.log(`[Supabase] 🔄 Polling: Web sửa BC session (${remoteSession.day})`);
@@ -1467,12 +1476,14 @@ function listenForWebChanges(guildId, onSessionChange) {
                 if (payload.new?.status === 'ended') {
                     console.log(`[Supabase] 🗑️ Web signal ended cho session ${payload.new.day}`);
                     if (onSessionChange) {
-                        onSessionChange({ day: payload.new.day, _deleted: true });
+                        onSessionChange({ day: payload.new.day, time: payload.new.time || LEAGUE_TIME, id: payload.new.id, _deleted: true });
                     }
                     // Dọn row khỏi Supabase (web anon key có thể không xóa được)
                     try {
                         await supabase.from('bc_sessions').delete()
-                            .eq('guild_id', guildId).eq('day', payload.new.day);
+                            .eq('guild_id', guildId)
+                            .eq('day', payload.new.day)
+                            .eq('time', payload.new.time || LEAGUE_TIME);
                         console.log(`[Supabase] ✅ Bot đã dọn row ended: ${payload.new.day}`);
                     } catch(e) {}
                     return;
@@ -1487,23 +1498,24 @@ function listenForWebChanges(guildId, onSessionChange) {
             { event: 'DELETE', schema: 'public', table: 'bc_sessions', filter: `guild_id=eq.${guildId}` },
             async (payload) => {
                 const deletedDay = payload.old?.day;
+                const deletedTime = payload.old?.time || LEAGUE_TIME;
                 console.log(`[Supabase] 🗑️ Nhận DELETE event (day=${deletedDay || 'unknown'})`);
 
                 if (deletedDay && onSessionChange) {
                     // Biết chính xác ngày bị xóa
-                    onSessionChange({ day: deletedDay, _deleted: true });
+                    onSessionChange({ day: deletedDay, time: deletedTime, id: payload.old?.id, _deleted: true });
                 } else if (onSessionChange) {
                     // Không biết ngày (REPLICA IDENTITY chưa FULL) → query Supabase để tìm
                     try {
                         const { data: remainingSessions } = await supabase
                             .from('bc_sessions')
-                            .select('day')
+                            .select('day,time')
                             .eq('guild_id', guildId);
-                        const remainingDays = new Set((remainingSessions || []).map(s => s.day));
+                        const remainingKeys = new Set((remainingSessions || []).map(s => getSessionIdentityKey({ ...s, guild_id: guildId })));
 
                         // So sánh (callback sẽ tự kiểm tra SQLite)
                         // Gửi _deleted_unknown để ready.js xử lý fallback
-                        onSessionChange({ _deleted: true, _deleted_unknown: true, remainingDays: [...remainingDays] });
+                        onSessionChange({ _deleted: true, _deleted_unknown: true, remainingKeys: [...remainingKeys] });
                     } catch (e) {
                         console.error('[Supabase] Lỗi query remaining sessions:', e.message);
                     }
@@ -1669,10 +1681,10 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
         // ═══ RECONCILE: Query Supabase để tìm session đã bị xoá từ web khi bot offline ═══
         const { data: remoteSessions } = await supabase
             .from('bc_sessions')
-            .select('day')
+            .select('day,time')
             .eq('guild_id', guildId)
             .eq('status', 'active');
-        const remoteDays = new Set((remoteSessions || []).map(s => s.day));
+        const remoteKeys = new Set((remoteSessions || []).map(s => getSessionIdentityKey({ ...s, guild_id: guildId })));
 
         // Chỉ reconcile nếu Supabase đang có ít nhất 1 session
         // Tránh xóa SQLite nhầm khi Supabase bị clear/reset thủ công
@@ -1680,7 +1692,7 @@ async function syncAllActiveSessions(db, guildId, guild = null) {
         if ((remoteSessions || []).length > 0) {
             for (const localSession of localSessions) {
                 const day = localSession.day;
-                if (day && !remoteDays.has(day)) {
+                if (day && !remoteKeys.has(getSessionIdentityKey(localSession))) {
                     // Session này tồn tại trong SQLite nhưng Supabase đã xoá → zombie
                     console.log(`[Supabase] 🧹 Reconcile: session ${day} đã bị xoá từ web khi bot offline → xoá SQLite`);
 

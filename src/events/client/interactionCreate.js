@@ -20,6 +20,7 @@
  */
 
 const { InteractionType, MessageFlags } = require("discord.js");
+const { ALLOWED_GUILD_ID, isAllowedGuildId } = require("../../config/guildAccess");
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HANDLER IMPORTS
@@ -39,12 +40,11 @@ const lotoHandlers = require('../../utils/lotoHandlers');
 const boosterVoiceHandlers = require('../../utils/boosterVoiceHandlers');
 const nlListHandlers = require('../../utils/nlListHandlers');
 
-// Load allowed guild ID from environment
-const ALLOWED_GUILD_ID = process.env.guildId;
-
 module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
+    if (!isAllowedGuildId(interaction.guildId)) return;
+
     // ═══════════════════════════════════════════════════════════════════════
     // GUILD VALIDATION (chỉ chặn slash commands, cho phép button/select/modal
     // vì bot đã tự gửi message có component ở guild đó rồi)

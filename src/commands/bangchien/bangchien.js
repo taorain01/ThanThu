@@ -18,11 +18,14 @@ const {
     createPartyKey,
     getDayFromPartyKey,
     getDayNameWithDate,
+    normalizeBcTime,
+    isLeagueSession,
+    LEAGUE_TIME,
+    WEEKEND_DEFAULT_TIMES,
     refreshOverviewEmbed,
     // Auto-cleanup
     autoCleanupExpiredSessions
 } = require('../../utils/bangchienState');
-const { cleanupWeekendBcRegulars, pruneInvalidBcRegulars } = require('../../utils/bcRegularCleanup');
 
 
 // Tạo embed thông báo bang chiến - HIỂN THỊ 4 TEAM

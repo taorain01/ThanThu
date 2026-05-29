@@ -1,5 +1,16 @@
 const fs = require("fs");
 const path = require("path");
+const { getEventGuildId, isAllowedGuildId } = require("../../config/guildAccess");
+
+function shouldSkipEvent(eventName, args) {
+  const guildId = getEventGuildId(args);
+
+  if (guildId) {
+    return !isAllowedGuildId(guildId);
+  }
+
+  return eventName === "messageCreate" || eventName === "interactionCreate";
+}
 
 module.exports = (client) => {
   client.handleEvents = async () => {
@@ -22,12 +33,15 @@ module.exports = (client) => {
         if (event.name) {
           console.log(`Đang tải sự kiện: ${event.name} từ tệp ${file}`);
 
+          const runEvent = (...args) => {
+            if (shouldSkipEvent(event.name, args)) return;
+            return event.execute(...args, client);
+          };
+
           if (event.once) {
-            client.once(event.name, (...args) =>
-              event.execute(...args, client)
-            );
+            client.once(event.name, runEvent);
           } else {
-            client.on(event.name, (...args) => event.execute(...args, client));
+            client.on(event.name, runEvent);
           }
         } else {
           console.warn(`Tệp sự kiện ${file} không có thuộc tính 'name'.`);

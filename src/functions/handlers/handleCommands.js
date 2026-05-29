@@ -1,6 +1,7 @@
 const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v9");
 const fs = require("fs");
+const { ALLOWED_GUILD_ID } = require("../../config/guildAccess");
 
 module.exports = (client) => {
   client.handleCommands = async () => {
@@ -26,7 +27,7 @@ module.exports = (client) => {
     }
 
     const clientId = process.env.clientId;
-    const guildId = process.env.guildId;
+    const guildId = ALLOWED_GUILD_ID;
     const rest = new REST({ version: "10" }).setToken(process.env.token);
 
     try {

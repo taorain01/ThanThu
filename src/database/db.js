@@ -404,6 +404,12 @@ function initializeDatabase() {
     try {
         db.prepare('ALTER TABLE bangchien_active ADD COLUMN note TEXT DEFAULT ""').run();
     } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE bangchien_active ADD COLUMN supabase_session_id TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('CREATE INDEX IF NOT EXISTS idx_bangchien_active_guild_day_time ON bangchien_active(guild_id, day, time)').run();
+    } catch (e) { }
 
     // Tạo lại bảng với UNIQUE constraint mới nếu cần
     // (SQLite không hỗ trợ DROP CONSTRAINT nên dùng cách khác nếu cần)
@@ -951,6 +957,27 @@ function rejoinUser(discordId, newData) {
 
 // ============== BANGCHIEN ACTIVE FUNCTIONS ==============
 
+function normalizeBangchienTime(value, fallback = '19:30') {
+    const raw = String(value || fallback || '19:30').trim().toLowerCase();
+    const match = raw.match(/^(\d{1,2})(?:[:h](\d{0,2}))?$/);
+    if (!match) return fallback || '19:30';
+    const hour = Math.max(0, Math.min(23, Number(match[1])));
+    const minute = Math.max(0, Math.min(59, Number(match[2] || '0')));
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function hydrateBangchienSession(result) {
+    if (!result) return null;
+    result.team_defense = JSON.parse(result.team_defense || '[]');
+    result.team_offense = JSON.parse(result.team_offense || '[]');
+    result.waiting_list = JSON.parse(result.waiting_list || '[]');
+    result.team_attack1 = JSON.parse(result.team_attack1 || '[]');
+    result.team_attack2 = JSON.parse(result.team_attack2 || '[]');
+    result.team_forest = JSON.parse(result.team_forest || '[]');
+    result.time = normalizeBangchienTime(result.time || '19:30');
+    return result;
+}
+
 /**
  * Create new active BC session (MULTI-DAY)
  * @param {Object} data - Session data including day
@@ -963,8 +990,8 @@ function createActiveBangchien(data) {
     } catch (e) { }
 
     const stmt = db.prepare(`
-        INSERT INTO bangchien_active (guild_id, party_key, leader_id, leader_name, channel_id, message_id, team_attack1, day, time, note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO bangchien_active (guild_id, party_key, leader_id, leader_name, channel_id, message_id, team_attack1, day, time, note, supabase_session_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     // Leader starts in team_attack1 (4-TEAM SYSTEM)
     // Lookup tên ingame từ DB users
@@ -980,8 +1007,9 @@ function createActiveBangchien(data) {
         data.messageId || null,
         JSON.stringify(leaderData),
         data.day || null,
-        data.time || '19:30',
-        data.note || null
+        normalizeBangchienTime(data.time || '19:30'),
+        data.note || null,
+        data.supabaseSessionId || data.supabase_session_id || null
     );
     return { success: true, id: result.lastInsertRowid };
 }
@@ -995,16 +1023,7 @@ function createActiveBangchien(data) {
 function getActiveBangchien(partyKey) {
     const stmt = db.prepare('SELECT * FROM bangchien_active WHERE party_key = ?');
     const result = stmt.get(partyKey);
-    if (result) {
-        result.team_defense = JSON.parse(result.team_defense || '[]');
-        result.team_offense = JSON.parse(result.team_offense || '[]');
-        result.waiting_list = JSON.parse(result.waiting_list || '[]');
-        // NEW 4-team columns
-        result.team_attack1 = JSON.parse(result.team_attack1 || '[]');
-        result.team_attack2 = JSON.parse(result.team_attack2 || '[]');
-        result.team_forest = JSON.parse(result.team_forest || '[]');
-    }
-    return result;
+    return hydrateBangchienSession(result);
 }
 
 /**
@@ -1013,18 +1032,16 @@ function getActiveBangchien(partyKey) {
  * @returns {Array} Array of active sessions
  */
 function getActiveBangchienByGuild(guildId) {
-    const stmt = db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ?');
+    const stmt = db.prepare(`
+        SELECT * FROM bangchien_active
+        WHERE guild_id = ?
+        ORDER BY
+          CASE day WHEN 'mon' THEN 1 WHEN 'tue' THEN 2 WHEN 'wed' THEN 3 WHEN 'thu' THEN 4 WHEN 'fri' THEN 5 WHEN 'sat' THEN 6 WHEN 'sun' THEN 7 ELSE 99 END,
+          time ASC,
+          created_at ASC
+    `);
     const results = stmt.all(guildId);
-    return results.map(r => {
-        r.team_defense = JSON.parse(r.team_defense || '[]');
-        r.team_offense = JSON.parse(r.team_offense || '[]');
-        r.waiting_list = JSON.parse(r.waiting_list || '[]');
-        // NEW 4-team columns
-        r.team_attack1 = JSON.parse(r.team_attack1 || '[]');
-        r.team_attack2 = JSON.parse(r.team_attack2 || '[]');
-        r.team_forest = JSON.parse(r.team_forest || '[]');
-        return r;
-    });
+    return results.map(hydrateBangchienSession);
 }
 
 /**
@@ -1034,17 +1051,28 @@ function getActiveBangchienByGuild(guildId) {
  * @returns {Object|null} Session data or null
  */
 function getActiveBangchienByDay(guildId, day) {
-    const stmt = db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ? AND day = ?');
+    const stmt = db.prepare(`
+        SELECT * FROM bangchien_active
+        WHERE guild_id = ? AND day = ?
+        ORDER BY CASE WHEN COALESCE(time, '19:30') = '19:30' THEN 0 ELSE 1 END, time ASC, created_at ASC
+        LIMIT 1
+    `);
     const result = stmt.get(guildId, day);
-    if (result) {
-        result.team_defense = JSON.parse(result.team_defense || '[]');
-        result.team_offense = JSON.parse(result.team_offense || '[]');
-        result.waiting_list = JSON.parse(result.waiting_list || '[]');
-        result.team_attack1 = JSON.parse(result.team_attack1 || '[]');
-        result.team_attack2 = JSON.parse(result.team_attack2 || '[]');
-        result.team_forest = JSON.parse(result.team_forest || '[]');
-    }
-    return result;
+    return hydrateBangchienSession(result);
+}
+
+function getActiveBangchienByDayTime(guildId, day, time = '19:30') {
+    const normalizedTime = normalizeBangchienTime(time);
+    const stmt = db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ? AND day = ? AND COALESCE(time, "19:30") = ? LIMIT 1');
+    const result = stmt.get(guildId, day, normalizedTime);
+    return hydrateBangchienSession(result);
+}
+
+function getActiveBangchienBySupabaseId(guildId, supabaseSessionId) {
+    if (!supabaseSessionId) return null;
+    const stmt = db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ? AND supabase_session_id = ? LIMIT 1');
+    const result = stmt.get(guildId, supabaseSessionId);
+    return hydrateBangchienSession(result);
 }
 
 /**
@@ -2112,6 +2140,8 @@ module.exports = {
     getActiveBangchien,
     getActiveBangchienByGuild,
     getActiveBangchienByDay,
+    getActiveBangchienByDayTime,
+    getActiveBangchienBySupabaseId,
     addBangchienParticipant,
     removeBangchienParticipant,
     updateActiveBangchien,

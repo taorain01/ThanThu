@@ -13,7 +13,7 @@ const bangchienRegistrations = new Map();
 const BANGCHIEN_MAX_MEMBERS = 30;
 
 // Giới hạn số party tối đa mỗi guild (T7 + CN + 5 ngày tuần = 7)
-const BANGCHIEN_MAX_PARTIES = 7;
+const BANGCHIEN_MAX_PARTIES = 16;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MULTI-DAY CONFIG
@@ -32,6 +32,8 @@ const DAY_CONFIG = {
 
 // Ngày mặc định (luôn hiện trên web + overview)
 const PRIMARY_DAYS = ['sat', 'sun'];
+const LEAGUE_TIME = '19:30';
+const WEEKEND_DEFAULT_TIMES = ['19:30', '20:00', '20:30', '21:00', '21:30'];
 
 /**
  * Tính ngày Thứ 7 hoặc Chủ Nhật của tuần này (hoặc tuần tới nếu đã qua)
@@ -123,8 +125,28 @@ function parseDayArg(args) {
 }
 
 // Helper: Lấy day từ party key (format: guildId_day_leaderId)
+function normalizeBcTime(value, fallback = LEAGUE_TIME) {
+    const raw = String(value || fallback || LEAGUE_TIME).trim().toLowerCase();
+    const match = raw.match(/^(\d{1,2})(?:[:h](\d{0,2}))?$/);
+    if (!match) return fallback || LEAGUE_TIME;
+    const hour = Math.max(0, Math.min(23, Number(match[1])));
+    const minute = Math.max(0, Math.min(59, Number(match[2] || '0')));
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function timeToPartyKeyPart(time) {
+    return normalizeBcTime(time).replace(':', '');
+}
+
+function isLeagueSession(sessionOrTime) {
+    const time = typeof sessionOrTime === 'string'
+        ? sessionOrTime
+        : (sessionOrTime?.time || LEAGUE_TIME);
+    return normalizeBcTime(time) === LEAGUE_TIME;
+}
+
 function getDayFromPartyKey(partyKey) {
-    const parts = partyKey.split('_');
+    const parts = String(partyKey || '').split('_');
     if (parts.length >= 3) {
         const day = parts[1];
         if (DAY_CONFIG[day]) return day;
@@ -133,8 +155,21 @@ function getDayFromPartyKey(partyKey) {
 }
 
 // Helper: Tạo party key mới với day
-function createPartyKey(guildId, day, leaderId) {
-    return `${guildId}_${day}_${leaderId}`;
+function getTimeFromPartyKey(partyKey) {
+    const parts = String(partyKey || '').split('_');
+    if (parts.length >= 4 && /^\d{4}$/.test(parts[2])) {
+        return `${parts[2].slice(0, 2)}:${parts[2].slice(2)}`;
+    }
+    return LEAGUE_TIME;
+}
+
+function getSessionIdentityKey(session) {
+    if (!session) return '';
+    return `${session.guild_id || session.guildId || ''}|${session.day || ''}|${normalizeBcTime(session.time || LEAGUE_TIME)}`;
+}
+
+function createPartyKey(guildId, day, leaderId, time = LEAGUE_TIME) {
+    return `${guildId}_${day}_${timeToPartyKeyPart(time)}_${leaderId}`;
 }
 
 // Helper: Lấy tất cả party keys của một guild
@@ -361,7 +396,7 @@ async function autoCleanupExpiredSessions(client, guildId) {
             // 5. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
             try {
                 const { deleteBCSession } = require('./supabaseSync');
-                await deleteBCSession(guildId, sessionDay);
+                await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME);
             } catch (e) { /* bỏ qua nếu supabase chưa init */ }
 
             cleanedCount++;
@@ -388,6 +423,78 @@ async function autoCleanupExpiredSessions(client, guildId) {
     return cleanedCount;
 }
 
+async function ensureWeekendDefaultSessions(guild, options = {}) {
+    if (!guild?.id) return [];
+    const db = require('../database/db');
+    const channelId = options.channelId || (db.getConfig ? db.getConfig(`bc_channel_${guild.id}`) : null);
+    if (!channelId) return [];
+
+    const created = [];
+    for (const day of PRIMARY_DAYS) {
+        for (const time of WEEKEND_DEFAULT_TIMES) {
+            const normalizedTime = normalizeBcTime(time);
+            const existing = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guild.id, day, normalizedTime)
+                : null;
+            if (existing) continue;
+
+            const leaderId = `auto_${day}_${timeToPartyKeyPart(normalizedTime)}`;
+            const partyKey = createPartyKey(guild.id, day, leaderId, normalizedTime);
+            db.createActiveBangchien({
+                guildId: guild.id,
+                partyKey,
+                leaderId,
+                leaderName: isLeagueSession(normalizedTime) ? 'LEAGUE' : `Auto ${normalizedTime}`,
+                channelId,
+                messageId: null,
+                day,
+                time: normalizedTime,
+                note: isLeagueSession(normalizedTime) ? 'LEAGUE' : ''
+            });
+
+            const session = db.getActiveBangchien(partyKey);
+            if (session) {
+                bangchienRegistrations.set(partyKey, [
+                    ...(session.team_attack1 || []),
+                    ...(session.team_attack2 || []),
+                    ...(session.team_defense || []),
+                    ...(session.team_forest || []),
+                    ...(session.waiting_list || [])
+                ]);
+                bangchienNotifications.set(partyKey, {
+                    intervalId: null,
+                    channelId,
+                    leaderId,
+                    leaderName: isLeagueSession(normalizedTime) ? 'LEAGUE' : `Auto ${normalizedTime}`,
+                    messageId: null,
+                    message: null,
+                    startTime: Date.now(),
+                    day,
+                    time: normalizedTime
+                });
+                created.push(session);
+            }
+        }
+    }
+
+    if (created.length > 0) {
+        bangchienChannels.set(guild.id, channelId);
+        try {
+            const supaSync = require('./supabaseSync');
+            if (supaSync.isReady()) {
+                for (const session of created) {
+                    const formatted = supaSync.formatActiveSession(session, db, guild);
+                    if (formatted) await supaSync.syncBCSession(guild.id, session.day, formatted);
+                }
+            }
+        } catch (error) {
+            console.error('[bangchien] ensureWeekendDefaultSessions sync failed:', error.message);
+        }
+    }
+
+    return created;
+}
+
 module.exports = {
     // Maps
     bangchienNotifications,
@@ -401,6 +508,8 @@ module.exports = {
     BANGCHIEN_MAX_MEMBERS,
     BANGCHIEN_MAX_PARTIES,
     BC_REFRESH_DEBOUNCE,
+    LEAGUE_TIME,
+    WEEKEND_DEFAULT_TIMES,
     // Multi-day config
     DAY_CONFIG,
     DAY_ALIASES,
@@ -408,7 +517,11 @@ module.exports = {
     PRIMARY_DAYS,
     // Helper functions
     parseDayArg,
+    normalizeBcTime,
+    isLeagueSession,
     getDayFromPartyKey,
+    getTimeFromPartyKey,
+    getSessionIdentityKey,
     createPartyKey,
     getGuildBangchienKeys,
     getUserBangchienParty,
@@ -417,5 +530,6 @@ module.exports = {
     refreshOverviewEmbed,
     // Auto-cleanup
     isSessionExpired,
-    autoCleanupExpiredSessions
+    autoCleanupExpiredSessions,
+    ensureWeekendDefaultSessions
 };

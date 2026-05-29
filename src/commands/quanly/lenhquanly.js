@@ -101,9 +101,7 @@ module.exports = {
                         name: '🔇 **Kênh**',
                         value: [
                             `\`${prefix}nominigame\` - Chặn/mở minigame trong kênh`,
-                            `\`${prefix}muteall\` - Chặn/mở TẤT CẢ lệnh trong kênh`,
-                            `\`${prefix}moon @user\` - Cho phép thấy voice channel`,
-                            `\`${prefix}xmoon @user\` - Xóa quyền thấy voice channel`
+                            `\`${prefix}muteall\` - Chặn/mở TẤT CẢ lệnh trong kênh`
                         ].join('\n'),
                         inline: false
                     },

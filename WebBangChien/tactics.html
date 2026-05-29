@@ -19,13 +19,78 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
+  /* ================== LIGHT THEME (Imperial Jade & Shimmering Gold) ================== */
+  --bg:#f4f9f6;--bg2:rgba(255,255,255,0.85);--bg3:#ffffff;--border:rgba(16,185,129,0.16);
+  --gold:#d97706;--gold-deep:#b45309;--gold-glow:#f59e0b;
+  --green-300:#10b981;--green-400:#059669;--green-500:#047857;--green-600:#065f46;
+  --text:#111c15;--text2:#4a5c51;--text3:#758a7d;
+  --dps:#2563eb;--healer:#10b981;--tanker:#ea580c;--bot:#7c3aed;
+  --panel-w:260px;--timeline-h:154px;--header-h:48px;
+  --border-strong:rgba(217,119,6,0.22);
+  --shadow:rgba(16,185,129,0.06);
+  --glass-specular:rgba(255,255,255,0.7);
+  --glass-shadow:rgba(16,185,129,0.05);
+}
+
+body.theme-dark{
+  /* ================== ORIGINAL FOREST DARK THEME ================== */
   --bg:#0a1a0f;--bg2:#0d1f13;--bg3:#132a1a;--border:rgba(34,197,94,.15);
   --gold:#fbbf24;--gold-deep:#f59e0b;--gold-glow:#fde68a;
   --green-300:#86efac;--green-400:#4ade80;--green-500:#22c55e;--green-600:#16a34a;
   --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
   --dps:#60a5fa;--healer:#4ade80;--tanker:#fb923c;--bot:#a78bfa;
-  --panel-w:260px;--timeline-h:154px;--header-h:48px;
+  --border-strong:rgba(251,191,36,.3);
+  --shadow:rgba(0,0,0,0.5);
+  --glass-specular:rgba(255,255,255,.05);
+  --glass-shadow:rgba(0,0,0,.6);
 }
+/* ═══ THEME TOGGLE BUTTON ═══ */
+.theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1.5px solid rgba(16, 185, 129, 0.25);
+  color: var(--gold);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.06), inset 0 1px 0 rgba(255,255,255,0.4);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+body.theme-dark .theme-toggle-btn {
+  background: rgba(10, 26, 15, 0.65);
+  border: 1.5px solid rgba(251, 191, 36, 0.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0, 0, 0, 0.42), 0 0 10px rgba(251, 191, 36, 0.08);
+}
+.theme-toggle-btn:hover {
+  background: var(--bg2);
+  border-color: var(--gold-glow);
+  transform: scale(1.08) rotate(15deg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 6px 14px rgba(0, 0, 0, 0.5), 0 0 18px rgba(251, 191, 36, 0.5);
+}
+body.theme-dark .theme-toggle-btn:hover {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 6px 16px rgba(0, 0, 0, 0.6), 0 0 20px rgba(251, 191, 36, 0.6);
+  border-color: var(--gold);
+}
+body.theme-dark .theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+.theme-toggle-btn:hover {
+  background: var(--bg2);
+  border-color: var(--gold-glow);
+  transform: scale(1.08) rotate(15deg);
+  box-shadow: 0 4px 14px var(--border-strong);
+}
+body.theme-dark .theme-toggle-btn .sun-icon { display: block; }
+body.theme-dark .theme-toggle-btn .moon-icon { display: none; }
+body:not(.theme-dark) .theme-toggle-btn .sun-icon { display: none; }
+body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
+
 html,body{height:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-select:none;-webkit-user-select:none;display:flex;flex-direction:column}
 
@@ -1192,7 +1257,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
 .tl-mark:hover .tl-mark-time, .tl-mark.active .tl-mark-time { transform: translateX(-50%) scale(1.1); font-size:10px; color:#fff;}
 </style>
 </head>
-<body>
+<body class="theme-dark">
 
 <!-- Auth Overlay -->
 <div class="auth-overlay" id="authOverlay">
@@ -1220,13 +1285,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-
     </div>
   </div>
 
-  <div style="flex:1; display:flex; justify-content:flex-end; gap:8px;">
+  <div style="flex:1; display:flex; justify-content:flex-end; gap:8px; align-items:center;">
     <button class="hdr-btn primary" id="btnSave" onclick="saveTactics()" disabled>💾 Lưu</button>
     <button class="hdr-btn" id="btnChecklist" onclick="runTacticsChecklist()" disabled>✅ Kiểm tra</button>
     <button class="hdr-btn danger" id="btnResetTactics" onclick="resetTacticsFromScratch()" disabled>🗑️ Xóa chiến thuật</button>
     <button class="hdr-btn" id="btnExport" onclick="exportTactics()" disabled>📤 Export</button>
     <button class="hdr-btn" id="btnImport" onclick="importTactics()" disabled>📥 Import</button>
     <button class="hdr-btn" id="btnHistory" onclick="toggleStorageDrawer('history')" disabled>📁 Preset & Lịch sử</button>
+
   </div>
 </div>
 
@@ -1737,7 +1803,7 @@ function getEditableCurrentMark() {
     return promoteInheritedViewToEditableMark() || getCurrentMark();
 }
 
-function getGuardIds(side = 'all', mark = marks[activeMarkIdx]) {
+function getGuardIds(side = 'all', mark = getVisibleMapState()) {
     const guards = mark?.tower_guards || {};
     const towerIds = side === 'blue' ? BLUE_TOWER_IDS : side === 'red' ? RED_TOWER_IDS : [...BLUE_TOWER_IDS, ...RED_TOWER_IDS];
     return towerIds.flatMap(id => Array.isArray(guards[id]) ? guards[id].filter(Boolean) : []);
@@ -2204,7 +2270,11 @@ async function clearAllEnemies() {
         RED_TOWER_IDS.forEach(towerId => { mark.tower_guards[towerId] = []; });
     });
     // Xóa targeting liên quan
-    if (marks[activeMarkIdx]?.targeting) marks[activeMarkIdx].targeting = [];
+    const activeSpatialMark = getEditableSpatialMark();
+    if (activeSpatialMark?.targeting) {
+        activeSpatialMark.targeting = [];
+        sanitizeMarkState(activeSpatialMark);
+    }
     renderEnemyListPanel();
     applyObjectiveStates();
     renderEnemiesOnMap();
@@ -2541,8 +2611,10 @@ function deleteSingleEnemy(enemyId) {
         });
     });
     // Xóa targeting liên quan
-    if (marks[activeMarkIdx]?.targeting) {
-        marks[activeMarkIdx].targeting = marks[activeMarkIdx].targeting.filter(t => t.enemyId !== enemyId);
+    const activeSpatialMark = getEditableSpatialMark();
+    if (activeSpatialMark?.targeting) {
+        activeSpatialMark.targeting = activeSpatialMark.targeting.filter(t => t.enemyId !== enemyId);
+        sanitizeMarkState(activeSpatialMark);
     }
     renderEnemyListPanel();
     applyObjectiveStates();
@@ -2666,6 +2738,9 @@ function applySavedTacticsPayload(saved) {
         sessionData.jungle_default_player_ids = normalizedSaved.jungle_default_player_ids;
     }
     marks = normalizeMarks(normalizedSaved.marks);
+    sanitizeAllMarks();
+    if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+    sanitizeAllMarks();
     tacticsGlobalNotes = normalizeGlobalNotes(normalizedSaved.global_notes);
     activeMarkIdx = 0;
     viewingTime = marks[0]?.time ?? TOTAL_SECONDS;
@@ -3040,6 +3115,25 @@ function normalizeMarkAssignments(mark) {
     return mark;
 }
 
+function sanitizeMarkState(mark) {
+    return normalizeMarkAssignments(mark);
+}
+
+function sanitizeAllMarks() {
+    if (!Array.isArray(marks)) return [];
+    marks.forEach(mark => sanitizeMarkState(mark));
+    return marks;
+}
+
+function isTransientSystemMark(mark) {
+    return Boolean(mark?.isSystem && ['boss_minor', 'boss_major', 'solo'].includes(mark.type));
+}
+
+function isActiveTransientSystemMark(mark, seconds = viewingTime) {
+    const target = snapTime(seconds);
+    return Boolean(mark && mark.time === target && isTransientSystemMark(mark) && isTransientSystemMarkVisible(mark.type, target));
+}
+
 function normalizeMapUnit(unit, fallbackName = 'Player') {
     return {
         id: unit?.id,
@@ -3388,7 +3482,65 @@ function inheritMarkSnapshot(baseMark, inheritedFrom) {
     merged.jungle_assignments = Object.keys(baseMark.jungle_assignments || {}).length
         ? cloneDeep(baseMark.jungle_assignments)
         : cloneDeep(merged.jungle_assignments || {});
-    return normalizeMark(merged);
+    return normalizeMarkAssignments(normalizeMark(merged));
+}
+
+function hasObjectEntries(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0;
+}
+
+function hasArrayItems(value) {
+    return Array.isArray(value) && value.length > 0;
+}
+
+function shouldSyncSystemMarkSpatialState(mark) {
+    return isTransientSystemMark(mark);
+}
+
+function syncSystemMarkSpatialState(mark, previousMark) {
+    if (!mark || !previousMark) return mark;
+    const rebuilt = inheritMarkSnapshot(mark, previousMark);
+
+    if (hasObjectEntries(mark.boss_state)) rebuilt.boss_state = cloneDeep(mark.boss_state);
+    if (hasObjectEntries(mark.boss_assignments)) rebuilt.boss_assignments = cloneDeep(mark.boss_assignments);
+    if (hasArrayItems(mark.boss_conditional)) rebuilt.boss_conditional = cloneDeep(mark.boss_conditional);
+    if (mark.pvp_fighters?.blue || mark.pvp_fighters?.red) rebuilt.pvp_fighters = cloneDeep(mark.pvp_fighters);
+    if (hasObjectEntries(mark.jungle_assignments)) rebuilt.jungle_assignments = cloneDeep(mark.jungle_assignments);
+    if (hasArrayItems(mark.tasks)) rebuilt.tasks = cloneDeep(mark.tasks);
+    if (hasArrayItems(mark.icon_targets)) rebuilt.icon_targets = cloneDeep(mark.icon_targets);
+
+    rebuilt._autoInherit = mark._autoInherit;
+    return sanitizeMarkState(rebuilt);
+}
+
+function getSpatialSourceMarkForIndex(idx) {
+    if (!Array.isArray(marks) || idx <= 0 || idx >= marks.length) return null;
+    for (let sourceIdx = idx - 1; sourceIdx >= 0; sourceIdx--) {
+        const mark = marks[sourceIdx];
+        if (!mark || isTransientSystemMark(mark)) continue;
+        return mark;
+    }
+    return null;
+}
+
+function getVisibleMapState(seconds = viewingTime, idx = activeMarkIdx) {
+    const current = Array.isArray(marks) ? marks[idx] : null;
+    if (!current) return null;
+    sanitizeMarkState(current);
+    if (!isActiveTransientSystemMark(current, seconds)) return current;
+
+    const sourceMark = getSpatialSourceMarkForIndex(idx);
+    if (!sourceMark) return current;
+    const visible = syncSystemMarkSpatialState(current, sourceMark);
+    visible._visibleSpatialSourceTime = sourceMark.time;
+    return visible;
+}
+
+function getEditableSpatialMark() {
+    const current = getEditableCurrentMark();
+    if (!current) return null;
+    if (!isActiveTransientSystemMark(current, viewingTime)) return current;
+    return getSpatialSourceMarkForIndex(activeMarkIdx) || current;
 }
 
 function normalizeMarks(rawMarks) {
@@ -3408,7 +3560,8 @@ function normalizeMarks(rawMarks) {
         if (isEmptyMarkSnapshot(mark) && previousMark) {
             normalized[index] = inheritMarkSnapshot(mark, previousMark);
         }
-        previousMark = normalized[index];
+        sanitizeMarkState(normalized[index]);
+        if (!isTransientSystemMark(normalized[index])) previousMark = normalized[index];
     });
     return normalized;
 }
@@ -3979,7 +4132,7 @@ function renderTimeline() {
     renderJungleTimeline();
 }
 
-function getMarkPopulationStatus(mark = marks[activeMarkIdx]) {
+function getMarkPopulationStatus(mark = getVisibleMapState()) {
     if (!mark || mark.time === TOTAL_SECONDS) return { ok: true };
     const sizes = getSessionTeamSizes();
     const totalMax = Object.values(sizes).reduce((s, v) => s + (v || 0), 0) || 30;
@@ -4016,7 +4169,7 @@ function clearTimelineHint() {
 }
 
 function canLeaveCurrentMark(targetTime) {
-    const current = marks[activeMarkIdx];
+    const current = getVisibleMapState();
     if (!current || current.time === targetTime || current.time === TOTAL_SECONDS) {
         clearTimelineHint();
         return true;
@@ -4295,16 +4448,7 @@ function viewTimelineAt(seconds, options = {}) {
 }
 
 function getInheritedMarkForIndex(idx) {
-    if (idx <= 0 || idx >= marks.length) return null;
-    const target = clampTime(marks[idx]?.time ?? TOTAL_SECONDS);
-    for (let sourceIdx = idx - 1; sourceIdx >= 0; sourceIdx--) {
-        const mark = marks[sourceIdx];
-        if (!mark) continue;
-        const isTransientSystemMark = mark?.isSystem && ['boss_minor', 'boss_major', 'solo'].includes(mark.type);
-        if (isTransientSystemMark && !isTransientSystemMarkVisible(mark.type, target)) continue;
-        return mark;
-    }
-    return null;
+    return getSpatialSourceMarkForIndex(idx);
 }
 
 function canDeleteMark(mark) {
@@ -4422,12 +4566,13 @@ function renderCurrentViewState(options = {}) {
 
 // ═══ PHASE 3: TOGGLE MỤC TIÊU + TRỤ GUARD ═══
 
-function getObjectives() { return marks[activeMarkIdx]?.objectives || {}; }
+function getObjectives() { return getVisibleMapState()?.objectives || {}; }
 function setObjective(objId, state) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!mark) return;
     if (!mark.objectives) mark.objectives = {};
     mark.objectives[objId] = state;
+    sanitizeMarkState(mark);
     flagMarkDirty();
 }
 
@@ -4643,9 +4788,9 @@ function populateTowerGuard(towerId) {
     });
 }
 
-function getTowerGuards() { return marks[activeMarkIdx]?.tower_guards || {}; }
+function getTowerGuards() { return getVisibleMapState()?.tower_guards || {}; }
 function setTowerGuard(towerId, slotIdx, playerId) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!mark) return;
     const towerGuards = createEmptyTowerGuards(mark.tower_guards);
     const sideTowerIds = towerId.startsWith('tb') ? BLUE_TOWER_IDS : RED_TOWER_IDS;
@@ -4663,17 +4808,21 @@ function setTowerGuard(towerId, slotIdx, playerId) {
     mark.tower_guards = createEmptyTowerGuards(towerGuards);
     // Luôn xóa người khỏi map players khi gán vào trụ (cả setup lẫn planning)
     if (playerId && towerId.startsWith('tb')) {
-        setMarkPlayers(getMarkPlayers().filter(player => player.id !== playerId));
+        mark.players = (mark.players || []).filter(player => player.id !== playerId);
+    } else if (playerId && towerId.startsWith('tr')) {
+        mark.enemies = (mark.enemies || []).filter(enemy => enemy.id !== playerId);
     }
+    sanitizeMarkState(mark);
     flagMarkDirty();
 }
 
 function removeTowerGuardAssignment(towerId, guardId) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!mark || !guardId) return;
     const towerGuards = createEmptyTowerGuards(mark.tower_guards);
     towerGuards[towerId] = (towerGuards[towerId] || []).filter(id => id !== guardId);
     mark.tower_guards = createEmptyTowerGuards(towerGuards);
+    sanitizeMarkState(mark);
     flagMarkDirty();
 }
 
@@ -5044,10 +5193,11 @@ function renderTowerGuardNames() {
 
 function applyObjectiveStates() {
     const objs = getObjectives();
+    const visibleState = getVisibleMapState();
     document.querySelectorAll('.map-icon[data-obj-id]').forEach(el => {
         // Dot dùng cleared, còn lại dùng destroyed
         if (el.classList.contains('dot')) {
-            const clearedAt = marks[activeMarkIdx]?.jungle_cleared?.[el.dataset.objId];
+            const clearedAt = visibleState?.jungle_cleared?.[el.dataset.objId];
             const respawnAt = Number.isFinite(clearedAt) ? clearedAt - getSessionJungleRespawnSeconds() : null;
             const isCleared = Number.isFinite(clearedAt) && viewingTime <= clearedAt && viewingTime > respawnAt;
             el.classList.toggle('cleared', Boolean(isCleared));
@@ -5082,7 +5232,7 @@ function getBossEventTypeByTime(seconds = viewingTime) {
     return null;
 }
 
-function getBossEventState(eventType, mark = getCurrentMark()) {
+function getBossEventState(eventType, mark = getVisibleMapState()) {
     if (!eventType) return null;
     const bossId = getBossSpawnId(eventType);
     const legacyState = mark?.boss_state?.[eventType];
@@ -5092,7 +5242,7 @@ function getBossEventState(eventType, mark = getCurrentMark()) {
     };
 }
 
-function getBossAssignmentsForEvent(eventType, mark = getCurrentMark()) {
+function getBossAssignmentsForEvent(eventType, mark = getVisibleMapState()) {
     const raw = mark?.boss_assignments?.[eventType] || {};
     return {
         blue: [...new Set((raw.blue || []).filter(Boolean))],
@@ -5100,7 +5250,7 @@ function getBossAssignmentsForEvent(eventType, mark = getCurrentMark()) {
     };
 }
 
-function getBossConditionalRules(eventType, mark = getCurrentMark()) {
+function getBossConditionalRules(eventType, mark = getVisibleMapState()) {
     return (mark?.boss_conditional || []).filter(rule => !rule?.eventType || rule.eventType === eventType);
 }
 
@@ -5117,6 +5267,7 @@ function detachBossAssignmentIds(mark, eventType, side, ids) {
     if (!(entry.blue || []).length && !(entry.red || []).length) {
         delete mark.boss_assignments[eventType];
     }
+    sanitizeMarkState(mark);
     return true;
 }
 
@@ -5282,7 +5433,7 @@ function applySoloState() {
     document.querySelectorAll('.map-player .solo-badge').forEach(b => b.remove());
     document.querySelectorAll('.map-player.solo-highlight').forEach(el => el.classList.remove('solo-highlight'));
 
-    const soloId = marks[activeMarkIdx]?.pvp_fighters?.blue || null;
+    const soloId = getVisibleMapState()?.pvp_fighters?.blue || null;
     if (!soloId) return;
 
     const playerEl = document.querySelector(`.map-player[data-player-id="${soloId}"]`);
@@ -5320,7 +5471,7 @@ function getDefaultRedPvpFighterId() {
     return shuffleWithSeed(candidates, `${getSessionStableKey()}|pvp-red-fighter`)[0] || enemyList[0]?.id || null;
 }
 
-function getEffectivePvpFighters(mark = getCurrentMark()) {
+function getEffectivePvpFighters(mark = getVisibleMapState()) {
     const blueRosterIds = new Set(getAllPlayers().map(player => player.id));
     const redCandidateIds = new Set(getPvpRedCandidates().map(enemy => enemy.id));
     const stored = mark?.pvp_fighters && typeof mark.pvp_fighters === 'object' ? mark.pvp_fighters : {};
@@ -5357,7 +5508,7 @@ function buildPvpArcUnits(side, roster, center) {
     return units;
 }
 
-function getPvpLayoutState(mark = getCurrentMark(), seconds = viewingTime) {
+function getPvpLayoutState(mark = getVisibleMapState(), seconds = viewingTime) {
     if (!isPvpModeActive(seconds)) return null;
     const center = getPvpArenaCenter();
     const fighters = getEffectivePvpFighters(mark);
@@ -5546,20 +5697,22 @@ function initJungleCamp() {
 }
 
 function setJungleCleared(objId, clearedAt) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!mark) return;
     if (!mark.jungle_cleared || typeof mark.jungle_cleared !== 'object') {
         mark.jungle_cleared = {};
     }
     mark.jungle_cleared[objId] = clampTime(clearedAt);
+    sanitizeMarkState(mark);
     flagMarkDirty();
     renderJungleTimeline();
 }
 
 function clearJungleCleared(objId) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!mark?.jungle_cleared) return;
     delete mark.jungle_cleared[objId];
+    sanitizeMarkState(mark);
     flagMarkDirty();
     renderJungleTimeline();
 }
@@ -6194,10 +6347,11 @@ function initTreeDrag() {
                 // Lưu vị trí cây vào mark
                 const x = parseFloat(el.style.left);
                 const y = parseFloat(el.style.top);
-                const mark = getEditableCurrentMark();
+                const mark = getEditableSpatialMark();
                 if (!mark) return;
                 if (!mark.tree_positions) mark.tree_positions = {};
                 mark.tree_positions[objId] = { x, y };
+                sanitizeMarkState(mark);
                 flagMarkDirty();
                 commitTacticsHistory('tree-drag');
                 toast(`🌳 ${el.dataset.name} → ${x}%, ${y}%`);
@@ -6209,7 +6363,7 @@ function initTreeDrag() {
 }
 
 function applyTreePositions() {
-    const positions = marks[activeMarkIdx]?.tree_positions || {};
+    const positions = getVisibleMapState()?.tree_positions || {};
     document.querySelectorAll('#mapIconsLayer .map-icon.tree').forEach(el => {
         const pos = positions[el.dataset.objId] || DEFAULT_TREE_POSITIONS[el.dataset.objId];
         if (!pos) return;
@@ -6221,6 +6375,9 @@ function applyTreePositions() {
 // ═══ PLACEHOLDER FUNCTIONS ═══
 function exportTactics() {
     if (!isLeader) { toast('👁️ Chế độ xem không thể export chiến thuật'); return; }
+    sanitizeAllMarks();
+    if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+    sanitizeAllMarks();
     const data = {
         version: 2,
         day: currentDay,
@@ -6275,6 +6432,9 @@ function importTactics() {
             setSessionJungleDefaultPlayerIds(data.jungle_default_player_ids);
         }
         marks = normalizeMarks(data.marks);
+        sanitizeAllMarks();
+        if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+        sanitizeAllMarks();
         tacticsGlobalNotes = normalizeGlobalNotes(data.global_notes);
         activeMarkIdx = 0;
         viewingTime = marks[0]?.time ?? TOTAL_SECONDS;
@@ -6291,6 +6451,9 @@ function importTactics() {
 }
 
 function buildPersistedTacticsPayload() {
+    sanitizeAllMarks();
+    if (typeof refreshAutoInheritedSystemMarks === 'function') refreshAutoInheritedSystemMarks();
+    sanitizeAllMarks();
     return {
         marks: normalizeMarks(marks),
         botSlots: botSlots.map(normalizeBotSlot),
@@ -7595,11 +7758,12 @@ function updatePlayheadInfo(seconds) {
 let enemyList = []; // {id, name, role}
 let enemyIdCounter = 0;
 
-function getMarkEnemies() { return marks[activeMarkIdx]?.enemies || []; }
+function getMarkEnemies() { return getVisibleMapState()?.enemies || []; }
 function setMarkEnemies(enemies) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (mark) {
         mark.enemies = enemies;
+        sanitizeMarkState(mark);
         flagMarkDirty();
     }
 }
@@ -7666,7 +7830,7 @@ function renderEnemiesOnMap() {
         el.style.top = enemy.y + '%';
 
         // Kiểm tra có targeting nào nhắm vào enemy này không
-        const targeting = marks[activeMarkIdx]?.targeting || [];
+        const targeting = getVisibleMapState()?.targeting || [];
         if (targeting.some(t => t.enemyId === enemy.id)) el.classList.add('targeted');
 
         const roleInitial = enemy.role === 'DPS' ? 'D' : enemy.role === 'Tanker' ? 'T' : 'H';
@@ -7843,20 +8007,22 @@ function ctxSaveEnemyRename(enemyId) {
     input.select();
 }
 
-function getMarkTargeting() { return marks[activeMarkIdx]?.targeting || []; }
+function getMarkTargeting() { return getVisibleMapState()?.targeting || []; }
 function setMarkTargeting(targeting) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (mark) {
         mark.targeting = targeting;
+        sanitizeMarkState(mark);
         flagMarkDirty();
     }
 }
 
-function getMarkIconTargets() { return marks[activeMarkIdx]?.icon_targets || []; }
+function getMarkIconTargets() { return getVisibleMapState()?.icon_targets || []; }
 function setMarkIconTargets(iconTargets) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (mark) {
         mark.icon_targets = iconTargets;
+        sanitizeMarkState(mark);
         flagMarkDirty();
     }
 }
@@ -7925,7 +8091,7 @@ function removeIconTarget(playerId, objId) {
 
 function removeAssignmentsForPlayerIds(playerIds) {
     const ids = new Set((playerIds || []).filter(Boolean));
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!ids.size || !mark) return;
     let changed = false;
 
@@ -7943,7 +8109,10 @@ function removeAssignmentsForPlayerIds(playerIds) {
         changed = true;
     }
 
-    if (changed) flagMarkDirty({ refreshUi: false });
+    if (changed) {
+        sanitizeMarkState(mark);
+        flagMarkDirty({ refreshUi: false });
+    }
 }
 
 function ensureTargetingDefs(svg) {
@@ -8414,13 +8583,14 @@ function openZoomModal(cx, cy) {
                         const finalVy = parseFloat(el.style.top);
                         const realX = sx * 100 + (finalVx / 100) * viewW * 100;
                         const realY = sy * 100 + (finalVy / 100) * viewH * 100;
-                        const mark = getEditableCurrentMark();
+                        const mark = getEditableSpatialMark();
                         if (!mark) return;
                         if (!mark.tree_positions) mark.tree_positions = {};
                         mark.tree_positions[objId] = {
                             x: Math.round(realX * 10) / 10,
                             y: Math.round(realY * 10) / 10
                         };
+                        sanitizeMarkState(mark);
                         flagMarkDirty({ refreshUi: false });
                         commitTacticsHistory('tree-drag-zoom');
                         applyTreePositions();
@@ -9902,11 +10072,12 @@ function ctxDeleteEnemySelection() {
 }
 
 // Lấy danh sách player trên map ở mark hiện tại
-function getMarkPlayers() { return marks[activeMarkIdx]?.players || []; }
+function getMarkPlayers() { return getVisibleMapState()?.players || []; }
 function setMarkPlayers(players) {
-    const mark = getEditableCurrentMark();
+    const mark = getEditableSpatialMark();
     if (mark) {
         mark.players = players;
+        sanitizeMarkState(mark);
         flagMarkDirty();
     }
 }
@@ -10790,7 +10961,7 @@ document.addEventListener('mouseup', e => {
             if (existing) {
                 existing.x = px;
                 existing.y = py;
-                flagMarkDirty({ refreshUi: false });
+                setMarkPlayers(players);
             } else {
                 if (getGuardIds('blue').includes(dragState.playerId)) {
                     BLUE_TOWER_IDS.forEach(towerId => removeTowerGuardAssignment(towerId, dragState.playerId));
@@ -10815,7 +10986,7 @@ document.addEventListener('mouseup', e => {
             if (enemy) {
                 enemy.x = px;
                 enemy.y = py;
-                flagMarkDirty({ refreshUi: false });
+                setMarkEnemies(enemies);
                 shouldCommitHistory = true;
             } else if (dragState.fromJunglePreview || dragState.fromBossPreview) {
                 enemies.push({
@@ -10834,7 +11005,7 @@ document.addEventListener('mouseup', e => {
             if (existing) {
                 existing.x = px;
                 existing.y = py;
-                flagMarkDirty({ refreshUi: false });
+                setMarkEnemies(enemies);
             } else {
                 if (getGuardIds('red').includes(dragState.enemyId)) {
                     RED_TOWER_IDS.forEach(towerId => removeTowerGuardAssignment(towerId, dragState.enemyId));
@@ -10872,7 +11043,7 @@ document.addEventListener('mouseup', e => {
                         sub: dragState.sub || ''
                     });
                 }
-                flagMarkDirty();
+                setMarkPlayers(players);
                 renderPlayersOnMap(); renderTowerGuardNames(); syncPanelOnMap(); renderTargeting();
                 toast('✅ Đã gỡ khỏi trụ và đặt lên map');
             } else {
@@ -10914,7 +11085,7 @@ document.addEventListener('mouseup', e => {
                         });
                     }
                 });
-                flagMarkDirty();
+                setMarkPlayers(players);
                 renderPlayersOnMap(); renderTowerGuardNames(); syncPanelOnMap(); renderTargeting();
                 toast(`Da go ${infos.length} nguoi khoi tru va dat len map`);
             } else {
@@ -10963,7 +11134,7 @@ document.addEventListener('mouseup', e => {
             if (p) {
                 p.x = px;
                 p.y = py;
-                flagMarkDirty({ refreshUi: false });
+                setMarkPlayers(players);
                 shouldCommitHistory = true;
             } else if (dragState.fromJunglePreview || dragState.fromBossPreview) {
                 players.push({
@@ -10989,7 +11160,7 @@ document.addEventListener('mouseup', e => {
                 const p = players.find(p => p.id === sp.id);
                 if (p) { p.x = Math.round((sp.x+dx)*10)/10; p.y = Math.round((sp.y+dy)*10)/10; }
             });
-            flagMarkDirty({ refreshUi: false });
+            setMarkPlayers(players);
             shouldCommitHistory = true;
         } else if (dragState.source === 'enemy-group' || dragState.source === 'enemy-map-selection') {
             const enemies = getMarkEnemies();
@@ -11002,7 +11173,7 @@ document.addEventListener('mouseup', e => {
                 const enemy = enemies.find(entry => entry.id === sp.id);
                 if (enemy) { enemy.x = Math.round((sp.x+dx)*10)/10; enemy.y = Math.round((sp.y+dy)*10)/10; }
             });
-            flagMarkDirty({ refreshUi: false });
+            setMarkEnemies(enemies);
             shouldCommitHistory = true;
         }
         const previewCommitted = commitDragPreviewTarget(dragState, previewTarget, { clientX: e.clientX, clientY: e.clientY });
@@ -11165,10 +11336,11 @@ function getDraggedRedEnemyIds(state = dragState) {
 }
 
 function commitDragPreviewTarget(state, preview, options = {}) {
-    const mark = getEditableCurrentMark();
-    if (!state || !preview || !mark) return false;
+    if (!state || !preview) return false;
 
     if (preview.kind === 'enemy') {
+        const mark = getEditableSpatialMark();
+        if (!mark) return false;
         const playerIds = getDraggedBluePlayerIds(state).filter(Boolean);
         if (!playerIds.length) return false;
 
@@ -11182,6 +11354,7 @@ function commitDragPreviewTarget(state, preview, options = {}) {
 
         if (!changed) return false;
         mark.targeting = currentTargeting;
+        sanitizeMarkState(mark);
         flagMarkDirty({ refreshUi: false });
         return true;
     }
@@ -11276,12 +11449,12 @@ function getObjectiveMapPoint(objId) {
 }
 
 function releaseTowerGuardsToMap(towerIds) {
-    const mark = getCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!mark) return;
     const ids = Array.isArray(towerIds) ? towerIds : [towerIds];
     const towerGuards = createEmptyTowerGuards(mark.tower_guards);
-    const players = [...getMarkPlayers()];
-    const enemies = [...getMarkEnemies()];
+    const players = [...(mark.players || [])];
+    const enemies = [...(mark.enemies || [])];
     const playerIds = new Set(players.map(player => player.id));
     const enemyIds = new Set(enemies.map(enemy => enemy.id));
     let changed = false;
@@ -11328,6 +11501,7 @@ function releaseTowerGuardsToMap(towerIds) {
     mark.players = players;
     mark.enemies = enemies;
     mark.tower_guards = createEmptyTowerGuards(towerGuards);
+    sanitizeMarkState(mark);
     flagMarkDirty({ refreshUi: false });
 }
 
@@ -11444,10 +11618,11 @@ ctxResetAllJungle = function() {
 function setGooseShieldState(gooseObjId, destroyed) {
     const treeId = gooseObjId === 'gr' ? 'ctr' : gooseObjId === 'gb' ? 'ctb' : null;
     if (!treeId) return;
-    const mark = !destroyed ? getEditableCurrentMark() : getCurrentMark();
+    const mark = getEditableSpatialMark();
     if (!destroyed && mark) {
         if (mark.tree_positions) delete mark.tree_positions[treeId];
         if (mark.tree_carriers) delete mark.tree_carriers[treeId];
+        sanitizeMarkState(mark);
     }
     setObjective(treeId + '_shield', destroyed ? 'shielded' : 'active');
 }
@@ -11802,6 +11977,7 @@ function detachJungleAssignmentIds(mark, side, ids) {
         });
     });
     cleanupJungleAssignments(mark);
+    sanitizeMarkState(mark);
     return changed;
 }
 
@@ -11827,6 +12003,7 @@ function setJungleAssignment(objId, side, unitIds, options = {}) {
         entry[side] = [...new Set([...(entry[side] || []), ...ids])];
     }
     cleanupJungleAssignments(mark);
+    sanitizeMarkState(mark);
     flagMarkDirty({ refreshUi: false });
     return true;
 }
@@ -11844,6 +12021,7 @@ function clearJungleAssignment(objId, options = {}) {
 
     if (scope === 'all' && (!options.side || options.side === 'all')) {
         delete mark.jungle_assignments[objId];
+        sanitizeMarkState(mark);
         flagMarkDirty({ refreshUi: false });
         return true;
     }
@@ -11880,6 +12058,7 @@ function clearJungleAssignment(objId, options = {}) {
     mark.jungle_assignments[objId] = entry;
     cleanupJungleAssignments(mark);
     if (!changed) return false;
+    sanitizeMarkState(mark);
     flagMarkDirty({ refreshUi: false });
     return true;
 }
@@ -12047,6 +12226,7 @@ function restorePendingJungleAssignmentSnapshot() {
     const mark = getEditableCurrentMark();
     if (!mark) return false;
     mark.jungle_assignments = normalizeJungleAssignments(pendingJungleAssignment.previousAssignments || {});
+    sanitizeMarkState(mark);
     flagMarkDirty({ refreshUi: false });
     return true;
 }
@@ -12265,16 +12445,22 @@ normalizeMark = function(mark) {
 
 function refreshAutoInheritedSystemMarks() {
     if (!Array.isArray(marks) || !marks.length) return;
+    sanitizeAllMarks();
     marks.sort((a, b) => b.time - a.time);
     let previousMark = marks[0] || null;
     for (let idx = 1; idx < marks.length; idx++) {
         const mark = marks[idx];
-        if (mark?.isSystem && mark._autoInherit !== false && previousMark) {
-            const rebuilt = inheritMarkSnapshot(mark, previousMark);
-            rebuilt._autoInherit = true;
-            marks[idx] = rebuilt;
+        if (mark?.isSystem && previousMark) {
+            if (mark._autoInherit !== false) {
+                const rebuilt = inheritMarkSnapshot(mark, previousMark);
+                rebuilt._autoInherit = true;
+                marks[idx] = rebuilt;
+            } else if (shouldSyncSystemMarkSpatialState(mark)) {
+                marks[idx] = syncSystemMarkSpatialState(mark, previousMark);
+            }
         }
-        previousMark = marks[idx];
+        sanitizeMarkState(marks[idx]);
+        if (!isTransientSystemMark(marks[idx])) previousMark = marks[idx];
     }
 }
 
@@ -12296,12 +12482,13 @@ saveCurrentMarkLocal = function(options = {}) {
 
     const targetTime = snapTime(viewingTime);
     const system = SYSTEM_EVENT_BY_TIME[targetTime];
-    const savedMark = normalizeMark(cloneDeep(current));
+    const savedMark = normalizeMark(cloneDeep(getVisibleMapState() || current));
     savedMark.time = targetTime;
     savedMark.label = system ? system.label : formatMarkLabel(targetTime);
     savedMark.type = system ? system.type : 'custom';
     savedMark.isSystem = Boolean(system);
     savedMark._autoInherit = false;
+    sanitizeMarkState(savedMark);
 
     const existingIdx = findMarkIndexByTime(targetTime);
     if (existingIdx >= 0) marks[existingIdx] = savedMark;
@@ -12488,6 +12675,7 @@ function setBossAssignments(eventType, side, ids) {
         blue: side === 'blue' ? [...new Set((ids || []).filter(Boolean))] : [...new Set((current.blue || []).filter(Boolean))],
         red: side === 'red' ? [...new Set((ids || []).filter(Boolean))] : [...new Set((current.red || []).filter(Boolean))]
     };
+    sanitizeMarkState(mark);
     flagMarkDirty();
     applyBossState();
     renderPlayersOnMap();
@@ -12713,7 +12901,7 @@ applyGamePhase = function(time = viewingTime) {
 };
 
 const origGetMarkPopulationStatusForPvp = getMarkPopulationStatus;
-getMarkPopulationStatus = function(mark = marks[activeMarkIdx]) {
+getMarkPopulationStatus = function(mark = getVisibleMapState()) {
     if (mark && clampTime(mark.time) === 1200) return { ok: true };
     return origGetMarkPopulationStatusForPvp(mark);
 };
@@ -14164,6 +14352,36 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 })();
 
+// Theme management functions
+(function() {
+  window.initTheme = function() {
+    var savedTheme = localStorage.getItem('lg-theme') || 'dark';
+    if (savedTheme === 'dark') {
+      document.body.classList.add('theme-dark');
+    } else {
+      document.body.classList.remove('theme-dark');
+    }
+  };
+  window.toggleTheme = function(e) {
+    if (e) e.stopPropagation();
+    var isDark = document.body.classList.toggle('theme-dark');
+    localStorage.setItem('lg-theme', isDark ? 'dark' : 'light');
+    console.log('[Theme] Toggled theme to:', isDark ? 'dark' : 'light');
+  };
+  // Listen for message from parent to sync theme
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'SYNC_THEME') {
+      var theme = e.data.theme;
+      if (theme === 'dark') {
+        document.body.classList.add('theme-dark');
+      } else {
+        document.body.classList.remove('theme-dark');
+      }
+      localStorage.setItem('lg-theme', theme);
+    }
+  });
+  initTheme();
+})();
 </script>
 
 <!-- Mobile Tab Bar -->

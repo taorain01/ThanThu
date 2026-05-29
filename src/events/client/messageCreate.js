@@ -1191,18 +1191,6 @@ module.exports = {
             return nominigameCommand.execute(message, args);
         }
 
-        // ?moon - Cấp quyền thấy/kết nối voice channel
-        if (commandName === 'moon') {
-            const moonCommand = require('../../commands/admin/moon');
-            return moonCommand.executeMoon(message, args);
-        }
-
-        // ?xmoon - Xóa quyền thấy/kết nối voice channel
-        if (commandName === 'xmoon') {
-            const moonCommand = require('../../commands/admin/moon');
-            return moonCommand.executeXMoon(message, args);
-        }
-
         // [DISABLED] Các lệnh cũ đã thay bằng ?setbooster panel
         // ?boostroom / ?br / ?myroom
         // ?delboostroom / ?dbr

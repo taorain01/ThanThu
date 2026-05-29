@@ -27,6 +27,58 @@
   --mobile-header-height:64px;--mobile-daybar-height:52px;--mobile-nav-height:72px;
   --mobile-map-ui-gap:10px;--mobile-map-ui-height:118px;--mobile-timeline-height:54px;
 }
+body:not(.theme-dark) {
+  --bg: #f4f8f6;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --text: #111c15;
+  --text2: #334d3d;
+  --text3: #5c7566;
+  --gold: #b45309;
+  --gold-deep: #d97706;
+  --gold-dark: #78350f;
+  --gold-glow: #fdf2e9;
+  --green-300: #14532d;
+  --green-400: #166534;
+  --green-500: #15803d;
+  --green-600: #16a34a;
+  --green-700: #22c55e;
+}
+body:not(.theme-dark) .landing {
+  background: radial-gradient(ellipse at center,#eef6f0 0%,#d5ebd9 55%,#b8dbbf 100%);
+}
+body:not(.theme-dark) .login-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+}
+body:not(.theme-dark) .day-bar {
+  background: linear-gradient(180deg, #e8f3ee, #dcf0e5);
+  border-bottom-color: rgba(16, 185, 129, 0.15);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.04);
+}
+body:not(.theme-dark) .day-tab {
+  background: linear-gradient(135deg, #ffffff, #f4f8f6);
+  border-color: rgba(16, 185, 129, 0.15);
+  color: #334d3d;
+}
+body:not(.theme-dark) .day-tab.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border-color: #059669;
+}
+body:not(.theme-dark) .split-side.left {
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  color: #1b5e20;
+}
+body:not(.theme-dark) .split-side.left>span {
+  color: #1b5e20;
+}
+body:not(.theme-dark) .split-side.right {
+  background: linear-gradient(135deg, #fffde7, #fff9c4);
+  color: #f57f17;
+}
+body:not(.theme-dark) .split-side.right>span {
+  color: #f57f17;
+}
 html,body{height:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh;
   -webkit-user-select:none;user-select:none;touch-action:manipulation}
@@ -194,7 +246,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   position:fixed;
   bottom:20px;left:20px;
   z-index:9999;
-  width:280px;
+  width:min(280px, calc(100vw - 16px));
   font-family:'Inter',sans-serif;
   user-select:none;
   /* Glass card */
@@ -213,7 +265,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
     0 0 40px rgba(200,162,44,.07);
   backdrop-filter:blur(24px) saturate(1.3);
   overflow:hidden;
-  transition: all .35s cubic-bezier(.25,.46,.45,.94);
+  touch-action:none;
+  will-change:left,top;
+  transition:
+    width .28s cubic-bezier(.25,.46,.45,.94),
+    border-radius .28s cubic-bezier(.25,.46,.45,.94),
+    opacity .22s ease,
+    box-shadow .22s ease;
 }
 /* ── Đóng hẳn player ── */
 .mp-wrap.mp-closed {
@@ -227,27 +285,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   overflow: hidden;
   cursor: grab;
 }
-.mp-wrap.collapsed.mp-dragging { cursor: grabbing; transition: none !important; }
-/* ── Edge-docked: dính cạnh, siêu nhỏ ── */
-.mp-wrap.mp-edge {
-  min-width: 44px !important;
-  max-width: 44px !important;
-  border-radius: 50% !important;
-  padding: 0;
-  opacity: .7;
-  transition: all .3s cubic-bezier(.25,.46,.45,.94);
-}
-.mp-wrap.mp-edge:hover { opacity: 1; transform: scale(1.1); }
-.mp-wrap.mp-edge .mp-mini-info,
-.mp-wrap.mp-edge .mp-collapse-btn,
-.mp-wrap.mp-edge .mp-close-btn { display: none !important; }
-.mp-wrap.mp-edge .mp-mini-bar {
-  padding: 6px;
-  justify-content: center;
-}
-.mp-wrap.mp-edge .mp-mini-play {
-  width: 30px; height: 30px;
-  border: none;
+.mp-wrap.mp-dragging {
+  cursor: grabbing;
+  transition: none !important;
 }
 /* Nút đóng player (X) */
 .mp-close-btn {
@@ -272,7 +312,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   transition: max-height .35s cubic-bezier(.25,.46,.45,.94), opacity .25s ease;
 }
 .mp-wrap:not(.collapsed) .mp-body {
-  max-height: 600px;
+  max-height:min(600px, calc(100vh - 64px));
+  overflow:auto;
   opacity: 1;
   transition: max-height .4s cubic-bezier(.25,.46,.45,.94), opacity .3s ease .1s;
 }
@@ -282,9 +323,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  cursor: default;
+  cursor: grab;
   position: relative;
 }
+.mp-wrap.mp-dragging .mp-mini-bar { cursor: grabbing; }
 /* Nút collapse toggle */
 .mp-collapse-btn {
   background: none; border: none; cursor: pointer;
@@ -292,7 +334,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
-  transition: all .25s;
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s, filter .2s;
   flex-shrink: 0;
   font-size: 13px;
   padding: 0;
@@ -323,14 +365,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   border-radius: 50%; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: rgba(255,245,210,.8);
-  transition: all .25s;
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s, filter .2s;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
 }
 .mp-mini-play:hover {
   background: rgba(200,162,44,.15);
   border-color: rgba(200,162,44,.8);
-  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(200,162,44,.2);
 }
 /* PLAYING state: nút sáng rực, thu hút chú ý */
 .mp-mini-play.playing {
@@ -343,6 +385,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
     0 0 16px rgba(220,180,60,.3),
     inset 0 1px 2px rgba(255,255,255,.3);
 }
+.mp-wrap.mp-dragging .mp-mini-play.playing { animation: none; }
 @keyframes mpPlayGlow {
   0%, 100% {
     box-shadow: 0 0 6px rgba(220,180,60,.5), 0 0 14px rgba(220,180,60,.2), inset 0 1px 2px rgba(255,255,255,.3);
@@ -359,11 +402,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 /* Nút mở full player (chỉ hiện khi đang collapsed) */
 .mp-mini-expand {
+  display: none !important;
   background: none; border: none; cursor: pointer;
   color: rgba(200,162,44,.5);
   width: 18px; height: 18px;
   border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
+  align-items: center; justify-content: center;
   flex-shrink: 0;
   padding: 0;
   transition: all .2s;
@@ -371,8 +415,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .mp-mini-expand:hover { color: var(--gold); background: rgba(200,162,44,.1); }
 /* Chỉ hiện nút expand khi collapsed, ẩn khi đã mở */
 .mp-wrap:not(.collapsed) .mp-mini-expand { display: none !important; }
-/* Ẩn trong edge mode */
-.mp-wrap.mp-edge .mp-mini-expand { display: none !important; }
 /* Dải sáng trên cùng */
 .mp-wrap::before{
   content:'';
@@ -512,6 +554,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   transform:scale(1.2) translateY(-1px);
   filter:drop-shadow(0 4px 6px rgba(0,0,0,.5)) drop-shadow(0 0 6px rgba(255,215,0,.4));
 }
+.mp-wrap.mp-dragging .mp-cbtn:hover,
+.mp-wrap.mp-dragging .mp-cbtn.mp-play:hover,
+.mp-wrap.mp-dragging .mp-mini-play:hover {
+  transform:none;
+}
 .mp-cbtn.mp-play{
   font-size:18px;color:#fff9c4;
   background:linear-gradient(135deg,rgba(220,180,60,.3),rgba(150,90,0,.2));
@@ -580,7 +627,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 .mp-list-btn:hover{color:var(--gold);text-shadow:0 0 5px rgba(255,215,0,.3)}
 .mp-list{max-height:0;overflow:hidden;transition:max-height .35s ease}
-.mp-list.open{max-height:185px;overflow-y:auto}
+.mp-list.open{max-height:185px;overflow-y:auto;touch-action:pan-y}
 .mp-list::-webkit-scrollbar{width:3px}
 .mp-list::-webkit-scrollbar-thumb{background:rgba(200,162,44,.3);border-radius:3px}
 .mp-li{
@@ -687,7 +734,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   display:flex;align-items:center;gap:10px;padding:5px 14px 5px 6px;
   border-radius:12px;background:linear-gradient(135deg,rgba(20,20,20,.6),rgba(40,40,40,.8));
   border:1px solid rgba(251,191,36,.3);cursor:pointer;
-  transition:all .3s;position:relative;user-select:none; margin-left:auto;
+  transition:all .3s;position:relative;user-select:none; margin-left:12px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 4px 6px rgba(0,0,0,.4);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
@@ -861,10 +908,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 
 /* ═══ HEADER ═══ */
 .header{display:flex;align-items:center;padding:12px 28px;gap:20px;
-  background:url('./anh/header_bg.png') center/cover no-repeat;
+  background:url('./anh/header_bg.png?v=1779987916229') center/cover no-repeat;
   flex-shrink:0;position:relative;z-index:100;}
 .header::before{content:'';position:absolute;inset:0;
-  background:linear-gradient(90deg,rgba(15,20,17,.9),rgba(20,30,22,.65) 30%,rgba(15,20,17,.85) 75%);
+  background:linear-gradient(90deg,rgba(10,24,15,.65),rgba(16,34,22,.28) 30%,rgba(10,24,15,.6) 75%);
   pointer-events:none}
 .header-fx{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .header-fx::before{content:'';position:absolute;top:50%;left:90px;width:350px;height:120px;
@@ -1041,8 +1088,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .r-content{flex:1;overflow:hidden;min-height:0;display:flex;flex-direction:column}
 .r-pane{display:none;flex:1;min-height:0;padding:16px;overflow:hidden}
 .r-pane.active{display:flex;flex-direction:column;gap:16px}
-#pane-timer.active{padding:0;gap:0}
-#pane-timer iframe{flex:1;min-height:0;width:100%;border:none;background:#0a1a0f}
+#pane-timer.active{padding:0;gap:0;min-height:0;height:100%;overflow:hidden}
+#pane-timer iframe{display:block;flex:1 1 auto;min-height:0;height:100%;max-height:100%;width:100%;border:none;background:#0a1a0f;overflow:hidden}
 
 /* ─── MAP BOX ─── */
 /* aspect-ratio 43:24, width 100% tự vừa viewport */
@@ -1289,10 +1336,15 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 
 /* ═══ NÚT ĐĂNG KÝ / HỦY COMPACT ═══ */
 .bc-signup-bar{flex-shrink:0;display:flex;gap:8px;align-items:center;margin-left:auto}
-.bc-action-btn{padding:8px 18px;border-radius:22px;font-weight:700;font-size:13px;cursor:pointer;
-  font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;gap:6px;
+.bc-action-btn{padding:10px 24px;border-radius:8px;font-weight:800;font-size:16px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:8px;
   border:1.5px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(251,191,36,.08));color:var(--green-300);
-  white-space:nowrap;min-height:36px}
+  white-space:nowrap;min-height:44px;height:44px}
+@media (min-width: 769px) {
+  .bc-action-btn {
+    width: 360px;
+  }
+}
 .bc-action-btn:hover{border-color:var(--green-400);box-shadow:0 3px 14px rgba(34,197,94,.25);transform:translateY(-1px)}
 .bc-action-btn.leave{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#fca5a5}
 .bc-action-btn.leave:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.12)}
@@ -1448,6 +1500,23 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .right.mob-active .r-content { flex: 1; min-height: 0; overflow: hidden; }
   .right.mob-active .r-pane.active { flex: 1; min-height: 0; height: 100%; }
   .right.mob-active #pane-map { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .right.mob-active #pane-timer { padding: 0; gap: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .right.mob-active #pane-timer iframe { flex: 1 1 auto; height: 100%; min-height: 0; max-height: 100%; }
+  body:has(#pane-timer.active) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  body:has(#pane-timer.active) .app {
+    height: 100dvh;
+    min-height: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+  }
+  body:has(#pane-timer.active) .main {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
 
   /* Map-box fill đầy không gian còn lại */
   .right.mob-active .map-box {
@@ -1993,9 +2062,56 @@ html, body { overflow-x: hidden; }
 .gs-footer-msg p{font-size:12px;color:var(--text3);line-height:1.7;margin-bottom:14px}
 .gs-logout-btn{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5;border-radius:10px;padding:10px 24px;font-weight:700;cursor:pointer;font-size:13px;transition:all .2s;display:inline-flex;align-items:center}
 .gs-logout-btn:hover{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5);color:#fecaca}
+.theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1.5px solid rgba(16, 185, 129, 0.25);
+  color: var(--gold);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  margin-left: auto;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.06), inset 0 1px 0 rgba(255,255,255,0.4);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+body.theme-dark .theme-toggle-btn {
+  background: rgba(10, 26, 15, 0.65);
+  border: 1.5px solid rgba(251, 191, 36, 0.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 12px rgba(0, 0, 0, 0.42), 0 0 10px rgba(251, 191, 36, 0.08);
+}
+.theme-toggle-btn:hover {
+  background: var(--bg-card);
+  border-color: var(--gold-glow);
+  transform: scale(1.08) rotate(15deg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 6px 14px rgba(0, 0, 0, 0.5), 0 0 18px rgba(251, 191, 36, 0.5);
+}
+body.theme-dark .theme-toggle-btn:hover {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 6px 16px rgba(0, 0, 0, 0.6), 0 0 20px rgba(251, 191, 36, 0.6);
+  border-color: var(--gold);
+}
+body.theme-dark .theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+.theme-toggle-btn:hover {
+  background: var(--bg-card);
+  border-color: var(--gold-glow);
+  transform: scale(1.08) rotate(15deg);
+  box-shadow: 0 4px 14px var(--border-strong);
+}
+body.theme-dark .theme-toggle-btn .sun-icon { display: block; }
+body.theme-dark .theme-toggle-btn .moon-icon { display: none; }
+body:not(.theme-dark) .theme-toggle-btn .sun-icon { display: none; }
+body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
+
 </style>
 </head>
-<body oncontextmenu="return false;">
+<body class="theme-dark" oncontextmenu="return false;">
 
 <!-- Hiệu ứng lửa bay toàn trang -->
 <div class="fire-container" id="fireContainer"></div>
@@ -2112,6 +2228,8 @@ html, body { overflow-x: hidden; }
     </div>
     <div class="guild-name-wrapper"><div class="guild-name" data-text="LANG GIA">LANG GIA</div></div>
     
+
+
     <!-- User Badge ở góc phải: click để mở dropdown -->
     <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
       <img id="userAvatar" src="" alt="">
@@ -2243,7 +2361,7 @@ html, body { overflow-x: hidden; }
           </div>
         </div>
         <div class="r-pane" id="pane-timer">
-          <iframe id="timerIframe" src="" allow="autoplay" title="Bang Chiến Timer"></iframe>
+          <iframe id="timerIframe" src="" allow="autoplay" title="Bang Chiến Timer" scrolling="no"></iframe>
         </div>
       </div>
     </div>
@@ -5644,22 +5762,40 @@ function tvRenderMark(idx) {
     const mapIcons = document.getElementById('mapIcons');
     if (!mapIcons) return;
 
+    const myId = window.currentDiscordId ? String(window.currentDiscordId) : '';
+    const sameUnitId = (left, right) => String(left || '') === String(right || '');
+
     let players = JSON.parse(JSON.stringify(mark.players || []));
     
     // Đảm bảo các đối tượng bị targeting hiển thị khi lọc "Cá nhân"
-    const targeting = mark.targeting || mark.icon_targets || [];
-    const targetedEnemyIds = new Set(targeting.map(t => t.enemyId || t.targetId || t.toId));
+    const directTargets = Array.isArray(mark.targeting) ? mark.targeting : [];
+    const iconTargets = Array.isArray(mark.icon_targets) ? mark.icon_targets : [];
+    const targeting = [...directTargets, ...iconTargets];
+    const getTargetOwnerId = t => t.playerId || t.fromId || t.from || '';
+    const getTargetEnemyId = t => t.enemyId || t.targetId || t.toId || t.to || '';
+    const targetedEnemyIds = new Set(targeting.map(getTargetEnemyId).filter(Boolean).map(String));
+    const personalTargetedEnemyIds = new Set(
+        targeting
+            .filter(t => sameUnitId(getTargetOwnerId(t), myId))
+            .map(getTargetEnemyId)
+            .filter(Boolean)
+            .map(String)
+    );
     let enemies = JSON.parse(JSON.stringify(mark.enemies || []));
     
     const markTime = Number.isFinite(Number(mark.time)) ? Number(mark.time) : 1800;
     const isPvpMode = markTime === 1200;
+    const personalMode = _tvFilterMe && !!myId;
 
     // Lọc theo chế độ
-    if (!isPvpMode && !_tvFilterTeam) {
-        enemies = enemies.filter(e => targetedEnemyIds.has(e.id));
+    if (personalMode) {
+        players = players.filter(p => sameUnitId(p.id, myId));
+        enemies = enemies.filter(e => personalTargetedEnemyIds.has(String(e.id)));
+    } else if (!isPvpMode && !_tvFilterTeam) {
+        enemies = enemies.filter(e => targetedEnemyIds.has(String(e.id)));
     }
 
-    if (isPvpMode) {
+    if (isPvpMode && !personalMode) {
         const center = { x: 50, y: 50.5 };
         const fighters = {
             blue: mark.pvp_fighters?.blue || mark.solo_pvp,
@@ -5708,9 +5844,6 @@ function tvRenderMark(idx) {
         enemies.push(...redSpectators);
     }
 
-    const myId = window.currentDiscordId;
-    const roster = tvGetRoster();
-
     // Sync position layer với mapIcons
     const syncPos = (el) => {
         if (!el) return;
@@ -5744,17 +5877,19 @@ function tvRenderMark(idx) {
     // Render players
     players.forEach(p => {
         if (!p.id) return;
-        usedPlayerIds.add(p.id);
-        const isMe = p.id === myId;
-        const isDimmed = _tvFilterMe && !isMe;
+        const playerId = String(p.id);
+        usedPlayerIds.add(playerId);
+        const isMe = sameUnitId(playerId, myId);
+        const isDimmed = false;
         const playerMeta = tvResolveBlueUnitMeta(p.id, p);
         const roleCls = (p.role || playerMeta.role) === 'Healer' ? 'healer' : (p.role || playerMeta.role) === 'Tanker' ? 'tanker' : '';
         const displayName = p.name || p.gn || playerMeta.name || '?';
         // Flip label sang trái khi chấm nằm bên phải map (x > 58%)
         const labelFlip = p.x > 58 ? ' label-flip' : '';
 
-        let el = existingPlayers[p.id];
+        let el = existingPlayers[playerId];
         if (el) {
+            el.style.opacity = '';
             el.style.left = p.x + '%';
             el.style.top = p.y + '%';
             el.className = `tv-player${isMe ? ' is-me' : ''}${isDimmed ? ' dimmed' : ''}${labelFlip}`;
@@ -5765,9 +5900,10 @@ function tvRenderMark(idx) {
         } else {
             el = document.createElement('div');
             el.className = `tv-player${isMe ? ' is-me' : ''}${isDimmed ? ' dimmed' : ''}${labelFlip}`;
-            el.dataset.id = p.id;
+            el.dataset.id = playerId;
             el.style.left = p.x + '%';
             el.style.top = p.y + '%';
+            el.style.opacity = '';
             el.innerHTML = `<div class="tv-dot ${roleCls}"></div><span class="tv-label">${escHtml(displayName)}</span>`;
             viewLayer.appendChild(el);
         }
@@ -5776,24 +5912,27 @@ function tvRenderMark(idx) {
     // Render enemies
     enemies.forEach(e => {
         if (!e.id) return;
-        usedEnemyIds.add(e.id);
+        const enemyId = String(e.id);
+        usedEnemyIds.add(enemyId);
         const roleCls = e.role === 'Tanker' ? 'tv-tanker' : e.role === 'Healer' ? 'tv-healer' : '';
         const initial = e.role === 'Tanker' ? 'T' : e.role === 'Healer' ? 'H' : 'D';
-        const isDimmed = _tvFilterMe;
+        const isDimmed = false;
         // Flip label sang trái khi địch nằm bên phải map
         const eLabelFlip = e.x > 58 ? ' label-flip' : '';
 
-        let el = existingEnemies[e.id];
+        let el = existingEnemies[enemyId];
         if (el) {
+            el.style.opacity = '';
             el.style.left = e.x + '%';
             el.style.top = e.y + '%';
             el.className = `tv-enemy ${roleCls}${isDimmed ? ' dimmed' : ''}${eLabelFlip}`;
         } else {
             el = document.createElement('div');
             el.className = `tv-enemy ${roleCls}${isDimmed ? ' dimmed' : ''}${eLabelFlip}`;
-            el.dataset.id = e.id;
+            el.dataset.id = enemyId;
             el.style.left = e.x + '%';
             el.style.top = e.y + '%';
+            el.style.opacity = '';
             el.innerHTML = `<div class="tv-dot">${initial}</div><span class="tv-name">${escHtml(e.name || '')}</span>`;
             viewLayer.appendChild(el);
         }
@@ -5802,14 +5941,12 @@ function tvRenderMark(idx) {
     // Remove dots không còn trong mark hiện tại
     viewLayer.querySelectorAll('.tv-player').forEach(el => {
         if (!usedPlayerIds.has(el.dataset.id)) {
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 400);
+            el.remove();
         }
     });
     viewLayer.querySelectorAll('.tv-enemy').forEach(el => {
         if (!usedEnemyIds.has(el.dataset.id)) {
-            el.style.opacity = '0';
-            setTimeout(() => el.remove(), 400);
+            el.remove();
         }
     });
 
@@ -6415,7 +6552,7 @@ async function renderPmLevelTab(container, discordId) {
           </div>
           
           <div style="margin-top:12px;padding:10px 14px;background:rgba(251,191,36,.05);border:1px dashed rgba(251,191,36,.2);border-radius:12px;font-size:11px;color:var(--text3);text-align:center">
-            Dữ liệu được đồng bộ từ Bot Discord ThanThu. 
+            Dữ liệu được đồng bộ từ bot Đại Ngỗng.
           </div>
         `;
 
@@ -6819,7 +6956,7 @@ document.addEventListener('keydown', (e) => {
 
 <!-- ═══ MUSIC PLAYER — Embedded luôn hiện ═══ -->
 <audio id="mpAudio"></audio>
-<div class="mp-wrap collapsed mp-edge" id="mpWrap">
+<div class="mp-wrap collapsed" id="mpWrap">
 
   <!-- ── Mini Bar (luôn hiện, kể cả khi thu gọn) ── -->
   <div class="mp-mini-bar" id="mpMiniBar">
@@ -7076,6 +7213,8 @@ document.addEventListener('keydown', (e) => {
 (function(){
   const SVG_PLAY = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
   const SVG_PAUSE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+  const SVG_PLAY_MINI = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const SVG_PAUSE_MINI = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
 
   const PLAYLISTS = [
     {
@@ -7128,6 +7267,7 @@ document.addEventListener('keydown', (e) => {
   let curPl=0, curIdx=-1, shuffle=true, repeat=false;
   let panelOpen=false, listOpen=false;
   let shufOrder=[];
+  let clampPlayerPosition = function() {};
 
   const $=id=>document.getElementById(id);
 
@@ -7146,6 +7286,32 @@ document.addEventListener('keydown', (e) => {
   }
   function setEQ(on){
     eq.querySelectorAll('.mp-eq-bar').forEach(b=>b.classList.toggle('on',on));
+  }
+
+  function syncPlayerUI(playing) {
+    $('mpPlayBtn').innerHTML = playing ? SVG_PAUSE : SVG_PLAY;
+    $('mpDisc').classList.toggle('spin', playing);
+    setEQ(playing);
+    const miniBtn = $('mpMiniPlay');
+    if (miniBtn) {
+      miniBtn.innerHTML = playing ? SVG_PAUSE_MINI : SVG_PLAY_MINI;
+      miniBtn.classList.toggle('playing', playing);
+      miniBtn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+    }
+  }
+
+  function playCurrent() {
+    return audio.play().then(() => {
+      syncPlayerUI(true);
+    }).catch(err => {
+      syncPlayerUI(false);
+      throw err;
+    });
+  }
+
+  function pauseCurrent() {
+    audio.pause();
+    syncPlayerUI(false);
   }
 
   function buildShuf(len){
@@ -7172,12 +7338,9 @@ document.addEventListener('keydown', (e) => {
     document.querySelectorAll('.mp-tab').forEach((t,i)=>t.classList.toggle('active',i===plIdx));
     renderList();
     if(play){
-      audio.play().then(()=>{
-        $('mpPlayBtn').innerHTML=SVG_PAUSE;
-        $('mpDisc').classList.add('spin');
-        setEQ(true);
-        syncMiniPlay(true);
-      }).catch(()=>{});
+      playCurrent().catch(()=>{});
+    } else {
+      syncPlayerUI(false);
     }
   }
 
@@ -7199,24 +7362,12 @@ document.addEventListener('keydown', (e) => {
   // Public functions
   window.mpSwitchPl=function(idx){
     if(idx===curPl) return;
-    audio.pause();
-    $('mpPlayBtn').innerHTML=SVG_PLAY;
-    $('mpDisc').classList.remove('spin');
-    setEQ(false);
+    pauseCurrent();
     $('mpProgFill').style.width='0%';
     buildShuf(PLAYLISTS[idx].tracks.length);
     loadTrack(idx, shuffle?shufOrder[0]:0, false);
   };
   // Sync trạng thái nút mini play (playing/paused)
-  function syncMiniPlay(playing) {
-    const miniBtn = $('mpMiniPlay');
-    if (!miniBtn) return;
-    const SVG_PLAY_MINI = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-    const SVG_PAUSE_MINI = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-    miniBtn.innerHTML = playing ? SVG_PAUSE_MINI : SVG_PLAY_MINI;
-    miniBtn.classList.toggle('playing', playing);
-  }
-
   window.mpTogglePlay=function(){
     if(audio.paused){
       if(curIdx<0){
@@ -7224,59 +7375,29 @@ document.addEventListener('keydown', (e) => {
         loadTrack(curPl, shuffle?shufOrder[0]:0, true);
         return;
       }
-      audio.play().then(()=>{
-        $('mpPlayBtn').innerHTML=SVG_PAUSE;
-        $('mpDisc').classList.add('spin');
-        setEQ(true);
-        syncMiniPlay(true);
-      }).catch(()=>{});
+      playCurrent().catch(()=>{});
     } else {
-      audio.pause();
-      $('mpPlayBtn').innerHTML=SVG_PLAY;
-      $('mpDisc').classList.remove('spin');
-      setEQ(false);
-      syncMiniPlay(false);
+      pauseCurrent();
     }
   };
 
-  // Toggle collapse/expand player
-  // Hanh vi 2 buoc:
-  //   - Click lan 1 khi dang collapsed + nhac dang phat - chi PAUSE nhac, khong mo player
-  //   - Click lan 2 (nhac da dung) - moi mo rong player ra
+  // Toggle collapse/expand player without changing playback state.
   window.mpToggleCollapse = function() {
     const wrap = $('mpWrap');
     if (!wrap) return;
-    const wasCollapsed = wrap.classList.contains('collapsed');
-
-    // Neu dang thu gon VA nhac dang phat - chi tat nhac, KHONG expand
-    if (wasCollapsed && !audio.paused) {
-      audio.pause();
-      $('mpPlayBtn').innerHTML = SVG_PLAY;
-      $('mpDisc').classList.remove('spin');
-      setEQ(false);
-      syncMiniPlay(false);
-      return; // Ket thuc som - chua mo player
-    }
-
-    // Nhac da dung hoac dang mo - toggle expand/collapse binh thuong
+    const rect = wrap.getBoundingClientRect();
+    wrap.style.left = rect.left + 'px';
+    wrap.style.top = rect.top + 'px';
+    wrap.style.bottom = 'auto';
+    wrap.style.right = 'auto';
     wrap.classList.toggle('collapsed');
-    // Khi phong to: bay ve vi tri goc + xoa edge state
-    if (wasCollapsed) {
-      wrap.classList.remove('mp-edge');
-      wrap.style.left = '20px';
-      wrap.style.top = '';
-      wrap.style.bottom = '20px';
-      wrap.style.right = '';
-    }
+    requestAnimationFrame(clampPlayerPosition);
+    setTimeout(clampPlayerPosition, 320);
   };
 
   // Đóng hẳn player (dừng nhạc, ẩn UI)
   window.mpClosePlayer = function() {
-    audio.pause();
-    $('mpPlayBtn').innerHTML = SVG_PLAY;
-    $('mpDisc').classList.remove('spin');
-    setEQ(false);
-    syncMiniPlay(false);
+    pauseCurrent();
     const wrap = $('mpWrap');
     if (wrap) wrap.classList.add('mp-closed');
   };
@@ -7285,6 +7406,150 @@ document.addEventListener('keydown', (e) => {
   (function initMpDrag() {
     const wrap = $('mpWrap');
     if (!wrap) return;
+
+    let activePointerId = null;
+    let pointerStartX = 0, pointerStartY = 0, pointerStartLeft = 0, pointerStartTop = 0;
+    let pointerNextLeft = 0, pointerNextTop = 0;
+    let pointerMoved = false;
+    let pointerCaptured = false;
+    let pointerDragRaf = null;
+    let suppressNextClick = false;
+    let suppressTimer = null;
+    const POINTER_DRAG_THRESHOLD = 6;
+    const SAFE_MARGIN = 8;
+    const POINTER_IGNORE_SELECTORS = 'button, input, .mp-prog-track, .mp-list, .mp-tab, .mp-close-btn';
+
+    function viewportSize() {
+      const vv = window.visualViewport;
+      return {
+        width: Math.round(vv?.width || window.innerWidth),
+        height: Math.round(vv?.height || window.innerHeight)
+      };
+    }
+
+    function clampCoords(left, top) {
+      const rect = wrap.getBoundingClientRect();
+      const vp = viewportSize();
+      const maxLeft = Math.max(SAFE_MARGIN, vp.width - rect.width - SAFE_MARGIN);
+      const maxTop = Math.max(SAFE_MARGIN, vp.height - rect.height - SAFE_MARGIN);
+      return {
+        left: Math.min(Math.max(SAFE_MARGIN, left), maxLeft),
+        top: Math.min(Math.max(SAFE_MARGIN, top), maxTop)
+      };
+    }
+
+    function setWrapPosition(left, top) {
+      const pos = clampCoords(left, top);
+      wrap.style.left = pos.left + 'px';
+      wrap.style.top = pos.top + 'px';
+      wrap.style.bottom = 'auto';
+      wrap.style.right = 'auto';
+    }
+
+    clampPlayerPosition = function() {
+      if (wrap.classList.contains('mp-closed')) return;
+      const rect = wrap.getBoundingClientRect();
+      setWrapPosition(rect.left, rect.top);
+    };
+
+    function canStartPointerDragFrom(target) {
+      const interactive = target.closest(POINTER_IGNORE_SELECTORS);
+      if (!interactive) return true;
+      return wrap.classList.contains('collapsed') && !!target.closest('.mp-mini-bar');
+    }
+
+    function applyPointerDragPosition() {
+      pointerDragRaf = null;
+      setWrapPosition(pointerNextLeft, pointerNextTop);
+    }
+
+    function schedulePointerDragPosition() {
+      if (!pointerDragRaf) pointerDragRaf = requestAnimationFrame(applyPointerDragPosition);
+    }
+
+    function finishPointerDrag(e) {
+      if (activePointerId === null || (e && e.pointerId !== activePointerId)) return;
+      if (pointerDragRaf) {
+        cancelAnimationFrame(pointerDragRaf);
+        applyPointerDragPosition();
+      }
+      if (pointerCaptured) {
+        try { wrap.releasePointerCapture(activePointerId); } catch (_) {}
+      }
+      activePointerId = null;
+      pointerCaptured = false;
+      wrap.classList.remove('mp-dragging');
+      if (pointerMoved) {
+        suppressNextClick = true;
+        clearTimeout(suppressTimer);
+        suppressTimer = setTimeout(() => { suppressNextClick = false; }, 450);
+        clampPlayerPosition();
+      }
+      pointerMoved = false;
+    }
+
+    wrap.addEventListener('click', (e) => {
+      if (!suppressNextClick) return;
+      suppressNextClick = false;
+      clearTimeout(suppressTimer);
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    }, true);
+
+    wrap.addEventListener('pointerdown', (e) => {
+      if (activePointerId !== null) return;
+      if (e.button !== undefined && e.button !== 0) return;
+      if (!canStartPointerDragFrom(e.target)) return;
+
+      const rect = wrap.getBoundingClientRect();
+      const startOnInteractive = !!e.target.closest(POINTER_IGNORE_SELECTORS);
+      activePointerId = e.pointerId;
+      pointerStartX = e.clientX;
+      pointerStartY = e.clientY;
+      pointerStartLeft = rect.left;
+      pointerStartTop = rect.top;
+      pointerNextLeft = pointerStartLeft;
+      pointerNextTop = pointerStartTop;
+      pointerMoved = false;
+      pointerCaptured = false;
+      wrap.style.left = pointerStartLeft + 'px';
+      wrap.style.top = pointerStartTop + 'px';
+      wrap.style.bottom = 'auto';
+      wrap.style.right = 'auto';
+      if (!startOnInteractive) {
+        try {
+          wrap.setPointerCapture(e.pointerId);
+          pointerCaptured = true;
+        } catch (_) {}
+      }
+    });
+
+    wrap.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== activePointerId) return;
+      const dx = e.clientX - pointerStartX;
+      const dy = e.clientY - pointerStartY;
+      if (!pointerMoved && Math.abs(dx) < POINTER_DRAG_THRESHOLD && Math.abs(dy) < POINTER_DRAG_THRESHOLD) return;
+      if (!pointerMoved) {
+        pointerMoved = true;
+        wrap.classList.add('mp-dragging');
+        try {
+          wrap.setPointerCapture(e.pointerId);
+          pointerCaptured = true;
+        } catch (_) {}
+      }
+      pointerNextLeft = pointerStartLeft + dx;
+      pointerNextTop = pointerStartTop + dy;
+      schedulePointerDragPosition();
+      e.preventDefault();
+    });
+
+    wrap.addEventListener('pointerup', finishPointerDrag);
+    wrap.addEventListener('pointercancel', finishPointerDrag);
+    window.addEventListener('resize', () => requestAnimationFrame(clampPlayerPosition));
+    window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(clampPlayerPosition));
+    requestAnimationFrame(clampPlayerPosition);
+    return;
 
     let isDragging = false;
     let startX, startY, startLeft, startTop;
@@ -7301,8 +7566,7 @@ document.addEventListener('keydown', (e) => {
     let wasEdgeOnDown = false; // Ghi nhớ trạng thái edge khi nhấn xuống
 
     function beginDrag(clientX, clientY) {
-      wasEdgeOnDown = wrap.classList.contains('mp-edge');
-      // KHÔNG xóa mp-edge ở đây — chỉ xóa khi thực sự kéo (moveDrag)
+      wasEdgeOnDown = false;
       const pos = getWrapPos();
       startX = clientX;
       startY = clientY;
@@ -7320,7 +7584,6 @@ document.addEventListener('keydown', (e) => {
       if (!hasMoved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
       hasMoved = true;
       wrap.classList.add('mp-dragging');
-      wrap.classList.remove('mp-edge');
 
       let newLeft = startLeft + dx;
       let newTop = startTop + dy;
@@ -7352,26 +7615,21 @@ document.addEventListener('keydown', (e) => {
       if (rect.left <= EDGE_SNAP) {
         wrap.style.left = '0px';
         wrap.style.top = rect.top + 'px';
-        wrap.classList.add('mp-edge');
         snapped = true;
       } else if (rect.right >= vw - EDGE_SNAP) {
         wrap.style.left = (vw - 44) + 'px';
         wrap.style.top = rect.top + 'px';
-        wrap.classList.add('mp-edge');
         snapped = true;
       }
       if (rect.top <= EDGE_SNAP && !snapped) {
         wrap.style.top = '0px';
-        wrap.classList.add('mp-edge');
         snapped = true;
       } else if (rect.bottom >= vh - EDGE_SNAP && !snapped) {
         wrap.style.top = (vh - 44) + 'px';
-        wrap.classList.add('mp-edge');
       }
     }
 
     // Capture click: chặn các sự kiện click nếu vừa kéo xong
-    // Hoặc: nếu click vào wrap khi đang mp-edge (không phải button) → play/pause
     wrap.addEventListener('click', (e) => {
       if (hasMoved) {
         e.stopPropagation();
@@ -7379,14 +7637,14 @@ document.addEventListener('keydown', (e) => {
         return;
       }
       // Khi ở edge mode, click vào wrap (ngoài button) → toggle play/pause
-      const isEdge = wrap.classList.contains('mp-edge');
+      const isEdge = false;
       if (isEdge && !e.target.closest('button')) {
         mpTogglePlay();
       }
     }, true);
 
     wrap.addEventListener('mousedown', (e) => {
-      const isEdge = wrap.classList.contains('mp-edge');
+      const isEdge = false;
       if (!isEdge && e.target.closest(IGNORE_SELECTORS)) return;
       // Ở edge mode: nếu click đúng vào button thì KHÔNG preventDefault
       // để sự kiện click vẫn đến được button (mpMiniPlay)
@@ -7401,7 +7659,7 @@ document.addEventListener('keydown', (e) => {
     window.addEventListener('mouseup', endDrag);
 
     wrap.addEventListener('touchstart', (e) => {
-      const isEdge = wrap.classList.contains('mp-edge');
+      const isEdge = false;
       // Nếu không phải edge và bấm vào element tương tác thì bỏ qua kéo
       if (!isEdge && e.target.closest(IGNORE_SELECTORS)) return;
       // Ở edge mode: nếu touch vào button thì vẫn cho drag (để giữ kéo)
@@ -7493,17 +7751,9 @@ document.addEventListener('keydown', (e) => {
   // CHỈ dùng gesture events thật (bỏ scroll vì không phải trusted gesture)
   const _mpAutoEvents = ['click','keydown','touchstart','pointerdown'];
 
-  function _mpUpdateUI(playing) {
-    $('mpPlayBtn').innerHTML = playing ? SVG_PAUSE : SVG_PLAY;
-    $('mpDisc').classList.toggle('spin', playing);
-    setEQ(playing);
-    syncMiniPlay(playing);
-  }
-
   function _mpDoPlay() {
-    audio.play().then(() => {
+    playCurrent().then(() => {
       console.log('[MusicPlayer] Autoplay thành công!');
-      _mpUpdateUI(true);
     }).catch(err => {
       console.warn('[MusicPlayer] Autoplay thất bại:', err.message);
       // Reset flag để thử lại ở lần tương tác tiếp theo
@@ -7517,6 +7767,7 @@ document.addEventListener('keydown', (e) => {
   function _mpTryAutoStart(e) {
     // Bỏ qua sự kiện không phải từ user thật (synthetic events)
     if (e && !e.isTrusted) return;
+    if (e?.target?.closest?.('#mpWrap')) return;
     if (_mpAutoStarted) return;
     _mpAutoStarted = true;
     // Gỡ tất cả listener ngay lập tức
@@ -7553,10 +7804,9 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Thử autoplay ngay (hoạt động nếu browser cho phép)
-  audio.play().then(() => {
+  playCurrent().then(() => {
     _mpAutoStarted = true;
     console.log('[MusicPlayer] Autoplay trực tiếp thành công!');
-    _mpUpdateUI(true);
   }).catch(() => {
     console.log('[MusicPlayer] Browser chặn autoplay → chờ tương tác...');
     // Browser block → chờ tương tác đầu tiên (đăng ký sau 500ms để tránh event giả khi load)
@@ -7578,30 +7828,70 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault(); // Ngăn context menu mặc định
       // Dừng nhạc
       if (!audio.paused) {
-        audio.pause();
-        $('mpPlayBtn').innerHTML = SVG_PLAY;
-        $('mpDisc').classList.remove('spin');
-        setEQ(false);
-        syncMiniPlay(false);
+        pauseCurrent();
       }
     });
   });
 
   // ── Vị trí mặc định trên mobile: dán cạnh trái, giữa màn hình ──
-  (function initMobileEdgePos() {
+  (function initMobilePlayerPos() {
     const wrap = $('mpWrap');
     if (!wrap) return;
     const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window);
     if (isMobile) {
       // Đặt vị trí giữa chiều dọc, dán cạnh trái
-      wrap.style.left = '0px';
+      wrap.style.left = '8px';
       wrap.style.top = Math.round(window.innerHeight * 0.45) + 'px';
       wrap.style.bottom = 'auto';
       wrap.style.right = 'auto';
-      // Đảm bảo ở trạng thái collapsed + edge
-      wrap.classList.add('collapsed', 'mp-edge');
+      // Đảm bảo ở trạng thái collapsed và nằm trọn trong màn hình
+      wrap.classList.add('collapsed');
+      requestAnimationFrame(clampPlayerPosition);
     }
   })();
+})();
+</script>
+<script>
+// Theme management functions
+(function() {
+  window.initTheme = function() {
+    var savedTheme = localStorage.getItem('lg-theme') || 'dark';
+    if (savedTheme === 'dark') {
+      document.body.classList.add('theme-dark');
+    } else {
+      document.body.classList.remove('theme-dark');
+    }
+  };
+  window.toggleTheme = function(e) {
+    if (e) e.stopPropagation();
+    var isDark = document.body.classList.toggle('theme-dark');
+    localStorage.setItem('lg-theme', isDark ? 'dark' : 'light');
+    console.log('[Theme] Toggled theme to:', isDark ? 'dark' : 'light');
+    syncThemeToIframes();
+  };
+  window.syncThemeToIframes = function() {
+    var isDark = document.body.classList.contains('theme-dark');
+    var iframes = document.querySelectorAll('iframe');
+    iframes.forEach(function(iframe) {
+      try {
+        iframe.contentWindow.postMessage({ type: 'SYNC_THEME', theme: isDark ? 'dark' : 'light' }, '*');
+      } catch(e) {}
+    });
+  };
+  // Listen for message from iframes to sync theme
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'SYNC_THEME') {
+      var theme = e.data.theme;
+      if (theme === 'dark') {
+        document.body.classList.add('theme-dark');
+      } else {
+        document.body.classList.remove('theme-dark');
+      }
+      localStorage.setItem('lg-theme', theme);
+      syncThemeToIframes();
+    }
+  });
+  initTheme();
 })();
 </script>
 </body>

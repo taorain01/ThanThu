@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 module.exports = {
     name: 'bcrole',
@@ -13,7 +13,9 @@ module.exports = {
         const commandName = message.content.split(' ')[0].slice(1).toLowerCase();
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args)?.day;
+        const parsedDayArg = parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
 
         // Xác định role cần lọc
         let targetRole = null;
@@ -56,7 +58,9 @@ module.exports = {
         // Lấy session (ưu tiên active, fallback history)
         let session;
         if (day) {
-            session = db.getActiveBangchienByDay(guildId, day);
+            session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 // Fallback to history
                 const history = db.getBangchienHistory(guildId, 1);

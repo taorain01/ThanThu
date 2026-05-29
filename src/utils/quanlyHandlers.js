@@ -94,11 +94,18 @@ async function handleButton(interaction, client) {
         if (customId.startsWith('listbc_view_')) {
             // Parse day từ customId: listbc_view_{day}_{guildId}
             const parts = customId.split('_');
-            const day = parts[2]; // mon, tue, wed, thu, fri, sat, sun
+            const viewKey = customId.replace('listbc_view_', '');
+            const legacyDay = parts[2]; // mon, tue, wed, thu, fri, sat, sun
             const guildId = interaction.guild.id;
             const db = require('../database/db');
-            const { DAY_CONFIG, listbcDetailMessages } = require('./bangchienState');
+            const { DAY_CONFIG, listbcDetailMessages, getListbcDetailKey } = require('./bangchienState');
             const listbcCommand = require('../commands/bangchien/listbangchien');
+            let session = db.getActiveBangchien(viewKey);
+            let day = session?.day || null;
+            if (!session && legacyDay && DAY_CONFIG[legacyDay]) {
+                day = legacyDay;
+                session = db.getActiveBangchienByDay(guildId, day);
+            }
 
             // Validate day hợp lệ
             if (!day || !DAY_CONFIG[day]) {
@@ -109,7 +116,6 @@ async function handleButton(interaction, client) {
                 return true;
             }
 
-            const session = db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 await interaction.reply({
                     content: `📭 Chưa có phiên BC ${DAY_CONFIG[day].name} đang chạy!`,
@@ -135,7 +141,7 @@ async function handleButton(interaction, client) {
 
             // Lưu message reference để có thể refresh sau này
             if (sentMessage) {
-                const listbcKey = `${guildId}_${day}`;
+                const listbcKey = getListbcDetailKey(guildId, session, day, session.time);
                 listbcDetailMessages.set(listbcKey, {
                     message: sentMessage,
                     messageId: sentMessage.id,

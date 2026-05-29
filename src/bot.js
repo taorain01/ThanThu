@@ -2,7 +2,7 @@ require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-const { ALLOWED_GUILD_ID, leaveUnauthorizedGuilds } = require("./config/guildAccess");
+const { ALLOWED_GUILD_ID, isAllowedGuildId, leaveUnauthorizedGuilds } = require("./config/guildAccess");
 
 const token = process.env.token;
 
@@ -126,7 +126,7 @@ client.once("ready", async () => {
           for (const [key, data] of entries) {
             try {
               const channel = await client.channels.fetch(data.channelId).catch(() => null);
-              if (!channel) {
+              if (!channel || !isAllowedGuildId(channel.guild?.id)) {
                 console.log(`  ⚠️ Không tìm thấy channel ${data.channelId}, bỏ qua`);
                 failed++;
                 continue;

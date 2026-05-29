@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../../database/db');
+const { isCoreQuestion, rollCoreOutcome } = require('../../utils/gieoqueCore');
 
 // Helper: delay
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,23 +32,6 @@ function getNextApiKey(keys) {
 // ============== COOLDOWN ==============
 const cooldowns = new Map();
 const COOLDOWN_MS = 30000; // 30 giây
-
-// ============== EXTRACT WWM NUMBER ==============
-function extractWWMNumber(text) {
-    if (!text) return null;
-    const patterns = [
-        /(\d+)\s*phát/i,
-        /(\d+)\s*lần/i,
-        /(\d+)\s*roll/i,
-        /(\d+)\s*summon/i,
-        /(\d+)\s*pull/i,
-    ];
-    for (const p of patterns) {
-        const match = text.match(p);
-        if (match) return match[1];
-    }
-    return null;
-}
 
 // ============== MAIN EXECUTE ==============
 async function execute(message, args) {
@@ -94,7 +78,8 @@ async function execute(message, args) {
     try {
         // 5. Tạo prompt
         let prompt = "";
-        const userQuery = args.join(' ');
+        const userQuery = args.join(' ').trim();
+        const asksCore = isCoreQuestion(userQuery);
         const langGiaLine = isLangGia
             ? `\n- Có thể thêm 1 câu ngắn về đồng hành cùng bang hội Lang Gia (không bắt buộc, chỉ thêm nếu phù hợp ngữ cảnh). Ví dụ: "Đường cùng bang hội năm nay..." hoặc "Bên cạnh anh em...".`
             : "";
@@ -119,13 +104,29 @@ async function execute(message, args) {
             if (rand <= 0) { selectedFortune = level; break; }
         }
         const fortuneType = `${selectedFortune.name} – ${selectedFortune.desc}`;
+        const shouldAnswerCore = asksCore && isWWM;
+        const coreStatus = shouldAnswerCore ? db.getGieoQueCoreStatus(message.author.id) : null;
+        const coreOutcome = shouldAnswerCore
+            ? coreStatus.usedThisMonth
+                ? {
+                    content: coreStatus.coreContent,
+                    pulls: coreStatus.corePulls,
+                    result: coreStatus.coreResult,
+                }
+                : rollCoreOutcome(selectedFortune.name)
+            : null;
+        const noCoreLine = shouldAnswerCore
+            ? 'Phần core/game sẽ được hệ thống thêm bằng một dòng cố định sau. KHÔNG tự nêu số phát, Core, Bát Âm, nổ vàng, nổ 7 sắc, roll hay pity trong phần quẻ ngày.'
+            : asksCore
+                ? 'Người dùng hỏi core/game nhưng không có role WWM; KHÔNG trả lời core/game/roll/pity, chỉ phán quẻ ngày theo câu hỏi chung.'
+                : 'KHÔNG nhắc tới game, core, Bát Âm, roll, nổ vàng, nổ 7 sắc, pity hay bảo hiểm. Người dùng không hỏi core thì tuyệt đối không trả lời phần core.';
+        const questionFocusLine = shouldAnswerCore
+            ? 'Người dùng hỏi về core/game. Phần core cụ thể sẽ được hệ thống thêm sau; trong phần quẻ ngày chỉ nói vận may/hành sự hôm nay, không nêu số phát hay Core.'
+            : asksCore
+                ? 'Người dùng hỏi về core/game nhưng không có role WWM. Hãy nói quẻ này chỉ phán vận ngày chung, rồi bám theo vận ngày; không nêu kết quả core.'
+                : 'Hãy lấy câu hỏi này làm trọng tâm chính của quẻ bói, nhưng vẫn giữ đúng vận đã định.';
 
         if (usedToday && lastFortune) {
-            const wwmNumber = extractWWMNumber(lastFortune);
-            const wwmInstruction = (isWWM && wwmNumber)
-                ? `\n- **BẮT BUỘC**: Phải sử dụng ĐÚNG con số **${wwmNumber} phát** khi nói về game (nổ vàng). KHÔNG ĐƯỢC thay đổi con số này dù gieo bao nhiêu lần.`
-                : "";
-
             prompt = `Hãy đóng vai một con ngỗng thầy bói, đang hơi quạu vì người dùng đòi gieo quẻ lại trong ngày.
 Người dùng tên: ${userName}. Giới tính: ${gender}.
 
@@ -135,21 +136,17 @@ ${lastFortune}
 """
 
 YÊU CẦU QUAN TRỌNG:
-- GIỮ NGUYÊN các vận hạn (tiền bạc tốt/xấu, công việc tốt/xấu). Nếu quẻ cũ tốt thì phải tốt, nếu xấu thì vẫn xấu. KHÔNG ĐƯỢC đổi trắng thay đen.${wwmInstruction}
+- GIỮ NGUYÊN các vận hạn (tiền bạc tốt/xấu, công việc tốt/xấu). Nếu quẻ cũ tốt thì phải tốt, nếu xấu thì vẫn xấu. KHÔNG ĐƯỢC đổi trắng thay đen.
 - Giọng điệu: Khó chịu, cà khịa, mắng yêu kiểu "Ta đã bảo rồi...", "Cố chấp quá...", "Gieo mấy lần cũng vậy thôi...".
 - Ngắn gọn 3-4 câu, kết thúc bằng câu đuổi khéo.
+- Nếu người dùng có câu hỏi mới, phải trả lời trực tiếp câu hỏi đó trong 1-2 câu đầu, nhưng vẫn giữ đúng kết luận quẻ cũ.
+- ${noCoreLine}
 - Có thể thay đổi cách diễn đạt, ví von, nhưng ý nghĩa phải giống hệt.${langGiaLine}`;
 
             if (userQuery) {
-                prompt += `\n\nNgười dùng vừa hỏi thêm: "${userQuery}".\nHãy dựa vào câu hỏi này để mắng/cà khịa thêm (ví dụ: "Đã bảo là... mà còn hỏi '${userQuery}' làm gì?").`;
+                prompt += `\n\nNgười dùng vừa hỏi thêm: "${userQuery}".\n${questionFocusLine} Có thể cà khịa nhẹ, nhưng không được trả lời chung chung.`;
             }
         } else {
-            const wwmLine = isWWM
-                ? `- Thêm 1 câu về gacha game (mốc 150 phát). Quy ước: "Nổ vàng" là được 1 Core (1 Bát Âm), "Nổ 7 sắc cầu vồng" là được 2 Core (2 Bát Âm).
-                - TỈ LỆ QUAN TRỌNG: Hãy giả định "Nổ 2 Core" là CỰC KỲ HIẾM (chỉ ~5% cơ hội), "Nổ sớm" (trước 70 phát) là HIẾM (20% cơ hội).
-                - Đa phần (75%) hãy phán nổ ở mốc soft pity (70-140) hoặc phải bảo hiểm (150). Tuỳ vận hạn quẻ bói mà phán.`
-                : "";
-
             prompt = `Hãy đóng vai một con ngỗng thầy bói, hài hước và hơi "bựa" một chút. Hãy phán quẻ cho người dùng trong NGÀY HÔM NAY. Xưng "Ta".
 Người dùng tên là: ${userName}. Giới tính: ${gender}.
 
@@ -160,11 +157,12 @@ Yêu cầu:
 - Ngắn gọn, súc tích (khoảng 4-5 câu).
 - Kết thúc bằng một câu chúc "bá đạo".
 - Không dùng các format markdown phức tạp như Heading (#).
-${wwmLine}
+- Nếu người dùng có câu hỏi cụ thể, phải trả lời trực tiếp câu hỏi đó trong 1-2 câu đầu rồi mới ví von thêm; không được chỉ phán chung chung.
+- ${noCoreLine}
 - Thêm 1 câu ví von ngắn gọn, hài hước liên quan đến ý nghĩa tên của người dùng (tên là "${userName}"). Nếu tên là tiếng nước ngoài (Anh, Trung, Nhật, v.v.), hãy dịch nghĩa sang Tiếng Việt rồi mới dùng để ví von. Ví dụ: Rain -> Cơn mưa, Moon -> Mặt trăng, Sakura -> Hoa anh đào.${langGiaLine}`;
 
             if (userQuery) {
-                prompt += `\n\nNgười dùng có lời thỉnh cầu cụ thể: "${userQuery}".\nHãy kết hợp nội dung này vào quẻ bói một cách tự nhiên.`;
+                prompt += `\n\nNgười dùng có lời thỉnh cầu cụ thể: "${userQuery}".\n${questionFocusLine} Vận của quẻ là ${fortuneType}.`;
             }
         }
 
@@ -229,15 +227,24 @@ ${wwmLine}
 
         // 7. Chỉnh sửa message và ghi nhận usage
         if (text) {
-            const title = usedToday
+            const dailyFortuneText = text.trim();
+            const coreLine = shouldAnswerCore && coreOutcome
+                ? `\n\n🎯 **Core tháng này:** ${coreOutcome.content}.`
+                : '';
+            const finalText = `${dailyFortuneText}${coreLine}`;
+            const title = usedToday && lastFortune
                 ? `🔮 **Đại Ngỗng bói lại quẻ cho ${userName}** 🔮`
                 : `🌟 **QUẺ NGÀY HÔM NAY CỦA ${userName.toUpperCase()}** 🌟`;
-            await waitingMessage.edit(`${title}\n\n${text}`);
+            await waitingMessage.edit(`${title}\n\n${finalText}`);
 
-            if (!usedToday) {
-                db.markGieoQueUsed(message.author.id, text);
+            if (!usedToday || !lastFortune) {
+                db.markGieoQueUsed(message.author.id, dailyFortuneText);
             } else {
                 db.markGieoQueUsed(message.author.id, lastFortune);
+            }
+
+            if (shouldAnswerCore && coreOutcome && !coreStatus.usedThisMonth) {
+                db.markGieoQueCore(message.author.id, coreOutcome);
             }
 
             cooldowns.set(message.author.id, Date.now());

@@ -1380,11 +1380,29 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-action-btn:hover{border-color:var(--green-400);box-shadow:0 3px 14px rgba(34,197,94,.25);transform:translateY(-1px)}
 .bc-action-btn.leave{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#fca5a5}
 .bc-action-btn.leave:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.12)}
-.bc-action-btn.regular{border-color:rgba(251,191,36,.35);background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(251,191,36,.06));color:#fcd34d}
-.bc-action-btn.regular:hover{border-color:rgba(251,191,36,.55);box-shadow:0 3px 14px rgba(251,191,36,.2)}
-.bc-action-btn.regular.active{border-color:rgba(239,68,68,.3);background:linear-gradient(135deg,rgba(239,68,68,.1),rgba(239,68,68,.04));color:#fca5a5}
-.bc-action-btn.regular.active:hover{border-color:rgba(239,68,68,.45);box-shadow:0 3px 14px rgba(239,68,68,.15)}
 .bc-action-btn svg{width:14px;height:14px}
+.bc-session-stack{display:flex;flex-direction:column;gap:14px}
+.bc-session-section,.bc-session-dropdown{border:1px solid rgba(255,255,255,.08);background:rgba(7,16,12,.6);border-radius:8px;overflow:hidden}
+.bc-session-section.featured{border-color:rgba(251,191,36,.35);box-shadow:0 0 0 1px rgba(251,191,36,.08) inset}
+.bc-session-head,.bc-session-dropdown>summary{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;background:rgba(255,255,255,.035);font-weight:800;color:var(--text)}
+.bc-session-dropdown>summary{list-style:none}
+.bc-session-dropdown>summary::-webkit-details-marker{display:none}
+.bc-session-title{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.bc-session-title strong{white-space:nowrap}
+.bc-session-meta{font-size:11px;color:var(--text3);font-weight:700}
+.bc-league-badge{font-size:10px;letter-spacing:.08em;color:#111827;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:999px;padding:3px 8px}
+.bc-time-pill{font-size:11px;color:var(--green-300);border:1px solid rgba(34,197,94,.25);border-radius:999px;padding:3px 8px;background:rgba(34,197,94,.08)}
+.bc-session-body{padding:12px}
+.bc-signup-list{display:flex;flex-direction:column;gap:8px;max-height:min(58vh,520px);overflow:auto;margin:8px 0 14px;padding-right:2px}
+.bc-signup-row{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:8px;padding:10px;cursor:pointer}
+.bc-signup-row:hover{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06)}
+.bc-signup-row.league{border-color:rgba(251,191,36,.32);background:rgba(251,191,36,.06)}
+.bc-signup-row input{width:18px;height:18px;margin:0;accent-color:var(--green-500);flex:0 0 auto}
+.bc-signup-main{min-width:0;flex:1}
+.bc-signup-main .name{font-weight:800;font-size:13px;color:var(--text)}
+.bc-signup-main .sub{font-size:11px;color:var(--text3);margin-top:2px}
+.bc-signup-count{font-size:11px;color:var(--green-300);font-weight:800}
+.modal.signup{width:min(560px,calc(100vw - 28px))}
 /* ═══ TAB NHIỆM VỤ ═══ */
 .tasks-tab-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .tasks-tab-header .tt-title{font-size:14px;font-weight:700;color:var(--gold)}
@@ -2323,7 +2341,6 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
           <div class="h-stat"><div class="val" id="statTanker" style="color:var(--tanker); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Tanker</div></div>
         </div>
 
-        <!-- Nút Luôn tham gia đã chuyển vào signup bar -->
         <!-- Nút Split: gộp Chỉnh Sửa Đội Hình + Lập Chiến Thuật -->
         <div class="split-btn disabled" id="splitActionBtn" style="margin-bottom:5px">
           <div class="split-side left" id="btnTeamEditor" data-day="" onclick="openTeamEditor()" title="Chỉnh sửa đội hình"><span>✏️ Đội Hình</span></div>
@@ -2454,6 +2471,20 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
     <div class="modal-btns">
       <button class="mbtn-cc" onclick="closeModal()">Hủy</button>
       <button class="mbtn-ok" onclick="createCustomBc()">Tạo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-ov" id="signupModal" onclick="if(event.target===this)closeSignupModal()">
+  <div class="modal signup">
+    <h3>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
+      Dang ky Bang Chien
+    </h3>
+    <div class="bc-signup-list" id="signupSessionList"></div>
+    <div class="modal-btns">
+      <button class="mbtn-cc" onclick="closeSignupModal()">Huy</button>
+      <button class="mbtn-ok" onclick="applySignupSelection()">Xac nhan</button>
     </div>
   </div>
 </div>
@@ -2950,17 +2981,35 @@ function gsFlipCoin(choice) {
 // ═══ LOAD BC DATA ═══
 let currentDay = null;
 let currentSessionData = null;
-let regularButtonRequestToken = 0;
-let supportsRegularsTable = true;
 let supportsTacticsSessionIdColumn = true;
 const DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
 const PRIMARY_DAYS = ['sat','sun'];
+const LEAGUE_TIME = '19:30';
+const WEEKEND_DEFAULT_TIMES = ['19:30','20:00','20:30','21:00','21:30'];
 const DAY_LABELS = {
     mon: 'Thứ 2', tue: 'Thứ 3', wed: 'Thứ 4', thu: 'Thứ 5',
     fri: 'Thứ 6', sat: 'Thứ 7', sun: 'Chủ Nhật'
 };
 const calSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
+
+function normalizeSessionTime(value, fallback = LEAGUE_TIME) {
+    const raw = String(value || fallback || LEAGUE_TIME).trim().toLowerCase();
+    const match = raw.match(/^(\d{1,2})(?:[:h](\d{0,2}))?$/);
+    if (!match) return fallback || LEAGUE_TIME;
+    const hour = Math.max(0, Math.min(23, Number(match[1])));
+    const minute = Math.max(0, Math.min(59, Number(match[2] || '0')));
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function isLeagueSession(session) {
+    return normalizeSessionTime(session?.time || LEAGUE_TIME) === LEAGUE_TIME;
+}
+
+function getSessionCacheKey(session) {
+    if (!session) return '';
+    return session.id ? `id:${session.id}` : `${session.day || ''}|${normalizeSessionTime(session.time || LEAGUE_TIME)}`;
+}
 
 function hasKcWebAccess(discordId = window.currentDiscordId) {
     return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
@@ -3053,99 +3102,6 @@ function isCurrentUserSessionCreator(session = currentSessionData) {
     return Boolean(leaderIds.creator_id) && String(leaderIds.creator_id) === String(window.currentDiscordId);
 }
 
-function isMissingBcRegularsTableError(error) {
-    const message = String(error?.message || error || '').toLowerCase();
-    return message.includes('bc_regulars') && (message.includes('could not find the table') || message.includes('schema cache') || message.includes('does not exist'));
-}
-
-async function refreshRegularSessionButton(day = currentSessionData?.day || currentDay) {
-    const safeDay = day || '';
-
-    // Không phải Thứ 7/CN hoặc chưa đăng nhập → reset status
-    if (!safeDay || !PRIMARY_DAYS.includes(safeDay) || !window.currentDiscordId || !supportsRegularsTable) {
-        _regularStatus = null;
-        updateSignupBar(currentSessionData);
-        return;
-    }
-
-    const requestToken = ++regularButtonRequestToken;
-
-    try {
-        const { data, error } = await sb
-            .from('bc_regulars')
-            .select('id')
-            .eq('guild_id', GUILD_ID)
-            .eq('discord_id', window.currentDiscordId)
-            .eq('day', safeDay)
-            .maybeSingle();
-
-        if (requestToken !== regularButtonRequestToken) return;
-        if (error) throw error;
-
-        _regularStatus = Boolean(data?.id);
-    } catch (error) {
-        if (requestToken !== regularButtonRequestToken) return;
-        if (isMissingBcRegularsTableError(error)) {
-            supportsRegularsTable = false;
-            _regularStatus = null;
-            console.warn('[LangGia] bc_regulars table is missing; regular button hidden.');
-        } else {
-            console.warn('[LangGia] Load regular failed:', error);
-            _regularStatus = false;
-        }
-    }
-
-    // Re-render signup bar với trạng thái mới
-    if (requestToken === regularButtonRequestToken) {
-        updateSignupBar(currentSessionData);
-    }
-}
-
-async function toggleRegularSession() {
-    const day = currentSessionData?.day || currentDay;
-    if (!day || !PRIMARY_DAYS.includes(day) || !window.currentDiscordId || !supportsRegularsTable) return;
-
-    // Disable nút trong bar
-    const btnInBar = document.getElementById('btnRegularInBar');
-    if (btnInBar) btnInBar.disabled = true;
-
-    try {
-        const { data, error } = await sb
-            .from('bc_regulars')
-            .select('id')
-            .eq('guild_id', GUILD_ID)
-            .eq('discord_id', window.currentDiscordId)
-            .eq('day', day)
-            .maybeSingle();
-
-        if (error) throw error;
-
-        if (data?.id) {
-            const { error: deleteError } = await sb
-                .from('bc_regulars')
-                .delete()
-                .eq('id', data.id);
-            if (deleteError) throw deleteError;
-        } else {
-            const { error: upsertError } = await sb
-                .from('bc_regulars')
-                .upsert({
-                    guild_id: GUILD_ID,
-                    discord_id: window.currentDiscordId,
-                    username: window.currentUserName || 'User',
-                    day
-                }, { onConflict: 'guild_id,discord_id,day' });
-            if (upsertError) throw upsertError;
-        }
-
-        await refreshRegularSessionButton(day);
-    } catch (error) {
-        console.error('[LangGia] Toggle regular failed:', error);
-        await customAlert('Lỗi cập nhật Luôn tham gia: ' + (error.message || error));
-        await refreshRegularSessionButton(day);
-    }
-}
-
 function updateTacticsButtonTarget(day) {
     const btn = document.getElementById('btnTactics');
     const editorBtn = document.getElementById('btnTeamEditor');
@@ -3209,6 +3165,135 @@ function updateEditorButtonVisibility() {
 
 // Cache sessions data để dùng xuyên suốt
 let _cachedSessions = {};
+let _sessionsByDay = {};
+let _weekendEnsureAttempted = false;
+
+function setSessionCache(sessions) {
+    _cachedSessions = {};
+    _sessionsByDay = {};
+    (sessions || []).forEach((session) => {
+        if (!session) return;
+        session.time = normalizeSessionTime(session.time || LEAGUE_TIME);
+        const key = getSessionCacheKey(session);
+        _cachedSessions[key] = session;
+        if (session.day) {
+            if (!_sessionsByDay[session.day]) _sessionsByDay[session.day] = [];
+            _sessionsByDay[session.day].push(session);
+        }
+    });
+    Object.values(_sessionsByDay).forEach((items) => items.sort(sortSessionCompare));
+}
+
+function getAllCachedSessions() {
+    return Object.values(_cachedSessions);
+}
+
+function getCachedSessionByKey(key) {
+    return _cachedSessions[key] || null;
+}
+
+function getSessionsForDay(day) {
+    return _sessionsByDay[day] || [];
+}
+
+function getDaysFromNow(dayKey) {
+    const dayMap = {mon:1,tue:2,wed:3,thu:4,fri:5,sat:6,sun:0};
+    const target = dayMap[dayKey];
+    if (target === undefined) return 99;
+    let diff = target - new Date().getDay();
+    if (diff < 0) diff += 7;
+    return diff;
+}
+
+function sortSessionCompare(a, b) {
+    const dayDiff = getDaysFromNow(a.day) - getDaysFromNow(b.day);
+    if (dayDiff !== 0) return dayDiff;
+    return normalizeSessionTime(a.time || LEAGUE_TIME).localeCompare(normalizeSessionTime(b.time || LEAGUE_TIME));
+}
+
+function sortSessionsForSignup(sessions) {
+    return [...(sessions || [])].sort((a, b) => {
+        const aWeekend = PRIMARY_DAYS.includes(a.day);
+        const bWeekend = PRIMARY_DAYS.includes(b.day);
+        const aBucket = aWeekend ? (isLeagueSession(a) ? 0 : 1) : 2;
+        const bBucket = bWeekend ? (isLeagueSession(b) ? 0 : 1) : 2;
+        if (aBucket !== bBucket) return aBucket - bBucket;
+        return sortSessionCompare(a, b);
+    });
+}
+
+function sessionContainsCurrentUser(session) {
+    if (!session || !window.currentDiscordId) return false;
+    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
+    return allTeams.some((key) => parseIndexJsonList(session[key]).some((player) => String(player.id) === String(window.currentDiscordId)));
+}
+
+function getSessionTotalCount(session) {
+    return ['team_attack1','team_attack2','team_defense','team_forest','waiting_list']
+        .reduce((sum, key) => sum + parseIndexJsonList(session?.[key]).length, 0);
+}
+
+function getSessionTitle(session) {
+    if (!session) return '';
+    const dayLabel = DAY_LABELS[session.day] || session.day || '';
+    const time = normalizeSessionTime(session.time || LEAGUE_TIME);
+    const badge = isLeagueSession(session) ? ' LEAGUE' : '';
+    const note = session.note && !/^league$/i.test(String(session.note)) ? ` - ${session.note}` : '';
+    return `${dayLabel} ${time}${badge}${note}`;
+}
+
+function applySessionFilter(query, session) {
+    if (session?.id) return query.eq('id', session.id);
+    return query
+        .eq('guild_id', GUILD_ID)
+        .eq('day', session.day)
+        .eq('time', normalizeSessionTime(session.time || LEAGUE_TIME));
+}
+
+async function ensureWeekendDefaultSessionsWeb() {
+    if (!sb || _weekendEnsureAttempted) return;
+    _weekendEnsureAttempted = true;
+    try {
+        const { data, error } = await sb
+            .from('bc_sessions')
+            .select('id,day,time,status')
+            .eq('guild_id', GUILD_ID)
+            .in('day', PRIMARY_DAYS)
+            .eq('status', 'active');
+        if (error) throw error;
+
+        const existing = new Set((data || []).map((row) => `${row.day}|${normalizeSessionTime(row.time || LEAGUE_TIME)}`));
+        const rows = [];
+        for (const day of PRIMARY_DAYS) {
+            for (const time of WEEKEND_DEFAULT_TIMES) {
+                const key = `${day}|${time}`;
+                if (existing.has(key)) continue;
+                rows.push({
+                    guild_id: GUILD_ID,
+                    day,
+                    time,
+                    note: time === LEAGUE_TIME ? 'LEAGUE' : '',
+                    status: 'active',
+                    team_attack1: '[]',
+                    team_attack2: '[]',
+                    team_defense: '[]',
+                    team_forest: '[]',
+                    waiting_list: '[]',
+                    leader_ids: '{}',
+                    team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}'
+                });
+            }
+        }
+        if (rows.length > 0) {
+            const { error: insertError } = await sb
+                .from('bc_sessions')
+                .upsert(rows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
+            if (insertError) throw insertError;
+        }
+    } catch (error) {
+        console.warn('[LangGia] Ensure weekend default sessions skipped:', error?.message || error);
+    }
+}
 
 const INDEX_ACTIVE_TEAM_KEYS = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
 
@@ -3799,6 +3884,7 @@ function findReservedSlotIndexFromPayload(payload, playerId) {
 
 // Tải tất cả sessions từ Supabase và tạo tabs động
 async function loadAllSessions() {
+    await ensureWeekendDefaultSessionsWeb();
     const { data, error } = await sb
         .from('bc_sessions')
         .select('*')
@@ -3818,11 +3904,11 @@ async function loadAllSessions() {
         if (diff < 0) diff += 7;
         return diff;
     }
-    sessions.sort((a, b) => getDaysFromNow(a.day) - getDaysFromNow(b.day));
+    sessions.forEach(s => { s.time = normalizeSessionTime(s.time || LEAGUE_TIME); });
+    sessions.sort(sortSessionCompare);
 
     // Cache lại tất cả sessions
-    _cachedSessions = {};
-    sessions.forEach(s => { _cachedSessions[s.day] = s; });
+    setSessionCache(sessions);
 
     // Ghi nhớ tab đang xem trước khi rebuild
     const previousDay = currentDay;
@@ -3843,7 +3929,6 @@ async function loadAllSessions() {
         document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chưa có phiên bang chiến nào.<br><br>Sử dụng lệnh <b>?bc</b> trên Discord để bắt đầu.</div>';
         updateStats(null);
         updateSignupBar(null);
-        refreshRegularSessionButton(null);
         return;
     }
 
@@ -3862,76 +3947,84 @@ async function loadAllSessions() {
     }
 
     // Xác định tab nào sẽ được active: ưu tiên tab cũ, nếu không còn → tab đầu
-    const targetDay = (previousDay && sessions.some(s => s.day === previousDay)) ? previousDay : sessions[0].day;
+    const uniqueDays = [...new Set(sessions.map(s => s.day).filter(Boolean))]
+        .sort((a, b) => getDaysFromNow(a) - getDaysFromNow(b));
+    const targetDay = (previousDay && uniqueDays.includes(previousDay)) ? previousDay : uniqueDays[0];
 
-    sessions.forEach((s) => {
+    uniqueDays.forEach((dayKey) => {
+        const daySessions = getSessionsForDay(dayKey);
+        const primarySession = daySessions.find(isLeagueSession) || daySessions[0];
         const tab = document.createElement('div');
-        const isActive = s.day === targetDay;
-        tab.className = 'day-tab' + (PRIMARY_DAYS.includes(s.day) ? ' highlight' : '') + (isActive ? ' active' : '');
-        tab.dataset.day = s.day;
-        const label = DAY_LABELS[s.day] || s.day;
-        const time = s.time || '19:30';
-        const note = s.note ? ` <span style="font-size:10px;opacity:.6">${s.note}</span>` : '';
-        const dateStr = getDateForDay(s.day);
+        const isActive = dayKey === targetDay;
+        tab.className = 'day-tab' + (PRIMARY_DAYS.includes(dayKey) ? ' highlight' : '') + (isActive ? ' active' : '');
+        tab.dataset.day = dayKey;
+        const label = DAY_LABELS[dayKey] || dayKey;
+        const league = daySessions.find(isLeagueSession);
+        const time = league ? normalizeSessionTime(league.time || LEAGUE_TIME) : normalizeSessionTime(primarySession?.time || LEAGUE_TIME);
+        const note = league ? ` <span style="font-size:10px;opacity:.75">LEAGUE</span>` : '';
+        const dateStr = getDateForDay(dayKey);
         // Chỉ Kỳ Cựu (kc), Phó Bang Chủ (pbc), Bang Chủ (bc), Quản Lý mới thấy nút xoá session
         const canDelete = hasElevatedRosterRole();
-        const delBtn = canDelete ? `<span class="del-x" title="Xóa session ${label}" onclick="event.stopPropagation(); deleteSession('${s.day}', '${label}')">✕</span>` : '';
+        const deleteKey = daySessions.length === 1 ? getSessionCacheKey(primarySession) : '';
+        const delBtn = canDelete && deleteKey ? `<span class="del-x" title="Xoa session ${label}" onclick="event.preventDefault();event.stopPropagation(); deleteSession('${deleteKey}', '${label}')">✕</span>` : '';
         tab.innerHTML = `${calSvg} ${label} <span class="time-badge">${time}</span>${note}${dateStr ? ` <span class="day-date">${dateStr}</span>` : ''}${delBtn}`;
-        tab.onclick = function() { switchDay(this, s.day); };
+        tab.onclick = function() { switchDay(this, dayKey); };
         sep.parentNode.insertBefore(tab, sep);
     });
 
     // Render data cho tab được chọn (giữ nguyên tab cũ nếu vẫn tồn tại)
-    const activeSession = sessions.find(s => s.day === targetDay) || sessions[0];
+    const activeSession = getSessionsForDay(targetDay).find(isLeagueSession) || getSessionsForDay(targetDay)[0] || sessions[0];
     currentDay = activeSession.day;
     currentSessionData = activeSession;
     updateTacticsButtonTarget(activeSession.day);
     updateEditorButtonVisibility();
     if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
-    renderTeams(activeSession);
+    renderDaySessions(activeSession.day);
     updateStats(activeSession);
     updateSignupBar(activeSession);
-    refreshRegularSessionButton(activeSession.day);
     // Load chiến thuật cho viewer (trước đây thiếu dòng này → map preview không hiện khi load trang)
     loadTacticsForViewer();
 }
 
-async function loadBCData(day) {
+async function loadBCData(day, sessionKey = null) {
     currentDay = day;
     updateTacticsButtonTarget(day);
+
     const { data, error } = await sb
         .from('bc_sessions')
         .select('*')
         .eq('guild_id', GUILD_ID)
         .eq('day', day)
-        .single();
+        .eq('status', 'active');
 
-    if (error || !data) {
+    if (!error && Array.isArray(data)) {
+        const otherSessions = getAllCachedSessions().filter((session) => session.day !== day);
+        data.forEach(s => { s.time = normalizeSessionTime(s.time || LEAGUE_TIME); });
+        setSessionCache([...otherSessions, ...data]);
+    }
+
+    const sessions = getSessionsForDay(day);
+    if (error || sessions.length === 0) {
         currentSessionData = null;
         updateTacticsButtonTarget(null);
         updateEditorButtonVisibility();
         if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
-        document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chưa có phiên bang chiến nào cho ngày này.<br><br>Sử dụng lệnh <b>?bc</b> trên Discord để bắt đầu.</div>';
+        document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chua co phien bang chien nao cho ngay nay.<br><br>Su dung lenh <b>?bc</b> tren Discord de bat dau.</div>';
         updateStats(null);
         updateSignupBar(null);
-        refreshRegularSessionButton(null);
         return;
     }
 
-    currentSessionData = data;
-    updateTacticsButtonTarget(data.day || day);
+    const picked = (sessionKey && getCachedSessionByKey(sessionKey)) || sessions.find(isLeagueSession) || sessions[0];
+    currentSessionData = picked;
+    updateTacticsButtonTarget(picked.day || day);
     updateEditorButtonVisibility();
     if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
-    renderTeams(data);
-    updateStats(data);
-    updateSignupBar(data);
-    refreshRegularSessionButton(data.day || day);
-    // Load chiến thuật cho viewer sau khi có session data
+    renderDaySessions(day, getSessionCacheKey(picked));
+    updateStats(picked);
+    updateSignupBar(picked);
     loadTacticsForViewer();
 }
-
-// ═══ TRẠNG THÁI ĐĂNG KÝ COMPACT ═══
-let _regularStatus = null; // null = chưa tải, true = đã bật, false = chưa bật
 
 function updateSignupBar(data) {
     const bar = document.getElementById('bcSignupBar');
@@ -3939,10 +4032,11 @@ function updateSignupBar(data) {
     // Xóa class .joined khỏi tất cả tabs trước
     document.querySelectorAll('.day-tab.joined').forEach(t => t.classList.remove('joined'));
 
-    if (!data || !window.currentDiscordId) {
+    if (!window.currentDiscordId || getAllCachedSessions().length === 0) {
         bar.style.display = 'none';
         return;
     }
+    data = data || getAllCachedSessions()[0];
 
     // Kiểm tra user đã đăng ký chưa
     const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
@@ -3953,56 +4047,24 @@ function updateSignupBar(data) {
         if (players.some(p => p.id === window.currentDiscordId)) { isJoined = true; break; }
     }
 
-    // Thêm dot xanh lên tab active nếu đã đăng ký
-    if (isJoined) {
-        const activeTab = document.querySelector(`.day-tab[data-day="${currentDay}"]`);
-        if (activeTab) activeTab.classList.add('joined');
-    }
+    document.querySelectorAll('.day-tab').forEach((tab) => {
+        tab.classList.toggle('joined', getSessionsForDay(tab.dataset.day).some(sessionContainsCurrentUser));
+    });
 
-    const day = data.day || currentDay;
-    const isPrimaryDay = PRIMARY_DAYS.includes(day);
-    const showRegular = isPrimaryDay && supportsRegularsTable;
-
-    // Nếu đã đăng ký VÀ không phải ngày primary → ẩn bar hoàn toàn
-    if (isJoined && !showRegular) {
-        bar.style.display = 'none';
-        bar.innerHTML = '';
-        return;
-    }
-
-    // Render bar
     bar.style.display = 'flex';
-    let html = '';
-
-    // Nút Đăng ký (chỉ khi chưa đăng ký)
-    if (!isJoined) {
-        html += `<button class="bc-action-btn" onclick="joinBC()">
+    const label = getAllCachedSessions().some(sessionContainsCurrentUser) ? 'Cap nhat dang ky' : 'Dang ky';
+    bar.innerHTML = `<button class="bc-action-btn" onclick="openSignupModal()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>
-            ⚔️ Đăng ký
+            ${label}
         </button>`;
-    }
-
-    // Nút Luôn tham gia / Hủy luôn tham gia (chỉ Thứ 7/CN)
-    if (showRegular) {
-        const isActive = _regularStatus === true;
-        const cls = isActive ? 'bc-action-btn regular active' : 'bc-action-btn regular';
-        const label = isActive ? '🔄 Hủy luôn tham gia' : '🔄 Luôn tham gia';
-        html += `<button class="${cls}" id="btnRegularInBar" onclick="toggleRegularSession()">${label}</button>`;
-    }
-
-    bar.innerHTML = html;
 }
 
 async function joinBC() {
-    if (!currentDay || !window.currentDiscordId) return;
-    // Lấy session hiện tại
-    const { data, error } = await sb
-        .from('bc_sessions')
-        .select('*')
-        .eq('guild_id', GUILD_ID)
-        .eq('day', currentDay)
-        .single();
-    if (error || !data) { await customAlert('Không tìm thấy phiên BC!'); return; }
+    openSignupModal();
+}
+
+async function joinSession(data) {
+    if (!data || !window.currentDiscordId) return false;
 
     // Parse teams
     let t1 = parseIndexJsonList(data.team_attack1);
@@ -4013,7 +4075,7 @@ async function joinBC() {
 
     // Kiểm tra đã có chưa
     const allPlayers = [...t1,...t2,...td,...tf,...wl];
-    if (allPlayers.some(p => p.id === window.currentDiscordId)) { await customAlert('Bạn đã đăng ký rồi!'); return; }
+    if (allPlayers.some(p => p.id === window.currentDiscordId)) { return true; }
 
     // Lookup bc_users để lấy game_username, sub_role
     let gameName = '', subRole = '';
@@ -4080,7 +4142,7 @@ async function joinBC() {
     const currentLeaderIds = (() => {
         try { return typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids || '{}') : (data.leader_ids || {}); } catch(e) { return {}; }
     })();
-    const { error: updateErr } = await sb
+    let updateQuery = sb
         .from('bc_sessions')
         .update({
             team_attack1: JSON.stringify(nextTeams.team_attack1 || []),
@@ -4096,11 +4158,10 @@ async function joinBC() {
                 editor_action: reservedSlotIndex >= 0 ? 'self_join_reclaim' : 'self_join',
                 edited_at: Date.now()
             })
-        })
-        .eq('guild_id', GUILD_ID)
-        .eq('day', currentDay);
+        });
+    const { error: updateErr } = await applySessionFilter(updateQuery, data);
 
-    if (updateErr) { await customAlert('Lỗi đăng ký: ' + updateErr.message); return; }
+    if (updateErr) { await customAlert('Lỗi đăng ký: ' + updateErr.message); return false; }
 
     if (tacticsPayload) {
         const sessionLike = {
@@ -4118,19 +4179,17 @@ async function joinBC() {
         }
     }
 
-    await loadBCData(currentDay);
+    await loadBCData(data.day || currentDay, getSessionCacheKey(data));
+    return true;
 }
 
-async function leaveBC() {
-    if (!currentDay || !window.currentDiscordId) return;
+async function leaveBC(sessionKey = null) {
+    const session = sessionKey ? getCachedSessionByKey(sessionKey) : currentSessionData;
+    return leaveSession(session, { confirm: true });
+}
 
-    const { data, error } = await sb
-        .from('bc_sessions')
-        .select('*')
-        .eq('guild_id', GUILD_ID)
-        .eq('day', currentDay)
-        .single();
-    if (error || !data) return;
+async function leaveSession(data, options = {}) {
+    if (!data || !window.currentDiscordId) return false;
 
     const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
 
@@ -4142,11 +4201,11 @@ async function leaveBC() {
         const me = players.find(p => p.id === window.currentDiscordId);
         if (me && (me.ld || me.isLeader)) {
             await customAlert('❌ Trưởng nhóm không thể hủy đăng ký! Hãy nhờ Kỳ Cựu dùng lệnh ?bcend.');
-            return;
+            return false;
         }
     }
 
-    if (!(await customConfirm('Bạn muốn hủy đăng ký Bang Chiến?'))) return;
+    if (options.confirm !== false && !(await customConfirm('Bạn muốn hủy đăng ký Bang Chiến?'))) return false;
 
     const removePlayer = (team) => team.filter(p => p.id !== window.currentDiscordId);
     const nextTeams = {
@@ -4170,7 +4229,7 @@ async function leaveBC() {
     const currentLeaderIds2 = (() => {
         try { return typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids || '{}') : (data.leader_ids || {}); } catch(e) { return {}; }
     })();
-    const { error: updateErr } = await sb
+    let leaveUpdateQuery = sb
         .from('bc_sessions')
         .update({
             team_attack1: JSON.stringify(nextTeams.team_attack1 || []),
@@ -4186,11 +4245,10 @@ async function leaveBC() {
                 editor_action: 'self_leave',
                 edited_at: Date.now()
             })
-        })
-        .eq('guild_id', GUILD_ID)
-        .eq('day', currentDay);
+        });
+    const { error: updateErr } = await applySessionFilter(leaveUpdateQuery, data);
 
-    if (updateErr) { await customAlert('Lỗi hủy đăng ký: ' + updateErr.message); return; }
+    if (updateErr) { await customAlert('Lỗi hủy đăng ký: ' + updateErr.message); return false; }
 
     if (tacticsPayload) {
         const sessionLike = {
@@ -4208,7 +4266,65 @@ async function leaveBC() {
         }
     }
 
-    await loadBCData(currentDay);
+    await loadBCData(data.day || currentDay, getSessionCacheKey(data));
+    return true;
+}
+
+function openSignupModal() {
+    if (!window.currentDiscordId) return;
+    renderSignupModalList();
+    document.getElementById('signupModal').classList.add('show');
+}
+
+function closeSignupModal() {
+    document.getElementById('signupModal').classList.remove('show');
+}
+
+function renderSignupModalList() {
+    const list = document.getElementById('signupSessionList');
+    const sessions = sortSessionsForSignup(getAllCachedSessions());
+    if (!sessions.length) {
+        list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--text3)">Chua co phien Bang Chien nao dang mo.</div>';
+        return;
+    }
+    list.innerHTML = sessions.map((session) => {
+        const key = getSessionCacheKey(session);
+        const joined = sessionContainsCurrentUser(session);
+        const league = isLeagueSession(session);
+        const safeTitle = getSessionTitle(session).replace(/"/g, '&quot;');
+        const total = getSessionTotalCount(session);
+        return `<label class="bc-signup-row${league ? ' league' : ''}" for="signup_${key.replace(/[^a-zA-Z0-9_-]/g, '_')}">
+            <input type="checkbox" id="signup_${key.replace(/[^a-zA-Z0-9_-]/g, '_')}" data-session-key="${key}" ${joined ? 'checked' : ''}>
+            <div class="bc-signup-main">
+                <div class="name">${safeTitle}</div>
+                <div class="sub">${DAY_LABELS[session.day] || session.day} - ${normalizeSessionTime(session.time || LEAGUE_TIME)}</div>
+            </div>
+            <div class="bc-signup-count">${total}/30</div>
+        </label>`;
+    }).join('');
+}
+
+async function applySignupSelection() {
+    if (!window.currentDiscordId) return;
+    const checks = [...document.querySelectorAll('#signupSessionList input[type="checkbox"][data-session-key]')];
+    const selectedKeys = new Set(checks.filter(input => input.checked).map(input => input.dataset.sessionKey));
+    let changed = 0;
+
+    for (const session of sortSessionsForSignup(getAllCachedSessions())) {
+        const key = getSessionCacheKey(session);
+        const joined = sessionContainsCurrentUser(session);
+        if (selectedKeys.has(key) && !joined) {
+            if (await joinSession(session)) changed++;
+        } else if (!selectedKeys.has(key) && joined) {
+            if (await leaveSession(session, { confirm: false })) changed++;
+        }
+    }
+
+    closeSignupModal();
+    await loadAllSessions();
+    if (changed === 0) {
+        await customAlert('Khong co thay doi dang ky.');
+    }
 }
 
 /**
@@ -4235,7 +4351,7 @@ function formatSubLabel(code) {
     return code.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function renderTeams(data) {
+function buildTeamsHtml(data) {
     const SVG = {
         sword: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>',
         dagger: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>',
@@ -4311,7 +4427,7 @@ function renderTeams(data) {
             
             const isMe = p.id === window.currentDiscordId;
             // Chỉ chặn team leader (isLeader/ld) — creator vẫn được tự hủy đăng ký
-            if (isMe && !isLeader) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC()" title="Hủy đăng ký">× Hủy đăng ký</div>`;
+            if (isMe && !isLeader) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>`;
             html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${sub}</div></div>`;
             num++;
         });
@@ -4325,6 +4441,72 @@ function renderTeams(data) {
         html += `</div></div>`;
     });
 
+    return html;
+}
+
+function renderTeams(data) {
+    document.getElementById('leftPanel').innerHTML = buildTeamsHtml(data);
+}
+
+function selectSessionByKey(sessionKey) {
+    const session = getCachedSessionByKey(sessionKey);
+    if (!session) return;
+    currentDay = session.day;
+    currentSessionData = session;
+    updateTacticsButtonTarget(session.day);
+    updateEditorButtonVisibility();
+    if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
+    updateStats(session);
+    updateSignupBar(session);
+    loadTacticsForViewer();
+}
+
+function renderDaySessions(day, preferredKey = null) {
+    const sessions = getSessionsForDay(day);
+    if (!sessions.length) {
+        document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chua co phien Bang Chien nao cho ngay nay.</div>';
+        return;
+    }
+    const sorted = [...sessions].sort(sortSessionCompare);
+    const leagueSession = sorted.find(isLeagueSession) || sorted[0];
+    const selected = (preferredKey && getCachedSessionByKey(preferredKey)) || leagueSession;
+    selectSessionByKey(getSessionCacheKey(selected));
+
+    const canDelete = hasElevatedRosterRole();
+    const renderHeaderActions = (session) => {
+        if (!canDelete) return '';
+        const key = getSessionCacheKey(session);
+        return `<span class="del-x" style="display:inline-flex" title="Xoa session" onclick="event.preventDefault();event.stopPropagation(); deleteSession('${key}', '${getSessionTitle(session).replace(/'/g, "\\'")}')">✕</span>`;
+    };
+    const renderHead = (session, featured = false) => {
+        const total = getSessionTotalCount(session);
+        const league = isLeagueSession(session);
+        return `<div class="bc-session-head" onclick="selectSessionByKey('${getSessionCacheKey(session)}')">
+            <div class="bc-session-title">
+                ${league ? '<span class="bc-league-badge">LEAGUE</span>' : ''}
+                <strong>${DAY_LABELS[session.day] || session.day}</strong>
+                <span class="bc-time-pill">${normalizeSessionTime(session.time || LEAGUE_TIME)}</span>
+                ${session.note && !/^league$/i.test(String(session.note)) ? `<span class="bc-session-meta">${session.note}</span>` : ''}
+            </div>
+            <span class="bc-session-meta">${total}/30</span>
+            ${renderHeaderActions(session)}
+        </div>`;
+    };
+
+    const laterSessions = sorted.filter(session => getSessionCacheKey(session) !== getSessionCacheKey(leagueSession));
+    let html = '<div class="bc-session-stack">';
+    html += `<section class="bc-session-section featured">${renderHead(leagueSession, true)}<div class="bc-session-body">${buildTeamsHtml(leagueSession)}</div></section>`;
+    for (const session of laterSessions) {
+        html += `<details class="bc-session-dropdown" ontoggle="if(this.open)selectSessionByKey('${getSessionCacheKey(session)}')">
+            <summary>
+                <span class="bc-session-title"><strong>${DAY_LABELS[session.day] || session.day}</strong><span class="bc-time-pill">${normalizeSessionTime(session.time || LEAGUE_TIME)}</span>${session.note ? `<span class="bc-session-meta">${session.note}</span>` : ''}</span>
+                <span class="bc-session-meta">${getSessionTotalCount(session)}/30</span>
+                ${renderHeaderActions(session)}
+            </summary>
+            <div class="bc-session-body">${buildTeamsHtml(session)}</div>
+        </details>`;
+    }
+    html += '</div>';
     document.getElementById('leftPanel').innerHTML = html;
 }
 
@@ -4377,7 +4559,6 @@ function setupRealtimeSubscription() {
               }
               // INSERT: session mới → rebuild tabs (giữ tab đang xem)
               if (payload.eventType === 'INSERT') {
-                  if (payload.new) _cachedSessions[payload.new.day] = payload.new;
                   loadAllSessions();
                   return;
               }
@@ -4386,24 +4567,27 @@ function setupRealtimeSubscription() {
                   // Signal 'ended' từ bot → session sắp bị xóa → rebuild tabs (NGAY)
                   if (payload.new.status === 'ended') {
                       console.log(`[LangGia] 🗑️ Session ${payload.new.day} ended signal → xóa tab`);
-                      delete _cachedSessions[payload.new.day];
+                      delete _cachedSessions[getSessionCacheKey(payload.new)];
+                      setSessionCache(getAllCachedSessions());
                       loadAllSessions();
                       return;
                   }
                   // Luôn cache data mới nhất NGAY (không debounce)
-                  _cachedSessions[payload.new.day] = payload.new;
+                  payload.new.time = normalizeSessionTime(payload.new.time || LEAGUE_TIME);
+                  _cachedSessions[getSessionCacheKey(payload.new)] = payload.new;
+                  setSessionCache(getAllCachedSessions());
 
                   // Debounce render 300ms — gộp nhiều update liên tiếp
                   if (_renderDebounceTimer) clearTimeout(_renderDebounceTimer);
                   _renderDebounceTimer = setTimeout(() => {
-                      const latestData = _cachedSessions[currentDay];
+                      const currentKey = getSessionCacheKey(currentSessionData);
+                      const latestData = _cachedSessions[currentKey] || getSessionsForDay(currentDay).find(isLeagueSession) || getSessionsForDay(currentDay)[0];
                       if (latestData) {
                           currentSessionData = latestData;
                           updateEditorButtonVisibility();
-                          renderTeams(latestData);
+                          renderDaySessions(latestData.day, getSessionCacheKey(latestData));
                           updateStats(latestData);
                           updateSignupBar(latestData);
-                          refreshRegularSessionButton(latestData.day || currentDay);
                           // Reload tactics preview khi roster thay đổi (đăng ký/hủy/leader edit)
                           // → tự động hiện/ẩn map preview theo trạng thái participant
                           loadTacticsForViewer();
@@ -4414,11 +4598,7 @@ function setupRealtimeSubscription() {
                       if (window.currentDiscordId) {
                           document.querySelectorAll('.day-tab').forEach(tab => {
                               const d = tab.dataset.day;
-                              const sData = _cachedSessions[d];
-                              if (!sData) return;
-                              const parseT = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
-                              const allP = [...parseT(sData.team_attack1),...parseT(sData.team_attack2),...parseT(sData.team_defense),...parseT(sData.team_forest),...parseT(sData.waiting_list)];
-                              tab.classList.toggle('joined', allP.some(p => p.id === window.currentDiscordId));
+                              tab.classList.toggle('joined', getSessionsForDay(d).some(sessionContainsCurrentUser));
                           });
                       }
                   }, 300);
@@ -4453,15 +4633,15 @@ function startPollingFallback() {
                 .eq('status', 'active');
 
             const sessions = data || [];
+            sessions.forEach(s => { s.time = normalizeSessionTime(s.time || LEAGUE_TIME); });
 
             // Kiểm tra số lượng sessions thay đổi (thêm/xóa tab)
-            const oldDays = Object.keys(_cachedSessions).sort().join(',');
-            const newDays = sessions.map(s => s.day).sort().join(',');
-            if (oldDays !== newDays) {
+            const oldKeys = Object.keys(_cachedSessions).sort().join(',');
+            const newKeys = sessions.map(getSessionCacheKey).sort().join(',');
+            if (oldKeys !== newKeys) {
                 // Số tabs thay đổi → clear cache cũ + rebuild (có giữ tab cũ)
                 console.log('[LangGia] 🔄 Polling: tabs thay đổi, rebuild');
-                Object.keys(_cachedSessions).forEach(k => delete _cachedSessions[k]);
-                sessions.forEach(s => { _cachedSessions[s.day] = s; });
+                setSessionCache(sessions);
                 await loadAllSessions();
                 return;
             }
@@ -4469,16 +4649,18 @@ function startPollingFallback() {
             // Kiểm tra data của từng session có thay đổi không
             let hasChange = false;
             for (const s of sessions) {
-                const oldHash = JSON.stringify(_cachedSessions[s.day] || {});
+                const key = getSessionCacheKey(s);
+                const oldHash = JSON.stringify(_cachedSessions[key] || {});
                 const newHash = JSON.stringify(s);
                 if (oldHash !== newHash) {
-                    _cachedSessions[s.day] = s;
+                    _cachedSessions[key] = s;
+                    setSessionCache(getAllCachedSessions());
                     hasChange = true;
                     // Nếu đây là tab đang xem → render ngay
                     if (s.day === currentDay) {
                         currentSessionData = s;
                         updateEditorButtonVisibility();
-                        renderTeams(s);
+                        renderDaySessions(s.day, key);
                         updateStats(s);
                         updateSignupBar(s);
                         // Reload tactics preview khi roster thay đổi
@@ -4531,12 +4713,12 @@ function closeModal() { document.getElementById('modalBc').classList.remove('sho
 async function createCustomBc() {
     if (!hasElevatedRosterRole()) { await customAlert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được tạo session!'); return; }
     const day = document.getElementById('bcDaySelect').value;
-    const time = document.getElementById('bcTimeInput').value || '19:30';
+    const time = normalizeSessionTime(document.getElementById('bcTimeInput').value || LEAGUE_TIME);
     const note = document.getElementById('bcNoteInput').value;
 
     // Kiểm tra tab đã tồn tại chưa
-    if (document.querySelector(`.day-tab[data-day="${day}"]`)) {
-        await customAlert('Ngày này đã có tab rồi!');
+    if (getSessionsForDay(day).some((session) => normalizeSessionTime(session.time || LEAGUE_TIME) === time)) {
+        await customAlert('Ngay nay da co phien o moc gio nay!');
         return;
     }
 
@@ -4576,7 +4758,7 @@ async function createCustomBc() {
             guild_id: GUILD_ID,
             day,
             time,
-            note: note || '',
+            note: note || (PRIMARY_DAYS.includes(day) && time === LEAGUE_TIME ? 'LEAGUE' : ''),
             status: 'active',
             team_attack1: JSON.stringify([creatorPlayer]),
             team_attack2: '[]',
@@ -4584,7 +4766,7 @@ async function createCustomBc() {
             waiting_list: '[]',
             leader_ids: JSON.stringify({ creator_id: creatorId, creator_name: creatorName }),
             team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}'
-        }, { onConflict: 'guild_id,day' })
+        }, { onConflict: 'guild_id,day,time' })
         .select('*')
         .single();
 
@@ -4615,29 +4797,35 @@ function removeCustomTab(x) {
 }
 
 // Xóa session BC (từ web → Supabase → bot sync)
-async function deleteSession(day, label) {
+async function deleteSession(sessionKey, label) {
     // Kiểm tra quyền: chỉ Kỳ Cựu (kc) / Phó BC (pbc) / Bang Chủ (bc) mới được xoá (đồng bộ với bot ?bcend)
     if (!hasElevatedRosterRole()) {
         await customAlert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được xóa session Bang Chiến!');
         return;
     }
-    if (!(await customConfirm(`Xóa phiên Bang Chiến ${label}?\n\nBot Discord sẽ tự động cập nhật.`))) return;
+    const session = getCachedSessionByKey(sessionKey);
+    if (!session) {
+        await customAlert('Khong tim thay session can xoa.');
+        return;
+    }
+    if (!(await customConfirm(`Xoa phien Bang Chien ${label}?\n\nBot Discord se tu dong cap nhat.`))) return;
 
     // Signal+Delete: UPDATE status='ended' trước (anon key có quyền UPDATE)
     // → Bot/web nhận Realtime UPDATE → xóa tab
-    const { error: updateErr } = await sb
+    let endQuery = sb
         .from('bc_sessions')
-        .update({ status: 'ended' })
-        .eq('guild_id', GUILD_ID)
-        .eq('day', day);
+        .update({ status: 'ended' });
+    const { error: updateErr } = await applySessionFilter(endQuery, session);
 
     if (updateErr) { await customAlert('Lỗi xóa: ' + updateErr.message); return; }
 
     // Cố xóa hẳn row (nếu RLS cho phép)
-    await sb.from('bc_sessions').delete().eq('guild_id', GUILD_ID).eq('day', day).catch(() => {});
+    let deleteQuery = sb.from('bc_sessions').delete();
+    await applySessionFilter(deleteQuery, session).catch(() => {});
 
     // Xóa cache + reload UI ngay
-    delete _cachedSessions[day];
+    delete _cachedSessions[sessionKey];
+    setSessionCache(getAllCachedSessions());
     await loadAllSessions();
 }
 

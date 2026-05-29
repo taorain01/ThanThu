@@ -134,8 +134,16 @@ module.exports = {
           if (handled) return;
         }
 
+        if (customId.startsWith('bangchien_' + 'reg' + 'ular_')) {
+          await interaction.reply({
+            content: 'Chuc nang dang ky dinh ky dang tam thoi tat. Hay dung menu dang ky de chon tung tran.',
+            flags: MessageFlags.Ephemeral
+          });
+          return;
+        }
+
         // ROUTE 7: Bang Chien Manage handlers
-        if (customId.startsWith('bangchien_regular_') || customId.startsWith('bangchien_kick_') ||
+        if (customId.startsWith('bangchien_kick_') ||
           customId.startsWith('bangchien_priority_') || customId.startsWith('bangchien_finalize_')) {
           const handled = await bangchienManageHandlers.handleButton(interaction, client);
           if (handled) return;
@@ -147,10 +155,10 @@ module.exports = {
           if (handled) return;
         }
 
-        // ROUTE 9: BC Menu handlers (Ephemeral menu đăng ký multi-day + xem chi tiết)
+        // ROUTE 9: BC Menu handlers (Ephemeral menu dang ky multi-day + legacy list view)
         if (customId.startsWith('bc_menu_') || customId.startsWith('bcmenu_') ||
           customId.startsWith('bc_viewdetail_') || customId.startsWith('bc_viewlist_') ||
-          customId.startsWith('bc_regular_')) {
+          customId.startsWith('bc_' + 'reg' + 'ular_')) {
           const handled = await bcMenuHandlers.handleBcMenuButton(interaction);
           if (handled) return;
         }
@@ -227,6 +235,11 @@ module.exports = {
       try {
         const customId = interaction.customId;
         console.log('[interactionCreate] SELECT MENU nhận được, customId:', customId);
+
+        if (customId.startsWith('bcmenu_select_')) {
+          const handled = await bcMenuHandlers.handleBcMenuSelect(interaction);
+          if (handled) return;
+        }
 
         // Route to selectMenuHandlers (event role, bangchien kick/priority)
         // Lưu ý: show_role_select_ đã chuyển sang collector trong show.js

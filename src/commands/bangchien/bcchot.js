@@ -6,7 +6,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg, getDayNameWithDate } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, getDayNameWithDate, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 const BC_ROLE_NAME = 'bc';
 
@@ -34,7 +34,9 @@ module.exports = {
         // Parse day từ args (MULTI-DAY: t7, cn, all)
         const dayArg = args[0]?.toLowerCase();
         const isAll = dayArg === 'all';
-        const day = isAll ? null : parseDayArg(args)?.day;
+        const parsedDayArg = isAll ? null : parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
 
         // Xác định sessions cần xử lý
         let sessionsToProcess = [];
@@ -49,7 +51,9 @@ module.exports = {
             }
         } else if (day) {
             // ?bcchot t7 hoặc ?bcchot cn
-            const session = db.getActiveBangchienByDay(guildId, day);
+            const session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
             }

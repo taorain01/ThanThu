@@ -6,13 +6,6 @@ const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
-const {
-  applyRemoteBcRegularChange,
-  cleanupWeekendBcRegulars,
-  pruneInvalidBcRegulars,
-  validateRemoteBcRegular
-} = require('../../utils/bcRegularCleanup');
-
 // Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
 const _notifDebounceMap = new Map();
 const _sessionSummaryStateMap = new Map();
@@ -249,14 +242,20 @@ function applyLeaderFlagsToTeam(team = [], leaderId = null) {
   });
 }
 
-async function refreshStoredListbcDetailMessage(guild, day) {
-  const { listbcDetailMessages } = require('../../utils/bangchienState');
+async function refreshStoredListbcDetailMessage(guild, sessionOrDay) {
+  const { listbcDetailMessages, getListbcDetailKey } = require('../../utils/bangchienState');
   const db = require('../../database/db');
-  const listbcKey = `${guild.id}_${day}`;
+  const session = typeof sessionOrDay === 'object' && sessionOrDay
+    ? sessionOrDay
+    : db.getActiveBangchienByDay(guild.id, sessionOrDay);
+  const day = session?.day || (typeof sessionOrDay === 'string' ? sessionOrDay : null);
+  const listbcKey = getListbcDetailKey(guild.id, session, day, session?.time);
   const storedData = listbcDetailMessages.get(listbcKey);
   if (!storedData?.message) return;
 
-  const freshSession = db.getActiveBangchienByDay(guild.id, day);
+  const freshSession = session?.party_key
+    ? db.getActiveBangchien(session.party_key)
+    : db.getActiveBangchienByDay(guild.id, day);
   if (!freshSession) return;
 
   const listbcCommand = require('../../commands/bangchien/listbangchien');
@@ -272,7 +271,7 @@ async function refreshStoredListbcDetailMessage(guild, day) {
     }
   };
 
-  await listbcCommand.showDetailedSession(fakeMessage, freshSession, true, day, true);
+  await listbcCommand.showDetailedSession(fakeMessage, freshSession, true, freshSession.day || day, true);
   if (newEmbed) {
     await storedData.message.edit({ embeds: [newEmbed], components: newComponents });
   }
@@ -648,7 +647,12 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
       const existing = db.getActiveBangchienByDayTime
         ? db.getActiveBangchienByDayTime(guild.id, remoteSession.day, remoteTime)
         : (db.getActiveBangchienByDay ? db.getActiveBangchienByDay(guild.id, remoteSession.day) : null);
-      if (existing) continue; // Đã có trong SQLite, bỏ qua
+      if (existing) {
+        if (remoteSession.id && !existing.supabase_session_id) {
+          db.db.prepare('UPDATE bangchien_active SET supabase_session_id=? WHERE party_key=?').run(remoteSession.id, existing.party_key);
+        }
+        continue; // Đã có trong SQLite, bỏ qua
+      }
 
       if (!bcChannelId) {
         console.warn(`[Supabase] ⚠️ Boot-pull ${remoteSession.day}: chưa set kênh BC (dùng ?setbc trên hosting bot)`);
@@ -709,7 +713,7 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           leaderId: leaderIds.creator_id || 'web',
           leaderName: leaderIds.creator_name || 'Web',
           messageId: null, message: null,
-          startTime: Date.now(), day: remoteSession.day
+          startTime: Date.now(), day: remoteSession.day, time: remoteTime
         });
         bangchienChannels.set(guild.id, bcChannelId);
         pulledCount++;
@@ -730,7 +734,9 @@ async function sendTacticsSaveNotice(client, guild, historyEntry) {
   const meta = historyEntry?.markers?._history_meta || {};
   if (meta.action !== 'save') return;
 
-  const session = db.getActiveBangchienByDay(guild.id, historyEntry.day);
+  const session = historyEntry.session_id && db.getActiveBangchienBySupabaseId
+    ? db.getActiveBangchienBySupabaseId(guild.id, historyEntry.session_id)
+    : db.getActiveBangchienByDay(guild.id, historyEntry.day);
   if (!session?.channel_id) return;
 
   const channel = await client.channels.fetch(session.channel_id).catch(() => null);
@@ -811,7 +817,7 @@ module.exports = {
           console.error('[Supabase] Lỗi sync users:', userSyncErr.message);
         }
 
-        // "Luon tham gia" is temporarily disabled; keep existing data untouched.
+        // Recurring signup is temporarily disabled; keep existing data untouched.
 
         // Sync exp_levels lên Supabase (cho tab Level trên web profile)
         try {
@@ -894,9 +900,29 @@ module.exports = {
                 note: newData.note || null,
                 supabaseSessionId: newData.id || null
               });
+              const stringifyTeam = (v) => typeof v === 'string' ? v : JSON.stringify(v || []);
+              db.db.prepare(`
+                UPDATE bangchien_active
+                SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?
+                WHERE party_key=?
+              `).run(
+                stringifyTeam(newData.team_attack1),
+                stringifyTeam(newData.team_attack2),
+                stringifyTeam(newData.team_defense),
+                stringifyTeam(newData.team_forest),
+                stringifyTeam(newData.waiting_list),
+                partyKey
+              );
 
               // Khởi tạo trong memory
-              bangchienRegistrations.set(partyKey, []);
+              const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+              bangchienRegistrations.set(partyKey, [
+                ...parseTeam(newData.team_attack1),
+                ...parseTeam(newData.team_attack2),
+                ...parseTeam(newData.team_defense),
+                ...parseTeam(newData.team_forest),
+                ...parseTeam(newData.waiting_list)
+              ]);
               bangchienNotifications.set(partyKey, {
                 intervalId: null,
                 channelId: bcChannelId,
@@ -910,49 +936,7 @@ module.exports = {
               });
               bangchienChannels.set(guild.id, bcChannelId);
 
-              // Auto-add regular participants
-              const regulars = [];
-              let addedCount = 0;
-              for (const reg of regulars) {
-                const userData = db.getUserByDiscordId(reg.discord_id);
-                if (userData && userData.left_at) {
-                  await cleanupWeekendBcRegulars(guild, reg.discord_id, 'web_auto_add_left_at');
-                  continue;
-                }
-                const result = db.addBangchienParticipant(partyKey, {
-                  id: reg.discord_id,
-                  username: reg.username,
-                  gn: userData?.game_username || '',
-                  name: (userData?.game_username) || reg.username,
-                  joinedAt: Date.now(),
-                  isLeader: false,
-                  isRegular: true
-                });
-                if (result.success) {
-                  addedCount++;
-                  const regs = bangchienRegistrations.get(partyKey) || [];
-                  regs.push({ id: reg.discord_id, username: reg.username, gn: userData?.game_username || '', name: (userData?.game_username) || reg.username, joinedAt: Date.now(), isLeader: false, isRegular: true });
-                  bangchienRegistrations.set(partyKey, regs);
-
-                  // Cấp role BC
-                  const bcRole = guild.roles.cache.find(r => r.name === 'bc');
-                  if (bcRole) {
-                    try {
-                      const member = await guild.members.fetch(reg.discord_id).catch(() => null);
-                      if (member && !member.roles.cache.has(bcRole.id)) await member.roles.add(bcRole);
-                    } catch (e) { }
-                  }
-                }
-              }
-
-              // Sync lại Supabase v:i regulars (nếu có)
-              if (addedCount > 0) {
-                const updatedSession = db.getActiveBangchien(partyKey);
-                if (updatedSession) {
-                  const formatted = supaSync.formatActiveSession(updatedSession, db, guild);
-                  if (formatted) await supaSync.syncBCSession(guild.id, day, formatted);
-                }
-              }
+              // Recurring signup is temporarily disabled; keep existing data untouched.
 
               // Gửi thông báo vào kênh
               const channel = await client.channels.fetch(bcChannelId).catch(() => null);
@@ -1001,7 +985,7 @@ module.exports = {
                 await refreshScheduleEmbed(client, guild.id, null, 'resend');
               } catch (e) { }
 
-              console.log(`[Supabase] ✅ Web INSERT → tạo SQLite session ${day}, ${addedCount} regulars, thông báo #${channel?.name || bcChannelId}`);
+              console.log(`[Supabase] ✅ Web INSERT → tạo SQLite session ${day} ${time}, thông báo #${channel?.name || bcChannelId}`);
             } catch (err) {
               console.error('[Supabase] ❌ Xử lý web INSERT lỗi:', err.message);
             }
@@ -1210,7 +1194,7 @@ module.exports = {
               await refreshLiveBangchienMessage(client, guild, freshSession).catch((e) => {
                 console.error('[Supabase] Khong refresh duoc embed BC:', e.message);
               });
-              await refreshStoredListbcDetailMessage(guild, newData.day).catch((e) => {
+              await refreshStoredListbcDetailMessage(guild, freshSession).catch((e) => {
                 console.error('[Supabase] Khong refresh duoc listbc detail:', e.message);
               });
               await sendSessionChangeSummaries(client, guild, freshSession, sessionChangeSummaries).catch((e) => {
@@ -1223,7 +1207,7 @@ module.exports = {
           }
         });
 
-        // bc_regulars realtime is disabled with the temporary "Luon tham gia" removal.
+        // Recurring signup realtime is disabled while the feature is paused.
       }
     }
 

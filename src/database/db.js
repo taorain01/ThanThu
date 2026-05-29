@@ -1053,8 +1053,8 @@ function getActiveBangchienByGuild(guildId) {
 function getActiveBangchienByDay(guildId, day) {
     const stmt = db.prepare(`
         SELECT * FROM bangchien_active
-        WHERE guild_id = ? AND day = ?
-        ORDER BY CASE WHEN COALESCE(time, '19:30') = '19:30' THEN 0 ELSE 1 END, time ASC, created_at ASC
+        WHERE guild_id = ? AND day = ? AND COALESCE(time, '19:30') = '19:30'
+        ORDER BY created_at ASC
         LIMIT 1
     `);
     const result = stmt.get(guildId, day);
@@ -1454,6 +1454,18 @@ function updateActiveBangchien(partyKey, updates) {
 
     const stmt = db.prepare(`UPDATE bangchien_active SET ${fields.join(', ')} WHERE party_key = ?`);
     const result = stmt.run(...values);
+    try {
+        const supaSync = require('../utils/supabaseSync');
+        if (supaSync.isReady && supaSync.isReady()) {
+            const session = getActiveBangchien(partyKey);
+            const formatted = session && supaSync.formatActiveSession(session, module.exports);
+            if (session && formatted) {
+                Promise.resolve(supaSync.syncBCSession(session.guild_id, session.day || 'sat', formatted)).catch((error) => {
+                    console.error('[DB] Auto sync BC session failed:', error.message);
+                });
+            }
+        }
+    } catch (e) { }
     return { success: true, changes: result.changes };
 }
 
@@ -2196,6 +2208,8 @@ module.exports = {
     deleteGieoQueChannelId,
     markGieoQueUsed,
     getGieoQueStatus,
+    getGieoQueCoreStatus,
+    markGieoQueCore,
     getLastActivityGieoQue,
     setLastActivityGieoQue,
     getGieoQueUsageCountToday,
@@ -2262,6 +2276,18 @@ try {
 try {
     db.prepare('ALTER TABLE gieoque_usage ADD COLUMN cauduyen_content TEXT').run();
 } catch (e) { }
+try {
+    db.prepare('ALTER TABLE gieoque_usage ADD COLUMN core_month TEXT').run();
+} catch (e) { }
+try {
+    db.prepare('ALTER TABLE gieoque_usage ADD COLUMN core_content TEXT').run();
+} catch (e) { }
+try {
+    db.prepare('ALTER TABLE gieoque_usage ADD COLUMN core_pulls INTEGER').run();
+} catch (e) { }
+try {
+    db.prepare('ALTER TABLE gieoque_usage ADD COLUMN core_result TEXT').run();
+} catch (e) { }
 
 /**
  * Set Gieo Que Channel ID
@@ -2295,6 +2321,14 @@ function getTodayVN() {
     // UTC+7
     const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
     return vnTime.toISOString().split('T')[0];
+}
+
+/**
+ * Helper: Get current month string in Vietnam timezone (UTC+7)
+ * @returns {string} YYYY-MM
+ */
+function getMonthVN() {
+    return getTodayVN().slice(0, 7);
 }
 
 /**
@@ -2332,6 +2366,49 @@ function markGieoQueUsed(userId, content) {
 }
 
 /**
+ * Get user's monthly WWM core status.
+ * @param {string} userId
+ * @returns {{ usedThisMonth: boolean, coreContent: string|null, corePulls: number|null, coreResult: string|null, coreMonth: string|null }}
+ */
+function getGieoQueCoreStatus(userId) {
+    const currentMonth = getMonthVN();
+    const stmt = db.prepare('SELECT core_month, core_content, core_pulls, core_result FROM gieoque_usage WHERE user_id = ?');
+    const result = stmt.get(userId);
+
+    if (!result) {
+        return { usedThisMonth: false, coreContent: null, corePulls: null, coreResult: null, coreMonth: null };
+    }
+
+    const usedThisMonth = result.core_month === currentMonth && !!result.core_content;
+    return {
+        usedThisMonth,
+        coreContent: usedThisMonth ? result.core_content : null,
+        corePulls: usedThisMonth ? result.core_pulls : null,
+        coreResult: usedThisMonth ? result.core_result : null,
+        coreMonth: result.core_month || null,
+    };
+}
+
+/**
+ * Save user's monthly WWM core outcome.
+ * @param {string} userId
+ * @param {{ content: string, pulls: number, result: string }} outcome
+ */
+function markGieoQueCore(userId, outcome) {
+    const currentMonth = getMonthVN();
+    db.prepare(`
+        INSERT INTO gieoque_usage (user_id, last_used_at, core_month, core_content, core_pulls, core_result)
+        VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            last_used_at = CURRENT_TIMESTAMP,
+            core_month = excluded.core_month,
+            core_content = excluded.core_content,
+            core_pulls = excluded.core_pulls,
+            core_result = excluded.core_result
+    `).run(userId, currentMonth, outcome.content, outcome.pulls, outcome.result);
+}
+
+/**
  * Get usage count today (total server usage)
  * @returns {number}
  */
@@ -2350,13 +2427,23 @@ function clearGieoQueUsage() {
 
 /**
  * Reset ALL daily usage at midnight (called by scheduler)
- * Clears both gieoque and cauduyen usage for everyone
- * @returns {{ deleted: number }}
+ * Clears daily gieoque and cauduyen usage, but keeps monthly core data.
+ * @returns {{ reset: number, deleted: number }}
  */
 function resetAllDailyUsage() {
-    const result = db.prepare('DELETE FROM gieoque_usage').run();
-    console.log(`[DailyReset] Đã xóa ${result.changes} bản ghi gieo quẻ/cầu duyên`);
-    return { deleted: result.changes };
+    const result = db.prepare(`
+        UPDATE gieoque_usage
+        SET usage_date = NULL,
+            fortune_content = NULL,
+            cauduyen_date = NULL,
+            cauduyen_content = NULL
+        WHERE usage_date IS NOT NULL
+           OR fortune_content IS NOT NULL
+           OR cauduyen_date IS NOT NULL
+           OR cauduyen_content IS NOT NULL
+    `).run();
+    console.log(`[DailyReset] Đã reset ${result.changes} bản ghi gieo quẻ/cầu duyên trong ngày`);
+    return { reset: result.changes, deleted: 0 };
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg, getDayNameWithDate } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, getDayNameWithDate, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 // Helper: Lấy team config từ DB (size + tên tùy chỉnh, đồng bộ với bcsize và bcql_resize)
 function getTeamConfig(db) {
@@ -34,7 +34,9 @@ module.exports = {
         const userId = message.author.id;
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args)?.day;
+        const parsedDayArg = parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
 
         // Kiểm tra quyền Kỳ Cựu cho ?listbc t7/cn
         const kyCuuRole = message.guild.roles.cache.find(r => r.name === 'Kỳ Cựu');
@@ -54,9 +56,11 @@ module.exports = {
                 return message.reply('❌ Chỉ Kỳ Cựu, Leader BC, hoặc Quản Lý mới xem chi tiết theo ngày!');
             }
 
-            const session = db.getActiveBangchienByDay(guildId, day);
+            const session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`📭 Chưa có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`📭 Chưa có phiên BC ${DAY_CONFIG[day].name} ${requestedTime} đang chạy!`);
             }
             return this.showDetailedSession(message, session, true, day, true); // showButtons = true
         }
@@ -107,8 +111,8 @@ module.exports = {
             for (const sessionItem of allSessions.slice(0, 5)) {
                 row.addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`listbc_view_${sessionItem.day}_${guildId}`)
-                        .setLabel(`📋 ${shortLabels[sessionItem.day] || sessionItem.day}`)
+                        .setCustomId(`listbc_view_${sessionItem.party_key}`)
+                        .setLabel(`📋 ${shortLabels[sessionItem.day] || sessionItem.day} ${sessionItem.time || LEAGUE_TIME}`)
                         .setStyle(ButtonStyle.Primary)
                 );
             }
@@ -318,7 +322,7 @@ module.exports = {
         const components = [];
         if (showButtons && isActive && session.party_key) {
             const partyKey = session.party_key;
-            const dayParam = day || 'sat'; // Default to sat if not specified
+            const dayParam = session.day || day || 'sat'; // Default to sat if not specified
 
             const row1 = new ActionRowBuilder()
                 .addComponents(

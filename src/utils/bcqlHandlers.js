@@ -5,7 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db');
-const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed } = require('./bangchienState');
+const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed, getListbcDetailKey } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
 
 // Helper: Lấy tên team dynamic từ DB
@@ -49,14 +49,53 @@ function parseDayFromCustomId(customId) {
     return null;
 }
 
+function parsePartyKeyFromCustomId(customId) {
+    const prefixes = [
+        'bcql_kick_select_',
+        'bcql_priority_select_',
+        'bcql_swap_modal_',
+        'bcql_add_modal_',
+        'bcql_resize_modal_',
+        'bcql_setleader_modal_',
+        'bcql_setleader_',
+        'bcql_finalize_',
+        'bcql_resize_',
+        'bcql_kick_',
+        'bcql_swap_',
+        'bcql_add_',
+        'bcql_size_'
+    ];
+    const prefix = prefixes.find(item => customId.startsWith(item));
+    if (!prefix) return null;
+    let value = customId.slice(prefix.length);
+    const day = parseDayFromCustomId(customId);
+    if (day && value.endsWith(`_${day}`)) {
+        value = value.slice(0, -(day.length + 1));
+    }
+    return value || null;
+}
+
+function getSessionFromCustomId(guildId, customId) {
+    const partyKey = parsePartyKeyFromCustomId(customId);
+    if (partyKey) {
+        const exactSession = db.getActiveBangchien(partyKey);
+        if (exactSession) return exactSession;
+    }
+    const day = parseDayFromCustomId(customId);
+    if (day) return db.getActiveBangchienByDay(guildId, day);
+    const activeSessions = db.getActiveBangchienByGuild(guildId);
+    return activeSessions.length > 0 ? activeSessions[0] : null;
+}
+
 /**
  * Refresh listbc embed sau khi thực hiện action
  */
 async function refreshListbcEmbed(interaction, session, day) {
-    if (!day) return;
-
     const guildId = interaction.guild.id;
-    const listbcKey = `${guildId}_${day}`;
+    const sessionDay = session?.day || day;
+    if (!session?.party_key && !sessionDay) return;
+
+    const listbcKey = getListbcDetailKey(guildId, session, sessionDay, session?.time);
     const storedData = listbcDetailMessages.get(listbcKey);
 
     if (!storedData || !storedData.message) {
@@ -67,7 +106,9 @@ async function refreshListbcEmbed(interaction, session, day) {
     const listbcCommand = require('../commands/bangchien/listbangchien');
 
     // Lấy session mới nhất
-    const freshSession = db.getActiveBangchienByDay(guildId, day);
+    const freshSession = session?.party_key
+        ? db.getActiveBangchien(session.party_key)
+        : db.getActiveBangchienByDay(guildId, sessionDay);
     if (!freshSession) return;
 
     // Tạo embed mới và edit message
@@ -83,7 +124,7 @@ async function refreshListbcEmbed(interaction, session, day) {
         }
     };
 
-    await listbcCommand.showDetailedSession(fakeMessage, freshSession, true, day, true);
+    await listbcCommand.showDetailedSession(fakeMessage, freshSession, true, freshSession.day || sessionDay, true);
 
     // Edit stored message với embed mới
     if (newEmbed) {
@@ -115,13 +156,7 @@ async function handleBcqlButton(interaction) {
     const day = parseDayFromCustomId(customId);
 
     // Lấy session từ DB - ưu tiên theo day nếu có
-    let session;
-    if (day) {
-        session = db.getActiveBangchienByDay(guildId, day);
-    } else {
-        const activeSessions = db.getActiveBangchienByGuild(guildId);
-        session = activeSessions.length > 0 ? activeSessions[0] : null;
-    }
+    const session = getSessionFromCustomId(guildId, customId);
 
     if (!session) {
         await interaction.reply({ content: '❌ Không có BC đang chạy!', flags: MessageFlags.Ephemeral });
@@ -228,7 +263,7 @@ async function handleBcqlButton(interaction) {
 
         try {
             const supaSync = require('./supabaseSync');
-            await supaSync.setSessionLocked(guildId, day || session.day || 'sat', true);
+            await supaSync.setSessionLocked(guildId, day || session.day || 'sat', true, session.time);
         } catch (e) {}
 
         // Role emojis
@@ -523,13 +558,7 @@ async function handleBcqlSelect(interaction) {
     const day = parseDayFromCustomId(customId);
 
     // Lấy session từ DB - ưu tiên theo day nếu có
-    let session;
-    if (day) {
-        session = db.getActiveBangchienByDay(guildId, day);
-    } else {
-        const activeSessions = db.getActiveBangchienByGuild(guildId);
-        session = activeSessions.length > 0 ? activeSessions[0] : null;
-    }
+    const session = getSessionFromCustomId(guildId, customId);
 
     if (!session) {
         await interaction.reply({ content: '❌ BC không tồn tại!', flags: MessageFlags.Ephemeral });
@@ -571,12 +600,7 @@ async function handleBcqlSelect(interaction) {
             }
             if (!moved && teams.waiting.some(p => p.id === userId)) kicked++;
 
-            const sessionDay = day || freshSession.day || 'sat';
-            db.removeBcRegular(guildId, userId, sessionDay);
-            try {
-                const supaSync = require('./supabaseSync');
-                await supaSync.removeBcRegular(guildId, userId, sessionDay);
-            } catch (e) {}
+            // Recurring signup is disabled; do not mutate recurring tables from active flows.
         }
 
         db.updateActiveBangchien(partyKey, {
@@ -680,13 +704,7 @@ async function handleBcqlModal(interaction) {
     const day = parseDayFromCustomId(customId);
 
     // Lấy session từ DB - ưu tiên theo day nếu có
-    let session;
-    if (day) {
-        session = db.getActiveBangchienByDay(guildId, day);
-    } else {
-        const activeSessions = db.getActiveBangchienByGuild(guildId);
-        session = activeSessions.length > 0 ? activeSessions[0] : null;
-    }
+    const session = getSessionFromCustomId(guildId, customId);
 
     if (!session) {
         await interaction.reply({ content: '❌ BC không tồn tại!', flags: MessageFlags.Ephemeral });

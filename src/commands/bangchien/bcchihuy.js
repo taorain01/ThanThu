@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 module.exports = {
     name: 'bcchihuy',
@@ -15,12 +15,18 @@ module.exports = {
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args)?.day;
+        const parsedDayArg = parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
+        const isDayOrTimeArg = (value) => DAY_ALIASES[value?.toLowerCase()] || /^\d{1,2}[h:]\d{0,2}$/i.test(value || '');
+        const filteredArgs = args.filter(a => !isDayOrTimeArg(a));
 
         // Lấy session
         let session, isActiveSession = false;
         if (day) {
-            session = db.getActiveBangchienByDay(guildId, day);
+            session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
             }
@@ -45,7 +51,7 @@ module.exports = {
             return message.reply('❌ Chỉ Leader BC hoặc Quản Lý mới được đặt chỉ huy!');
         }
 
-        if (args.length === 0) {
+        if (filteredArgs.length === 0 && !message.mentions.users.first()) {
             return message.reply('❌ Vui lòng nhập số thứ tự hoặc mention!\n`?bcchihuy 5` hoặc `?bcchihuy @user`');
         }
 
@@ -63,7 +69,7 @@ module.exports = {
             commanderId = mention.id;
             commanderName = mention.username;
         } else {
-            const num = parseInt(args[0]);
+            const num = parseInt(filteredArgs[0]);
             if (isNaN(num) || num < 1) {
                 return message.reply('❌ Số không hợp lệ!');
             }

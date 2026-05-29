@@ -8,7 +8,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 // Team config - maxSize sẽ được lấy dynamic từ DB
 function getTeamConfig(db) {
@@ -36,12 +36,17 @@ module.exports = {
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args)?.day;
+        const parsedDayArg = parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
+        const isDayOrTimeArg = (value) => DAY_ALIASES[value?.toLowerCase()] || /^\d{1,2}[h:]\d{0,2}$/i.test(value || '');
 
         // Lấy session
         let session, isActiveSession = false;
         if (day) {
-            session = db.getActiveBangchienByDay(guildId, day);
+            session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
             }
@@ -79,7 +84,7 @@ module.exports = {
         }
 
         const mention = message.mentions.users.first();
-        const targetTeamArg = args.find(a => !a.startsWith('<@'));
+        const targetTeamArg = args.find(a => !a.startsWith('<@') && !isDayOrTimeArg(a));
 
         // Lấy TEAM_CONFIG dynamic
         const TEAM_CONFIG = getTeamConfig(db);

@@ -14,6 +14,7 @@ const listallmemCommand = require('../../commands/quanly/listallmem');
 const roiguildCommand = require('../../commands/quanly/roiguild');
 const rsrejoinCommand = require('../../commands/quanly/rsrejoin');
 const xoamemCommand = require('../../commands/quanly/xoamem');
+const xoamemNgoaiServerCommand = require('../../commands/quanly/xoamemngoaiserver');
 const addidCommand = require('../../commands/quanly/addid');
 const locmemCommand = require('../../commands/quanly/locmem');
 
@@ -866,8 +867,10 @@ module.exports = {
                                     `👉 **\`?cauduyen [câu hỏi]\`**: Xin quẻ tình duyên (cho nam thanh nữ tú).\n\n` +
                                     `*Ví dụ: \`?gieoque hôm nay có may mắn không?\`*\n\n` +
                                     `⚠️ **Lưu ý:**\n` +
-                                    `- Mỗi người chỉ được gieo **1 quẻ công danh** và **1 quẻ tình duyên** mỗi ngày.\n` +
-                                    `- Quẻ chỉ phán cho ngày hôm nay, reset mỗi ngày mới.`,
+                                    `- Mỗi người có **1 quẻ công danh** và **1 quẻ tình duyên** chính mỗi ngày; hỏi lại trong ngày sẽ phán lại theo quẻ cũ.\n` +
+                                    `- Nếu có câu hỏi cụ thể, bot sẽ bám sát câu hỏi đó.\n` +
+                                    `- Core/Bát Âm chỉ hiện khi hỏi về core/roll/nổ vàng; không hỏi thì không nhắc.\n` +
+                                    `- Kết quả core của WWM giữ cố định trong tháng.`,
                                 footer: { text: '🔮 Mỗi ngày một quẻ, vận may tự đến! 🔮' }
                             };
 
@@ -1106,6 +1109,10 @@ module.exports = {
         // ?xoamem - Xóa thành viên khỏi database (BC/PBC/KC)
         if (commandName === 'xoamem') {
             return xoamemCommand.execute(message, args);
+        }
+
+        if (['xoamemngoaiserver', 'donmemngoaiserver', 'cleanmemserver'].includes(commandName)) {
+            return xoamemNgoaiServerCommand.execute(message, args);
         }
 
         // ?locmem - Lọc thành viên có role LangGia nhưng không trong database

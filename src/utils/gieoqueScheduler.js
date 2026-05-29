@@ -1,6 +1,6 @@
 /**
  * Gieo Que Daily Reset Scheduler
- * Tự động xóa dữ liệu gieo quẻ & cầu duyên vào lúc 00:00 mỗi ngày (giờ VN UTC+7)
+ * Tự động reset dữ liệu gieo quẻ & cầu duyên trong ngày vào lúc 00:00 (giờ VN UTC+7)
  */
 
 const db = require('../database/db');
@@ -25,12 +25,12 @@ function checkAndReset() {
 
     // Nếu chưa reset ngày hôm nay
     if (lastResetDate !== today) {
-        console.log(`[GieoQueScheduler] 🔄 Sang ngày mới (${today}), đang reset dữ liệu gieo quẻ & cầu duyên...`);
+        console.log(`[GieoQueScheduler] 🔄 Sang ngày mới (${today}), đang reset lượt gieo quẻ & cầu duyên trong ngày...`);
 
         try {
             const result = db.resetAllDailyUsage();
             lastResetDate = today;
-            console.log(`[GieoQueScheduler] ✅ Đã reset thành công! (Xóa ${result.deleted} bản ghi)`);
+            console.log(`[GieoQueScheduler] ✅ Đã reset thành công! (${result.reset ?? result.deleted} bản ghi)`);
         } catch (error) {
             console.error('[GieoQueScheduler] ❌ Lỗi khi reset:', error.message);
         }

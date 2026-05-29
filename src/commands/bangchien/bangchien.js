@@ -303,102 +303,32 @@ function createOverviewEmbed(guildId, guild = null) {
     const embed = new EmbedBuilder()
         .setColor(0xFFD700)
         .setTitle('⚔️ BANG CHIẾN LANG GIA 📅')
-        .setDescription('Bấm nút bên dưới để đăng ký Bang Chiến');
+        .setDescription('Xem chi tiết ở WEB Lang Gia War');
 
-    // Helper: tính tổng và stats cho 1 session
-    const getSessionStats = (session) => {
-        if (!session) return { total: 0, attack: 0, defense: 0, forest: 0, healer: 0, tanker: 0, dps: 0 };
-        const attack = (session.team_attack1?.length || 0) + (session.team_attack2?.length || 0);
-        const defense = session.team_defense?.length || 0;
-        const forest = session.team_forest?.length || 0;
-        const total = attack + defense + forest;
-        const allMembers = [
-            ...(session.team_attack1 || []),
-            ...(session.team_attack2 || []),
-            ...(session.team_defense || []),
-            ...(session.team_forest || [])
-        ];
-        let healer = 0, tanker = 0, dps = 0;
-        allMembers.forEach(m => {
-            let role = null;
-            if (guild) {
-                try {
-                    const mem = guild.members.cache.get(m.id);
-                    if (mem) {
-                        const hR = guild.roles.cache.find(r => r.name === 'Healer');
-                        if (hR && mem.roles.cache.has(hR.id)) role = 'Healer';
-                        if (!role) { const tR = guild.roles.cache.find(r => r.name === 'Tanker'); if (tR && mem.roles.cache.has(tR.id)) role = 'Tanker'; }
-                        if (!role) { const dR = guild.roles.cache.find(r => r.name === 'DPS'); if (dR && mem.roles.cache.has(dR.id)) role = 'DPS'; }
-                    }
-                } catch (e) { }
-            }
-            if (role === 'Healer') healer++;
-            else if (role === 'Tanker') tanker++;
-            else dps++;
+    const compactSessions = db.getActiveBangchienByGuild(guildId)
+        .filter(session => session?.day && DAY_CONFIG[session.day])
+        .sort((a, b) => {
+            const aPrimary = PRIMARY_DAYS.includes(a.day) ? 0 : 1;
+            const bPrimary = PRIMARY_DAYS.includes(b.day) ? 0 : 1;
+            if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+            const aDayIndex = Object.keys(DAY_CONFIG).indexOf(a.day);
+            const bDayIndex = Object.keys(DAY_CONFIG).indexOf(b.day);
+            if (aDayIndex !== bDayIndex) return aDayIndex - bDayIndex;
+            return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
         });
-        return { total, attack, defense, forest, healer, tanker, dps };
-    };
 
-    // Helper: render 1 ngày — dùng dynamic team names
-    const _ovNames = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
-    const renderDay = (dayKey, session) => {
-        const dayConfig = DAY_CONFIG[dayKey];
-        const stats = getSessionStats(session);
-        const dateStr = getDayNameWithDate(dayKey).toUpperCase();
-        const isPrimary = dayConfig.primary;
-        const timeStr = session?.time || '19:30';
-        const noteStr = session?.note ? ` — _${session.note}_` : (isLeagueSession(session) ? ' — _LEAGUE_' : '');
-
-        if (session) {
-            let line = `📅 **${dateStr}** ⏰${timeStr}${noteStr} (${stats.total}/30)\n⚔️ ${_ovNames.attack1}: ${stats.attack}`;
-            if (db.getTeamSize('defense') > 0) line += ` | 🛡️ ${_ovNames.defense}: ${stats.defense}`;
-            if (db.getTeamSize('forest') > 0) line += ` | 🌲 ${_ovNames.forest}: ${stats.forest}`;
-            line += `\n🟢${stats.healer} 🟠${stats.tanker} 🔵${stats.dps}`;
-            return line;
-        }
-        if (isPrimary) {
-            return `📅 **${dateStr}** - _Chưa mở_\n💡 Dùng \`?bc ${dayKey === 'sat' ? 't7' : 'cn'}\` để mở`;
-        }
-        return null;
-    };
-
-    const allSessions = db.getActiveBangchienByGuild(guildId);
-    const sessionsByDay = allSessions.reduce((acc, session) => {
-        if (!session?.day) return acc;
-        if (!acc[session.day]) acc[session.day] = [];
-        acc[session.day].push(session);
-        return acc;
-    }, {});
-    Object.values(sessionsByDay).forEach((items) => {
-        items.sort((a, b) => normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME)));
-    });
-
-    // 1. Hiện T7 + CN (luôn hiện dù chưa mở)
-    for (const dayKey of PRIMARY_DAYS) {
-        const daySessions = sessionsByDay[dayKey] || [];
-        if (daySessions.length === 0) {
-            const value = renderDay(dayKey, null);
-            if (value) embed.addFields({ name: '\u200b', value, inline: false });
-            continue;
-        }
-        for (const session of daySessions) {
-            const value = renderDay(dayKey, session);
-            if (value) embed.addFields({ name: '\u200b', value, inline: false });
-        }
+    for (const session of compactSessions) {
+        const dateStr = getDayNameWithDate(session.day).toUpperCase();
+        const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
+        const leagueBadge = isLeagueSession(session) ? ' — **LEAGUE**' : '';
+        embed.addFields({
+            name: '\u200b',
+            value: `📅 **${dateStr}** ⏰ ${timeStr}${leagueBadge}`,
+            inline: false
+        });
     }
 
-    // 2. Hiện các ngày custom có session active
-    for (const session of allSessions) {
-        if (PRIMARY_DAYS.includes(session.day)) continue;
-        const dayKey = session.day;
-        if (!DAY_CONFIG[dayKey]) continue;
-        const value = renderDay(dayKey, session);
-        if (value) embed.addFields({ name: '\u200b', value, inline: false });
-    }
-
-    embed.setFooter({ text: '💡 ?bc t2 21h Ghi chú — Tạo BC tùy chỉnh' })
-        .setTimestamp();
-
+    embed.setTimestamp();
     return embed;
 }
 
@@ -421,9 +351,9 @@ function createOverviewButton(guildId) {
                 .setLabel('📋 Đăng ký BANG CHIẾN')
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
-                .setCustomId(`bc_viewdetail_${guildId}`)
-                .setLabel('🔍 Xem chi tiết')
-                .setStyle(ButtonStyle.Secondary)
+                .setLabel('Xem trực tiếp')
+                .setStyle(ButtonStyle.Link)
+                .setURL('https://langgiawar.vercel.app/')
         );
     return row;
 }
@@ -709,7 +639,7 @@ module.exports = {
             note: bcNote || null
         });
 
-        // "Luon tham gia" is temporarily disabled; keep existing regular data untouched.
+        // Recurring signup is temporarily disabled; keep existing data untouched.
 
         // KHÔNG gửi embed riêng - chỉ cập nhật overview
         // Xóa tin nhắn lệnh

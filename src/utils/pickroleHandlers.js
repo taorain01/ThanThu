@@ -191,7 +191,7 @@ async function handleButton(interaction, client) {
             const userId = interaction.user.id;
             const partyKeys = getGuildBangchienKeys(guildId);
             const db = require('../database/db');
-            const { listbcDetailMessages, getDayFromPartyKey, bangchienOverviews } = require('./bangchienState');
+            const { listbcDetailMessages, getDayFromPartyKey, bangchienOverviews, getListbcDetailKey } = require('./bangchienState');
             const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
             const supaSync = require('./supabaseSync');
             const listbcCommand = require('../commands/bangchien/listbangchien');
@@ -231,10 +231,10 @@ async function handleButton(interaction, client) {
                     // Refresh ?listbc embed nếu có
                     const day = getDayFromPartyKey(partyKey);
                     if (day) {
-                        const listbcKey = `${guildId}_${day}`;
+                        const listbcKey = getListbcDetailKey(guildId, partyKey, day);
                         const storedData = listbcDetailMessages.get(listbcKey);
                         if (storedData && storedData.message) {
-                            const freshSession = db.getActiveBangchienByDay(guildId, day);
+                            const freshSession = db.getActiveBangchien(partyKey);
                             if (freshSession) {
                                 let newEmbed = null;
                                 let newComponents = [];

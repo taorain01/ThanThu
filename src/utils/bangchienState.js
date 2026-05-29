@@ -168,6 +168,29 @@ function getSessionIdentityKey(session) {
     return `${session.guild_id || session.guildId || ''}|${session.day || ''}|${normalizeBcTime(session.time || LEAGUE_TIME)}`;
 }
 
+function getListbcDetailKey(guildId, sessionOrPartyKey, day = null, time = LEAGUE_TIME) {
+    const partyKey = typeof sessionOrPartyKey === 'string'
+        ? sessionOrPartyKey
+        : sessionOrPartyKey?.party_key;
+    if (partyKey) return `${guildId}_${partyKey}`;
+    return `${guildId}_${day || ''}_${normalizeBcTime(time || LEAGUE_TIME)}`;
+}
+
+function getRequestedBcTime(parsedDayArg) {
+    return normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
+}
+
+function getActiveBangchienForDayTime(db, guildId, day, time = LEAGUE_TIME) {
+    if (!db || !guildId || !day) return null;
+    const normalizedTime = normalizeBcTime(time || LEAGUE_TIME);
+    if (typeof db.getActiveBangchienByDayTime === 'function') {
+        return db.getActiveBangchienByDayTime(guildId, day, normalizedTime);
+    }
+    return typeof db.getActiveBangchienByDay === 'function'
+        ? db.getActiveBangchienByDay(guildId, day)
+        : null;
+}
+
 function createPartyKey(guildId, day, leaderId, time = LEAGUE_TIME) {
     return `${guildId}_${day}_${timeToPartyKeyPart(time)}_${leaderId}`;
 }
@@ -451,16 +474,11 @@ async function ensureWeekendDefaultSessions(guild, options = {}) {
                 time: normalizedTime,
                 note: isLeagueSession(normalizedTime) ? 'LEAGUE' : ''
             });
+            db.db.prepare('UPDATE bangchien_active SET team_attack1=? WHERE party_key=?').run('[]', partyKey);
 
             const session = db.getActiveBangchien(partyKey);
             if (session) {
-                bangchienRegistrations.set(partyKey, [
-                    ...(session.team_attack1 || []),
-                    ...(session.team_attack2 || []),
-                    ...(session.team_defense || []),
-                    ...(session.team_forest || []),
-                    ...(session.waiting_list || [])
-                ]);
+                bangchienRegistrations.set(partyKey, []);
                 bangchienNotifications.set(partyKey, {
                     intervalId: null,
                     channelId,
@@ -522,6 +540,9 @@ module.exports = {
     getDayFromPartyKey,
     getTimeFromPartyKey,
     getSessionIdentityKey,
+    getListbcDetailKey,
+    getRequestedBcTime,
+    getActiveBangchienForDayTime,
     createPartyKey,
     getGuildBangchienKeys,
     getUserBangchienParty,

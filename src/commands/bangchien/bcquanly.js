@@ -11,7 +11,9 @@ const {
     getGuildBangchienKeys,
     DAY_CONFIG,
     parseDayArg,
-    getDayNameWithDate
+    getDayNameWithDate,
+    LEAGUE_TIME,
+    normalizeBcTime
 } = require('../../utils/bangchienState');
 
 module.exports = {
@@ -33,13 +35,17 @@ module.exports = {
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
 
         // Parse day từ args (MULTI-DAY)
-        const day = parseDayArg(args)?.day;
+        const parsedDayArg = parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
 
         // Lấy active session
         let session;
         if (day) {
             // Có chỉ định ngày → lấy session của ngày đó
-            session = db.getActiveBangchienByDay(guildId, day);
+            session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
             }

@@ -10,7 +10,9 @@ const {
     bangchienChannels,
     getGuildBangchienKeys,
     DAY_CONFIG,
-    parseDayArg
+    parseDayArg,
+    LEAGUE_TIME,
+    normalizeBcTime
 } = require('../../utils/bangchienState');
 
 module.exports = {
@@ -26,7 +28,9 @@ module.exports = {
         // Parse day từ args (MULTI-DAY: t7, cn, all)
         const dayArg = args[0]?.toLowerCase();
         const isAll = dayArg === 'all';
-        const day = isAll ? null : parseDayArg(args)?.day;
+        const parsedDayArg = isAll ? null : parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
 
         // Xác định sessions cần xử lý
         let sessionsToCancel = [];
@@ -41,7 +45,9 @@ module.exports = {
             }
         } else if (day) {
             // ?huybc t7 hoặc ?huybc cn
-            const session = db.getActiveBangchienByDay(guildId, day);
+            const session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
             }
@@ -104,6 +110,10 @@ module.exports = {
 
             // Xoá từ DB
             db.deleteActiveBangchien(partyKey);
+            try {
+                const { deleteBCSession } = require('../../utils/supabaseSync');
+                await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME);
+            } catch (e) { }
 
             results.push({
                 day: sessionDay,

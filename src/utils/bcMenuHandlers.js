@@ -1,41 +1,151 @@
 /**
- * bcMenuHandlers.js
- * Xử lý ephemeral menu cho Bang Chiến multi-day
- * Khi user bấm nút "📌 Đăng ký BANG CHIẾN" -> hiển thị menu riêng cho họ
+ * Ephemeral Bang Chien registration menu.
+ * Uses exact session party keys so multiple sessions on the same day do not collide.
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { DAY_CONFIG, getDayFromPartyKey, getDayNameWithDate, getNextDayDate } = require('./bangchienState');
-const { syncBCSession, formatActiveSession } = require('./supabaseSync');
 const {
-    addBcRegularIfEligible,
-    cleanupWeekendBcRegulars,
-    getBcRegularEligibility,
-    removeBcRegularDay
-} = require('./bcRegularCleanup');
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    StringSelectMenuBuilder
+} = require('discord.js');
+const {
+    DAY_CONFIG,
+    PRIMARY_DAYS,
+    LEAGUE_TIME,
+    normalizeBcTime,
+    isLeagueSession,
+    getDayNameWithDate,
+    getNextDayDate
+} = require('./bangchienState');
 
 const BC_ROLE_NAME = 'bc';
-const WEEKEND_DAYS = new Set(['sat', 'sun']);
+const pendingBcMenuSelections = new Map();
 
-function isWeekendDay(day) {
-    return WEEKEND_DAYS.has(day);
+function menuStateKey(guildId, userId) {
+    return `${guildId}:${userId}`;
 }
 
-/**
- * Sắp xếp danh sách ngày theo ngày gần nhất (ngày sắp đến trước)
- * Dùng getNextDayDate để tính khoảng cách thực tế từ hôm nay
- * @param {string[]} days - Mảng các key ngày ('mon', 'tue', ...)
- * @returns {string[]} Mảng đã được sắp xếp theo ngày gần nhất
- */
-function sortDaysByNearest(days) {
-    return [...days].sort((a, b) => {
-        const dateA = getNextDayDate(a);
-        const dateB = getNextDayDate(b);
-        return dateA.getTime() - dateB.getTime();
+function getSessionTotal(session) {
+    return (session.team_attack1?.length || 0) +
+        (session.team_attack2?.length || 0) +
+        (session.team_defense?.length || 0) +
+        (session.team_forest?.length || 0) +
+        (session.waiting_list?.length || 0);
+}
+
+function getAllSessionMembers(session) {
+    return [
+        ...(session.team_attack1 || []),
+        ...(session.team_attack2 || []),
+        ...(session.team_defense || []),
+        ...(session.team_forest || []),
+        ...(session.waiting_list || [])
+    ];
+}
+
+function isUserInSession(session, userId) {
+    return getAllSessionMembers(session).some(m => String(m.id) === String(userId));
+}
+
+function isUserInAnyActiveSession(guildId, userId) {
+    const db = require('../database/db');
+    return db.getActiveBangchienByGuild(guildId).some(session => isUserInSession(session, userId));
+}
+
+function getSessionLabel(session) {
+    const dayLabel = DAY_CONFIG[session.day]?.name || session.day || '?';
+    const time = normalizeBcTime(session.time || LEAGUE_TIME);
+    const badge = isLeagueSession(session) ? ' LEAGUE' : '';
+    const note = session.note && !/^league$/i.test(String(session.note)) ? ` - ${session.note}` : '';
+    return `${dayLabel} ${time}${badge}${note}`;
+}
+
+function sortSessionsForMenu(sessions) {
+    return [...sessions].sort((a, b) => {
+        const aWeekend = PRIMARY_DAYS.includes(a.day);
+        const bWeekend = PRIMARY_DAYS.includes(b.day);
+        const aBucket = aWeekend ? (isLeagueSession(a) ? 0 : 1) : 2;
+        const bBucket = bWeekend ? (isLeagueSession(b) ? 0 : 1) : 2;
+        if (aBucket !== bBucket) return aBucket - bBucket;
+
+        const dayDiff = getNextDayDate(a.day).getTime() - getNextDayDate(b.day).getTime();
+        if (dayDiff !== 0) return dayDiff;
+        return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
     });
 }
 
-// Helper: Sync session lên Supabase sau khi SQLite thay đổi
+function buildInitialSelection(guildId, userId, sessions) {
+    const key = menuStateKey(guildId, userId);
+    if (pendingBcMenuSelections.has(key)) return new Set(pendingBcMenuSelections.get(key));
+    return new Set(sessions.filter(session => isUserInSession(session, userId)).map(session => session.party_key));
+}
+
+function createBcMenu(guildId, userId) {
+    const db = require('../database/db');
+    const sessions = sortSessionsForMenu(db.getActiveBangchienByGuild(guildId));
+    const selected = buildInitialSelection(guildId, userId, sessions);
+
+    const embed = new EmbedBuilder()
+        .setColor(0xFFD700)
+        .setTitle('DANG KY BANG CHIEN')
+        .setDescription(
+            sessions.length > 0
+                ? 'Chon cac tran muon tham gia, roi bam Xac nhan. Tran LEAGUE 19:30 duoc dat dau danh sach.'
+                : 'Chua co phien Bang Chien nao dang mo.'
+        );
+
+    for (const session of sessions.slice(0, 10)) {
+        const total = getSessionTotal(session);
+        const joined = isUserInSession(session, userId);
+        embed.addFields({
+            name: getSessionLabel(session),
+            value: `${getDayNameWithDate(session.day)} - ${total}/30${joined ? ' - Ban da dang ky' : ''}`,
+            inline: false
+        });
+    }
+
+    const components = [];
+    if (sessions.length > 0) {
+        const options = sessions.slice(0, 25).map(session => ({
+            label: getSessionLabel(session).slice(0, 100),
+            value: session.party_key,
+            description: `${getDayNameWithDate(session.day)} - ${getSessionTotal(session)}/30`.slice(0, 100),
+            default: selected.has(session.party_key)
+        }));
+
+        components.push(new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`bcmenu_select_${guildId}`)
+                .setPlaceholder('Chon tran Bang Chien')
+                .setMinValues(0)
+                .setMaxValues(Math.max(1, options.length))
+                .addOptions(options)
+        ));
+
+        components.push(new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`bcmenu_apply_${guildId}`)
+                .setLabel('Xac nhan')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`bcmenu_close_${guildId}`)
+                .setLabel('Dong')
+                .setStyle(ButtonStyle.Secondary)
+        ));
+    } else {
+        components.push(new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`bcmenu_close_${guildId}`)
+                .setLabel('Dong')
+                .setStyle(ButtonStyle.Secondary)
+        ));
+    }
+
+    return { embed, components };
+}
+
 async function syncSessionToSupabase(guildId, partyKey, guild = null) {
     try {
         const supaSync = require('./supabaseSync');
@@ -45,150 +155,30 @@ async function syncSessionToSupabase(guildId, partyKey, guild = null) {
         if (!session) return;
         const formatted = supaSync.formatActiveSession(session, db, guild);
         if (formatted) {
+            formatted.time = normalizeBcTime(session.time || LEAGUE_TIME);
             await supaSync.syncBCSession(guildId, session.day || 'sat', formatted);
-            console.log(`[bcMenu] ✅ Đã sync session ${session.day} lên Supabase`);
         }
     } catch (e) {
-        console.error('[bcMenu] Lỗi sync Supabase:', e.message);
+        console.error('[bcMenu] Supabase sync failed:', e.message);
     }
 }
 
-/**
- * Helper: Parse day từ customId dynamic
- * VD: "bcmenu_join_mon_123456" → "mon"
- *     "bcmenu_leave_sat_123456" → "sat"
- */
-function parseDayFromCustomId(customId) {
-    const dayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-    for (const d of dayKeys) {
-        if (customId.includes(`_${d}_`)) return d;
+async function refreshOverview(interaction, guildId) {
+    const { bangchienOverviews } = require('./bangchienState');
+    const overviewData = bangchienOverviews.get(guildId);
+    if (!overviewData || !overviewData.message) return;
+
+    try {
+        const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
+        const newEmbed = createOverviewEmbed(guildId, interaction.guild);
+        const newRow = createOverviewButton(guildId);
+        await overviewData.message.edit({
+            embeds: [newEmbed],
+            components: newRow ? [newRow] : []
+        });
+    } catch (e) {
+        console.error('[bcMenu] Refresh overview failed:', e.message);
     }
-    return null;
-}
-
-/**
- * Tạo menu đăng ký BC (ephemeral) - DYNAMIC tất cả ngày
- */
-function createBcMenu(guildId, userId) {
-    const db = require('../database/db');
-    const { PRIMARY_DAYS } = require('./bangchienState');
-
-    const dayShortLabels = {
-        'mon': 'T2', 'tue': 'T3', 'wed': 'T4', 'thu': 'T5',
-        'fri': 'T6', 'sat': 'T7', 'sun': 'CN'
-    };
-
-    // Lấy TẤT CẢ sessions active
-    const allSessions = db.getActiveBangchienByGuild(guildId);
-    const sessionMap = {};
-    allSessions.forEach(s => { if (s.day) sessionMap[s.day] = s; });
-
-    const embed = new EmbedBuilder()
-        .setColor(0xFFD700)
-        .setTitle('📌 ĐĂNG KÝ BANG CHIẾN')
-        .setDescription('Chọn ngày bạn muốn tham gia. Bấm **Luôn tham gia** để tự động đăng ký mỗi tuần.');
-
-    // Sắp xếp theo ngày gần nhất (ngày sắp đến trước)
-    const daysToShow = sortDaysByNearest([...new Set([...PRIMARY_DAYS, ...Object.keys(sessionMap)])]);
-
-    const actionRows = [];
-    let currentActionRow = null;
-
-    const pushActionButtons = (buttons) => {
-        if (!buttons.length) return;
-        if (!currentActionRow || currentActionRow.components.length + buttons.length > 5) {
-            currentActionRow = new ActionRowBuilder();
-            actionRows.push(currentActionRow);
-        }
-        currentActionRow.addComponents(...buttons);
-    };
-
-    for (const day of daysToShow) {
-        const session = sessionMap[day];
-        const dateStr = getDayNameWithDate(day);
-        const isInDay = session ? isUserInSession(session, userId) : false;
-        const isPrimaryDay = DAY_CONFIG[day]?.primary === true;
-        const isRegularDay = isPrimaryDay ? db.isBcRegular(guildId, userId, day) : false;
-        const shortLabel = dayShortLabels[day] || day.toUpperCase();
-
-        let status = '';
-        if (!session) {
-            status = `📅 **${dateStr}** - _Chưa mở_`;
-        } else {
-            const total = getSessionTotal(session);
-            status = `📅 **${dateStr}** (${total}/30)\n`;
-            status += isInDay ? '✅ Bạn đã đăng ký' : '🔘 Bạn chưa đăng ký';
-            if (isRegularDay) status += ' 📌';
-        }
-        embed.addFields({ name: '\u200b', value: status, inline: false });
-
-        // Add buttons for this active session.
-        if (session) {
-            const buttons = [];
-            if (isInDay) {
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(`bcmenu_leave_${day}_${guildId}`)
-                        .setLabel(`❌ Hủy ${shortLabel}`)
-                        .setStyle(ButtonStyle.Secondary)
-                );
-            } else {
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(`bcmenu_join_${day}_${guildId}`)
-                        .setLabel(`✅ Tham gia ${shortLabel}`)
-                        .setStyle(ButtonStyle.Success)
-                );
-            }
-            if (isPrimaryDay) {
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(`bcmenu_regular_${day}_${guildId}`)
-                        .setLabel(isRegularDay ? `📌 Bỏ luôn ${shortLabel}` : `📌 Luôn ${shortLabel}`)
-                        .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
-                );
-            }
-            pushActionButtons(buttons);
-        }
-    }
-
-    embed.setFooter({ text: '📌 = Luôn tham gia | Menu này chỉ bạn thấy' });
-
-    const closeRow = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId(`bcmenu_close_${guildId}`)
-                .setLabel('🔴 Đóng')
-                .setStyle(ButtonStyle.Danger)
-        );
-
-    const components = [...actionRows, closeRow];
-    return { embed, components };
-}
-
-/**
- * Kiểm tra user có trong session không
- */
-function isUserInSession(session, userId) {
-    const allMembers = [
-        ...(session.team_attack1 || []),
-        ...(session.team_attack2 || []),
-        ...(session.team_defense || []),
-        ...(session.team_forest || []),
-        ...(session.waiting_list || [])
-    ];
-    return allMembers.some(m => m.id === userId);
-}
-
-/**
- * Tính tổng số người trong session
- */
-function getSessionTotal(session) {
-    return (session.team_attack1?.length || 0) +
-        (session.team_attack2?.length || 0) +
-        (session.team_defense?.length || 0) +
-        (session.team_forest?.length || 0) +
-        (session.waiting_list?.length || 0);
 }
 
 function getBcRoleForInteraction(interaction) {
@@ -224,431 +214,216 @@ function getBcRoleForInteraction(interaction) {
     return { userRole: userRole || 'DPS', subRoleName };
 }
 
-/**
- * Xử lý button từ ephemeral menu
- * @param {ButtonInteraction} interaction
- * @returns {boolean} - true nếu đã xử lý
- */
-async function handleBcMenuButton(interaction) {
-    const customId = interaction.customId;
-    if (!customId.startsWith('bcmenu_') && !customId.startsWith('bc_menu_') && !customId.startsWith('bc_regular_') && !customId.startsWith('bc_viewdetail_') && !customId.startsWith('bc_viewlist_')) return false;
-
-    // DEFER NGAY LẬP TỨC
+async function ensureBcRole(interaction) {
     try {
-        if (customId.startsWith('bc_menu_')) {
-            await interaction.deferReply({ ephemeral: true });
-        } else if (customId.startsWith('bc_viewdetail_')) {
-            const isEphemeralMsg = interaction.message?.flags?.has(64);
-            if (isEphemeralMsg) {
-                await interaction.deferUpdate();
-            } else {
-                await interaction.deferReply({ ephemeral: true });
-            }
-        } else if (customId.startsWith('bc_regular_')) {
-            await interaction.deferReply({ ephemeral: true });
-        } else {
-            await interaction.deferUpdate();
+        let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
+        if (!bcRole) {
+            bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
+        }
+        if (bcRole && !interaction.member.roles.cache.has(bcRole.id)) {
+            await interaction.member.roles.add(bcRole);
         }
     } catch (e) {
-        console.error(`[bcMenu] Defer failed cho ${customId}:`, e.message);
-        return true;
+        console.error('[bcMenu] Add BC role failed:', e.message);
+    }
+}
+
+async function removeBcRoleIfUnused(interaction, guildId, userId) {
+    if (isUserInAnyActiveSession(guildId, userId)) return;
+    try {
+        const bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
+        if (bcRole && interaction.member.roles.cache.has(bcRole.id)) {
+            await interaction.member.roles.remove(bcRole);
+        }
+    } catch (e) {
+        console.error('[bcMenu] Remove BC role failed:', e.message);
+    }
+}
+
+async function applyMenuSelection(interaction, guildId, userId) {
+    const db = require('../database/db');
+    const { bangchienRegistrations } = require('./bangchienState');
+    const sessions = sortSessionsForMenu(db.getActiveBangchienByGuild(guildId));
+    const key = menuStateKey(guildId, userId);
+    const selected = pendingBcMenuSelections.has(key)
+        ? new Set(pendingBcMenuSelections.get(key))
+        : buildInitialSelection(guildId, userId, sessions);
+
+    const userInfo = db.getUserByDiscordId(userId);
+    const gameName = userInfo?.game_username || '';
+    const { userRole, subRoleName } = getBcRoleForInteraction(interaction);
+    const changedPartyKeys = [];
+    let joinedCount = 0;
+    let leftCount = 0;
+    const errors = [];
+
+    for (const session of sessions) {
+        const wantsJoin = selected.has(session.party_key);
+        const isJoined = isUserInSession(session, userId);
+
+        if (wantsJoin && !isJoined) {
+            const participantData = {
+                id: userId,
+                username: interaction.user.username,
+                gn: gameName,
+                name: gameName || interaction.user.username,
+                role: userRole,
+                sub: subRoleName,
+                joinedAt: Date.now(),
+                isLeader: false
+            };
+            const result = db.addBangchienParticipant(session.party_key, participantData, guildId);
+            if (result.success) {
+                const regs = bangchienRegistrations.get(session.party_key) || [];
+                regs.push(participantData);
+                bangchienRegistrations.set(session.party_key, regs);
+                changedPartyKeys.push(session.party_key);
+                joinedCount++;
+            } else {
+                errors.push(`${getSessionLabel(session)}: ${result.error || 'khong the dang ky'}`);
+            }
+        }
+
+        if (!wantsJoin && isJoined) {
+            const result = db.removeBangchienParticipant(session.party_key, userId);
+            if (result.success) {
+                const regs = bangchienRegistrations.get(session.party_key) || [];
+                bangchienRegistrations.set(session.party_key, regs.filter(r => String(r.id) !== String(userId)));
+                changedPartyKeys.push(session.party_key);
+                leftCount++;
+            } else {
+                errors.push(`${getSessionLabel(session)}: ${result.error || 'khong the huy'}`);
+            }
+        }
+    }
+
+    if (joinedCount > 0) await ensureBcRole(interaction);
+    if (leftCount > 0) await removeBcRoleIfUnused(interaction, guildId, userId);
+
+    for (const partyKey of [...new Set(changedPartyKeys)]) {
+        await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+    }
+    if (changedPartyKeys.length > 0) await refreshOverview(interaction, guildId);
+
+    pendingBcMenuSelections.delete(key);
+    const summary = [];
+    if (joinedCount > 0) summary.push(`dang ky ${joinedCount} tran`);
+    if (leftCount > 0) summary.push(`huy ${leftCount} tran`);
+    if (summary.length === 0) summary.push('khong co thay doi');
+    if (errors.length > 0) summary.push(`loi: ${errors.slice(0, 2).join('; ')}`);
+    return summary.join(' - ');
+}
+
+async function showRecurringDisabled(interaction) {
+    const content = 'Chuc nang dang ky dinh ky dang tam thoi tat. Hay dung menu dang ky de chon tung tran.';
+    if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content, embeds: [], components: [] });
+    } else {
+        await interaction.reply({ content, ephemeral: true });
+    }
+}
+
+async function handleBcMenuSelect(interaction) {
+    if (!interaction.customId.startsWith('bcmenu_select_')) return false;
+    await interaction.deferUpdate();
+
+    const guildId = interaction.guild.id;
+    const key = menuStateKey(guildId, interaction.user.id);
+    pendingBcMenuSelections.set(key, new Set(interaction.values || []));
+
+    const { embed, components } = createBcMenu(guildId, interaction.user.id);
+    await interaction.editReply({ embeds: [embed], components });
+    return true;
+}
+
+async function handleBcMenuButton(interaction) {
+    const customId = interaction.customId;
+    if (!customId.startsWith('bcmenu_') &&
+        !customId.startsWith('bc_menu_') &&
+        !customId.startsWith('bc_' + 'reg' + 'ular_') &&
+        !customId.startsWith('bc_viewdetail_') &&
+        !customId.startsWith('bc_viewlist_')) {
+        return false;
     }
 
     const guildId = interaction.guild.id;
     const userId = interaction.user.id;
-    const username = interaction.user.username;
-    const db = require('../database/db');
-    const { bangchienRegistrations, bangchienOverviews } = require('./bangchienState');
 
-    // Helper: Refresh overview embed
-    const refreshOverview = async () => {
-        const overviewData = bangchienOverviews.get(guildId);
-        if (!overviewData || !overviewData.message) return;
-
-        try {
-            const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
-            const newEmbed = createOverviewEmbed(guildId, interaction.guild);
-            const newRow = createOverviewButton(guildId);
-            const editOptions = { embeds: [newEmbed] };
-            if (newRow) editOptions.components = [newRow];
-            else editOptions.components = [];
-            await overviewData.message.edit(editOptions);
-        } catch (e) {
-            console.error('[bcMenu] Error refreshing overview:', e.message);
-        }
-    };
-
-    // bc_regular_{day}_{guildId} từ overview (toggle quick)
-    if (customId.startsWith('bc_regular_')) {
-        const day = parseDayFromCustomId(customId);
-        if (!day || !DAY_CONFIG[day]) return true;
-        if (DAY_CONFIG[day]?.primary !== true) {
-            await removeBcRegularDay(guildId, userId, day, 'quick_invalid_day');
-            await interaction.editReply({ content: '⚠️ "Luôn tham gia" chỉ áp dụng cho Thứ 7 và Chủ Nhật.' });
-            return true;
-        }
-        const eligibility = await getBcRegularEligibility(interaction.guild, userId, interaction.member);
-        if (!eligibility.eligible) {
-            await cleanupWeekendBcRegulars(interaction.guild, userId, `discord_quick_blocked:${eligibility.reason}`);
-            await interaction.editReply({
-                content: 'Ban can co role LangGia de bat "Luon tham gia". Da xoa dang ky dinh ky cu neu co.'
-            });
-            await refreshOverview();
-            return true;
-        }
-
-        const isRegular = db.isBcRegular(guildId, userId, day);
-
-        if (isRegular) {
-            await removeBcRegularDay(guildId, userId, day, 'discord_quick_off');
-            await interaction.editReply({
-                content: `✅ Đã tắt "Luôn tham gia" ${DAY_CONFIG[day].name}.`
-            });
-        } else {
-            const addRegular = await addBcRegularIfEligible(interaction.guild, userId, username, day, interaction.member);
-            if (!addRegular.success) {
-                await interaction.editReply({
-                    content: 'Ban can co role LangGia de bat "Luon tham gia". Da xoa dang ky dinh ky cu neu co.'
-                });
-                await refreshOverview();
-                return true;
-            }
-
-            let autoJoinMsg = '';
-            const session = db.getActiveBangchienByDay(guildId, day);
-            if (session && !isUserInSession(session, userId)) {
-                const result = db.addBangchienParticipant(session.party_key, {
-                    id: userId,
-                    username: username,
-                    joinedAt: Date.now(),
-                    isLeader: false,
-                    isRegular: true
-                });
-                if (result.success) {
-                    const regs = bangchienRegistrations.get(session.party_key) || [];
-                    regs.push({ id: userId, username, joinedAt: Date.now(), isLeader: false, isRegular: true });
-                    bangchienRegistrations.set(session.party_key, regs);
-                    autoJoinMsg = ` Đã tự động đăng ký ${DAY_CONFIG[day].name}!`;
-                    await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
-                    try {
-                        let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
-                        if (!bcRole) bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
-                        const member = await interaction.guild.members.fetch(userId).catch(() => null);
-                        if (bcRole && member && !member.roles.cache.has(bcRole.id)) await member.roles.add(bcRole);
-                    } catch (e) { console.error('[bcMenu] Lỗi cấp role BC (regular):', e.message); }
-                }
-            }
-
-            await interaction.editReply({
-                content: `✅ Đã bật "Luôn tham gia" ${DAY_CONFIG[day].name}.${autoJoinMsg}`
-            });
-        }
-
-        await refreshOverview();
+    if (customId.startsWith('bc_' + 'reg' + 'ular_') || customId.startsWith('bcmenu_' + 'reg' + 'ular_')) {
+        await interaction.deferReply({ ephemeral: true });
+        await showRecurringDisabled(interaction);
         return true;
     }
 
-    // bc_viewdetail_{guildId} → Hiện menu chọn ngày để xem danh sách
-    if (customId.startsWith('bc_viewdetail_')) {
-        const allSessions = db.getActiveBangchienByGuild(guildId);
-        const sessionMap = {};
-        allSessions.forEach(s => { if (s.day) sessionMap[s.day] = s; });
-
-        const dayShortLabels = { 'mon': 'T2', 'tue': 'T3', 'wed': 'T4', 'thu': 'T5', 'fri': 'T6', 'sat': 'T7', 'sun': 'CN' };
-        // Sắp xếp theo ngày gần nhất (ngày sắp đến trước)
-        const activeDays = sortDaysByNearest(Object.keys(sessionMap));
-
-        const embed = new EmbedBuilder()
-            .setColor(0x3498DB)
-            .setTitle('📋 XEM DANH SÁCH BANG CHIẾN')
-            .setDescription('Chọn ngày để xem danh sách chi tiết:');
-
-        for (const day of activeDays) {
-            const total = getSessionTotal(sessionMap[day]);
-            embed.addFields({
-                name: `📅 ${getDayNameWithDate(day)}`,
-                value: `👥 ${total}/30 người`,
-                inline: true
-            });
-        }
-
-        if (activeDays.length === 0) {
-            embed.setDescription('Chưa có phiên Bang Chiến nào đang mở.');
-        }
-
-        embed.setFooter({ text: 'Menu này chỉ bạn thấy' });
-
-        const row = new ActionRowBuilder();
-        for (const day of activeDays) {
-            if (row.components.length >= 4) break;
-            const total = getSessionTotal(sessionMap[day]);
-            row.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bc_viewlist_${day}_${guildId}`)
-                    .setLabel(`📋 Xem ${dayShortLabels[day] || day} (${total})`)
-                    .setStyle(ButtonStyle.Primary)
-            );
-        }
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`bcmenu_close_${guildId}`)
-                .setLabel('🔴 Đóng')
-                .setStyle(ButtonStyle.Secondary)
-        );
-
-        await interaction.editReply({ embeds: [embed], components: [row] });
-        return true;
-    }
-
-    // bc_viewlist_{day}_{guildId} → Hiện danh sách chi tiết
-    if (customId.startsWith('bc_viewlist_')) {
-        const day = parseDayFromCustomId(customId);
-        if (!day) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
-
-        const session = db.getActiveBangchienByDay(guildId, day);
-        if (!session) {
-            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day]?.name || day}.`, embeds: [], components: [] });
-            return true;
-        }
-
-        const { createBangchienEmbed } = require('../commands/bangchien/bangchien');
-        const embed = createBangchienEmbed(session.party_key, session.leader_name, interaction.guild);
-        embed.setFooter({ text: 'Menu này chỉ bạn thấy | Hôm nay lúc ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) });
-
-        const shortLabel = { mon: 'T2', tue: 'T3', wed: 'T4', thu: 'T5', fri: 'T6', sat: 'T7', sun: 'CN' }[day] || day.toUpperCase();
-        const isInDay = isUserInSession(session, userId);
-        const isRegularDay = db.isBcRegular(guildId, userId, day);
-
-        // Row 1: nút đăng ký/hủy + luôn tham gia
-        const actionRow = new ActionRowBuilder();
-        if (isInDay) {
-            actionRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_leave_${day}_${guildId}`)
-                    .setLabel(`❌ Hủy đăng ký ${shortLabel}`)
-                    .setStyle(ButtonStyle.Secondary)
-            );
-        } else {
-            actionRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_join_${day}_${guildId}`)
-                    .setLabel(`✅ Đăng ký ${shortLabel}`)
-                    .setStyle(ButtonStyle.Success)
-            );
-        }
-        if (DAY_CONFIG[day]?.primary === true) {
-            actionRow.addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_regular_${day}_${guildId}`)
-                    .setLabel(isRegularDay ? `📌 Bỏ luôn ${shortLabel}` : `📌 Luôn ${shortLabel}`)
-                    .setStyle(isRegularDay ? ButtonStyle.Secondary : ButtonStyle.Primary)
-            );
-        }
-
-        // Row 2: điều hướng
-        const backRow = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`bc_viewdetail_${guildId}`)
-                    .setLabel('⬅️ Quay lại')
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId(`bcmenu_close_${guildId}`)
-                    .setLabel('🔴 Đóng')
-                    .setStyle(ButtonStyle.Danger)
-            );
-
-        await interaction.editReply({ embeds: [embed], components: [actionRow, backRow] });
-        return true;
-    }
-
-
-    // bc_menu_{guildId} → Mở menu
     if (customId.startsWith('bc_menu_')) {
+        await interaction.deferReply({ ephemeral: true });
         const { embed, components } = createBcMenu(guildId, userId);
         await interaction.editReply({ embeds: [embed], components });
         return true;
     }
 
-    // bcmenu_close
+    if (customId.startsWith('bc_viewdetail_')) {
+        await interaction.deferReply({ ephemeral: true });
+        const db = require('../database/db');
+        const sessions = sortSessionsForMenu(db.getActiveBangchienByGuild(guildId));
+        const embed = new EmbedBuilder()
+            .setColor(0x3498DB)
+            .setTitle('DANH SACH BANG CHIEN')
+            .setDescription(sessions.length ? 'Chon mot tran de xem danh sach chi tiet.' : 'Chua co phien Bang Chien nao dang mo.');
+
+        const rows = [];
+        let row = new ActionRowBuilder();
+        for (const session of sessions.slice(0, 24)) {
+            if (row.components.length >= 5) {
+                rows.push(row);
+                row = new ActionRowBuilder();
+            }
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bc_viewlist_${session.party_key}`)
+                    .setLabel(`${getSessionLabel(session)} (${getSessionTotal(session)})`.slice(0, 80))
+                    .setStyle(ButtonStyle.Primary)
+            );
+        }
+        if (row.components.length > 0) rows.push(row);
+        rows.push(new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`bcmenu_close_${guildId}`)
+                .setLabel('Dong')
+                .setStyle(ButtonStyle.Secondary)
+        ));
+        await interaction.editReply({ embeds: [embed], components: rows });
+        return true;
+    }
+
+    await interaction.deferUpdate();
+
     if (customId.startsWith('bcmenu_close_')) {
-        await interaction.editReply({ content: '✅ Đã đóng menu.', embeds: [], components: [] });
+        pendingBcMenuSelections.delete(menuStateKey(guildId, userId));
+        await interaction.editReply({ content: 'Da dong menu.', embeds: [], components: [] });
         return true;
     }
 
-    // bcmenu_join_{day}_{guildId} - DYNAMIC
-    if (customId.startsWith('bcmenu_join_')) {
-        const day = parseDayFromCustomId(customId);
-        if (!day || !DAY_CONFIG[day]) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
+    if (customId.startsWith('bcmenu_apply_')) {
+        const summary = await applyMenuSelection(interaction, guildId, userId);
+        const { embed, components } = createBcMenu(guildId, userId);
+        await interaction.editReply({ content: `Da cap nhat: ${summary}.`, embeds: [embed], components });
+        return true;
+    }
 
-        const session = db.getActiveBangchienByDay(guildId, day);
+    if (customId.startsWith('bc_viewlist_')) {
+        const db = require('../database/db');
+        const partyKey = customId.replace('bc_viewlist_', '');
+        const session = db.getActiveBangchien(partyKey);
         if (!session) {
-            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
+            await interaction.editReply({ content: 'Phien Bang Chien nay khong con ton tai.', embeds: [], components: [] });
             return true;
         }
 
-        if (isUserInSession(session, userId)) {
-            const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.editReply({ content: `⚠️ Bạn đã đăng ký ${DAY_CONFIG[day].name} rồi!`, embeds: [embed], components });
-            return true;
-        }
-
-        const userInfo = db.getUserByDiscordId(userId);
-        const gameName = userInfo?.game_username || '';
-        const { userRole, subRoleName } = getBcRoleForInteraction(interaction);
-        const participantData = {
-            id: userId,
-            username: username,
-            gn: gameName,
-            name: gameName || username,
-            role: userRole,
-            sub: subRoleName,
-            joinedAt: Date.now(),
-            isLeader: false
-        };
-
-        const result = db.addBangchienParticipant(session.party_key, participantData, guildId);
-
-        if (result.success) {
-            const regs = bangchienRegistrations.get(session.party_key) || [];
-            regs.push(participantData);
-            bangchienRegistrations.set(session.party_key, regs);
-
-            try {
-                let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
-                if (!bcRole) bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
-                if (bcRole && !interaction.member.roles.cache.has(bcRole.id)) await interaction.member.roles.add(bcRole);
-            } catch (e) { console.error('[bcMenu] Lỗi cấp role BC:', e.message); }
-
-            const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.editReply({
-                content: `✅ Đã đăng ký ${DAY_CONFIG[day].name}! (${result.team})`,
-                embeds: [embed],
-                components
-            });
-            await refreshOverview();
-            await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
-        } else {
-            await interaction.editReply({ content: `❌ Lỗi: ${result.error}`, embeds: [], components: [] });
-        }
-        return true;
-    }
-
-    // bcmenu_leave_{day}_{guildId} - DYNAMIC
-    if (customId.startsWith('bcmenu_leave_')) {
-        const day = parseDayFromCustomId(customId);
-        if (!day || !DAY_CONFIG[day]) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
-
-        const session = db.getActiveBangchienByDay(guildId, day);
-        if (!session) {
-            await interaction.editReply({ content: `❌ Chưa có phiên BC ${DAY_CONFIG[day].name}.`, embeds: [], components: [] });
-            return true;
-        }
-
-        const result = db.removeBangchienParticipant(session.party_key, userId);
-
-        if (result.success) {
-            const regs = bangchienRegistrations.get(session.party_key) || [];
-            const updated = regs.filter(r => r.id !== userId);
-            bangchienRegistrations.set(session.party_key, updated);
-
-            try {
-                const bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
-                if (bcRole && interaction.member.roles.cache.has(bcRole.id)) await interaction.member.roles.remove(bcRole);
-            } catch (e) { console.error('[bcMenu] Lỗi xóa role BC:', e.message); }
-
-            const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.editReply({
-                content: `✅ Đã hủy đăng ký ${DAY_CONFIG[day].name}!`,
-                embeds: [embed],
-                components
-            });
-            await refreshOverview();
-            await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
-        } else {
-            await interaction.editReply({ content: `❌ Lỗi: ${result.error || 'Không tìm thấy'}`, embeds: [], components: [] });
-        }
-        return true;
-    }
-
-    // bcmenu_regular_{day}_{guildId} (toggle) - DYNAMIC
-    if (customId.startsWith('bcmenu_regular_')) {
-        const day = parseDayFromCustomId(customId);
-        if (!day || !DAY_CONFIG[day]) { await interaction.editReply({ content: '❌ Ngày không hợp lệ.', embeds: [], components: [] }); return true; }
-        if (!isWeekendDay(day)) {
-            await removeBcRegularDay(guildId, userId, day, 'invalid_day_click');
-            await interaction.editReply({ content: '"Luon tham gia" chi ap dung cho Thu 7 va Chu Nhat.', embeds: [], components: [] });
-            return true;
-        }
-
-        const eligibility = await getBcRegularEligibility(interaction.guild, userId, interaction.member);
-        if (!eligibility.eligible) {
-            await cleanupWeekendBcRegulars(interaction.guild, userId, `discord_menu_blocked:${eligibility.reason}`);
-            await interaction.editReply({
-                content: 'Ban can co role LangGia de bat "Luon tham gia". Da xoa dang ky dinh ky cu neu co.',
-                embeds: [],
-                components: []
-            });
-            await refreshOverview();
-            return true;
-        }
-
-        const isRegular = db.isBcRegular(guildId, userId, day);
-
-        if (isRegular) {
-            await removeBcRegularDay(guildId, userId, day, 'discord_menu_off');
-            const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.editReply({
-                content: `✅ Đã tắt "Luôn tham gia" cho ${DAY_CONFIG[day].name}. Đăng ký tuần này vẫn giữ nguyên.`,
-                embeds: [embed],
-                components
-            });
-            await refreshOverview();
-        } else {
-            const addRegular = await addBcRegularIfEligible(interaction.guild, userId, username, day, interaction.member);
-            if (!addRegular.success) {
-                await interaction.editReply({
-                    content: 'Ban can co role LangGia de bat "Luon tham gia". Da xoa dang ky dinh ky cu neu co.',
-                    embeds: [],
-                    components: []
-                });
-                await refreshOverview();
-                return true;
-            }
-
-            let autoJoinMessage = '';
-            const session = db.getActiveBangchienByDay(guildId, day);
-            if (session && !isUserInSession(session, userId)) {
-                const result = db.addBangchienParticipant(session.party_key, {
-                    id: userId,
-                    username: username,
-                    joinedAt: Date.now(),
-                    isLeader: false,
-                    isRegular: true
-                });
-
-                if (result.success) {
-                    const regs = bangchienRegistrations.get(session.party_key) || [];
-                    regs.push({ id: userId, username, joinedAt: Date.now(), isLeader: false, isRegular: true });
-                    bangchienRegistrations.set(session.party_key, regs);
-                    autoJoinMessage = ` Đã tự động đăng ký ${DAY_CONFIG[day].name} tuần này!`;
-                    await syncSessionToSupabase(guildId, session.party_key, interaction.guild);
-                    try {
-                        let bcRole = interaction.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
-                        if (!bcRole) bcRole = await interaction.guild.roles.create({ name: BC_ROLE_NAME, color: 0xE74C3C, reason: 'BC role' });
-                        if (bcRole && !interaction.member.roles.cache.has(bcRole.id)) await interaction.member.roles.add(bcRole);
-                    } catch (e) { console.error('[bcMenu] Lỗi cấp role BC (regular):', e.message); }
-                }
-            }
-
-            const { embed, components } = createBcMenu(guildId, userId);
-            await interaction.editReply({
-                content: `✅ Đã bật "Luôn tham gia" cho ${DAY_CONFIG[day].name}.${autoJoinMessage}`,
-                embeds: [embed],
-                components
-            });
-            await refreshOverview();
-        }
+        const { createBangchienEmbed } = require('../commands/bangchien/bangchien');
+        const embed = createBangchienEmbed(session.party_key, session.leader_name, interaction.guild);
+        const { embed: menuEmbed, components } = createBcMenu(guildId, userId);
+        await interaction.editReply({ embeds: [embed, menuEmbed], components });
         return true;
     }
 
@@ -658,6 +433,7 @@ async function handleBcMenuButton(interaction) {
 module.exports = {
     createBcMenu,
     handleBcMenuButton,
+    handleBcMenuSelect,
     isUserInSession,
     getSessionTotal
 };

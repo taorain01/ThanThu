@@ -134,8 +134,10 @@ async function sendGieoQueGuide(client) {
                 `👉 **\`?cauduyen [câu hỏi]\`**: Xin quẻ tình duyên (cho nam thanh nữ tú).\n\n` +
                 `*Ví dụ: \`?gieoque hôm nay có may mắn không?\`*\n\n` +
                 `⚠️ **Lưu ý:**\n` +
-                `- Mỗi người chỉ được gieo **1 quẻ công danh** và **1 quẻ tình duyên** mỗi ngày.\n` +
-                `- Quẻ chỉ phán cho ngày hôm nay, reset mỗi ngày mới.\n` +
+                `- Mỗi người có **1 quẻ công danh** và **1 quẻ tình duyên** chính mỗi ngày; hỏi lại trong ngày sẽ phán lại theo quẻ cũ.\n` +
+                `- Nếu có câu hỏi cụ thể, bot sẽ bám sát câu hỏi đó.\n` +
+                `- Core/Bát Âm chỉ hiện khi hỏi về core/roll/nổ vàng; không hỏi thì không nhắc.\n` +
+                `- Kết quả core của WWM giữ cố định trong tháng.\n` +
                 `- Bot sẽ nhắc nhở nếu kênh không có hoạt động sau 30 phút.`,
             footer: { text: '🔮 Mỗi ngày một quẻ, vận may tự đến! 🔮' }
         };

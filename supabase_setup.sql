@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS bc_sessions (
     locked BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(guild_id, day)
+    UNIQUE(guild_id, day, time)
 );
 
 -- 2. Bảng user mapping (sync từ bot SQLite)

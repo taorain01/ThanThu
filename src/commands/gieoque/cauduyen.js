@@ -74,7 +74,7 @@ async function execute(message, args) {
     try {
         // 5. Tạo prompt
         let prompt = "";
-        const userQuery = args.join(' ');
+        const userQuery = args.join(' ').trim();
         // Giảm tần suất nhắc Lang Gia: chỉ ~30% cơ hội thay vì 100%
         const shouldMentionLangGia = isLangGia && Math.random() < 0.3;
         const langGiaLine = shouldMentionLangGia
@@ -115,10 +115,11 @@ YÊU CẦU QUAN TRỌNG:
 - GIỮ NGUYÊN vận hạn tình duyên (tốt thì vẫn tốt, xấu thì vẫn xấu). KHÔNG ĐƯỢC đổi trắng thay đen.
 - Giọng điệu: Khó chịu, cà khịa, mắng yêu kiểu "Ta đã bảo rồi...", "Cố chấp quá...", "Cầu mấy lần cũng vậy thôi...", "Duyên đến thì đến, cầu nhiều cũng không nhanh hơn đâu...".
 - Ngắn gọn 3-4 câu, kết thúc bằng câu đuổi khéo.
+- Nếu người dùng có câu hỏi mới, phải trả lời trực tiếp câu hỏi đó trong 1-2 câu đầu, nhưng vẫn giữ đúng kết luận quẻ duyên cũ.
 - Có thể thay đổi cách diễn đạt, ví von, nhưng ý nghĩa phải giống hệt.${langGiaLine}`;
 
             if (userQuery) {
-                prompt += `\n\nNgười dùng vừa hỏi thêm: "${userQuery}".\nHãy dựa vào câu hỏi này để mắng/cà khịa thêm về chuyện tình duyên (ví dụ: "Đã bảo là... mà còn hỏi '${userQuery}' làm gì?").`;
+                prompt += `\n\nNgười dùng vừa hỏi thêm: "${userQuery}".\nHãy bám sát câu hỏi này để phán lại chuyện tình duyên, có thể cà khịa nhẹ, nhưng không được trả lời chung chung.`;
             }
         } else {
             prompt = `Hãy đóng vai một con ngỗng thầy bói, hài hước và hơi "bựa" một chút. Hãy phán quẻ TÌNH DUYÊN cho người dùng trong NGÀY HÔM NAY. Xưng "Ta".
@@ -133,10 +134,11 @@ Yêu cầu:
 - Giọng điệu hài hước, vui tươi, có thể hơi trêu ghẹo.
 - Kết thúc bằng một câu chúc tình duyên "bá đạo".
 - Không dùng các format markdown phức tạp như Heading (#).
+- Nếu người dùng có câu hỏi cụ thể, phải trả lời trực tiếp câu hỏi đó trong 1-2 câu đầu rồi mới ví von thêm; không được chỉ phán chung chung.
 - Thêm 1 câu ví von lãng mạn hoặc hài hước liên quan đến ý nghĩa tên của người dùng (tên là "${userName}"). Nếu tên là tiếng nước ngoài (Anh, Trung, Nhật, v.v.), hãy dịch nghĩa sang Tiếng Việt rồi mới dùng để thả thính/ví von. Ví dụ: Rain -> Cơn mưa, Moon -> Mặt trăng, Sakura -> Hoa anh đào.${langGiaLine}`;
 
             if (userQuery) {
-                prompt += `\n\nNgười dùng có lời thỉnh cầu cụ thể về tình duyên: "${userQuery}".\nHãy kết hợp nội dung này vào quẻ bói tình duyên một cách tự nhiên.`;
+                prompt += `\n\nNgười dùng có lời thỉnh cầu cụ thể về tình duyên: "${userQuery}".\nHãy lấy câu hỏi này làm trọng tâm chính của quẻ bói, nhưng vẫn giữ vận ${loveFortuneType}.`;
             }
         }
 
@@ -196,13 +198,14 @@ Yêu cầu:
 
         // 7. Chỉnh sửa message và ghi nhận usage
         if (text) {
-            const title = usedToday
+            const fortuneText = text.trim();
+            const title = usedToday && lastFortune
                 ? `💘 **CẦU DUYÊN LẠI CỦA ${userName.toUpperCase()}** 💘`
                 : `💘 **QUẺ TÌNH DUYÊN HÔM NAY CỦA ${userName.toUpperCase()}** 💘`;
-            await waitingMessage.edit(`${title}\n\n${text}`);
+            await waitingMessage.edit(`${title}\n\n${fortuneText}`);
 
-            if (!usedToday) {
-                db.markCauDuyenUsed(message.author.id, text);
+            if (!usedToday || !lastFortune) {
+                db.markCauDuyenUsed(message.author.id, fortuneText);
             } else {
                 db.markCauDuyenUsed(message.author.id, lastFortune);
             }

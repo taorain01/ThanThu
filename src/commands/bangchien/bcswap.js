@@ -5,7 +5,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 // Team config
 const TEAM_EMOJI = {
@@ -32,17 +32,21 @@ module.exports = {
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
 
         // Parse day từ args (MULTI-DAY) và filter bỏ day arg khỏi args
-        const day = parseDayArg(args)?.day;
+        const parsedDayArg = parseDayArg(args);
+        const day = parsedDayArg?.day;
+        const requestedTime = normalizeBcTime(parsedDayArg?.time || LEAGUE_TIME);
+        const isDayOrTimeArg = (value) => DAY_ALIASES[value?.toLowerCase()] || /^\d{1,2}[h:]\d{0,2}$/i.test(value || '');
         if (day) {
             // Lọc bỏ day arg (t7, cn...) khỏi args để chỉ còn số
-            const { DAY_ALIASES } = require('../../utils/bangchienState');
-            args = args.filter(a => !DAY_ALIASES[a?.toLowerCase()]);
+            args = args.filter(a => !isDayOrTimeArg(a));
         }
 
         // Lấy session
         let session, isActiveSession = false;
         if (day) {
-            session = db.getActiveBangchienByDay(guildId, day);
+            session = db.getActiveBangchienByDayTime
+                ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
+                : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
                 return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
             }

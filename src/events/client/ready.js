@@ -5,6 +5,7 @@ const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/qu
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const bangchienRoster = require('../../utils/bangchienRoster');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
 // Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
@@ -678,7 +679,10 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           day: remoteSession.day,
           time: remoteTime,
           note: remoteSession.note || null,
-          supabaseSessionId: remoteSession.id || null
+          supabaseSessionId: remoteSession.id || null,
+          team_layout: remoteSession.team_layout || null,
+          teams: remoteSession.teams || null,
+          waiting_list: remoteSession.waiting_list || []
         });
 
         // Ghi dữ liệu team vào SQLite
@@ -905,7 +909,10 @@ module.exports = {
                 day: day,
                 time,
                 note: newData.note || null,
-                supabaseSessionId: newData.id || null
+                supabaseSessionId: newData.id || null,
+                team_layout: newData.team_layout || null,
+                teams: newData.teams || null,
+                waiting_list: newData.waiting_list || []
               });
               const stringifyTeam = (v) => typeof v === 'string' ? v : JSON.stringify(v || []);
               db.db.prepare(`
@@ -1103,6 +1110,15 @@ module.exports = {
               team_forest: applyLeaderFlagsToTeam(parseTeam(newData.team_forest), leaderIds.team4),
               waiting_list: parseTeam(newData.waiting_list).map((member) => ({ ...member, isTeamLeader: false, ld: false }))
             };
+            const dynamicRoster = bangchienRoster.normalizeRoster(newData);
+            const dynamicLeaderIds = leaderIds.teams || {};
+            for (const team of dynamicRoster.layout) {
+              const legacyLeaderKey = { team_attack1: 'team1', team_attack2: 'team2', team_defense: 'team3', team_forest: 'team4' }[team.id];
+              const teamLeaderId = dynamicLeaderIds[team.id] || (legacyLeaderKey ? leaderIds[legacyLeaderKey] : null);
+              dynamicRoster.teams[team.id] = applyLeaderFlagsToTeam(dynamicRoster.teams[team.id] || [], teamLeaderId);
+            }
+            dynamicRoster.waitingList = (dynamicRoster.waitingList || []).map((member) => ({ ...member, isTeamLeader: false, ld: false }));
+            const dynamicStorage = bangchienRoster.serializeRosterForStorage(dynamicRoster);
 
             const nextSizeTotal = Number(nextSizes.attack1 ?? 0) + Number(nextSizes.attack2 ?? 0) + Number(nextSizes.defense ?? 0) + Number(nextSizes.forest ?? 0);
             if ((leaderIds.editor_action || 'sync') === 'resize' && nextSizeTotal === 30) {
@@ -1126,14 +1142,10 @@ module.exports = {
             }
 
             const localAllIds = new Set([
-              ...localSession.team_attack1, ...localSession.team_attack2,
-              ...localSession.team_defense, ...localSession.team_forest,
-              ...localSession.waiting_list
+              ...bangchienRoster.getAllRosterMembers(localSession)
             ].map(p => p.id));
             const supaAllIds = new Set([
-              ...supaTeams.team_attack1, ...supaTeams.team_attack2,
-              ...supaTeams.team_defense, ...supaTeams.team_forest,
-              ...supaTeams.waiting_list
+              ...bangchienRoster.getAllRosterMembers({ ...newData, teams: dynamicStorage.teams_json, team_layout: dynamicStorage.team_layout })
             ].map(p => p.id));
 
             const removedIds = [...localAllIds].filter(id => !supaAllIds.has(id));
@@ -1143,15 +1155,15 @@ module.exports = {
               UPDATE bangchien_active
               SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?,
                   team1_leader_id=?, team2_leader_id=?, team3_leader_id=?, team4_leader_id=?,
-                  commander_id=?, note=?, time=?, updated_at=CURRENT_TIMESTAMP
+                  commander_id=?, note=?, time=?, team_layout=?, teams_json=?, updated_at=CURRENT_TIMESTAMP
               WHERE party_key=?
             `);
             updateStmt.run(
-              JSON.stringify(supaTeams.team_attack1),
-              JSON.stringify(supaTeams.team_attack2),
-              JSON.stringify(supaTeams.team_defense),
-              JSON.stringify(supaTeams.team_forest),
-              JSON.stringify(supaTeams.waiting_list),
+              JSON.stringify(dynamicStorage.team_attack1 || supaTeams.team_attack1),
+              JSON.stringify(dynamicStorage.team_attack2 || supaTeams.team_attack2),
+              JSON.stringify(dynamicStorage.team_defense || supaTeams.team_defense),
+              JSON.stringify(dynamicStorage.team_forest || supaTeams.team_forest),
+              JSON.stringify(dynamicStorage.waiting_list || supaTeams.waiting_list),
               leaderIds.team1 || null,
               leaderIds.team2 || null,
               leaderIds.team3 || null,
@@ -1159,6 +1171,8 @@ module.exports = {
               leaderIds.commander || localSession.commander_id || null,
               newData.note || '',
               targetTime,
+              dynamicStorage.team_layout,
+              dynamicStorage.teams_json,
               localSession.party_key
             );
             console.log(`[Supabase] S& Đã sync ngược SQLite cho BC ${newData.day}`);

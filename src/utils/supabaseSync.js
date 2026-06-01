@@ -1403,6 +1403,21 @@ function listenForWebChanges(guildId, onSessionChange) {
             team_defense: isLocal ? (session.team_defense || []) : safeParseTeam(session.team_defense),
             team_forest: isLocal ? (session.team_forest || []) : safeParseTeam(session.team_forest),
             waiting_list: isLocal ? (session.waiting_list || []) : safeParseTeam(session.waiting_list),
+            team_layout: (() => {
+                try {
+                    return typeof session.team_layout === 'string'
+                        ? JSON.parse(session.team_layout || '[]')
+                        : (session.team_layout || []);
+                } catch (e) { return []; }
+            })(),
+            teams: (() => {
+                try {
+                    const rawTeams = session.teams || session.teams_json;
+                    return typeof rawTeams === 'string'
+                        ? JSON.parse(rawTeams || '{}')
+                        : (rawTeams || {});
+                } catch (e) { return {}; }
+            })(),
             leader_ids: leaderIds,
             time: session.time || '19:30',
             note: session.note || '',
@@ -1660,23 +1675,35 @@ function formatActiveSession(activeSession, db, guild = null) {
         };
 
         // Enrich tất cả players
-        const enrichTeam = (team) => safeParse(team).map(enrichPlayer);
+        const roster = bangchienRoster.normalizeRoster(activeSession);
+        const enrichedTeams = {};
+        for (const team of roster.layout) {
+            enrichedTeams[team.id] = (roster.teams[team.id] || []).map(enrichPlayer);
+        }
+        const mirrors = bangchienRoster.serializeRosterForStorage({
+            layout: roster.layout,
+            teams: enrichedTeams,
+            waitingList: roster.waitingList.map(enrichPlayer)
+        });
 
         return {
-            team_attack1: enrichTeam(activeSession.team_attack1),
-            team_attack2: enrichTeam(activeSession.team_attack2),
-            team_defense: enrichTeam(activeSession.team_defense),
-            team_forest: enrichTeam(activeSession.team_forest),
-            waiting_list: enrichTeam(activeSession.waiting_list),
+            team_attack1: mirrors.team_attack1,
+            team_attack2: mirrors.team_attack2,
+            team_defense: mirrors.team_defense,
+            team_forest: mirrors.team_forest,
+            waiting_list: mirrors.waiting_list,
             leader_ids: {
                 team1: activeSession.team1_leader_id,
                 team2: activeSession.team2_leader_id,
                 team3: activeSession.team3_leader_id,
                 team4: activeSession.team4_leader_id,
-                commander: activeSession.commander_id
+                commander: activeSession.commander_id,
+                teams: activeSession.leader_ids?.teams || {}
             },
-            team_sizes: teamSizes,
-            team_names: db.getTeamNames ? db.getTeamNames() : {},
+            team_sizes: mirrors.team_sizes || teamSizes,
+            team_names: mirrors.team_names || (db.getTeamNames ? db.getTeamNames() : {}),
+            team_layout: roster.layout,
+            teams: enrichedTeams,
             status: 'active',
             time: activeSession.time || '19:30',
             note: activeSession.note || '',

@@ -218,11 +218,15 @@
     .teams-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
-      grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+      grid-auto-rows:minmax(180px,1fr);
       gap:10px;
       align-items:stretch;
       height:calc(100% - 2px);
+      overflow-y:auto;
+      padding-right:4px;
     }
+    .teams-grid::-webkit-scrollbar{width:5px}
+    .teams-grid::-webkit-scrollbar-thumb{background:rgba(58,208,126,.18);border-radius:4px}
     .panel{
       background:linear-gradient(180deg,rgba(13,27,18,.94),rgba(8,18,12,.96));
       border:1px solid var(--line);
@@ -865,7 +869,7 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
     const GUILD_ID = '450633680000385036';
     const DAY_LABELS = { mon:'Thứ 2', tue:'Thứ 3', wed:'Thứ 4', thu:'Thứ 5', fri:'Thứ 6', sat:'Thứ 7', sun:'Chủ Nhật' };
-    const TEAM_ORDER = ['team_attack1','team_attack2','team_defense','team_forest'];
+    let TEAM_ORDER = ['team_attack1','team_attack2','team_defense','team_forest'];
     const TEAM_LEADER_KEY_MAP = {
       team_attack1: 'team1',
       team_attack2: 'team2',
@@ -885,6 +889,16 @@
       team_defense: 'defense',
       team_forest: 'forest'
     };
+    const LEGACY_TEAM_IDS = ['team_attack1','team_attack2','team_defense','team_forest'];
+    const LEGACY_SIZE_KEY_MAP = { team_attack1:'attack1', team_attack2:'attack2', team_defense:'defense', team_forest:'forest' };
+    const DEFAULT_DYNAMIC_LAYOUT = [
+      { id:'team_attack1', name:'TEAM CÔNG 1', icon:'⚔️', capacity:10, order:1 },
+      { id:'team_attack2', name:'TEAM CÔNG 2', icon:'🗡️', capacity:10, order:2 },
+      { id:'team_defense', name:'TEAM THỦ', icon:'🛡️', capacity:5, order:3 },
+      { id:'team_forest', name:'TEAM RỪNG', icon:'🌲', capacity:5, order:4 }
+    ];
+    const MAX_DYNAMIC_TEAMS = 8;
+    const ACTIVE_SLOT_TOTAL = 30;
     const SORT_OPTIONS = [
       { value: 'default', label: 'Mặc định' },
       { value: 'role', label: 'Theo vai trò' },
@@ -933,6 +947,7 @@
     let dragPointer = null;
     let dragStatusRaf = null;
     let autoScrollRaf = null;
+    let resizeDraftLayout = [];
     let pollingTimer = null;
     let lastRemoteFingerprint = null;
     let lastSyncedFingerprint = null;
@@ -1020,6 +1035,108 @@
       return escapeHtml(value).replace(/`/g, '&#96;');
     }
 
+    function normalizeTeamId(value, fallback) {
+      return String(value || fallback || '')
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .slice(0, 40) || fallback;
+    }
+
+    function buildDefaultDynamicLayout(session = {}) {
+      const sizes = safeParse(session.team_sizes, {});
+      const names = safeParse(session.team_names, {});
+      return DEFAULT_DYNAMIC_LAYOUT.map((team) => {
+        const sizeKey = LEGACY_SIZE_KEY_MAP[team.id];
+        return {
+          ...team,
+          name: names[sizeKey] || team.name,
+          capacity: Number(sizes[sizeKey] ?? team.capacity) || team.capacity
+        };
+      }).filter((team) => team.capacity > 0);
+    }
+
+    function normalizeTeamLayout(session = {}) {
+      const raw = safeParse(session.team_layout, null);
+      const source = Array.isArray(raw) && raw.length ? raw : buildDefaultDynamicLayout(session);
+      const seen = new Set();
+      return source.slice(0, MAX_DYNAMIC_TEAMS).map((team, index) => {
+        let id = normalizeTeamId(team?.id, LEGACY_TEAM_IDS[index] || `team_custom_${index + 1}`);
+        while (seen.has(id)) id = `${id}_${index + 1}`;
+        seen.add(id);
+        return {
+          id,
+          name: String(team?.name || `TEAM ${index + 1}`).trim().slice(0, 32),
+          icon: String(team?.icon || DEFAULT_DYNAMIC_LAYOUT[index]?.icon || '⚔️').trim().slice(0, 8),
+          capacity: Math.max(1, Math.min(ACTIVE_SLOT_TOTAL, Number(team?.capacity ?? 1) || 1)),
+          order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1
+        };
+      }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order:index + 1 }));
+    }
+
+    function normalizeDynamicRosterState(state) {
+      if (!state) return state;
+      const layout = normalizeTeamLayout(state);
+      const rawTeams = safeParse(state.teams || state.teams_json, null);
+      const teams = {};
+      layout.forEach((team) => {
+        teams[team.id] = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams)
+          ? [...(rawTeams[team.id] || [])]
+          : [...safeParse(state[team.id], [])];
+        state[team.id] = teams[team.id];
+      });
+      state.team_layout = layout;
+      state.teams = teams;
+      TEAM_ORDER = layout.map((team) => team.id);
+      const legacySizes = {};
+      const legacyNames = {};
+      layout.slice(0, LEGACY_TEAM_IDS.length).forEach((team, index) => {
+        const key = LEGACY_SIZE_KEY_MAP[LEGACY_TEAM_IDS[index]];
+        if (!key) return;
+        legacySizes[key] = team.capacity;
+        legacyNames[key] = team.name;
+      });
+      state.team_sizes = {
+        attack1: legacySizes.attack1 ?? 0,
+        attack2: legacySizes.attack2 ?? 0,
+        defense: legacySizes.defense ?? 0,
+        forest: legacySizes.forest ?? 0
+      };
+      state.team_names = {
+        attack1: legacyNames.attack1 || 'TEAM CÔNG 1',
+        attack2: legacyNames.attack2 || 'TEAM CÔNG 2',
+        defense: legacyNames.defense || 'TEAM THỦ',
+        forest: legacyNames.forest || 'TEAM RỪNG'
+      };
+      LEGACY_TEAM_IDS.forEach((id) => { state[id] = state[id] || []; });
+      state.waiting_list = [...safeParse(state.waiting_list, [])];
+      return state;
+    }
+
+    function getTeamConfig(teamKey, state = localState) {
+      return (state?.team_layout || []).find((team) => team.id === teamKey) || null;
+    }
+
+    function buildTeamsPayloadFromState(state = localState) {
+      const teams = {};
+      (state?.team_layout || []).forEach((team) => {
+        teams[team.id] = (state[team.id] || []).map((item) => ({ ...item, team: team.id }));
+      });
+      return teams;
+    }
+
+    function buildLegacyMirrorFromState(state = localState) {
+      const layout = state?.team_layout || [];
+      const teams = buildTeamsPayloadFromState(state);
+      const mirror = {};
+      LEGACY_TEAM_IDS.forEach((legacyId, index) => {
+        const sourceTeam = layout[index];
+        mirror[legacyId] = sourceTeam
+          ? (teams[sourceTeam.id] || []).map((item) => ({ ...item, team: legacyId }))
+          : [];
+      });
+      return mirror;
+    }
+
     function hasElevatedEditorRole() {
       if (hasKcWebAccess()) return true;
       const normalized = String(currentUserPosition || '')
@@ -1041,12 +1158,14 @@
           leaderIds.team1,
           leaderIds.team2,
           leaderIds.team3,
-          leaderIds.team4
+          leaderIds.team4,
+          ...Object.values(leaderIds.teams || {})
         ].filter(Boolean);
         if (directLeaderIds.includes(currentDiscordId)) return true;
       } catch (error) {}
 
-      return ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'].some((key) =>
+      const dynamicTeams = normalizeTeamLayout(session).map((team) => team.id);
+      return [...dynamicTeams, 'waiting_list'].some((key) =>
         safeParse(session[key], []).some((member) =>
           member?.id === currentDiscordId && (member.isLeader || member.ld || member.isTeamLeader)
         )
@@ -1077,7 +1196,7 @@
     }
 
     function cloneSessionState(session) {
-      return {
+      const state = {
         team_attack1: safeParse(session.team_attack1, []).map((item) => ({ ...item })),
         team_attack2: safeParse(session.team_attack2, []).map((item) => ({ ...item })),
         team_defense: safeParse(session.team_defense, []).map((item) => ({ ...item })),
@@ -1094,15 +1213,20 @@
         note: session.note || '',
         time: session.time || '19:30'
       };
+      state.team_layout = safeParse(session.team_layout, null);
+      state.teams = safeParse(session.teams || session.teams_json, null);
+      return normalizeDynamicRosterState(state);
     }
 
     function normalizeLeaderState(state = localState) {
       if (!state) return;
       state.leader_ids = { ...(state.leader_ids || {}) };
 
-      Object.entries(TEAM_LEADER_KEY_MAP).forEach(([teamKey, leaderKey]) => {
+      state.leader_ids.teams = { ...(state.leader_ids.teams || {}) };
+      TEAM_ORDER.forEach((teamKey) => {
+        const leaderKey = TEAM_LEADER_KEY_MAP[teamKey];
         const team = Array.isArray(state[teamKey]) ? state[teamKey] : [];
-        let leaderId = state.leader_ids[leaderKey] || null;
+        let leaderId = state.leader_ids.teams[teamKey] || (leaderKey ? state.leader_ids[leaderKey] : null) || null;
 
         const explicitLeader = team.find((member) => member?.isTeamLeader || member?.ld);
         if (explicitLeader) leaderId = explicitLeader.id;
@@ -1115,17 +1239,16 @@
         });
 
         state[teamKey] = team;
-        state.leader_ids[leaderKey] = leaderId || null;
+        state.leader_ids.teams[teamKey] = leaderId || null;
+        if (leaderKey) state.leader_ids[leaderKey] = leaderId || null;
       });
     }
 
     function ensureViewState() {
-      sortState = {
-        team_attack1: sortState.team_attack1 || 'default',
-        team_attack2: sortState.team_attack2 || 'default',
-        team_defense: sortState.team_defense || 'default',
-        team_forest: sortState.team_forest || 'default'
-      };
+      sortState = TEAM_ORDER.reduce((acc, teamKey) => {
+        acc[teamKey] = sortState[teamKey] || 'default';
+        return acc;
+      }, {});
       if (!activeFilter || typeof activeFilter !== 'object') {
         activeFilter = { type: 'all', value: 'all' };
       }
@@ -1172,6 +1295,8 @@
     }
 
     function getTeamCapacityFor(teamKey, state = localState) {
+      const cfg = getTeamConfig(teamKey, state);
+      if (cfg) return Number(cfg.capacity) || 0;
       const sizes = state?.team_sizes || {};
       if (teamKey === 'team_attack1') return Number(sizes.attack1 ?? 10) || 0;
       if (teamKey === 'team_attack2') return Number(sizes.attack2 ?? 10) || 0;
@@ -1298,6 +1423,8 @@
       return JSON.stringify({
         id: session.id || null,
         day: session.day || null,
+        team_layout: safeParse(session.team_layout, []),
+        teams: safeParse(session.teams || session.teams_json, {}),
         team_attack1: safeParse(session.team_attack1, []),
         team_attack2: safeParse(session.team_attack2, []),
         team_defense: safeParse(session.team_defense, []),
@@ -1314,17 +1441,23 @@
 
     function buildCurrentSessionSnapshot() {
       if (!localState) return null;
+      normalizeDynamicRosterState(localState);
+      normalizeLeaderState(localState);
+      const teams = buildTeamsPayloadFromState(localState);
+      const mirror = buildLegacyMirrorFromState(localState);
       return {
         id: currentSessionId,
         day: currentDay,
-        team_attack1: (localState.team_attack1 || []).map((item) => ({ ...item })),
-        team_attack2: (localState.team_attack2 || []).map((item) => ({ ...item })),
-        team_defense: (localState.team_defense || []).map((item) => ({ ...item })),
-        team_forest: (localState.team_forest || []).map((item) => ({ ...item })),
+        team_layout: (localState.team_layout || []).map((team) => ({ ...team })),
+        teams,
+        team_attack1: (mirror.team_attack1 || []).map((item) => ({ ...item })),
+        team_attack2: (mirror.team_attack2 || []).map((item) => ({ ...item })),
+        team_defense: (mirror.team_defense || []).map((item) => ({ ...item })),
+        team_forest: (mirror.team_forest || []).map((item) => ({ ...item })),
         waiting_list: (localState.waiting_list || []).map((item) => ({ ...item })),
         team_sizes: { ...(localState.team_sizes || {}) },
         team_names: { ...(localState.team_names || {}) },
-        leader_ids: { ...(localState.leader_ids || {}) },
+        leader_ids: JSON.parse(JSON.stringify(localState.leader_ids || {})),
         locked: localState.locked === true,
         note: localState.note || '',
         time: localState.time || currentSessionData?.time || '19:30'
@@ -1623,6 +1756,13 @@
 
     function getVisibleTeams() {
       if (!localState) return [];
+      if (Array.isArray(localState.team_layout) && localState.team_layout.length) {
+        return localState.team_layout.map((team) => ({
+          key: team.id,
+          max: Number(team.capacity) || 0,
+          title: `${team.icon || ''} ${team.name || team.id}`.trim()
+        })).filter((item) => item.max > 0);
+      }
       const sizes = localState.team_sizes || {};
       const names = localState.team_names || {};
       const DEFAULTS = { attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2', defense: 'TEAM THỦ', forest: 'TEAM RỪNG' };
@@ -1642,6 +1782,12 @@
     }
 
     function getTeamCaps() {
+      if (Array.isArray(localState?.team_layout) && localState.team_layout.length) {
+        return localState.team_layout.reduce((acc, team) => {
+          acc[team.id] = Number(team.capacity) || 0;
+          return acc;
+        }, {});
+      }
       const sizes = localState?.team_sizes || {};
       return {
         attack1: Number(sizes.attack1 ?? 10) || 0,
@@ -1652,6 +1798,16 @@
     }
 
     function getTeamSlotStarts() {
+      if (Array.isArray(localState?.team_layout) && localState.team_layout.length) {
+        let start = 1;
+        const starts = {};
+        localState.team_layout.forEach((team) => {
+          starts[team.id] = start;
+          start += Number(team.capacity) || 0;
+        });
+        starts.waiting_list = start;
+        return starts;
+      }
       const caps = getTeamCaps();
       const slotStartAtt2 = 1 + caps.attack1;
       const slotStartDef = slotStartAtt2 + caps.attack2;
@@ -2132,6 +2288,8 @@
     }
 
     function getValidationTeamName(teamKey) {
+      const cfg = getTeamConfig(teamKey);
+      if (cfg) return cfg.name || teamKey;
       const nameKey = TEAM_NAME_KEY_MAP[teamKey];
       return (nameKey && localState?.team_names?.[nameKey]) || TEAM_META[teamKey]?.title || teamKey;
     }
@@ -2145,6 +2303,10 @@
       }
 
       const seen = new Map();
+      const totalCapacity = Object.values(getTeamCaps()).reduce((sum, value) => sum + value, 0);
+      if (totalCapacity !== ACTIVE_SLOT_TOTAL) {
+        errors.push(`Tổng slot active phải đúng ${ACTIVE_SLOT_TOTAL}, hiện tại ${totalCapacity}.`);
+      }
       [...TEAM_ORDER, 'waiting_list'].forEach((teamKey) => {
         (localState[teamKey] || []).forEach((member) => {
           const id = String(member?.id || '');
@@ -2586,7 +2748,9 @@
         team_forest: JSON.stringify(snapshot.team_forest || []),
         waiting_list: JSON.stringify(snapshot.waiting_list || []),
         team_sizes: JSON.stringify(snapshot.team_sizes || {}),
-        leader_ids: JSON.stringify(snapshot.leader_ids || {})
+        leader_ids: JSON.stringify(snapshot.leader_ids || {}),
+        team_layout: JSON.stringify(snapshot.team_layout || []),
+        teams: JSON.stringify(snapshot.teams || {})
       };
       if (supportsSessionLocked) payload.locked = !!snapshot.locked;
       // team_names & team_sizes: auto-fallback nếu cột chưa tồn tại
@@ -2608,6 +2772,15 @@
         if (currentSessionId) query = query.eq('id', currentSessionId);
         const retry = await query;
         error = retry.error || null;
+      }
+
+      if (error && /(team_layout|teams)/i.test(error.message || '')) {
+        delete payload.team_layout;
+        delete payload.teams;
+        query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
+        if (currentSessionId) query = query.eq('id', currentSessionId);
+        const retryDynamic = await query;
+        error = retryDynamic.error || null;
       }
 
       // Fallback nếu cột team_names chưa tồn tại trên Supabase
@@ -2692,8 +2865,15 @@
         target.isTeamLeader = true;
         target.ld = true;
       }
+      localState.leader_ids = {
+        ...(localState.leader_ids || {}),
+        teams: {
+          ...(localState.leader_ids?.teams || {}),
+          [teamKey]: target?.id || null
+        }
+      };
       if (leaderKey) {
-        localState.leader_ids = { ...(localState.leader_ids || {}), [leaderKey]: target?.id || null };
+        localState.leader_ids[leaderKey] = target?.id || null;
       }
       normalizeLeaderState();
       markLocalMutation();
@@ -2709,7 +2889,98 @@
       { key: 'forest',  teamKey: 'team_forest',  emoji: '🌲', defaultName: 'TEAM RỪNG',  min: 0, max: 10 }
     ];
 
+    function readResizeDraftLayoutFromDom() {
+      return [...document.querySelectorAll('[data-resize-row]')].map((row, index) => {
+        const id = normalizeTeamId(row.dataset.teamId, `team_custom_${index + 1}`);
+        const icon = (row.querySelector('.resize-icon')?.value || row.dataset.icon || '•').trim().slice(0, 8) || '•';
+        const name = (row.querySelector('.resize-name')?.value || `TEAM ${index + 1}`).trim().slice(0, 32) || `TEAM ${index + 1}`;
+        const capacity = Math.max(1, Math.min(ACTIVE_SLOT_TOTAL, Number(row.querySelector('.resize-size')?.value || 1)));
+        return { id, icon, name, capacity, order: index + 1 };
+      });
+    }
+
+    function renderResizeDraftRows() {
+      const container = document.getElementById('resizeRows');
+      if (!container) return;
+      container.innerHTML = '';
+      resizeDraftLayout.forEach((team, index) => {
+        const safeId = escapeHtmlAttr(team.id);
+        const row = document.createElement('div');
+        row.dataset.resizeRow = '1';
+        row.dataset.teamId = team.id;
+        row.dataset.icon = team.icon || '•';
+        row.style.cssText = 'background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px';
+        row.innerHTML = `
+          <div style="display:grid;grid-template-columns:42px minmax(0,1fr) 34px;gap:8px;align-items:center">
+            <input class="resize-icon" type="text" maxlength="8" value="${escapeHtmlAttr(team.icon || '•')}" aria-label="Icon"
+              style="width:42px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;color:#fff;text-align:center;outline:none">
+            <input class="resize-name" type="text" maxlength="32" value="${escapeHtmlAttr(team.name || `TEAM ${index + 1}`)}"
+              style="min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px 10px;color:#fff;font-size:.88rem;outline:none"
+              placeholder="Tên đội">
+            <button type="button" class="btn danger resize-delete" data-team-id="${safeId}" title="Xóa đội" style="padding:7px 0;border-radius:8px">×</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:.78rem;opacity:.6;min-width:70px">Số slot (1-30):</span>
+            <input class="resize-size" type="number" min="1" max="30" value="${Number(team.capacity) || 1}"
+              style="width:70px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);
+                     border-radius:8px;padding:6px 10px;color:#7dd3fc;font-weight:700;
+                     font-size:1rem;text-align:center;outline:none">
+            <input class="resize-range" type="range" min="1" max="30" value="${Number(team.capacity) || 1}"
+              style="flex:1;accent-color:#38bdf8">
+          </div>
+        `;
+        const numInput = row.querySelector('.resize-size');
+        const rangeInput = row.querySelector('.resize-range');
+        numInput.addEventListener('input', () => {
+          rangeInput.value = numInput.value;
+          updateResizeTotal();
+        });
+        rangeInput.addEventListener('input', () => {
+          numInput.value = rangeInput.value;
+          updateResizeTotal();
+        });
+        row.querySelector('.resize-delete').addEventListener('click', () => {
+          if (resizeDraftLayout.length <= 1) return;
+          resizeDraftLayout = readResizeDraftLayoutFromDom().filter((item) => item.id !== team.id);
+          renderResizeDraftRows();
+          updateResizeTotal();
+        });
+        container.appendChild(row);
+      });
+
+      const addWrap = document.createElement('div');
+      addWrap.style.cssText = 'display:flex;justify-content:flex-end';
+      addWrap.innerHTML = `<button type="button" class="btn" id="btnAddDynamicTeam" ${resizeDraftLayout.length >= MAX_DYNAMIC_TEAMS ? 'disabled' : ''}>+ Thêm đội</button>`;
+      addWrap.querySelector('#btnAddDynamicTeam').addEventListener('click', () => {
+        if (resizeDraftLayout.length >= MAX_DYNAMIC_TEAMS) return;
+        resizeDraftLayout = readResizeDraftLayoutFromDom();
+        let id = normalizeTeamId(`team_custom_${Date.now().toString(36)}`, `team_custom_${resizeDraftLayout.length + 1}`);
+        while (resizeDraftLayout.some((team) => team.id === id)) id = `${id}_${resizeDraftLayout.length + 1}`;
+        resizeDraftLayout.push({ id, name: `TEAM ${resizeDraftLayout.length + 1}`, icon: '•', capacity: 1, order: resizeDraftLayout.length + 1 });
+        renderResizeDraftRows();
+        updateResizeTotal();
+      });
+      container.appendChild(addWrap);
+    }
+
     function updateResizeTotal() {
+      const dynamicRows = document.querySelectorAll('[data-resize-row]');
+      if (dynamicRows.length) {
+        const total = readResizeDraftLayoutFromDom().reduce((sum, team) => sum + team.capacity, 0);
+        const totalText = document.getElementById('resizeTotalText');
+        const warning = document.getElementById('resizeWarning');
+        const saveButton = document.getElementById('btnResizeSave');
+        if (totalText) {
+          totalText.textContent = `${total} / ${ACTIVE_SLOT_TOTAL}`;
+          totalText.style.color = total === ACTIVE_SLOT_TOTAL ? '#7dd3fc' : '#f87171';
+        }
+        if (warning) {
+          warning.style.display = total === ACTIVE_SLOT_TOTAL ? 'none' : 'block';
+          warning.textContent = `Tổng slot phải đúng ${ACTIVE_SLOT_TOTAL}. Hiện tại: ${total}/${ACTIVE_SLOT_TOTAL}.`;
+        }
+        if (saveButton) saveButton.disabled = total !== ACTIVE_SLOT_TOTAL;
+        return;
+      }
       let total = 0;
       RESIZE_TEAMS.forEach(t => {
         total += Math.max(0, Number(document.getElementById('rSize_' + t.key)?.value || 0));
@@ -2724,6 +2995,26 @@
 
     function openResizeModal() {
       if (!isLeaderEditor || localState.locked) return;
+      normalizeDynamicRosterState(localState);
+      resizeDraftLayout = (localState.team_layout || []).map((team, index) => ({
+        id: team.id,
+        icon: team.icon || '•',
+        name: team.name || `TEAM ${index + 1}`,
+        capacity: Number(team.capacity) || 1,
+        order: index + 1
+      }));
+      const modal = document.getElementById('resizeModal');
+      const title = modal?.querySelector('h3');
+      const inner = modal?.querySelector('.modal');
+      if (title) title.textContent = 'Quản lý đội hình';
+      if (inner) {
+        inner.style.maxHeight = 'min(88vh, 760px)';
+        inner.style.overflow = 'auto';
+      }
+      renderResizeDraftRows();
+      updateResizeTotal();
+      modal?.classList.add('show');
+      return;
       const sizes = localState.team_sizes || {};
       const names = localState.team_names || {};
       const container = document.getElementById('resizeRows');
@@ -2780,6 +3071,72 @@
     }
 
     async function applyResize() {
+      if (document.querySelectorAll('[data-resize-row]').length) {
+        const nextLayout = readResizeDraftLayoutFromDom();
+        const totalSize = nextLayout.reduce((sum, team) => sum + team.capacity, 0);
+        if (!nextLayout.length) {
+          await customAlert('Phải còn ít nhất 1 đội.');
+          return;
+        }
+        if (nextLayout.length > MAX_DYNAMIC_TEAMS) {
+          await customAlert(`Tối đa ${MAX_DYNAMIC_TEAMS} đội.`);
+          return;
+        }
+        if (totalSize !== ACTIVE_SLOT_TOTAL) {
+          await customAlert(`Tổng slot active phải đúng ${ACTIVE_SLOT_TOTAL}. Hiện tại: ${totalSize}/${ACTIVE_SLOT_TOTAL}.`);
+          return;
+        }
+        const seen = new Set();
+        if (nextLayout.some((team) => seen.has(team.id) || !seen.add(team.id))) {
+          await customAlert('ID đội bị trùng, hãy thử lại.');
+          return;
+        }
+
+        const oldLayout = localState.team_layout || [];
+        const oldTeams = buildTeamsPayloadFromState(localState);
+        const nextTeamIds = new Set(nextLayout.map((team) => team.id));
+        const toWaiting = (member) => ({
+          ...member,
+          team: 'waiting_list',
+          isTeamLeader: false,
+          ld: false
+        });
+        const nextTeams = {};
+        let waiting = (localState.waiting_list || []).map(toWaiting);
+
+        nextLayout.forEach((team) => {
+          const existing = oldTeams[team.id] || [];
+          nextTeams[team.id] = existing.slice(0, team.capacity).map((member) => ({ ...member, team: team.id }));
+          waiting.push(...existing.slice(team.capacity).map(toWaiting));
+        });
+
+        oldLayout.forEach((team) => {
+          if (!nextTeamIds.has(team.id)) {
+            waiting.push(...(oldTeams[team.id] || []).map(toWaiting));
+            delete localState[team.id];
+          }
+        });
+
+        localState.team_layout = nextLayout;
+        localState.teams = nextTeams;
+        TEAM_ORDER = nextLayout.map((team) => team.id);
+        nextLayout.forEach((team) => {
+          localState[team.id] = nextTeams[team.id] || [];
+        });
+        localState.waiting_list = waiting;
+        localState.leader_ids = {
+          ...(localState.leader_ids || {}),
+          teams: Object.fromEntries(Object.entries(localState.leader_ids?.teams || {}).filter(([teamId]) => nextTeamIds.has(teamId)))
+        };
+
+        normalizeDynamicRosterState(localState);
+        normalizeLeaderState();
+        markLocalMutation();
+        closeResizeModal();
+        renderEditor();
+        scheduleSync('resize', 'Đã cập nhật đội hình trên web, đang gom thay đổi để đồng bộ...');
+        return;
+      }
       const nextSizes = {};
       const nextNames = {};
 

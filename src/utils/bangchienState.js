@@ -474,7 +474,14 @@ async function ensureWeekendDefaultSessions(guild, options = {}) {
                 time: normalizedTime,
                 note: isLeagueSession(normalizedTime) ? 'LEAGUE' : ''
             });
-            db.db.prepare('UPDATE bangchien_active SET team_attack1=? WHERE party_key=?').run('[]', partyKey);
+            try {
+                const roster = require('./bangchienRoster');
+                const emptyRoster = roster.serializeRosterForStorage(roster.normalizeRoster({}));
+                db.db.prepare('UPDATE bangchien_active SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?, team_layout=?, teams_json=? WHERE party_key=?')
+                    .run('[]', '[]', '[]', '[]', '[]', emptyRoster.team_layout, emptyRoster.teams_json, partyKey);
+            } catch (error) {
+                db.db.prepare('UPDATE bangchien_active SET team_attack1=? WHERE party_key=?').run('[]', partyKey);
+            }
 
             const session = db.getActiveBangchien(partyKey);
             if (session) {

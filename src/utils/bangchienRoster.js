@@ -94,7 +94,7 @@ function normalizeLayout(rawLayout, session = {}) {
             return {
                 id,
                 name: String(team?.name || DEFAULT_TEAM_LAYOUT[index]?.name || `TEAM ${index + 1}`).trim().slice(0, 32),
-                icon: String(team?.icon || DEFAULT_TEAM_LAYOUT[index]?.icon || '⚔️').trim().slice(0, 8),
+                icon: String(team?.icon || DEFAULT_TEAM_LAYOUT[index]?.icon || 'ATK').trim().slice(0, 8),
                 capacity: Math.max(1, Math.min(MAX_ACTIVE_MEMBERS, Number(team?.capacity ?? DEFAULT_TEAM_LAYOUT[index]?.capacity ?? 1) || 1)),
                 order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1
             };
@@ -210,18 +210,25 @@ function getTeamDisplayName(rosterOrSession, teamId) {
 function buildLegacyMirrors(roster) {
     const sizes = {};
     const names = {};
-    for (const team of roster.layout) {
-        const sizeKey = LEGACY_SIZE_KEYS[team.id];
-        if (sizeKey) {
-            sizes[sizeKey] = team.capacity;
-            names[sizeKey] = team.name;
-        }
+    const legacyTeams = {};
+    roster.layout.slice(0, LEGACY_TEAM_KEYS.length).forEach((team, index) => {
+        const legacyKey = LEGACY_TEAM_KEYS[index];
+        const sizeKey = LEGACY_SIZE_KEYS[legacyKey];
+        legacyTeams[legacyKey] = (roster.teams[team.id] || []).map((member) => ({
+            ...member,
+            team: legacyKey
+        }));
+        sizes[sizeKey] = team.capacity;
+        names[sizeKey] = team.name;
+    });
+    for (const legacyKey of LEGACY_TEAM_KEYS) {
+        if (!legacyTeams[legacyKey]) legacyTeams[legacyKey] = [];
     }
     return {
-        team_attack1: roster.teams.team_attack1 || [],
-        team_attack2: roster.teams.team_attack2 || [],
-        team_defense: roster.teams.team_defense || [],
-        team_forest: roster.teams.team_forest || [],
+        team_attack1: legacyTeams.team_attack1,
+        team_attack2: legacyTeams.team_attack2,
+        team_defense: legacyTeams.team_defense,
+        team_forest: legacyTeams.team_forest,
         waiting_list: roster.waitingList || [],
         team_sizes: {
             attack1: sizes.attack1 ?? 0,

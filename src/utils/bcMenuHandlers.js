@@ -35,6 +35,11 @@ function getSessionTotal(session) {
         (session.waiting_list?.length || 0);
 }
 
+function buildMiniBar(current, max) {
+    const filled = Math.round((current / Math.max(max, 1)) * 8);
+    return '[' + '█'.repeat(filled) + '░'.repeat(8 - filled) + ']';
+}
+
 function getAllSessionMembers(session) {
     return [
         ...(session.team_attack1 || []),
@@ -86,23 +91,54 @@ function createBcMenu(guildId, userId) {
     const db = require('../database/db');
     const sessions = sortSessionsForMenu(db.getActiveBangchienByGuild(guildId));
     const selected = buildInitialSelection(guildId, userId, sessions);
+    const joinedCount = sessions.filter(s => isUserInSession(s, userId)).length;
 
     const embed = new EmbedBuilder()
-        .setColor(0xFFD700)
-        .setTitle('ĐĂNG KÝ BANG CHIẾN')
+        .setColor(joinedCount > 0 ? 0x22C55E : 0xFFD700)
+        .setTitle('⚔️  Đăng Ký Bang Chiến')
         .setDescription(
             sessions.length > 0
-                ? 'Chọn các trận muốn tham gia, rồi bấm **Xác nhận**. Trận LEAGUE 19:30 được đặt đầu danh sách.'
-                : 'Chưa có phiên Bang Chiến nào đang mở.'
+                ? '> 🟢 Bấm chọn các trận muốn tham gia trong dropdown bên dưới.\n> Rồi bấm **✔ Xác nhận** để lưu thay đổi.'
+                : '> Chưa có phiên Bang Chiến nào đang mở.'
         );
 
-    for (const session of sessions.slice(0, 10)) {
-        const total = getSessionTotal(session);
-        const joined = isUserInSession(session, userId);
-        embed.addFields({
-            name: getSessionLabel(session),
-            value: `${getDayNameWithDate(session.day)} - ${total}/30${joined ? ' ✅ Đã đăng ký' : ''}`,
-            inline: false
+    if (sessions.length > 0) {
+        // Group theo ngày, giữ thứ tự đúng
+        const byDay = {};
+        const dayOrder = [];
+        for (const s of sessions.slice(0, 10)) {
+            if (!byDay[s.day]) { byDay[s.day] = []; dayOrder.push(s.day); }
+            byDay[s.day].push(s);
+        }
+
+        for (const day of dayOrder) {
+            const dayHeader = getDayNameWithDate(day);
+            const lines = byDay[day].map(s => {
+                const total   = getSessionTotal(s);
+                const joined  = isUserInSession(s, userId);
+                const league  = isLeagueSession(s);
+                const timeStr = normalizeBcTime(s.time || LEAGUE_TIME);
+                const noteRaw = s.note && !/^league$/i.test(String(s.note)) ? String(s.note) : '';
+                const typeBadge = league ? ' · `LEAGUE`' : (noteRaw ? ` · \`${noteRaw}\`` : '');
+                const bar = buildMiniBar(total, 30);
+
+                if (joined) {
+                    return `✅ **${timeStr}**${typeBadge}  ${bar}  \`${total}/30\`  ← _Đã đăng ký_`;
+                }
+                return `▫️ **${timeStr}**${typeBadge}  ${bar}  \`${total}/30\``;
+            });
+
+            embed.addFields({
+                name: `📅 ${dayHeader}`,
+                value: lines.join('\n'),
+                inline: false
+            });
+        }
+
+        embed.setFooter({
+            text: joinedCount > 0
+                ? `✅ Đã đăng ký ${joinedCount}/${sessions.length} trận  •  Bỏ tích trận nào để hủy đăng ký`
+                : `Chưa đăng ký trận nào  •  Tổng ${sessions.length} trận đang mở`
         });
     }
 
@@ -111,14 +147,14 @@ function createBcMenu(guildId, userId) {
         const options = sessions.slice(0, 25).map(session => ({
             label: getSessionLabel(session).slice(0, 100),
             value: session.party_key,
-            description: `${getDayNameWithDate(session.day)} - ${getSessionTotal(session)}/30`.slice(0, 100),
+            description: `${getDayNameWithDate(session.day)} — ${getSessionTotal(session)}/30 người`.slice(0, 100),
             default: selected.has(session.party_key)
         }));
 
         components.push(new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId(`bcmenu_select_${guildId}`)
-                .setPlaceholder('Chọn trận Bang Chiến')
+                .setPlaceholder('Chọn trận Bang Chiến…')
                 .setMinValues(0)
                 .setMaxValues(Math.max(1, options.length))
                 .addOptions(options)
@@ -127,7 +163,7 @@ function createBcMenu(guildId, userId) {
         components.push(new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`bcmenu_apply_${guildId}`)
-                .setLabel('Xác nhận')
+                .setLabel('✔  Xác nhận')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId(`bcmenu_close_${guildId}`)

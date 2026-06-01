@@ -3262,13 +3262,15 @@ function sortSessionsForSignup(sessions) {
 
 function sessionContainsCurrentUser(session) {
     if (!session || !window.currentDiscordId) return false;
-    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
-    return allTeams.some((key) => parseIndexJsonList(session[key]).some((player) => String(player.id) === String(window.currentDiscordId)));
+    const roster = getIndexRosterState(session);
+    return [
+        ...Object.values(roster.teams || {}),
+        roster.waitingList || []
+    ].some((players) => players.some((player) => String(player.id) === String(window.currentDiscordId)));
 }
 
 function getSessionTotalCount(session) {
-    return ['team_attack1','team_attack2','team_defense','team_forest','waiting_list']
-        .reduce((sum, key) => sum + parseIndexJsonList(session?.[key]).length, 0);
+    return getIndexFlatActiveRoster(session).length;
 }
 
 function getSessionTitle(session) {
@@ -3325,7 +3327,14 @@ async function ensureWeekendDefaultSessionsWeb() {
                     team_forest: '[]',
                     waiting_list: '[]',
                     leader_ids: '{}',
-                    team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}'
+                    team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
+                    team_layout: JSON.stringify(INDEX_DEFAULT_TEAM_LAYOUT),
+                    teams: JSON.stringify({
+                        team_attack1: [],
+                        team_attack2: [],
+                        team_defense: [],
+                        team_forest: []
+                    })
                 });
             }
         }
@@ -3341,6 +3350,13 @@ async function ensureWeekendDefaultSessionsWeb() {
 }
 
 const INDEX_ACTIVE_TEAM_KEYS = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
+const INDEX_MAX_ACTIVE = 30;
+const INDEX_DEFAULT_TEAM_LAYOUT = [
+    { id:'team_attack1', name:'TEAM CÔNG 1', icon:'⚔️', capacity:10, order:1 },
+    { id:'team_attack2', name:'TEAM CÔNG 2', icon:'🗡️', capacity:10, order:2 },
+    { id:'team_defense', name:'TEAM THỦ', icon:'🛡️', capacity:5, order:3 },
+    { id:'team_forest', name:'TEAM RỪNG', icon:'🌲', capacity:5, order:4 }
+];
 
 function parseIndexJsonList(value) {
     try {
@@ -3350,65 +3366,142 @@ function parseIndexJsonList(value) {
     }
 }
 
+function parseIndexJsonObject(value, fallback = {}) {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || '{}') : (value || fallback);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function normalizeIndexTeamId(value, fallback) {
+    return String(value || fallback || '')
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .slice(0, 40) || fallback;
+}
+
+function getIndexTeamLayout(session) {
+    const rawLayout = parseIndexJsonList(session?.team_layout);
+    const names = parseIndexJsonObject(session?.team_names);
+    const sizes = parseIndexJsonObject(session?.team_sizes);
+    const source = Array.isArray(rawLayout) && rawLayout.length
+        ? rawLayout
+        : INDEX_DEFAULT_TEAM_LAYOUT.map((team) => {
+            const sizeKey = team.id === 'team_attack1' ? 'attack1'
+                : team.id === 'team_attack2' ? 'attack2'
+                : team.id === 'team_defense' ? 'defense'
+                : 'forest';
+            return {
+                ...team,
+                name: names[sizeKey] || team.name,
+                capacity: Number(sizes[sizeKey] ?? team.capacity) || team.capacity
+            };
+        }).filter((team) => Number(team.capacity) > 0);
+
+    const seen = new Set();
+    return source.slice(0, 8).map((team, index) => {
+        let id = normalizeIndexTeamId(team?.id, INDEX_ACTIVE_TEAM_KEYS[index] || `team_custom_${index + 1}`);
+        while (seen.has(id)) id = `${id}_${index + 1}`;
+        seen.add(id);
+        return {
+            id,
+            name: String(team?.name || `TEAM ${index + 1}`).trim().slice(0, 32),
+            icon: String(team?.icon || INDEX_DEFAULT_TEAM_LAYOUT[index]?.icon || '•').trim().slice(0, 8),
+            capacity: Math.max(1, Math.min(INDEX_MAX_ACTIVE, Number(team?.capacity ?? 1) || 1)),
+            order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1
+        };
+    }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order: index + 1 }));
+}
+
+function getIndexRosterState(session) {
+    const layout = getIndexTeamLayout(session);
+    const rawTeams = parseIndexJsonObject(session?.teams || session?.teams_json, null);
+    const teams = {};
+    layout.forEach((team) => {
+        const fromDynamic = rawTeams && Array.isArray(rawTeams[team.id]) ? rawTeams[team.id] : null;
+        teams[team.id] = (fromDynamic || parseIndexJsonList(session?.[team.id])).map((player) => ({
+            ...player,
+            team: team.id
+        }));
+    });
+    return {
+        layout,
+        teams,
+        waitingList: parseIndexJsonList(session?.waiting_list).map((player) => ({ ...player, team:'waiting_list' }))
+    };
+}
+
+function buildIndexLegacyMirrorFromRoster(roster) {
+    const mirror = {};
+    const teamSizes = {};
+    const teamNames = {};
+    roster.layout.slice(0, INDEX_ACTIVE_TEAM_KEYS.length).forEach((team, index) => {
+        const legacyKey = INDEX_ACTIVE_TEAM_KEYS[index];
+        const sizeKey = legacyKey === 'team_attack1' ? 'attack1'
+            : legacyKey === 'team_attack2' ? 'attack2'
+            : legacyKey === 'team_defense' ? 'defense'
+            : 'forest';
+        mirror[legacyKey] = (roster.teams[team.id] || []).map((player) => ({ ...player, team: legacyKey }));
+        teamSizes[sizeKey] = team.capacity;
+        teamNames[sizeKey] = team.name;
+    });
+    INDEX_ACTIVE_TEAM_KEYS.forEach((key) => { mirror[key] = mirror[key] || []; });
+    return { ...mirror, team_sizes: teamSizes, team_names: teamNames };
+}
+
 function getIndexRosterSnapshot(session) {
     if (!session) return { attack1: [], attack2: [], defense: [], forest: [] };
+    const mirror = buildIndexLegacyMirrorFromRoster(getIndexRosterState(session));
     return {
-        attack1: parseIndexJsonList(session.team_attack1),
-        attack2: parseIndexJsonList(session.team_attack2),
-        defense: parseIndexJsonList(session.team_defense),
-        forest: parseIndexJsonList(session.team_forest)
+        attack1: mirror.team_attack1 || [],
+        attack2: mirror.team_attack2 || [],
+        defense: mirror.team_defense || [],
+        forest: mirror.team_forest || []
     };
 }
 
 function getIndexSessionSizes(session) {
-    try {
-        const raw = typeof session?.team_sizes === 'string'
-            ? JSON.parse(session.team_sizes || '{}')
-            : (session?.team_sizes || {});
-        return {
-            attack1: raw.attack1 ?? 10,
-            attack2: raw.attack2 ?? 10,
-            defense: raw.defense ?? 5,
-            forest: raw.forest ?? 5
-        };
-    } catch (error) {
-        return { attack1: 10, attack2: 10, defense: 5, forest: 5 };
-    }
+    return buildIndexLegacyMirrorFromRoster(getIndexRosterState(session)).team_sizes;
 }
 
 function getIndexActiveSlotLayout(session) {
-    const sizes = getIndexSessionSizes(session);
     const layout = [];
-    Array.from({ length: Math.max(0, sizes.attack1 || 0) }).forEach(() => layout.push('team_attack1'));
-    Array.from({ length: Math.max(0, sizes.attack2 || 0) }).forEach(() => layout.push('team_attack2'));
-    Array.from({ length: Math.max(0, sizes.defense || 0) }).forEach(() => layout.push('team_defense'));
-    Array.from({ length: Math.max(0, sizes.forest || 0) }).forEach(() => layout.push('team_forest'));
+    getIndexTeamLayout(session).forEach((team) => {
+        Array.from({ length: Math.max(0, Number(team.capacity) || 0) }).forEach(() => layout.push(team.id));
+    });
     return layout;
 }
 
 function getIndexFlatActiveRoster(session) {
-    return INDEX_ACTIVE_TEAM_KEYS.flatMap((teamKey) =>
-        parseIndexJsonList(session?.[teamKey]).map((player) => ({ ...player, team: teamKey }))
-    );
+    const roster = getIndexRosterState(session);
+    return roster.layout.flatMap((team) => (roster.teams[team.id] || []).map((player) => ({ ...player, team: team.id })));
 }
 
 function rebuildIndexSessionTeamsFromFlat(session, flatRoster, waitingList = []) {
-    const sizes = getIndexSessionSizes(session);
+    const layout = getIndexTeamLayout(session);
     let cursor = 0;
     const next = {};
-    const assign = (teamKey, count) => {
-        next[teamKey] = flatRoster.slice(cursor, cursor + count).map((player) => ({
+    layout.forEach((team) => {
+        const count = Math.max(0, Number(team.capacity) || 0);
+        next[team.id] = flatRoster.slice(cursor, cursor + count).map((player) => ({
             ...player,
-            team: teamKey
+            team: team.id
         }));
         cursor += count;
-    };
-    assign('team_attack1', Math.max(0, sizes.attack1 || 0));
-    assign('team_attack2', Math.max(0, sizes.attack2 || 0));
-    assign('team_defense', Math.max(0, sizes.defense || 0));
-    assign('team_forest', Math.max(0, sizes.forest || 0));
+    });
     next.waiting_list = (waitingList || []).map((player) => ({ ...player }));
-    return next;
+    const teamsOnly = {};
+    layout.forEach((team) => { teamsOnly[team.id] = next[team.id] || []; });
+    const roster = { layout, teams: teamsOnly, waitingList: next.waiting_list };
+    return {
+        ...next,
+        ...buildIndexLegacyMirrorFromRoster(roster),
+        waiting_list: next.waiting_list,
+        team_layout: layout,
+        teams: teamsOnly
+    };
 }
 
 function normalizeIndexSlotTemplateEntry(entry, index, fallbackTeam = 'team_attack1') {
@@ -4248,7 +4341,16 @@ async function joinSession(data) {
 }
 
 async function leaveBC(sessionKey = null) {
-    const session = sessionKey ? getCachedSessionByKey(sessionKey) : currentSessionData;
+    let session = null;
+    if (sessionKey) {
+        session = getCachedSessionByKey(sessionKey);
+        if (!session) {
+            // Fallback: tìm theo day|time format
+            session = Object.values(_cachedSessions).find(s => getSessionCacheKey(s) === sessionKey) || null;
+        }
+    }
+    if (!session) session = currentSessionData;
+    if (!session) { await customAlert('Không tìm thấy phiên Bang Chiến.'); return false; }
     return leaveSession(session, { confirm: true });
 }
 
@@ -4269,7 +4371,17 @@ async function leaveSession(data, options = {}) {
         }
     }
 
-    if (options.confirm !== false && !(await customConfirm('Bạn muốn hủy đăng ký Bang Chiến?'))) return false;
+    if (options.confirm !== false) {
+        const dayLabel = DAY_LABELS[data.day] || String(data.day || '');
+        const timeLabel = normalizeSessionTime(data.time || LEAGUE_TIME);
+        const sessionName = dayLabel + ' ' + timeLabel + (isLeagueSession(data) ? ' LEAGUE' : '');
+        if (!(await customConfirm('Bạn muốn hủy đăng ký trận ' + sessionName + '?', {
+            title: 'Hủy Đăng Ký',
+            icon: '🚫',
+            okText: 'Hủy đăng ký',
+            cancelText: 'Không'
+        }))) return false;
+    }
 
     const removePlayer = (team) => team.filter(p => p.id !== window.currentDiscordId);
     const nextTeams = {
@@ -4363,7 +4475,8 @@ function renderSignupModalList() {
             const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
             const noteRaw = session.note != null ? String(session.note) : '';
             const note = noteRaw && !/^league$/i.test(noteRaw) ? noteRaw : '';
-            const mainTitle = note || dayLabel || timeLabel;
+            // mainTitle: luôn hiện "Thứ 7 19:30" hoặc "Thứ 7 20:00 - Ghi chú"
+            const mainTitle = dayLabel + ' ' + timeLabel + (note ? ' · ' + note : '');
             const joinedClass = joined ? ' joined-row' : '';
             const leagueClass = league ? ' league' : '';
 

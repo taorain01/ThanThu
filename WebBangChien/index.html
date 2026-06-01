@@ -1439,7 +1439,22 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-signup-joined-tag{font-size:10px;font-weight:700;color:var(--green-400);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:999px;padding:2px 8px;white-space:nowrap}
 .bc-signup-row.league .bc-signup-count{color:#fbbf24}
 
-.modal.signup{width:min(520px,calc(100vw - 24px))}
+.modal.signup{
+  width:min(520px,calc(100vw - 24px));
+  background:linear-gradient(160deg,rgba(5,22,11,.98),rgba(3,15,8,.98));
+  border-color:rgba(34,197,94,.28);
+  --signup-text:#e2e8f0;
+  --signup-muted:#94a3b8;
+  --signup-dim:#64748b;
+  --signup-green:#86efac;
+  --signup-gold:#fbbf24;
+}
+.modal.signup .bc-signup-row{display:flex;color:var(--signup-text)}
+.modal.signup .bc-signup-name{color:var(--signup-text)}
+.modal.signup .bc-signup-day{color:var(--signup-dim)}
+.modal.signup .bc-signup-time,.modal.signup .bc-signup-count{color:var(--signup-green)}
+.modal.signup .bc-signup-row.league .bc-signup-time,
+.modal.signup .bc-signup-row.league .bc-signup-count{color:var(--signup-gold)}
 /* ═══ TAB NHIỆM VỤ ═══ */
 .tasks-tab-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .tasks-tab-header .tt-title{font-size:14px;font-weight:700;color:var(--gold)}
@@ -3328,13 +3343,13 @@ async function ensureWeekendDefaultSessionsWeb() {
                     waiting_list: '[]',
                     leader_ids: '{}',
                     team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
-                    team_layout: JSON.stringify(INDEX_DEFAULT_TEAM_LAYOUT),
-                    teams: JSON.stringify({
+                    team_layout: INDEX_DEFAULT_TEAM_LAYOUT,
+                    teams: {
                         team_attack1: [],
                         team_attack2: [],
                         team_defense: [],
                         team_forest: []
-                    })
+                    }
                 });
             }
         }
@@ -4326,8 +4341,8 @@ async function joinSession(data) {
             team_defense: JSON.stringify(nextTeams.team_defense || []),
             team_forest: JSON.stringify(nextTeams.team_forest || []),
             waiting_list: JSON.stringify(nextTeams.waiting_list || []),
-            team_layout: JSON.stringify(nextTeams.team_layout || rosterState.layout || []),
-            teams: JSON.stringify(nextTeams.teams || {}),
+            team_layout: nextTeams.team_layout || rosterState.layout || [],
+            teams: nextTeams.teams || {},
             // Ghi rõ editor là người dùng tự đăng ký (không phải leader)
             leader_ids: JSON.stringify({
                 ...currentLeaderIds,
@@ -4448,8 +4463,8 @@ async function leaveSession(data, options = {}) {
             team_defense: JSON.stringify(nextTeams.team_defense || []),
             team_forest: JSON.stringify(nextTeams.team_forest || []),
             waiting_list: JSON.stringify(nextTeams.waiting_list || []),
-            team_layout: JSON.stringify(nextTeams.team_layout || rosterState.layout || []),
-            teams: JSON.stringify(nextTeams.teams || {}),
+            team_layout: nextTeams.team_layout || rosterState.layout || [],
+            teams: nextTeams.teams || {},
             // Ghi rõ editor là người dùng tự hủy (không phải leader)
             leader_ids: JSON.stringify({
                 ...currentLeaderIds2,
@@ -4509,51 +4524,95 @@ function renderSignupModalList() {
     const list = document.getElementById('signupSessionList');
     const sessions = sortSessionsForSignup(getAllCachedSessions());
     if (!sessions.length) {
-        list.innerHTML = '<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px">⚔️ Chưa có phiên Bang Chiến nào đang mở.</div>';
+        list.textContent = '';
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:24px 16px;text-align:center;color:var(--signup-muted,#94a3b8);font-size:13px';
+        empty.textContent = '⚔️ Chưa có phiên Bang Chiến nào đang mở.';
+        list.appendChild(empty);
         return;
     }
-    const rows = [];
-    for (const session of sessions) {
+    list.textContent = '';
+    const frag = document.createDocumentFragment();
+    sessions.forEach((session, index) => {
         try {
-            const key = getSessionCacheKey(session);
-            const joined = sessionContainsCurrentUser(session);
-            const league = isLeagueSession(session);
-            const dayLabel = DAY_LABELS[session.day] || String(session.day || '');
+            const key = getSessionCacheKey(session) || `session_${index}`;
+            let joined = false;
+            let league = false;
+            let total = 0;
+            try { joined = sessionContainsCurrentUser(session); } catch(e) { console.warn('[signup] joined check failed:', e); }
+            try { league = isLeagueSession(session); } catch(e) { console.warn('[signup] league check failed:', e); }
+            try { total = getSessionTotalCount(session); } catch(e) { console.warn('[signup] count failed:', e); }
+
+            const dayLabel = DAY_LABELS[session.day] || String(session.day || 'Không rõ ngày');
             const timeLabel = normalizeSessionTime(session.time || LEAGUE_TIME);
-            const total = getSessionTotalCount(session);
-            const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const safeKey = `${key}_${index}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const inputId = 'signup_' + safeKey;
             const noteRaw = session.note != null ? String(session.note) : '';
             const note = noteRaw && !/^league$/i.test(noteRaw) ? noteRaw : '';
-            // mainTitle: luôn hiện "Thứ 7 19:30" hoặc "Thứ 7 20:00 - Ghi chú"
-            const mainTitle = dayLabel + ' ' + timeLabel + (note ? ' · ' + note : '');
-            const joinedClass = joined ? ' joined-row' : '';
-            const leagueClass = league ? ' league' : '';
+            const mainTitle = `${dayLabel} ${timeLabel}${note ? ' · ' + note : ''}`;
 
-            let html = '<label class="bc-signup-row' + leagueClass + joinedClass + '" for="signup_' + safeKey + '">';
-            html += '<div class="bc-signup-checkbox-wrap">';
-            html += '<input type="checkbox" id="signup_' + safeKey + '" data-session-key="' + key + '"' + (joined ? ' checked' : '') + '>';
-            html += '</div>';
-            html += '<div class="bc-signup-main">';
-            html += '<div class="bc-signup-title-row">';
-            html += '<span class="bc-signup-name">' + mainTitle + '</span>';
-            if (league) html += '<span class="bc-signup-badge-league">LEAGUE</span>';
-            html += '</div>';
-            html += '<div class="bc-signup-sub">';
-            html += '<span class="bc-signup-day">' + dayLabel + '</span>';
-            html += '<span class="bc-signup-time">⏰ ' + timeLabel + '</span>';
-            html += '</div>';
-            html += '</div>';
-            html += '<div class="bc-signup-right">';
-            html += '<div class="bc-signup-count">' + total + '/30</div>';
-            if (joined) html += '<div class="bc-signup-joined-tag">✓ Đã đăng ký</div>';
-            html += '</div>';
-            html += '</label>';
-            rows.push(html);
+            const row = document.createElement('label');
+            row.className = `bc-signup-row${league ? ' league' : ''}${joined ? ' joined-row' : ''}`;
+            row.setAttribute('for', inputId);
+
+            const checkboxWrap = document.createElement('div');
+            checkboxWrap.className = 'bc-signup-checkbox-wrap';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.id = inputId;
+            input.dataset.sessionKey = key;
+            input.checked = joined;
+            checkboxWrap.appendChild(input);
+
+            const main = document.createElement('div');
+            main.className = 'bc-signup-main';
+            const titleRow = document.createElement('div');
+            titleRow.className = 'bc-signup-title-row';
+            const name = document.createElement('span');
+            name.className = 'bc-signup-name';
+            name.textContent = mainTitle;
+            titleRow.appendChild(name);
+            if (league) {
+                const badge = document.createElement('span');
+                badge.className = 'bc-signup-badge-league';
+                badge.textContent = 'LEAGUE';
+                titleRow.appendChild(badge);
+            }
+            const sub = document.createElement('div');
+            sub.className = 'bc-signup-sub';
+            const day = document.createElement('span');
+            day.className = 'bc-signup-day';
+            day.textContent = dayLabel;
+            const time = document.createElement('span');
+            time.className = 'bc-signup-time';
+            time.textContent = '⏰ ' + timeLabel;
+            sub.appendChild(day);
+            sub.appendChild(time);
+            main.appendChild(titleRow);
+            main.appendChild(sub);
+
+            const right = document.createElement('div');
+            right.className = 'bc-signup-right';
+            const count = document.createElement('div');
+            count.className = 'bc-signup-count';
+            count.textContent = `${total}/30`;
+            right.appendChild(count);
+            if (joined) {
+                const joinedTag = document.createElement('div');
+                joinedTag.className = 'bc-signup-joined-tag';
+                joinedTag.textContent = '✓ Đã đăng ký';
+                right.appendChild(joinedTag);
+            }
+
+            row.appendChild(checkboxWrap);
+            row.appendChild(main);
+            row.appendChild(right);
+            frag.appendChild(row);
         } catch(e) {
             console.warn('[signup] Render error for session:', e);
         }
-    }
-    list.innerHTML = rows.join('');
+    });
+    list.appendChild(frag);
 }
 
 
@@ -5113,8 +5172,8 @@ async function createCustomBc() {
             waiting_list: '[]',
             leader_ids: JSON.stringify({ creator_id: creatorId, creator_name: creatorName }),
             team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
-            team_layout: JSON.stringify(createLayout),
-            teams: JSON.stringify(createTeams)
+            team_layout: createLayout,
+            teams: createTeams
         };
     let createResult = await sb
         .from('bc_sessions')

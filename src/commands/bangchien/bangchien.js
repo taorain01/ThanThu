@@ -245,7 +245,7 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         });
     }
 
-    const total = teamAttack1.length + teamAttack2.length + teamDefense.length + teamForest.length + waitingList.length;
+    const total = bangchienRoster.getRosterCounts(dynamicRoster).total;
     embed.setFooter({ text: `Leader: ${leaderName} â€¢ Tá»•ng: ${total}/30 ngÆ°á»i` })
         .setTimestamp();
 
@@ -328,10 +328,10 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
 
     const embed = new EmbedBuilder()
         .setColor(joinedCount > 0 ? 0x22C55E : 0xFFD700)
-        .setTitle('\u2694\ufe0f  Bang Chiáº¿n Lang Gia')
+        .setTitle('⚔️  Bang Chiến Lang Gia')
         .setDescription(allSessions.length > 0
-            ? '> Báº¥m **ÄÄƒng kĂ½** bĂªn dÆ°á»›i Ä‘á»ƒ chá»n tráº­n tham gia.'
-            : '> ChÆ°a cĂ³ phiĂªn Bang Chiáº¿n nĂ o Ä‘ang má»Ÿ.');
+            ? '> Bấm **Đăng ký** bên dưới để chọn trận tham gia.'
+            : '> Chưa có phiên Bang Chiến nào đang mở.');
 
     for (const day of dayOrder) {
         const lines = byDay[day].map(session => {
@@ -339,23 +339,21 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
             const counts  = bangchienRoster.getRosterCounts(session);
             const total   = counts.active, waiting = counts.waiting;
             const league  = isLeagueSession(session) ? ' \u00b7 `LEAGUE`' : '';
-            const waitStr = waiting > 0 ? ` _(+${waiting} chá»)_` : '';
-            const filled  = Math.round((total / 30) * 8);
-            const bar     = '[' + '\u2588'.repeat(filled) + '\u2591'.repeat(8 - filled) + ']';
+            const waitStr = waiting > 0 ? ` _(+${waiting} chờ)_` : '';
             return isUserInSession(session, userId)
-                ? `\u2705 **${timeStr}**${league}  ${bar}  \`${total}/30\`${waitStr}  \u2190 _ÄĂ£ Ä‘Äƒng kĂ½_`
-                : `\u25ab\ufe0f **${timeStr}**${league}  ${bar}  \`${total}/30\`${waitStr}`;
+                ? `✅ **${timeStr}**${league}  \`${total}/30\`${waitStr}  ← _Đã đăng ký_`
+                : `▫️ **${timeStr}**${league}  \`${total}/30\`${waitStr}`;
         });
         embed.addFields({ name: `\ud83d\udcc5 ${getDayNameWithDate(day)}`, value: lines.join('\n'), inline: false });
     }
 
     if (dayOrder.length === 0) {
-        embed.addFields({ name: '\u200b', value: '_ChÆ°a cĂ³ phiĂªn Bang Chiáº¿n nĂ o Ä‘ang má»Ÿ._', inline: false });
+        embed.addFields({ name: '\u200b', value: '_Chưa có phiên Bang Chiến nào đang mở._', inline: false });
     }
     if (userId && joinedCount > 0) {
-        embed.setFooter({ text: `\u2705 Báº¡n Ä‘Ă£ Ä‘Äƒng kĂ½ ${joinedCount}/${allSessions.length} tráº­n` });
+        embed.setFooter({ text: `✅ Bạn đã đăng ký ${joinedCount}/${allSessions.length} trận` });
     } else if (allSessions.length > 0) {
-        embed.setFooter({ text: `Tá»•ng ${allSessions.length} tráº­n Ä‘ang má»Ÿ  â€¢  Báº¥m ÄÄƒng kĂ½ Ä‘á»ƒ tham gia` });
+        embed.setFooter({ text: `Tổng ${allSessions.length} trận đang mở  •  Bấm Đăng ký để tham gia` });
     }
     embed.setTimestamp();
     return embed;
@@ -365,7 +363,7 @@ function createOverviewButton(guildId) {
     const db = require('../../database/db');
     const allSessions = db.getActiveBangchienByGuild(guildId);
     const webButton = new ButtonBuilder()
-        .setLabel('đŸŒ Truy cáº­p WEB')
+        .setLabel('🌐 Truy cập WEB')
         .setStyle(ButtonStyle.Link)
         .setURL('https://langgiawar.vercel.app/');
     if (allSessions.length === 0) {
@@ -374,7 +372,7 @@ function createOverviewButton(guildId) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`bc_menu_${guildId}`)
-            .setLabel('đŸ“‹ ÄÄƒng kĂ½ BANG CHIáº¾N')
+            .setLabel('📋 Đăng ký BANG CHIẾN')
             .setStyle(ButtonStyle.Primary),
         webButton
     );
@@ -537,13 +535,7 @@ module.exports = {
                 });
 
                 // KhĂ´i phá»¥c registrations
-                const allParticipants = [
-                    ...(existingSession.team_attack1 || []),
-                    ...(existingSession.team_attack2 || []),
-                    ...(existingSession.team_defense || []),
-                    ...(existingSession.team_forest || []),
-                    ...(existingSession.waiting_list || [])
-                ];
+                const allParticipants = bangchienRoster.getAllRosterMembers(existingSession);
                 bangchienRegistrations.set(partyKey, allParticipants);
 
                 // Fetch members vĂ o cache
@@ -843,12 +835,7 @@ module.exports = {
                         }
 
                         // 2. XĂ“A ROLE BC cho táº¥t cáº£ participants
-                        const participants = [
-                            ...(autoEndSession.team_attack1 || []),
-                            ...(autoEndSession.team_attack2 || []),
-                            ...(autoEndSession.team_defense || []),
-                            ...(autoEndSession.team_forest || [])
-                        ];
+                        const participants = bangchienRoster.getActiveRosterMembers(autoEndSession);
 
                         const bcRole = guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
                         let removedCount = 0;

@@ -1013,6 +1013,10 @@ function createActiveBangchien(data) {
     const roster = bangchienRoster.normalizeRoster({
         team_layout: data.team_layout || data.teamLayout || null,
         teams: data.teams || data.teams_json || null,
+        team_attack1: data.team_attack1 || [],
+        team_attack2: data.team_attack2 || [],
+        team_defense: data.team_defense || [],
+        team_forest: data.team_forest || [],
         waiting_list: data.waiting_list || []
     });
     if (shouldSeedLeader && bangchienRoster.getActiveRosterMembers(roster).length === 0) {

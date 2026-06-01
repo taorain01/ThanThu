@@ -682,6 +682,10 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           supabaseSessionId: remoteSession.id || null,
           team_layout: remoteSession.team_layout || null,
           teams: remoteSession.teams || null,
+          team_attack1: remoteSession.team_attack1 || [],
+          team_attack2: remoteSession.team_attack2 || [],
+          team_defense: remoteSession.team_defense || [],
+          team_forest: remoteSession.team_forest || [],
           waiting_list: remoteSession.waiting_list || []
         });
 
@@ -912,6 +916,10 @@ module.exports = {
                 supabaseSessionId: newData.id || null,
                 team_layout: newData.team_layout || null,
                 teams: newData.teams || null,
+                team_attack1: newData.team_attack1 || [],
+                team_attack2: newData.team_attack2 || [],
+                team_defense: newData.team_defense || [],
+                team_forest: newData.team_forest || [],
                 waiting_list: newData.waiting_list || []
               });
               const stringifyTeam = (v) => typeof v === 'string' ? v : JSON.stringify(v || []);

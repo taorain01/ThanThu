@@ -1761,6 +1761,12 @@ function cloneDeep(value) {
 
 function parseSessionTeam(teamKey) {
     try {
+        const roster = getSessionRosterState(sessionData);
+        if (roster.teams?.[teamKey]) return roster.teams[teamKey];
+        if (LEGACY_TACTICS_TEAM_KEYS.includes(teamKey)) {
+            const mirror = buildTacticsLegacyMirror(roster);
+            return mirror[teamKey] || [];
+        }
         const value = sessionData?.[teamKey];
         return typeof value === 'string' ? JSON.parse(value) : (value || []);
     } catch (e) {
@@ -3871,8 +3877,8 @@ async function persistSessionRosterOrder(nextTeams, action = 'swap_position') {
         team_defense: JSON.stringify(nextTeams.team_defense || []),
         team_forest: JSON.stringify(nextTeams.team_forest || []),
         waiting_list: JSON.stringify(nextTeams.waiting_list || []),
-        team_layout: JSON.stringify(nextTeams.team_layout || getSessionTeamLayout()),
-        teams: JSON.stringify(nextTeams.teams || {}),
+        team_layout: nextTeams.team_layout || getSessionTeamLayout(),
+        teams: nextTeams.teams || {},
         leader_ids: JSON.stringify({
             ...leaderIds,
             editor_id: window.currentDiscordId || null,
@@ -6008,19 +6014,13 @@ function normalizeGlobalNotes(list) {
 }
 
 function populateScopeDropdowns() {
-    const names = getSessionTeamNames();
-    const sizes = getSessionTeamSizes();
-    const totalMax = Object.values(sizes).reduce((s, v) => s + (v || 0), 0);
+    const layout = getSessionTeamLayout();
+    const totalMax = layout.reduce((s, team) => s + (Number(team.capacity) || 0), 0);
     const GROUPS = [
         { label: '📋 Đối tượng', items: [
             { value: 'all|all', text: `🏴 Toàn đội (${totalMax} người)` }
         ]},
-        { label: '⚔️ Team', items: [
-            ...(sizes.attack1 > 0 ? [{ value: 'team|attack1', text: names.attack1 }] : []),
-            ...(sizes.attack2 > 0 ? [{ value: 'team|attack2', text: names.attack2 }] : []),
-            ...(sizes.defense > 0 ? [{ value: 'team|defense', text: names.defense }] : []),
-            ...(sizes.forest > 0  ? [{ value: 'team|forest',  text: names.forest }] : [])
-        ]},
+        { label: '⚔️ Team', items: layout.map((team) => ({ value: `team|${team.id}`, text: team.name })) },
         { label: '🎭 Vai trò', items: [
             { value: 'role|Healer', text: 'Healer' },
             { value: 'role|Tanker', text: 'Tanker' },
@@ -6072,7 +6072,9 @@ function getScopeLabel(scope, target) {
         const p = getAllPlayers().find(x => x.id === target);
         return p ? (p.gn || p.name) : target.slice(0, 8);
     }
-    const opt = SCOPE_OPTIONS.find(o => o.value === scope + '|' + target);
+    const legacyTargetMap = { attack1:'team_attack1', attack2:'team_attack2', defense:'team_defense', forest:'team_forest' };
+    const normalizedTarget = scope === 'team' ? (legacyTargetMap[target] || target) : target;
+    const opt = SCOPE_OPTIONS.find(o => o.value === scope + '|' + normalizedTarget || o.value === scope + '|' + target);
     return opt ? opt.label : target;
 }
 
@@ -6652,6 +6654,8 @@ function buildPersistedTacticsPayload() {
         global_notes: normalizeGlobalNotes(tacticsGlobalNotes),
         strategy_name: normalizeStrategyName(tacticsStrategyName),
         roster_snapshot: buildRosterSnapshot(),
+        team_layout: getSessionTeamLayout(),
+        teams: getSessionRosterState(sessionData).teams,
         slot_template: buildPersistedSlotTemplate(),
         source_snapshot_meta: {
             ...(tacticsSourceSnapshotMeta || {}),

@@ -145,8 +145,8 @@ async function syncBCSession(guildId, day, sessionData) {
                 team_layout,
                 teams
             });
-            payload.team_layout = JSON.stringify(roster.layout);
-            payload.teams = JSON.stringify(roster.teams);
+            payload.team_layout = roster.layout;
+            payload.teams = roster.teams;
         }
 
         let { error } = await supabase

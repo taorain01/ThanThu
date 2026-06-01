@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS bc_sessions (
     team_defense JSONB DEFAULT '[]',
     team_forest JSONB DEFAULT '[]',
     waiting_list JSONB DEFAULT '[]',
+    team_layout JSONB DEFAULT NULL,
+    teams JSONB DEFAULT NULL,
     leader_ids JSONB DEFAULT '{}',
     team_sizes JSONB DEFAULT '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
     team_names JSONB DEFAULT '{}',
@@ -291,6 +293,8 @@ CREATE POLICY "Regular owners can delete bc_regulars"
 
 ALTER TABLE bc_sessions ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false;
 ALTER TABLE bc_sessions ADD COLUMN IF NOT EXISTS team_names JSONB DEFAULT '{}';
+ALTER TABLE bc_sessions ADD COLUMN IF NOT EXISTS team_layout JSONB DEFAULT NULL;
+ALTER TABLE bc_sessions ADD COLUMN IF NOT EXISTS teams JSONB DEFAULT NULL;
 
 -- 10. Auto-update updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at()

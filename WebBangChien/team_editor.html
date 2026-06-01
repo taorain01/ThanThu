@@ -2749,8 +2749,8 @@
         waiting_list: JSON.stringify(snapshot.waiting_list || []),
         team_sizes: JSON.stringify(snapshot.team_sizes || {}),
         leader_ids: JSON.stringify(snapshot.leader_ids || {}),
-        team_layout: JSON.stringify(snapshot.team_layout || []),
-        teams: JSON.stringify(snapshot.teams || {})
+        team_layout: snapshot.team_layout || [],
+        teams: snapshot.teams || {}
       };
       if (supportsSessionLocked) payload.locked = !!snapshot.locked;
       // team_names & team_sizes: auto-fallback nếu cột chưa tồn tại

@@ -5,6 +5,46 @@ const { isCoreQuestion, rollCoreOutcome } = require('../../utils/gieoqueCore');
 // Helper: delay
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function normalizeFortuneText(text) {
+    return (text || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
+
+function formatFortuneResultLine(fortuneName) {
+    return `🎴 **Kết quả gieo:** ${fortuneName}`;
+}
+
+function stripFortuneResultLine(text) {
+    return (text || '')
+        .replace(/^🎴 \*\*Kết quả gieo:\*\* [^\n]+\n*/u, '')
+        .trim();
+}
+
+function extractFortuneNameFromText(text, fortuneLevels) {
+    if (!text) return null;
+
+    const explicitMatch = text.match(/🎴 \*\*Kết quả gieo:\*\* ([^\n]+)/u);
+    if (explicitMatch) return explicitMatch[1].trim();
+
+    const normalizedText = normalizeFortuneText(text);
+    const levelsBySpecificity = [...fortuneLevels].sort((a, b) => {
+        const aName = a.name.replace(/\s*\(.+?\)\s*$/u, '');
+        const bName = b.name.replace(/\s*\(.+?\)\s*$/u, '');
+        return bName.length - aName.length;
+    });
+
+    for (const level of levelsBySpecificity) {
+        const baseName = level.name.replace(/\s*\(.+?\)\s*$/u, '');
+        if (normalizedText.includes(normalizeFortuneText(baseName))) {
+            return level.name;
+        }
+    }
+
+    return null;
+}
+
 // ============== API KEY ROTATION ==============
 // Load all GEMINI_API_KEY_* from env
 function loadApiKeys() {
@@ -227,7 +267,15 @@ Yêu cầu:
 
         // 7. Chỉnh sửa message và ghi nhận usage
         if (text) {
-            const dailyFortuneText = text.trim();
+            const savedFortuneName = usedToday && lastFortune
+                ? extractFortuneNameFromText(lastFortune, fortuneLevels)
+                : null;
+            const fortuneName = usedToday && lastFortune ? savedFortuneName : selectedFortune.name;
+            const fortuneResultLine = fortuneName ? formatFortuneResultLine(fortuneName) : null;
+            const generatedFortuneText = stripFortuneResultLine(text.trim());
+            const dailyFortuneText = fortuneResultLine
+                ? `${fortuneResultLine}\n${generatedFortuneText}`
+                : generatedFortuneText;
             const coreLine = shouldAnswerCore && coreOutcome
                 ? `\n\n🎯 **Core tháng này:** ${coreOutcome.content}.`
                 : '';
@@ -240,7 +288,10 @@ Yêu cầu:
             if (!usedToday || !lastFortune) {
                 db.markGieoQueUsed(message.author.id, dailyFortuneText);
             } else {
-                db.markGieoQueUsed(message.author.id, lastFortune);
+                const savedFortuneText = savedFortuneName
+                    ? `${formatFortuneResultLine(savedFortuneName)}\n${stripFortuneResultLine(lastFortune)}`
+                    : lastFortune;
+                db.markGieoQueUsed(message.author.id, savedFortuneText);
             }
 
             if (shouldAnswerCore && coreOutcome && !coreStatus.usedThisMonth) {

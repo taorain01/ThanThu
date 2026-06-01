@@ -18,6 +18,7 @@ const { checkPermissionAndReply } = require('../../utils/permissionHelper');
 const { weeklyNotifications, dayNames, guildTemplates, activeGuildEvents, scheduleMessages } = require('../../utils/notificationState');
 const { getNextOccurrence } = require('./thongbao');
 const { getWeekendYentiecTime } = require('../../utils/yentiecReminder');
+const { LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 // Footer mặc định
 const FOOTER_TEXT = 'Lang Gia Các - nơi tụ tập các anh hùng.';
@@ -223,12 +224,15 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
 
             const targetDay = weekDays.find(wd => wd.dayOfWeek === dayOfWeek);
             if (targetDay) {
-                const timeStr = session.time || '19:30';
-                const notePart = session.note ? ` (${session.note})` : '';
+                const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
+                if (timeStr !== LEAGUE_TIME) continue;
+
                 targetDay.events.push({
                     emoji: '🏰',
-                    name: lang === 'en' ? `Guild War${notePart}` : `Bang Chiến${notePart}`,
-                    time: timeStr
+                    name: lang === 'en' ? 'Guild War' : 'Bang Chiến',
+                    time: timeStr,
+                    note: 'LEAGUE',
+                    compact: true
                 });
             }
         }
@@ -248,7 +252,13 @@ function getWeeklySchedule(guildId, includeBangchien = false, lang = 'vi') {
         output += `${highlightIcon} **${wd.dayName.toUpperCase()} (${wd.day}/${wd.month})**\n`;
 
         for (const e of wd.events) {
-            output += `   ${e.emoji} ${e.name}     ${e.time}\n`;
+            if (e.compact) {
+                const compactTime = e.time.replace(':', 'h');
+                const notePart = e.note ? ` (${e.note})` : '';
+                output += `   ${e.emoji} ${e.name} ${compactTime}${notePart}\n`;
+            } else {
+                output += `   ${e.emoji} ${e.name}     ${e.time}\n`;
+            }
         }
         output += '\n';
     }

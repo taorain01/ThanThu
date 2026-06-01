@@ -6,6 +6,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { LEAGUE_TIME, normalizeBcTime, getSessionIdentityKey } = require('./bangchienState');
+const bangchienRoster = require('./bangchienRoster');
 
 // Khởi tạo Supabase client với service_role key (full quyền)
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -14,6 +15,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 let supabase = null;
 let supportsBcSessionsLockedColumn = true;
 let supportsBcSessionsTeamNamesColumn = true; // Flag auto-fallback cho cột team_names
+let supportsBcSessionsDynamicRosterColumns = true;
 let supportsBcTacticsSessionIdColumn = true;
 let supportsBcTacticsHistorySessionIdColumn = true;
 
@@ -101,6 +103,8 @@ async function syncBCSession(guildId, day, sessionData) {
             leader_ids = {},
             team_sizes = { attack1: 10, attack2: 10, defense: 5, forest: 5 },
             team_names = {},
+            team_layout = null,
+            teams = null,
             status = 'active',
             time = LEAGUE_TIME,
             note = '',
@@ -129,6 +133,21 @@ async function syncBCSession(guildId, day, sessionData) {
         if (supportsBcSessionsTeamNamesColumn) {
             payload.team_names = JSON.stringify(team_names);
         }
+        if (supportsBcSessionsDynamicRosterColumns) {
+            const roster = bangchienRoster.normalizeRoster({
+                team_attack1,
+                team_attack2,
+                team_defense,
+                team_forest,
+                waiting_list,
+                team_sizes,
+                team_names,
+                team_layout,
+                teams
+            });
+            payload.team_layout = JSON.stringify(roster.layout);
+            payload.teams = JSON.stringify(roster.teams);
+        }
 
         let { error } = await supabase
             .from('bc_sessions')
@@ -152,11 +171,21 @@ async function syncBCSession(guildId, day, sessionData) {
                 .upsert(payload, { onConflict: 'guild_id,day,time' });
             error = retry2.error || null;
         }
+        if (error && /(team_layout|teams)/i.test(error.message || '')) {
+            supportsBcSessionsDynamicRosterColumns = false;
+            delete payload.team_layout;
+            delete payload.teams;
+            const retry3 = await supabase
+                .from('bc_sessions')
+                .upsert(payload, { onConflict: 'guild_id,day,time' });
+            error = retry3.error || null;
+        }
 
         if (error) {
             console.error('[Supabase] ❌ Sync BC session lỗi:', error.message);
         } else {
-            console.log(`[Supabase] ✅ Sync BC ${day} ${normalizedTime} thành công (${team_attack1.length + team_attack2.length + team_defense.length + team_forest.length} người)`);
+            const activeCount = bangchienRoster.getRosterCounts({ team_attack1, team_attack2, team_defense, team_forest, waiting_list, team_layout, teams }).active;
+            console.log(`[Supabase] ✅ Sync BC ${day} ${normalizedTime} thành công (${activeCount} người)`);
             try {
                 const { data: savedSession, error: sessionLookupError } = await supabase
                     .from('bc_sessions')

@@ -6,6 +6,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const bangchienRoster = require('../utils/bangchienRoster');
 
 // Database file path
 const DB_PATH = path.join(__dirname, '../../data/users.db');
@@ -251,6 +252,12 @@ function initializeDatabase() {
     } catch (e) { }
     try {
         db.prepare('ALTER TABLE bangchien_active ADD COLUMN team4_leader_id TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE bangchien_active ADD COLUMN team_layout TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE bangchien_active ADD COLUMN teams_json TEXT').run();
     } catch (e) { }
 
     // ======== BC PRESET TABLE - Slot cố định cho Team Thủ/Rừng (MULTI-DAY) ========
@@ -974,6 +981,7 @@ function hydrateBangchienSession(result) {
     result.team_attack1 = JSON.parse(result.team_attack1 || '[]');
     result.team_attack2 = JSON.parse(result.team_attack2 || '[]');
     result.team_forest = JSON.parse(result.team_forest || '[]');
+    bangchienRoster.attachRosterFields(result);
     result.time = normalizeBangchienTime(result.time || '19:30');
     return result;
 }
@@ -990,14 +998,36 @@ function createActiveBangchien(data) {
     } catch (e) { }
 
     const stmt = db.prepare(`
-        INSERT INTO bangchien_active (guild_id, party_key, leader_id, leader_name, channel_id, message_id, team_attack1, day, time, note, supabase_session_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO bangchien_active (
+            guild_id, party_key, leader_id, leader_name, channel_id, message_id,
+            team_attack1, team_attack2, team_defense, team_forest, waiting_list,
+            team_layout, teams_json, day, time, note, supabase_session_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     // Leader starts in team_attack1 (4-TEAM SYSTEM)
     // Lookup tên ingame từ DB users
     const leaderUser = getUserByDiscordId(data.leaderId);
     const leaderGameName = leaderUser?.game_username || '';
-    const leaderData = [{ id: data.leaderId, username: data.leaderName, gn: leaderGameName, name: leaderGameName || data.leaderName, isLeader: true, joinedAt: Date.now() }];
+    const shouldSeedLeader = !data.noInitialLeader && data.leaderId && !String(data.leaderId).startsWith('auto_');
+    const roster = bangchienRoster.normalizeRoster({
+        team_layout: data.team_layout || data.teamLayout || null,
+        teams: data.teams || data.teams_json || null,
+        waiting_list: data.waiting_list || []
+    });
+    if (shouldSeedLeader && bangchienRoster.getActiveRosterMembers(roster).length === 0) {
+        const firstTeam = roster.layout[0]?.id || 'team_attack1';
+        roster.teams[firstTeam] = roster.teams[firstTeam] || [];
+        roster.teams[firstTeam].push({
+            id: data.leaderId,
+            username: data.leaderName,
+            gn: leaderGameName,
+            name: leaderGameName || data.leaderName,
+            isLeader: true,
+            joinedAt: Date.now()
+        });
+    }
+    const storage = bangchienRoster.serializeRosterForStorage(roster);
     const result = stmt.run(
         data.guildId,
         data.partyKey,
@@ -1005,7 +1035,13 @@ function createActiveBangchien(data) {
         data.leaderName,
         data.channelId,
         data.messageId || null,
-        JSON.stringify(leaderData),
+        JSON.stringify(storage.team_attack1 || []),
+        JSON.stringify(storage.team_attack2 || []),
+        JSON.stringify(storage.team_defense || []),
+        JSON.stringify(storage.team_forest || []),
+        JSON.stringify(storage.waiting_list || []),
+        storage.team_layout,
+        storage.teams_json,
         data.day || null,
         normalizeBangchienTime(data.time || '19:30'),
         data.note || null,
@@ -1085,6 +1121,25 @@ function getActiveBangchienBySupabaseId(guildId, supabaseSessionId) {
 function addBangchienParticipant(partyKey, participant, guildId = null) {
     const session = getActiveBangchien(partyKey);
     if (!session) return { success: false, error: 'Session not found' };
+    const dynamicResult = bangchienRoster.assignParticipant(session, participant);
+    if (!dynamicResult.success) return dynamicResult;
+    const storage = dynamicResult.storage;
+    db.prepare(`
+        UPDATE bangchien_active
+        SET team_attack1 = ?, team_attack2 = ?, team_defense = ?, team_forest = ?,
+            waiting_list = ?, team_layout = ?, teams_json = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE party_key = ?
+    `).run(
+        JSON.stringify(storage.team_attack1 || []),
+        JSON.stringify(storage.team_attack2 || []),
+        JSON.stringify(storage.team_defense || []),
+        JSON.stringify(storage.team_forest || []),
+        JSON.stringify(storage.waiting_list || []),
+        storage.team_layout,
+        storage.teams_json,
+        partyKey
+    );
+    return dynamicResult;
 
     // Check if already exists in any team
     const allParticipants = [
@@ -1277,6 +1332,27 @@ function addBangchienParticipant(partyKey, participant, guildId = null) {
 function removeBangchienParticipant(partyKey, participantId) {
     const session = getActiveBangchien(partyKey);
     if (!session) return { success: false, error: 'Session not found' };
+    if (session.leader_id === participantId) return { success: false, error: 'Leader cannot leave' };
+
+    const dynamicResult = bangchienRoster.removeParticipant(session, participantId);
+    if (!dynamicResult.success) return dynamicResult;
+    const storage = dynamicResult.storage;
+    db.prepare(`
+        UPDATE bangchien_active
+        SET team_attack1 = ?, team_attack2 = ?, team_defense = ?, team_forest = ?,
+            waiting_list = ?, team_layout = ?, teams_json = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE party_key = ?
+    `).run(
+        JSON.stringify(storage.team_attack1 || []),
+        JSON.stringify(storage.team_attack2 || []),
+        JSON.stringify(storage.team_defense || []),
+        JSON.stringify(storage.team_forest || []),
+        JSON.stringify(storage.waiting_list || []),
+        storage.team_layout,
+        storage.teams_json,
+        partyKey
+    );
+    return dynamicResult;
 
     // Check if leader — tìm trong TẤT CẢ team (leader có thể bị move sang team khác)
     const allMembers = [
@@ -1394,6 +1470,24 @@ function updateActiveBangchien(partyKey, updates) {
     const session = getActiveBangchien(partyKey);
     if (!session) return { success: false, error: 'Session not found' };
 
+    const hasRosterUpdates = [
+        'team_attack1', 'team_attack2', 'team_defense', 'team_forest',
+        'waiting_list', 'team_layout', 'teams', 'teams_json'
+    ].some((key) => updates[key] !== undefined);
+    if (hasRosterUpdates) {
+        const applied = bangchienRoster.applyRosterUpdate(session, updates);
+        updates = {
+            ...updates,
+            team_attack1: applied.storage.team_attack1,
+            team_attack2: applied.storage.team_attack2,
+            team_defense: applied.storage.team_defense,
+            team_forest: applied.storage.team_forest,
+            waiting_list: applied.storage.waiting_list,
+            team_layout: applied.storage.team_layout,
+            teams_json: applied.storage.teams_json
+        };
+    }
+
     const fields = [];
     const values = [];
 
@@ -1408,6 +1502,15 @@ function updateActiveBangchien(partyKey, updates) {
     if (updates.waiting_list !== undefined) {
         fields.push('waiting_list = ?');
         values.push(JSON.stringify(updates.waiting_list));
+    }
+    if (updates.team_layout !== undefined) {
+        fields.push('team_layout = ?');
+        values.push(typeof updates.team_layout === 'string' ? updates.team_layout : JSON.stringify(updates.team_layout));
+    }
+    if (updates.teams_json !== undefined || updates.teams !== undefined) {
+        const teamsValue = updates.teams_json !== undefined ? updates.teams_json : updates.teams;
+        fields.push('teams_json = ?');
+        values.push(typeof teamsValue === 'string' ? teamsValue : JSON.stringify(teamsValue || {}));
     }
     if (updates.message_id !== undefined) {
         fields.push('message_id = ?');

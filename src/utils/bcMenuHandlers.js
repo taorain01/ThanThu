@@ -89,11 +89,11 @@ function createBcMenu(guildId, userId) {
 
     const embed = new EmbedBuilder()
         .setColor(0xFFD700)
-        .setTitle('DANG KY BANG CHIEN')
+        .setTitle('ĐĂNG KÝ BANG CHIẾN')
         .setDescription(
             sessions.length > 0
-                ? 'Chon cac tran muon tham gia, roi bam Xac nhan. Tran LEAGUE 19:30 duoc dat dau danh sach.'
-                : 'Chua co phien Bang Chien nao dang mo.'
+                ? 'Chọn các trận muốn tham gia, rồi bấm **Xác nhận**. Trận LEAGUE 19:30 được đặt đầu danh sách.'
+                : 'Chưa có phiên Bang Chiến nào đang mở.'
         );
 
     for (const session of sessions.slice(0, 10)) {
@@ -101,7 +101,7 @@ function createBcMenu(guildId, userId) {
         const joined = isUserInSession(session, userId);
         embed.addFields({
             name: getSessionLabel(session),
-            value: `${getDayNameWithDate(session.day)} - ${total}/30${joined ? ' - Ban da dang ky' : ''}`,
+            value: `${getDayNameWithDate(session.day)} - ${total}/30${joined ? ' ✅ Đã đăng ký' : ''}`,
             inline: false
         });
     }
@@ -118,7 +118,7 @@ function createBcMenu(guildId, userId) {
         components.push(new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId(`bcmenu_select_${guildId}`)
-                .setPlaceholder('Chon tran Bang Chien')
+                .setPlaceholder('Chọn trận Bang Chiến')
                 .setMinValues(0)
                 .setMaxValues(Math.max(1, options.length))
                 .addOptions(options)
@@ -127,18 +127,18 @@ function createBcMenu(guildId, userId) {
         components.push(new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`bcmenu_apply_${guildId}`)
-                .setLabel('Xac nhan')
+                .setLabel('Xác nhận')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId(`bcmenu_close_${guildId}`)
-                .setLabel('Dong')
+                .setLabel('Đóng')
                 .setStyle(ButtonStyle.Secondary)
         ));
     } else {
         components.push(new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`bcmenu_close_${guildId}`)
-                .setLabel('Dong')
+                .setLabel('Đóng')
                 .setStyle(ButtonStyle.Secondary)
         ));
     }
@@ -256,6 +256,8 @@ async function applyMenuSelection(interaction, guildId, userId) {
     let joinedCount = 0;
     let leftCount = 0;
     const errors = [];
+    const joinedLabels = [];
+    const leftLabels = [];
 
     for (const session of sessions) {
         const wantsJoin = selected.has(session.party_key);
@@ -279,8 +281,9 @@ async function applyMenuSelection(interaction, guildId, userId) {
                 bangchienRegistrations.set(session.party_key, regs);
                 changedPartyKeys.push(session.party_key);
                 joinedCount++;
+                joinedLabels.push(getSessionLabel(session));
             } else {
-                errors.push(`${getSessionLabel(session)}: ${result.error || 'khong the dang ky'}`);
+                errors.push(`${getSessionLabel(session)}: ${result.error || 'không thể đăng ký'}`);
             }
         }
 
@@ -291,8 +294,9 @@ async function applyMenuSelection(interaction, guildId, userId) {
                 bangchienRegistrations.set(session.party_key, regs.filter(r => String(r.id) !== String(userId)));
                 changedPartyKeys.push(session.party_key);
                 leftCount++;
+                leftLabels.push(getSessionLabel(session));
             } else {
-                errors.push(`${getSessionLabel(session)}: ${result.error || 'khong the huy'}`);
+                errors.push(`${getSessionLabel(session)}: ${result.error || 'không thể hủy'}`);
             }
         }
     }
@@ -306,16 +310,25 @@ async function applyMenuSelection(interaction, guildId, userId) {
     if (changedPartyKeys.length > 0) await refreshOverview(interaction, guildId);
 
     pendingBcMenuSelections.delete(key);
-    const summary = [];
-    if (joinedCount > 0) summary.push(`dang ky ${joinedCount} tran`);
-    if (leftCount > 0) summary.push(`huy ${leftCount} tran`);
-    if (summary.length === 0) summary.push('khong co thay doi');
-    if (errors.length > 0) summary.push(`loi: ${errors.slice(0, 2).join('; ')}`);
-    return summary.join(' - ');
+
+    // Tạo thông báo chi tiết
+    const lines = [];
+    if (joinedLabels.length > 0) {
+        lines.push(`✅ **Đã đăng ký ${joinedCount} trận:**`);
+        for (const label of joinedLabels) lines.push(`  • ${label}`);
+    }
+    if (leftLabels.length > 0) {
+        lines.push(`🚫 **Đã hủy đăng ký ${leftCount} trận:**`);
+        for (const label of leftLabels) lines.push(`  • ${label}`);
+    }
+    if (lines.length === 0) lines.push('ℹ️ Không có thay đổi nào.');
+    if (errors.length > 0) lines.push(`⚠️ Lỗi: ${errors.slice(0, 2).join('; ')}`);
+
+    return lines.join('\n');
 }
 
 async function showRecurringDisabled(interaction) {
-    const content = 'Chuc nang dang ky dinh ky dang tam thoi tat. Hay dung menu dang ky de chon tung tran.';
+    const content = 'Chức năng đăng ký định kỳ đang tạm thời tắt. Hãy dùng menu đăng ký để chọn từng trận.';
     if (interaction.deferred || interaction.replied) {
         await interaction.editReply({ content, embeds: [], components: [] });
     } else {
@@ -368,8 +381,8 @@ async function handleBcMenuButton(interaction) {
         const sessions = sortSessionsForMenu(db.getActiveBangchienByGuild(guildId));
         const embed = new EmbedBuilder()
             .setColor(0x3498DB)
-            .setTitle('DANH SACH BANG CHIEN')
-            .setDescription(sessions.length ? 'Chon mot tran de xem danh sach chi tiet.' : 'Chua co phien Bang Chien nao dang mo.');
+            .setTitle('DANH SÁCH BANG CHIẾN')
+            .setDescription(sessions.length ? 'Chọn một trận để xem danh sách chi tiết.' : 'Chưa có phiên Bang Chiến nào đang mở.');
 
         const rows = [];
         let row = new ActionRowBuilder();
@@ -400,14 +413,14 @@ async function handleBcMenuButton(interaction) {
 
     if (customId.startsWith('bcmenu_close_')) {
         pendingBcMenuSelections.delete(menuStateKey(guildId, userId));
-        await interaction.editReply({ content: 'Da dong menu.', embeds: [], components: [] });
+        await interaction.editReply({ content: 'Đã đóng menu.', embeds: [], components: [] });
         return true;
     }
 
     if (customId.startsWith('bcmenu_apply_')) {
         const summary = await applyMenuSelection(interaction, guildId, userId);
         const { embed, components } = createBcMenu(guildId, userId);
-        await interaction.editReply({ content: `Da cap nhat: ${summary}.`, embeds: [embed], components });
+        await interaction.editReply({ content: summary, embeds: [embed], components });
         return true;
     }
 
@@ -416,7 +429,7 @@ async function handleBcMenuButton(interaction) {
         const partyKey = customId.replace('bc_viewlist_', '');
         const session = db.getActiveBangchien(partyKey);
         if (!session) {
-            await interaction.editReply({ content: 'Phien Bang Chien nay khong con ton tai.', embeds: [], components: [] });
+            await interaction.editReply({ content: 'Phiên Bang Chiến này không còn tồn tại.', embeds: [], components: [] });
             return true;
         }
 

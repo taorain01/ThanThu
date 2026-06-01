@@ -3339,9 +3339,16 @@ async function ensureWeekendDefaultSessionsWeb() {
             }
         }
         if (rows.length > 0) {
-            const { error: insertError } = await sb
+            let { error: insertError } = await sb
                 .from('bc_sessions')
                 .upsert(rows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
+            if (insertError && /(team_layout|teams)/i.test(insertError.message || '')) {
+                const legacyRows = rows.map(({ team_layout, teams, ...row }) => row);
+                const retry = await sb
+                    .from('bc_sessions')
+                    .upsert(legacyRows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
+                insertError = retry.error || null;
+            }
             if (insertError) throw insertError;
         }
     } catch (error) {
@@ -3373,6 +3380,15 @@ function parseIndexJsonObject(value, fallback = {}) {
     } catch (error) {
         return fallback;
     }
+}
+
+function escapeIndexHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function normalizeIndexTeamId(value, fallback) {
@@ -4223,15 +4239,14 @@ async function joinBC() {
 async function joinSession(data) {
     if (!data || !window.currentDiscordId) return false;
 
-    // Parse teams
-    let t1 = parseIndexJsonList(data.team_attack1);
-    let t2 = parseIndexJsonList(data.team_attack2);
-    let td = parseIndexJsonList(data.team_defense);
-    let tf = parseIndexJsonList(data.team_forest);
-    let wl = parseIndexJsonList(data.waiting_list);
+    const rosterState = getIndexRosterState(data);
+    let wl = rosterState.waitingList.map((player) => ({ ...player }));
 
     // Kiểm tra đã có chưa
-    const allPlayers = [...t1,...t2,...td,...tf,...wl];
+    const allPlayers = [
+        ...Object.values(rosterState.teams || {}).flat(),
+        ...wl
+    ];
     if (allPlayers.some(p => p.id === window.currentDiscordId)) { return true; }
 
     // Lookup bc_users để lấy game_username, sub_role
@@ -4248,7 +4263,6 @@ async function joinSession(data) {
         }
     } catch(e) {}
 
-    const sizes = getIndexSessionSizes(data);
     const newPlayer = {
         id: window.currentDiscordId,
         name: gameName || window.currentUserName,
@@ -4273,7 +4287,7 @@ async function joinSession(data) {
     let nextTeams = null;
     if (Number.isFinite(reservedSlotIndex) && reservedSlotIndex >= 0) {
         const flatActive = getIndexFlatActiveRoster(data);
-        const waiting = parseIndexJsonList(data.waiting_list).filter((player) => player.id !== newPlayer.id);
+        const waiting = wl.filter((player) => player.id !== newPlayer.id);
         const maxActive = getIndexActiveSlotLayout(data).length || 30;
         const insertAt = Math.min(Math.max(0, reservedSlotIndex), flatActive.length);
         flatActive.splice(insertAt, 0, newPlayer);
@@ -4283,15 +4297,22 @@ async function joinSession(data) {
         }
         nextTeams = rebuildIndexSessionTeamsFromFlat(data, flatActive, waiting);
     } else {
-        if (t1.length < (sizes.attack1 || 10)) t1.push(newPlayer);
-        else if (t2.length < (sizes.attack2 || 10)) t2.push(newPlayer);
-        else wl.push(newPlayer);
+        const teams = {};
+        rosterState.layout.forEach((team) => {
+            teams[team.id] = (rosterState.teams[team.id] || []).map((player) => ({ ...player, team: team.id }));
+        });
+        const targetTeam = data.locked === true
+            ? null
+            : rosterState.layout.find((team) => (teams[team.id] || []).length < Number(team.capacity || 0));
+        if (targetTeam) teams[targetTeam.id].push({ ...newPlayer, team: targetTeam.id });
+        else wl.push({ ...newPlayer, team:'waiting_list' });
+        const nextRoster = { layout: rosterState.layout, teams, waitingList: wl };
         nextTeams = {
-            team_attack1: t1,
-            team_attack2: t2,
-            team_defense: td,
-            team_forest: tf,
-            waiting_list: wl
+            ...teams,
+            ...buildIndexLegacyMirrorFromRoster(nextRoster),
+            waiting_list: wl,
+            team_layout: rosterState.layout,
+            teams
         };
     }
 
@@ -4299,14 +4320,14 @@ async function joinSession(data) {
     const currentLeaderIds = (() => {
         try { return typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids || '{}') : (data.leader_ids || {}); } catch(e) { return {}; }
     })();
-    let updateQuery = sb
-        .from('bc_sessions')
-        .update({
+    const joinPayload = {
             team_attack1: JSON.stringify(nextTeams.team_attack1 || []),
             team_attack2: JSON.stringify(nextTeams.team_attack2 || []),
             team_defense: JSON.stringify(nextTeams.team_defense || []),
             team_forest: JSON.stringify(nextTeams.team_forest || []),
             waiting_list: JSON.stringify(nextTeams.waiting_list || []),
+            team_layout: JSON.stringify(nextTeams.team_layout || rosterState.layout || []),
+            teams: JSON.stringify(nextTeams.teams || {}),
             // Ghi rõ editor là người dùng tự đăng ký (không phải leader)
             leader_ids: JSON.stringify({
                 ...currentLeaderIds,
@@ -4315,8 +4336,18 @@ async function joinSession(data) {
                 editor_action: reservedSlotIndex >= 0 ? 'self_join_reclaim' : 'self_join',
                 edited_at: Date.now()
             })
-        });
-    const { error: updateErr } = await applySessionFilter(updateQuery, data);
+        };
+    let updateQuery = sb
+        .from('bc_sessions')
+        .update(joinPayload);
+    let { error: updateErr } = await applySessionFilter(updateQuery, data);
+    if (updateErr && /(team_layout|teams)/i.test(updateErr.message || '')) {
+        delete joinPayload.team_layout;
+        delete joinPayload.teams;
+        updateQuery = sb.from('bc_sessions').update(joinPayload);
+        const retry = await applySessionFilter(updateQuery, data);
+        updateErr = retry.error || null;
+    }
 
     if (updateErr) { await customAlert('Lỗi đăng ký: ' + updateErr.message); return false; }
 
@@ -4327,7 +4358,9 @@ async function joinSession(data) {
             team_attack2: nextTeams.team_attack2 || [],
             team_defense: nextTeams.team_defense || [],
             team_forest: nextTeams.team_forest || [],
-            waiting_list: nextTeams.waiting_list || []
+            waiting_list: nextTeams.waiting_list || [],
+            team_layout: nextTeams.team_layout || rosterState.layout || [],
+            teams: nextTeams.teams || {}
         };
         const syncedPayload = syncIndexPayloadToSessionRoster(tacticsPayload, sessionLike);
         const tacticsSaveError = await persistIndexTacticsPayloadForSession(sessionLike, syncedPayload);
@@ -4357,13 +4390,11 @@ async function leaveBC(sessionKey = null) {
 async function leaveSession(data, options = {}) {
     if (!data || !window.currentDiscordId) return false;
 
-    const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
+    const rosterState = getIndexRosterState(data);
 
     // Chỉ chặn team leader (flag isLeader/ld trong player data)
     // Creator của session vẫn được phép tự hủy đăng ký
-    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
-    for (const key of allTeams) {
-        const players = parseTeam(data[key]);
+    for (const players of [...Object.values(rosterState.teams || {}), rosterState.waitingList || []]) {
         const me = players.find(p => p.id === window.currentDiscordId);
         if (me && (me.ld || me.isLeader)) {
             await customAlert('❌ Trưởng nhóm không thể hủy đăng ký! Hãy nhờ Kỳ Cựu dùng lệnh ?bcend.');
@@ -4384,12 +4415,18 @@ async function leaveSession(data, options = {}) {
     }
 
     const removePlayer = (team) => team.filter(p => p.id !== window.currentDiscordId);
+    const dynamicTeams = {};
+    rosterState.layout.forEach((team) => {
+        dynamicTeams[team.id] = removePlayer(rosterState.teams[team.id] || []).map((player) => ({ ...player, team: team.id }));
+    });
+    const waitingList = removePlayer(rosterState.waitingList || []).map((player) => ({ ...player, team:'waiting_list' }));
+    const nextRoster = { layout: rosterState.layout, teams: dynamicTeams, waitingList };
     const nextTeams = {
-        team_attack1: removePlayer(parseTeam(data.team_attack1)),
-        team_attack2: removePlayer(parseTeam(data.team_attack2)),
-        team_defense: removePlayer(parseTeam(data.team_defense)),
-        team_forest: removePlayer(parseTeam(data.team_forest)),
-        waiting_list: removePlayer(parseTeam(data.waiting_list))
+        ...dynamicTeams,
+        ...buildIndexLegacyMirrorFromRoster(nextRoster),
+        waiting_list: waitingList,
+        team_layout: rosterState.layout,
+        teams: dynamicTeams
     };
     const sessionTactics = await fetchCurrentSessionTacticsRow('markers,day,session_id', data);
     const rawLeavePayload = sessionTactics?.markers;
@@ -4405,14 +4442,14 @@ async function leaveSession(data, options = {}) {
     const currentLeaderIds2 = (() => {
         try { return typeof data.leader_ids === 'string' ? JSON.parse(data.leader_ids || '{}') : (data.leader_ids || {}); } catch(e) { return {}; }
     })();
-    let leaveUpdateQuery = sb
-        .from('bc_sessions')
-        .update({
+    const leavePayload = {
             team_attack1: JSON.stringify(nextTeams.team_attack1 || []),
             team_attack2: JSON.stringify(nextTeams.team_attack2 || []),
             team_defense: JSON.stringify(nextTeams.team_defense || []),
             team_forest: JSON.stringify(nextTeams.team_forest || []),
             waiting_list: JSON.stringify(nextTeams.waiting_list || []),
+            team_layout: JSON.stringify(nextTeams.team_layout || rosterState.layout || []),
+            teams: JSON.stringify(nextTeams.teams || {}),
             // Ghi rõ editor là người dùng tự hủy (không phải leader)
             leader_ids: JSON.stringify({
                 ...currentLeaderIds2,
@@ -4421,8 +4458,18 @@ async function leaveSession(data, options = {}) {
                 editor_action: 'self_leave',
                 edited_at: Date.now()
             })
-        });
-    const { error: updateErr } = await applySessionFilter(leaveUpdateQuery, data);
+        };
+    let leaveUpdateQuery = sb
+        .from('bc_sessions')
+        .update(leavePayload);
+    let { error: updateErr } = await applySessionFilter(leaveUpdateQuery, data);
+    if (updateErr && /(team_layout|teams)/i.test(updateErr.message || '')) {
+        delete leavePayload.team_layout;
+        delete leavePayload.teams;
+        leaveUpdateQuery = sb.from('bc_sessions').update(leavePayload);
+        const retry = await applySessionFilter(leaveUpdateQuery, data);
+        updateErr = retry.error || null;
+    }
 
     if (updateErr) { await customAlert('Lỗi hủy đăng ký: ' + updateErr.message); return false; }
 
@@ -4433,7 +4480,9 @@ async function leaveSession(data, options = {}) {
             team_attack2: nextTeams.team_attack2 || [],
             team_defense: nextTeams.team_defense || [],
             team_forest: nextTeams.team_forest || [],
-            waiting_list: nextTeams.waiting_list || []
+            waiting_list: nextTeams.waiting_list || [],
+            team_layout: nextTeams.team_layout || rosterState.layout || [],
+            teams: nextTeams.teams || {}
         };
         const syncedPayload = syncIndexPayloadToSessionRoster(tacticsPayload, sessionLike);
         const tacticsSaveError = await persistIndexTacticsPayloadForSession(sessionLike, syncedPayload);
@@ -4567,6 +4616,75 @@ function buildTeamsHtml(data) {
         tankAv: '<img src="./anh/tanker.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">',
         crown: '<svg width="12" height="12" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><path d="M2 20h20v2H2z"/></svg>'
     };
+    const rosterState = getIndexRosterState(data);
+    const iconByTeam = {
+        team_attack1: SVG.sword,
+        team_attack2: SVG.dagger,
+        team_defense: SVG.shield,
+        team_forest: SVG.tree
+    };
+    const classCycle = ['a1', 'a2', 'df', 'fr'];
+    const teams = [
+        ...rosterState.layout.map((team, index) => ({
+            key: team.id,
+            cls: classCycle[index % classCycle.length],
+            icon: iconByTeam[team.id] || escapeIndexHtml(team.icon || '•'),
+            title: escapeIndexHtml(team.name || `TEAM ${index + 1}`),
+            max: Number(team.capacity) || 0,
+            players: rosterState.teams[team.id] || []
+        })),
+        {
+            key: 'waiting_list',
+            cls: 'wt',
+            icon: SVG.clock,
+            title: 'DANH SÁCH CHỜ',
+            max: 0,
+            players: rosterState.waitingList || []
+        }
+    ];
+
+    let html = '', num = 1;
+    if (data.locked === true) {
+        html += `<div class="team-card" style="border-color:rgba(255,99,71,.4);background:linear-gradient(180deg,rgba(90,22,18,.22),rgba(18,28,17,.92));margin-bottom:12px;"><div class="t-hdr wt" style="background:linear-gradient(135deg,rgba(255,110,90,.18),rgba(120,30,24,.08));"><div class="t-info"><div class="t-icon wt">🔒</div><div><div class="t-title" style="color:#ffb4a8">ĐÃ CHỐT DANH SÁCH</div><div class="t-cnt">Người mới đăng ký sẽ vào hàng chờ cho tới khi mở khóa.</div></div></div></div></div>`;
+    }
+    teams.forEach(t => {
+        const players = t.players || [];
+        const stats = { d: 0, h: 0, t: 0 };
+        players.forEach(p => { if (p.role === 'DPS') stats.d++; else if (p.role === 'Healer') stats.h++; else stats.t++; });
+
+        html += `<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key === 'waiting_list' ? ' style="color:var(--gold)"' : ''}>${t.title}</div><div class="t-cnt">${t.max ? players.length + '/' + t.max + ' thành viên' : players.length + ' người chờ'}</div></div></div><div class="t-roles">`;
+        if (stats.d) html += `<div class="rb d"><div class="rd d"></div>${stats.d}</div>`;
+        if (stats.h) html += `<div class="rb h"><div class="rd h"></div>${stats.h}</div>`;
+        if (stats.t) html += `<div class="rb t"><div class="rd t"></div>${stats.t}</div>`;
+        html += `</div></div><div class="t-list">`;
+
+        players.forEach(p => {
+            const sub = p.sub ? ' [' + formatSubLabel(p.sub) + ']' : '';
+            const ld = (p.ld || p.isTeamLeader) ? ' ' + SVG.crown : '';
+            const rcls = p.role === 'Healer' ? 'h' : p.role === 'Tanker' ? 't' : 'd';
+            const roleImg = (p.role || 'DPS').toLowerCase();
+            const emo = `<img src="./anh/icons/${roleImg}.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            const displayName = escapeIndexHtml(p.gn || p.game_username || p.name || p.username || 'Unknown');
+            const secondaryName = escapeIndexHtml((p.gn || p.game_username) ? (p.name || p.username || '') : '');
+            const isMe = p.id === window.currentDiscordId;
+            const isLeader = p.ld || p.isLeader || p.isTeamLeader;
+            const actionBtn = isMe && !isLeader ? `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>` : '';
+            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${escapeIndexHtml(sub)}</div></div>`;
+            num++;
+        });
+
+        if (t.max && players.length < t.max) {
+            for (let i = players.length; i < t.max; i++) {
+                html += `<div class="slot-e"><div class="m-num">${num}</div>Trống...</div>`;
+                num++;
+            }
+        }
+        html += `</div></div>`;
+    });
+
+    return html;
+
+    if (false) {
     // Đọc tên team tùy chỉnh từ session data
     const teamNamesRaw = data.team_names || {};
     const teamNames = typeof teamNamesRaw === 'string'
@@ -4646,6 +4764,7 @@ function buildTeamsHtml(data) {
     });
 
     return html;
+    }
 }
 
 function renderTeams(data) {
@@ -4739,16 +4858,15 @@ function updateStats(data) {
         return;
     }
 
+    const roster = getIndexRosterState(data);
     let total = 0, dps = 0, healer = 0, tanker = 0;
-    ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].forEach(k => {
-        let players = [];
-        try { players = typeof data[k] === 'string' ? JSON.parse(data[k]) : (data[k] || []); } catch(e) {}
+    roster.layout.forEach((team) => {
+        const players = roster.teams[team.id] || [];
         total += players.length;
         players.forEach(p => { if (p.role === 'DPS') dps++; else if (p.role === 'Healer') healer++; else tanker++; });
     });
 
-    const sizes = typeof data.team_sizes === 'string' ? JSON.parse(data.team_sizes || '{}') : (data.team_sizes || {});
-    const maxTotal = (sizes.attack1 ?? 10) + (sizes.attack2 ?? 10) + (sizes.defense ?? 5) + (sizes.forest ?? 5);
+    const maxTotal = roster.layout.reduce((sum, team) => sum + (Number(team.capacity) || 0), 0);
     document.getElementById('statTotal').textContent = total + '/' + maxTotal;
     document.getElementById('statDPS').textContent = dps;
     document.getElementById('statHealer').textContent = healer;
@@ -4974,24 +5092,45 @@ async function createCustomBc() {
         joinedAt: Date.now()
     };
 
+    const createLayout = INDEX_DEFAULT_TEAM_LAYOUT.map((team) => ({ ...team }));
+    const createTeams = {
+        team_attack1: [{ ...creatorPlayer, team:'team_attack1' }],
+        team_attack2: [],
+        team_defense: [],
+        team_forest: []
+    };
+
     // Tạo session mới trên Supabase — tự thêm leader vào Team Công 1
-    const { data: createdSession, error } = await sb
-        .from('bc_sessions')
-        .upsert({
+    const createPayload = {
             guild_id: GUILD_ID,
             day,
             time,
             note: note || (PRIMARY_DAYS.includes(day) && time === LEAGUE_TIME ? 'LEAGUE' : ''),
             status: 'active',
-            team_attack1: JSON.stringify([creatorPlayer]),
+            team_attack1: JSON.stringify(createTeams.team_attack1),
             team_attack2: '[]',
             team_defense: '[]', team_forest: '[]',
             waiting_list: '[]',
             leader_ids: JSON.stringify({ creator_id: creatorId, creator_name: creatorName }),
-            team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}'
-        }, { onConflict: 'guild_id,day,time' })
+            team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
+            team_layout: JSON.stringify(createLayout),
+            teams: JSON.stringify(createTeams)
+        };
+    let createResult = await sb
+        .from('bc_sessions')
+        .upsert(createPayload, { onConflict: 'guild_id,day,time' })
         .select('*')
         .single();
+    if (createResult.error && /(team_layout|teams)/i.test(createResult.error.message || '')) {
+        delete createPayload.team_layout;
+        delete createPayload.teams;
+        createResult = await sb
+            .from('bc_sessions')
+            .upsert(createPayload, { onConflict: 'guild_id,day,time' })
+            .select('*')
+            .single();
+    }
+    const { data: createdSession, error } = createResult;
 
     if (error) { await customAlert('Lỗi tạo BC: ' + error.message); return; }
 

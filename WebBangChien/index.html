@@ -7074,6 +7074,7 @@ logout = async function(e) {
 
 // ═══ ANONYMOUS FEEDBACK ═══
 let _feedbackLoadedOnce = false;
+let _feedbackBackdropPointerDown = false;
 
 function getFeedbackCategoryLabel(category) {
     return FEEDBACK_CATEGORY_LABELS[category] || FEEDBACK_CATEGORY_LABELS.feedback;
@@ -7089,7 +7090,16 @@ function ensureFeedbackModal() {
     const ov = document.createElement('div');
     ov.id = 'feedbackModalOv';
     ov.className = 'feedback-modal-ov';
-    ov.onclick = (ev) => { if (ev.target === ov) closeFeedbackModal(); };
+    ov.addEventListener('pointerdown', (ev) => {
+        _feedbackBackdropPointerDown = ev.target === ov;
+    });
+    ov.addEventListener('pointerup', (ev) => {
+        if (_feedbackBackdropPointerDown && ev.target === ov) closeFeedbackModal();
+        _feedbackBackdropPointerDown = false;
+    });
+    ov.addEventListener('pointercancel', () => {
+        _feedbackBackdropPointerDown = false;
+    });
     ov.innerHTML = `
       <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
         <div class="feedback-head">

@@ -67,65 +67,59 @@ module.exports = {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CASE 2: ?listbc → Tóm tắt các ngày + buttons
+        // CASE 2: ?listbc → Tóm tắt ngắn gọn (giống ?bc) + 1 nút WEB
         // ═══════════════════════════════════════════════════════════════════
         const allSessions = db.getActiveBangchienByGuild(guildId) || [];
-        // Sắp xếp theo ngày tạo gần nhất (thay vì cố định Thứ 2 -> CN)
-        allSessions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Sắp xếp theo ngày (primary days trước) rồi theo thời gian
+        allSessions.sort((a, b) => {
+            const aDayIndex = Object.keys(DAY_CONFIG).indexOf(a.day);
+            const bDayIndex = Object.keys(DAY_CONFIG).indexOf(b.day);
+            if (aDayIndex !== bDayIndex) return aDayIndex - bDayIndex;
+            return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
+        });
 
-        // Helper: tính stats cho 1 session
-        const getStats = (s) => {
-            if (!s) return { total: 0, waiting: 0, byTeam: {}, layout: [] };
-            const roster = bangchienRoster.normalizeRoster(s);
-            const counts = bangchienRoster.getRosterCounts(roster);
-            return { total: counts.active, waiting: counts.waiting, byTeam: counts.byTeam, layout: roster.layout };
-        };
+        // Group sessions by day (giống ?bc)
+        const byDay = {};
+        const dayOrder = [];
+        for (const s of allSessions) {
+            if (!byDay[s.day]) { byDay[s.day] = []; dayOrder.push(s.day); }
+            byDay[s.day].push(s);
+        }
 
         const overviewEmbed = new EmbedBuilder()
             .setColor(0xFFD700)
-            .setTitle('📋 BANG CHIẾN TUẦN NÀY');
+            .setTitle('⚔️  Bang Chiến Lang Gia');
 
         if (allSessions.length === 0) {
-            overviewEmbed.setDescription('📅 Chưa có phiên Bang Chiến nào đang mở.');
+            overviewEmbed.setDescription('> Chưa có phiên Bang Chiến nào đang mở.');
         } else {
-            // Dynamic team names cho overview
-            const _ovNames = db.getTeamNames ? db.getTeamNames() : { attack1: 'Công', attack2: 'Công 2', defense: 'Thủ', forest: 'Rừng' };
-            for (const sessionItem of allSessions) {
-                const stats = getStats(sessionItem);
-                const dateStr = getDayNameWithDate(sessionItem.day).toUpperCase();
-                let line = `📅 **${dateStr}** (${stats.total}/30) - Đang diễn ra\n⚔️ ${_ovNames.attack1}: ${stats.attack}`;
-                if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ ${_ovNames.defense}: ${stats.defense}`;
-                if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 ${_ovNames.forest}: ${stats.forest}`;
-                const teamLine = stats.layout
-                    .map((team) => `${team.icon || '*'} ${team.name}: ${stats.byTeam[team.id] || 0}`)
-                    .join(' | ');
-                line = `**${dateStr}** (${stats.total}/30) - Dang dien ra`;
-                if (teamLine) line += `\n${teamLine}`;
-                if (stats.waiting > 0) line += `\nCho: ${stats.waiting}`;
-                overviewEmbed.addFields({ name: '\u200b', value: line, inline: false });
+            for (const dayKey of dayOrder) {
+                const lines = byDay[dayKey].map(session => {
+                    const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
+                    const counts = bangchienRoster.getRosterCounts(session);
+                    const total = counts.active;
+                    const waiting = counts.waiting;
+                    const waitStr = waiting > 0 ? ` _(+${waiting} chờ)_` : '';
+                    return `▫️ **${timeStr}**  \`${total}/30\`${waitStr}`;
+                });
+                overviewEmbed.addFields({ name: `📅 ${getDayNameWithDate(dayKey)}`, value: lines.join('\n'), inline: false });
             }
         }
 
         overviewEmbed
-            .setFooter({ text: hasPermission ? '💡 Bấm nút để xem chi tiết và quản lý' : '💡 Chỉ Kỳ Cựu mới xem chi tiết' })
+            .setFooter({ text: `Tổng ${allSessions.length} trận đang mở` })
             .setTimestamp();
 
-        const overviewComponents = [];
-        if (hasPermission && allSessions.length > 0) {
-            const shortLabels = { mon: 'T2', tue: 'T3', wed: 'T4', thu: 'T5', fri: 'T6', sat: 'T7', sun: 'CN' };
-            const row = new ActionRowBuilder();
-            for (const sessionItem of allSessions.slice(0, 5)) {
-                row.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`listbc_view_${sessionItem.party_key}`)
-                        .setLabel(`📋 ${shortLabels[sessionItem.day] || sessionItem.day} ${sessionItem.time || LEAGUE_TIME}`)
-                        .setStyle(ButtonStyle.Primary)
-                );
-            }
-            overviewComponents.push(row);
-        }
+        // Chỉ 1 nút Truy cập WEB
+        const webRow = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setLabel('🌐 Truy cập WEB')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://langgiawar.vercel.app/')
+            );
 
-        return await message.reply({ embeds: [overviewEmbed], components: overviewComponents });
+        return await message.reply({ embeds: [overviewEmbed], components: [webRow] });
     },
 
 
@@ -296,27 +290,6 @@ module.exports = {
             });
 
             currentNum += maxSize;
-        }
-        for (const [teamKey, config] of []) {
-            if (config.maxSize === 0) {
-                // Skip team có size = 0, vẫn cộng maxSize để giữ số thứ tự liên tục
-                currentNum += config.maxSize;
-                continue;
-            }
-            const team = teams[teamKey];
-            const statsText = getTeamStats(team);
-            const teamList = formatTeamList(team, currentNum, config.maxSize);
-            const chunks = splitListIntoChunks(teamList);
-
-            chunks.forEach((chunk, index) => {
-                embed.addFields({
-                    name: index === 0 ? `${config.emoji} ${config.name} (${team.length}/${config.maxSize}) [${statsText}]` : '​',
-                    value: chunk,
-                    inline: false
-                });
-            });
-
-            currentNum += config.maxSize; // Dùng maxSize để số thứ tự cố định
         }
 
         // Add waiting list

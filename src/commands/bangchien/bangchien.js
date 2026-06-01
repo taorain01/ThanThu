@@ -292,20 +292,30 @@ async function fetchBcMembers(guild, participants) {
 // MULTI-DAY OVERVIEW FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Helper: kiểm tra userId có trong session không
+function isUserInSession(session, userId) {
+    if (!userId) return false;
+    const allMembers = [
+        ...(session.team_attack1 || []),
+        ...(session.team_attack2 || []),
+        ...(session.team_defense || []),
+        ...(session.team_forest  || []),
+        ...(session.waiting_list || [])
+    ];
+    return allMembers.some(m => m.id === userId);
+}
+
 /**
- * Tạo embed tổng quan 2 ngày BC
+ * Tạo embed tổng quan 2 ngày BC — group theo ngày, tick ✅ nếu user đã đăng ký
  * @param {string} guildId - Guild ID
+ * @param {Object|null} guild - Guild object (không dùng, giữ compat)
+ * @param {string|null} userId - Discord user ID để hiện dấu tích
  * @returns {EmbedBuilder} Embed với thông tin cả 2 ngày
  */
-function createOverviewEmbed(guildId, guild = null) {
+function createOverviewEmbed(guildId, guild = null, userId = null) {
     const db = require('../../database/db');
 
-    const embed = new EmbedBuilder()
-        .setColor(0xFFD700)
-        .setTitle('⚔️ BANG CHIẾN LANG GIA 📅')
-        .setDescription('Xem chi tiết ở WEB Lang Gia War');
-
-    const compactSessions = db.getActiveBangchienByGuild(guildId)
+    const allSessions = db.getActiveBangchienByGuild(guildId)
         .filter(session => session?.day && DAY_CONFIG[session.day])
         .sort((a, b) => {
             const aPrimary = PRIMARY_DAYS.includes(a.day) ? 0 : 1;
@@ -317,15 +327,40 @@ function createOverviewEmbed(guildId, guild = null) {
             return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
         });
 
-    for (const session of compactSessions) {
-        const dateStr = getDayNameWithDate(session.day).toUpperCase();
-        const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
-        const leagueBadge = isLeagueSession(session) ? ' — **LEAGUE**' : '';
+    // Group theo ngày
+    const byDay = {};
+    for (const session of allSessions) {
+        if (!byDay[session.day]) byDay[session.day] = [];
+        byDay[session.day].push(session);
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(0xFFD700)
+        .setTitle('⚔️ BANG CHIẾN LANG GIA')
+        .setDescription('Bấm **Đăng ký** bên dưới hoặc xem chi tiết trên WEB.');
+
+    for (const day of Object.keys(byDay)) {
+        const sessions = byDay[day];
+        const dateStr = getDayNameWithDate(day).toUpperCase();
+
+        const lines = sessions.map(session => {
+            const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
+            const total   = (session.team_attack1?.length || 0) + (session.team_attack2?.length || 0)
+                          + (session.team_defense?.length  || 0) + (session.team_forest?.length  || 0);
+            const league  = isLeagueSession(session) ? ' · LEAGUE' : '';
+            const tick    = isUserInSession(session, userId) ? '✅' : '▫️';
+            return `${tick} **${timeStr}**${league} · ${total}/30`;
+        });
+
         embed.addFields({
-            name: '\u200b',
-            value: `📅 **${dateStr}** ⏰ ${timeStr}${leagueBadge}`,
+            name: `📅 ${dateStr}`,
+            value: lines.join('\n'),
             inline: false
         });
+    }
+
+    if (Object.keys(byDay).length === 0) {
+        embed.addFields({ name: '\u200b', value: '_Chưa có phiên Bang Chiến nào đang mở._', inline: false });
     }
 
     embed.setTimestamp();

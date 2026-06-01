@@ -1425,7 +1425,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-signup-checkbox-wrap{padding:14px 12px 14px 16px;display:flex;align-items:center;flex-shrink:0}
 .bc-signup-row input[type="checkbox"]{width:20px;height:20px;margin:0;accent-color:var(--green-500);flex:0 0 auto;cursor:pointer;border-radius:6px}
 
-.bc-signup-main{min-width:0;flex:1;padding:12px 4px}
+.bc-signup-main{min-width:0;flex:1;padding:12px 4px;position:relative;z-index:1}
 .bc-signup-title-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .bc-signup-name{font-weight:800;font-size:13.5px;color:var(--text);line-height:1.3}
 .bc-signup-badge-league{font-size:10px;font-weight:900;letter-spacing:.1em;color:#111827;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:999px;padding:2px 8px;text-transform:uppercase;flex-shrink:0}
@@ -1434,7 +1434,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-signup-time{font-size:11.5px;font-weight:700;color:var(--green-300);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:6px;padding:1px 7px}
 .bc-signup-row.league .bc-signup-time{color:#fbbf24;background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.25)}
 
-.bc-signup-right{padding:12px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.bc-signup-right{padding:12px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;position:relative;z-index:1}
 .bc-signup-count{font-size:12px;font-weight:800;color:var(--green-300)}
 .bc-signup-joined-tag{font-size:10px;font-weight:700;color:var(--green-400);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:999px;padding:2px 8px;white-space:nowrap}
 .bc-signup-row.league .bc-signup-count{color:#fbbf24}
@@ -4351,39 +4351,49 @@ function renderSignupModalList() {
         list.innerHTML = '<div style="padding:24px 16px;text-align:center;color:var(--text3);font-size:13px">⚔️ Chưa có phiên Bang Chiến nào đang mở.</div>';
         return;
     }
-    list.innerHTML = sessions.map((session) => {
-        const key = getSessionCacheKey(session);
-        const joined = sessionContainsCurrentUser(session);
-        const league = isLeagueSession(session);
-        const dayLabel = DAY_LABELS[session.day] || session.day;
-        const timeLabel = normalizeSessionTime(session.time || LEAGUE_TIME);
-        const total = getSessionTotalCount(session);
-        const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
-        // Tên chính: tên session hoặc "THỨ 7 20:00" nếu không có note
-        const note = session.note && !/^league$/i.test(session.note || '') ? session.note : '';
-        const mainTitle = note || dayLabel;
-        const joinedClass = joined ? ' joined-row' : '';
-        return `<label class="bc-signup-row${league ? ' league' : ''}${joinedClass}" for="signup_${safeKey}">
-            <div class="bc-signup-checkbox-wrap">
-                <input type="checkbox" id="signup_${safeKey}" data-session-key="${key}" ${joined ? 'checked' : ''}>
-            </div>
-            <div class="bc-signup-main">
-                <div class="bc-signup-title-row">
-                    <span class="bc-signup-name">${mainTitle}</span>
-                    ${league ? '<span class="bc-signup-badge-league">LEAGUE</span>' : ''}
-                </div>
-                <div class="bc-signup-sub">
-                    <span class="bc-signup-day">${dayLabel}</span>
-                    <span class="bc-signup-time">⏰ ${timeLabel}</span>
-                </div>
-            </div>
-            <div class="bc-signup-right">
-                <div class="bc-signup-count">${total}/30</div>
-                ${joined ? '<div class="bc-signup-joined-tag">✓ Đã đăng ký</div>' : ''}
-            </div>
-        </label>`;
-    }).join('');
+    const rows = [];
+    for (const session of sessions) {
+        try {
+            const key = getSessionCacheKey(session);
+            const joined = sessionContainsCurrentUser(session);
+            const league = isLeagueSession(session);
+            const dayLabel = DAY_LABELS[session.day] || String(session.day || '');
+            const timeLabel = normalizeSessionTime(session.time || LEAGUE_TIME);
+            const total = getSessionTotalCount(session);
+            const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const noteRaw = session.note != null ? String(session.note) : '';
+            const note = noteRaw && !/^league$/i.test(noteRaw) ? noteRaw : '';
+            const mainTitle = note || dayLabel || timeLabel;
+            const joinedClass = joined ? ' joined-row' : '';
+            const leagueClass = league ? ' league' : '';
+
+            let html = '<label class="bc-signup-row' + leagueClass + joinedClass + '" for="signup_' + safeKey + '">';
+            html += '<div class="bc-signup-checkbox-wrap">';
+            html += '<input type="checkbox" id="signup_' + safeKey + '" data-session-key="' + key + '"' + (joined ? ' checked' : '') + '>';
+            html += '</div>';
+            html += '<div class="bc-signup-main">';
+            html += '<div class="bc-signup-title-row">';
+            html += '<span class="bc-signup-name">' + mainTitle + '</span>';
+            if (league) html += '<span class="bc-signup-badge-league">LEAGUE</span>';
+            html += '</div>';
+            html += '<div class="bc-signup-sub">';
+            html += '<span class="bc-signup-day">' + dayLabel + '</span>';
+            html += '<span class="bc-signup-time">⏰ ' + timeLabel + '</span>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div class="bc-signup-right">';
+            html += '<div class="bc-signup-count">' + total + '/30</div>';
+            if (joined) html += '<div class="bc-signup-joined-tag">✓ Đã đăng ký</div>';
+            html += '</div>';
+            html += '</label>';
+            rows.push(html);
+        } catch(e) {
+            console.warn('[signup] Render error for session:', e);
+        }
+    }
+    list.innerHTML = rows.join('');
 }
+
 
 async function applySignupSelection() {
     if (!window.currentDiscordId) return;

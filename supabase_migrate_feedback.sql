@@ -75,6 +75,7 @@ ALTER TABLE public.bc_feedback ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Active LangGia members can read bc_feedback" ON public.bc_feedback;
 DROP POLICY IF EXISTS "Active LangGia members can insert bc_feedback" ON public.bc_feedback;
 DROP POLICY IF EXISTS "Staff can delete bc_feedback" ON public.bc_feedback;
+DROP POLICY IF EXISTS "Owner can delete bc_feedback" ON public.bc_feedback;
 DROP POLICY IF EXISTS "Service role can do everything on bc_feedback" ON public.bc_feedback;
 
 CREATE POLICY "Active LangGia members can read bc_feedback"
@@ -87,10 +88,10 @@ CREATE POLICY "Active LangGia members can insert bc_feedback"
     TO authenticated
     WITH CHECK (public.bc_is_active_langgia_member(guild_id));
 
-CREATE POLICY "Staff can delete bc_feedback"
+CREATE POLICY "Owner can delete bc_feedback"
     ON public.bc_feedback FOR DELETE
     TO authenticated
-    USING (public.bc_is_staff());
+    USING (public.bc_current_discord_id() = '395151484179841024');
 
 CREATE POLICY "Service role can do everything on bc_feedback"
     ON public.bc_feedback FOR ALL

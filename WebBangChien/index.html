@@ -838,33 +838,44 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 .feedback-btn svg{width:17px;height:17px;flex-shrink:0}
 .feedback-modal-ov{
-  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.64);
-  display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(5px);
+  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.68);
+  display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px);
 }
 .feedback-modal-ov.active{display:flex}
 .feedback-modal{
-  width:min(720px,100%);max-height:min(88vh,760px);display:flex;flex-direction:column;
+  width:min(980px,96%);max-height:min(88vh,760px);display:flex;flex-direction:column;
   background:linear-gradient(160deg,rgba(10,22,14,.98),rgba(6,14,9,.99));
   border:1px solid rgba(251,191,36,.18);border-radius:18px;overflow:hidden;
   box-shadow:0 32px 80px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.03);
   animation:pmSlideIn .25s cubic-bezier(.25,.46,.45,.94);
 }
 .feedback-head{
-  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px 15px;
-  background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(34,197,94,.04));
+  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px 14px;
+  background:linear-gradient(135deg,rgba(251,191,36,.1),rgba(34,197,94,.045));
   border-bottom:1px solid rgba(255,255,255,.06);
 }
-.feedback-title{font-size:18px;font-weight:900;color:var(--text);letter-spacing:.2px}
-.feedback-sub{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.45}
+.feedback-title{font-size:17px;font-weight:900;color:var(--text);letter-spacing:.2px}
+.feedback-sub{font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4}
 .feedback-close{
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
   color:var(--text2);border-radius:10px;padding:7px 11px;cursor:pointer;font-size:13px;transition:all .2s;flex-shrink:0;
 }
 .feedback-close:hover{background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.25);color:#fca5a5}
-.feedback-body{padding:18px 20px 20px;overflow:auto}
+/* Two-column body: form left, list right */
+.feedback-body{
+  display:grid;grid-template-columns:minmax(300px,340px) minmax(420px,1fr);gap:0;overflow:hidden;flex:1;min-height:0;
+}
+.feedback-col-left{
+  padding:18px;border-right:1px solid rgba(255,255,255,.06);overflow-y:auto;
+  display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(251,191,36,.035),rgba(255,255,255,.012));
+}
+.feedback-col-right{
+  padding:18px;overflow:hidden;display:flex;flex-direction:column;background:rgba(0,0,0,.08);
+}
 .feedback-form{
-  display:grid;grid-template-columns:170px 1fr;gap:12px;background:rgba(255,255,255,.025);
-  border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px;margin-bottom:16px;
+  display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
 }
 .feedback-field{display:flex;flex-direction:column;gap:6px}
 .feedback-field.full{grid-column:1 / -1}
@@ -874,40 +885,51 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;
 }
 .feedback-select{height:40px;padding:0 11px}
-.feedback-textarea{min-height:112px;resize:vertical;padding:11px 12px;line-height:1.5}
+.feedback-textarea{min-height:130px;resize:vertical;padding:11px 12px;line-height:1.5}
 .feedback-select:focus,.feedback-textarea:focus{border-color:rgba(251,191,36,.45);box-shadow:0 0 0 3px rgba(251,191,36,.08)}
-.feedback-note{grid-column:1 / -1;font-size:12px;color:var(--text2);line-height:1.5}
-.feedback-form-actions{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.feedback-status{font-size:12px;color:var(--text3);min-height:18px}
+.feedback-note{font-size:11px;color:var(--text3);line-height:1.45;margin-top:2px}
+.feedback-form-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
+.feedback-status{font-size:12px;color:var(--text3);min-height:18px;flex:1}
 .feedback-status.success{color:var(--green-400)}
 .feedback-status.error{color:#fca5a5}
 .feedback-submit{
-  height:40px;padding:0 18px;border:none;border-radius:10px;cursor:pointer;font-weight:900;color:#102015;
-  background:linear-gradient(135deg,var(--gold),var(--gold-deep));box-shadow:0 8px 22px rgba(251,191,36,.16);
+  height:38px;padding:0 18px;border:none;border-radius:10px;cursor:pointer;font-weight:900;color:#102015;
+  background:linear-gradient(135deg,var(--gold),var(--gold-deep));box-shadow:0 6px 18px rgba(251,191,36,.14);
+  font-size:13px;transition:all .18s;
 }
-.feedback-submit:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
-.feedback-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 10px}
+.feedback-submit:hover{box-shadow:0 8px 24px rgba(251,191,36,.22);transform:translateY(-1px)}
+.feedback-submit:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;transform:none}
+.feedback-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-shrink:0}
 .feedback-list-title{font-size:13px;font-weight:900;color:var(--text);text-transform:uppercase;letter-spacing:.6px}
-.feedback-refresh{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--text2);border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
+.feedback-refresh{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--text2);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer;transition:all .18s}
 .feedback-refresh:hover{color:var(--gold);border-color:rgba(251,191,36,.25)}
-.feedback-list{display:flex;flex-direction:column;gap:10px;min-height:80px}
+.feedback-list{display:flex;flex-direction:column;gap:8px;flex:1;min-height:60px;overflow-y:auto;padding-right:2px}
+.feedback-list::-webkit-scrollbar{width:4px}
+.feedback-list::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:4px}
+.feedback-list::-webkit-scrollbar-thumb{background:rgba(251,191,36,.24);border-radius:4px}
 .feedback-empty,.feedback-loading,.feedback-error{
   padding:22px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:var(--text3);font-size:13px;
 }
 .feedback-error{color:#fca5a5;border-color:rgba(248,113,113,.22)}
 .feedback-item{
-  display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;border-radius:12px;
-  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  padding:12px 13px;border-radius:12px;position:relative;
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.024));
+  border:1px solid rgba(255,255,255,.065);transition:border-color .18s,background .18s;
 }
-.feedback-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
-.feedback-anon{font-size:13px;font-weight:900;color:var(--text)}
-.feedback-chip{font-size:11px;font-weight:800;color:var(--gold);border:1px solid rgba(251,191,36,.22);background:rgba(251,191,36,.08);border-radius:999px;padding:3px 8px}
-.feedback-time{font-size:11px;color:var(--text3)}
-.feedback-content{font-size:13px;line-height:1.55;color:var(--text2);white-space:pre-wrap;word-break:break-word}
+.feedback-item:hover{border-color:rgba(251,191,36,.2);background:rgba(255,255,255,.045)}
+.feedback-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.feedback-anon{font-size:12px;font-weight:800;color:var(--text2)}
+.feedback-chip{
+  font-size:10px;font-weight:800;color:var(--gold);border:1px solid rgba(251,191,36,.22);
+  background:rgba(251,191,36,.08);border-radius:999px;padding:2px 7px;
+}
+.feedback-time{font-size:10px;color:var(--text3);margin-left:auto}
+.feedback-content{font-size:13px;line-height:1.5;color:var(--text2);white-space:pre-wrap;word-break:break-word}
 .feedback-delete{
-  align-self:start;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
-  border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer;
+  position:absolute;top:10px;right:10px;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
+  border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;cursor:pointer;opacity:.72;transition:opacity .18s,background .18s;
 }
+.feedback-item:hover .feedback-delete{opacity:1}
 .feedback-delete:hover{background:rgba(248,113,113,.16);border-color:rgba(248,113,113,.42)}
 
 /* ═══ PROFILE MODAL ═══ */
@@ -1866,10 +1888,13 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .header-actions{gap:7px}
   .feedback-btn{width:40px;padding:0}
   .feedback-btn .feedback-btn-label{display:none}
-  .feedback-form{grid-template-columns:1fr}
+  .feedback-modal{width:min(720px,96%)}
+  .feedback-body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .feedback-col-left{border-right:none;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:14px}
+  .feedback-col-right{padding-top:14px}
   .feedback-form-actions{align-items:stretch;flex-direction:column}
   .feedback-submit{width:100%}
-  .feedback-item{grid-template-columns:1fr}
+  .feedback-delete{opacity:1}
 
   /* Modal responsive */
   .modal { width: 90vw }
@@ -2698,6 +2723,7 @@ const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
 const GUILD_ID = '450633680000385036';
 const FEEDBACK_WEBHOOK_URL = 'https://discord.com/api/webhooks/1510942626629812286/sfgMzhCOwjR32VSewFRmatqFn0Z5h2toU-wtgvFxiVRy428yhDyZEJMUVGdLWPLuoBS2';
+const FEEDBACK_DELETE_OWNER_ID = '395151484179841024';
 const FEEDBACK_CATEGORY_LABELS = {
     feedback: 'Góp ý',
     bug: 'Báo lỗi',
@@ -7080,8 +7106,8 @@ function getFeedbackCategoryLabel(category) {
     return FEEDBACK_CATEGORY_LABELS[category] || FEEDBACK_CATEGORY_LABELS.feedback;
 }
 
-function isFeedbackStaff() {
-    return typeof hasElevatedRosterRole === 'function' && hasElevatedRosterRole();
+function canCurrentUserDeleteFeedback() {
+    return String(window.currentDiscordId || '') === FEEDBACK_DELETE_OWNER_ID;
 }
 
 function ensureFeedbackModal() {
@@ -7105,36 +7131,40 @@ function ensureFeedbackModal() {
         <div class="feedback-head">
           <div>
             <div class="feedback-title" id="feedbackModalTitle">Góp ý ẩn danh</div>
-            <div class="feedback-sub">Ẩn danh khi hiển thị trên web; quản trị vẫn nhận thông tin tài khoản để xử lý.</div>
+            <div class="feedback-sub">Ẩn danh trên web, quản trị nhận đầy đủ qua Discord.</div>
           </div>
           <button class="feedback-close" type="button" onclick="closeFeedbackModal()">✕</button>
         </div>
         <div class="feedback-body">
-          <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
-            <label class="feedback-field">
-              <span class="feedback-label">Loại</span>
-              <select class="feedback-select" id="feedbackCategory">
-                <option value="feedback">Góp ý</option>
-                <option value="bug">Báo lỗi</option>
-                <option value="suggestion">Đề xuất</option>
-                <option value="other">Khác</option>
-              </select>
-            </label>
-            <label class="feedback-field full">
-              <span class="feedback-label">Nội dung</span>
-              <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required placeholder="Nhập góp ý của bạn..."></textarea>
-            </label>
-            <div class="feedback-note">Người xem chỉ thấy “Ẩn danh”. Admin/Quản lý nhận chi tiết người gửi qua Discord webhook.</div>
-            <div class="feedback-form-actions">
-              <div class="feedback-status" id="feedbackStatus"></div>
-              <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">Gửi góp ý</button>
-            </div>
-          </form>
-          <div class="feedback-list-head">
-            <div class="feedback-list-title">Góp ý gần đây</div>
-            <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">Tải lại</button>
+          <div class="feedback-col-left">
+            <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
+              <label class="feedback-field">
+                <span class="feedback-label">Loại</span>
+                <select class="feedback-select" id="feedbackCategory">
+                  <option value="feedback">Góp ý</option>
+                  <option value="bug">Báo lỗi</option>
+                  <option value="suggestion">Đề xuất</option>
+                  <option value="other">Khác</option>
+                </select>
+              </label>
+              <label class="feedback-field">
+                <span class="feedback-label">Nội dung</span>
+                <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required placeholder="Nhập góp ý của bạn..."></textarea>
+              </label>
+              <div class="feedback-note">Người xem chỉ thấy “Ẩn danh”. Admin nhận chi tiết qua Discord webhook.</div>
+              <div class="feedback-form-actions">
+                <div class="feedback-status" id="feedbackStatus"></div>
+                <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">Gửi góp ý</button>
+              </div>
+            </form>
           </div>
-          <div class="feedback-list" id="feedbackList"></div>
+          <div class="feedback-col-right">
+            <div class="feedback-list-head">
+              <div class="feedback-list-title">Tất cả góp ý</div>
+              <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">Tải lại</button>
+            </div>
+            <div class="feedback-list" id="feedbackList"></div>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -7183,11 +7213,6 @@ function formatFeedbackTime(value) {
     }).format(date);
 }
 
-function summarizeFeedbackContent(value) {
-    const text = String(value || '').trim();
-    return text.length > 240 ? text.slice(0, 237).trimEnd() + '...' : text;
-}
-
 async function loadFeedbackList(showLoading = false) {
     const list = document.getElementById('feedbackList');
     if (!list) return;
@@ -7203,7 +7228,7 @@ async function loadFeedbackList(showLoading = false) {
             .select('id, category, content, created_at')
             .eq('guild_id', GUILD_ID)
             .order('created_at', { ascending: false })
-            .limit(20);
+            .range(0, 9999);
 
         if (error) throw error;
         renderFeedbackList(data || []);
@@ -7223,7 +7248,7 @@ function renderFeedbackList(items) {
         return;
     }
 
-    const canDelete = isFeedbackStaff();
+    const canDelete = canCurrentUserDeleteFeedback();
     list.innerHTML = items.map((item) => {
         const deleteButton = canDelete
             ? `<button class="feedback-delete" type="button" onclick="deleteFeedback('${escHtml(item.id)}')">Xóa</button>`
@@ -7236,7 +7261,7 @@ function renderFeedbackList(items) {
                 <span class="feedback-chip">${escHtml(getFeedbackCategoryLabel(item.category))}</span>
                 <span class="feedback-time">${escHtml(formatFeedbackTime(item.created_at))}</span>
               </div>
-              <div class="feedback-content">${escHtml(summarizeFeedbackContent(item.content))}</div>
+              <div class="feedback-content">${escHtml(item.content)}</div>
             </div>
             ${deleteButton}
           </div>`;
@@ -7361,7 +7386,7 @@ async function submitFeedback(e) {
 
 async function deleteFeedback(id) {
     if (!id || !sb) return;
-    if (!isFeedbackStaff()) {
+    if (!canCurrentUserDeleteFeedback()) {
         await customAlert('Bạn không có quyền xóa góp ý.', { type: 'error' });
         return;
     }

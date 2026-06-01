@@ -821,6 +821,95 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .ud-item.danger:hover{background:rgba(255,80,80,.08)}
 .ud-sep{height:1px;background:rgba(255,255,255,.06);margin:2px 0}
 
+/* Feedback button + anonymous feedback modal */
+.header-actions{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:0}
+.header-actions .user-badge{margin-left:0}
+.feedback-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;
+  padding:0 13px;border-radius:12px;border:1px solid rgba(251,191,36,.3);
+  background:linear-gradient(135deg,rgba(20,20,20,.52),rgba(40,40,40,.72));
+  color:var(--gold);font-size:13px;font-weight:800;font-family:'Inter',sans-serif;
+  cursor:pointer;transition:all .2s;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 4px 6px rgba(0,0,0,.35);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);white-space:nowrap;
+}
+.feedback-btn:hover{
+  border-color:rgba(251,191,36,.62);background:linear-gradient(135deg,rgba(30,30,30,.78),rgba(50,50,50,.9));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 10px rgba(0,0,0,.55),0 0 15px rgba(251,191,36,.18);
+}
+.feedback-btn svg{width:17px;height:17px;flex-shrink:0}
+.feedback-modal-ov{
+  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.64);
+  display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(5px);
+}
+.feedback-modal-ov.active{display:flex}
+.feedback-modal{
+  width:min(720px,100%);max-height:min(88vh,760px);display:flex;flex-direction:column;
+  background:linear-gradient(160deg,rgba(10,22,14,.98),rgba(6,14,9,.99));
+  border:1px solid rgba(251,191,36,.18);border-radius:18px;overflow:hidden;
+  box-shadow:0 32px 80px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.03);
+  animation:pmSlideIn .25s cubic-bezier(.25,.46,.45,.94);
+}
+.feedback-head{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px 15px;
+  background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(34,197,94,.04));
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.feedback-title{font-size:18px;font-weight:900;color:var(--text);letter-spacing:.2px}
+.feedback-sub{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.45}
+.feedback-close{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  color:var(--text2);border-radius:10px;padding:7px 11px;cursor:pointer;font-size:13px;transition:all .2s;flex-shrink:0;
+}
+.feedback-close:hover{background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.25);color:#fca5a5}
+.feedback-body{padding:18px 20px 20px;overflow:auto}
+.feedback-form{
+  display:grid;grid-template-columns:170px 1fr;gap:12px;background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px;margin-bottom:16px;
+}
+.feedback-field{display:flex;flex-direction:column;gap:6px}
+.feedback-field.full{grid-column:1 / -1}
+.feedback-label{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.7px}
+.feedback-select,.feedback-textarea{
+  width:100%;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(0,0,0,.24);
+  color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.feedback-select{height:40px;padding:0 11px}
+.feedback-textarea{min-height:112px;resize:vertical;padding:11px 12px;line-height:1.5}
+.feedback-select:focus,.feedback-textarea:focus{border-color:rgba(251,191,36,.45);box-shadow:0 0 0 3px rgba(251,191,36,.08)}
+.feedback-note{grid-column:1 / -1;font-size:12px;color:var(--text2);line-height:1.5}
+.feedback-form-actions{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.feedback-status{font-size:12px;color:var(--text3);min-height:18px}
+.feedback-status.success{color:var(--green-400)}
+.feedback-status.error{color:#fca5a5}
+.feedback-submit{
+  height:40px;padding:0 18px;border:none;border-radius:10px;cursor:pointer;font-weight:900;color:#102015;
+  background:linear-gradient(135deg,var(--gold),var(--gold-deep));box-shadow:0 8px 22px rgba(251,191,36,.16);
+}
+.feedback-submit:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+.feedback-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 10px}
+.feedback-list-title{font-size:13px;font-weight:900;color:var(--text);text-transform:uppercase;letter-spacing:.6px}
+.feedback-refresh{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--text2);border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
+.feedback-refresh:hover{color:var(--gold);border-color:rgba(251,191,36,.25)}
+.feedback-list{display:flex;flex-direction:column;gap:10px;min-height:80px}
+.feedback-empty,.feedback-loading,.feedback-error{
+  padding:22px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:var(--text3);font-size:13px;
+}
+.feedback-error{color:#fca5a5;border-color:rgba(248,113,113,.22)}
+.feedback-item{
+  display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;border-radius:12px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+}
+.feedback-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.feedback-anon{font-size:13px;font-weight:900;color:var(--text)}
+.feedback-chip{font-size:11px;font-weight:800;color:var(--gold);border:1px solid rgba(251,191,36,.22);background:rgba(251,191,36,.08);border-radius:999px;padding:3px 8px}
+.feedback-time{font-size:11px;color:var(--text3)}
+.feedback-content{font-size:13px;line-height:1.55;color:var(--text2);white-space:pre-wrap;word-break:break-word}
+.feedback-delete{
+  align-self:start;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
+  border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer;
+}
+.feedback-delete:hover{background:rgba(248,113,113,.16);border-color:rgba(248,113,113,.42)}
+
 /* ═══ PROFILE MODAL ═══ */
 .profile-modal-ov{
   position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.6);
@@ -1055,18 +1144,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .progress-chip .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green-600),var(--gold));transition:width 1s}
 .progress-chip .num{font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap}
 
-.main{flex:1;display:grid;grid-template-columns:420px 1fr;overflow:hidden;min-height:0;position:relative}
-.main::before{content:'';position:absolute;top:0;left:420px;width:2px;height:100%;z-index:5;
-  background:linear-gradient(180deg,rgba(234,88,12,.5),rgba(251,191,36,.3) 30%,rgba(234,88,12,.2) 70%,transparent);
-  box-shadow:0 0 10px rgba(234,88,12,.3),0 0 20px rgba(251,191,36,.1)}
+.roster-toolbar{margin-left:auto;display:flex;align-items:center;gap:12px;min-width:0;flex-shrink:0}
+.roster-toolbar .header-info{margin-left:0;gap:10px;flex-shrink:0}
+.roster-toolbar .h-stat{padding:0 12px}
+.roster-toolbar .h-stat .val{font-size:16px}
+.roster-toolbar .h-stat .lbl{font-size:9px}
+.roster-toolbar .split-btn{height:40px;margin-left:0;margin-bottom:0!important;flex-shrink:0}
+.roster-toolbar .split-side>span{font-size:12px}
+
+.main{flex:1;display:grid;grid-template-columns:1fr;overflow:hidden;min-height:0;position:relative}
+.main::before{display:none}
 
 /* ═══ LEFT PANEL ═══ */
-.left{overflow-y:auto;border-right:none;padding:12px;
+.left{display:flex;flex-direction:column;min-height:0;overflow:hidden;border-right:none;padding:16px 20px;
   background:linear-gradient(180deg,rgba(26,10,4,.3),transparent 30%,transparent 70%,rgba(26,10,4,.2))}
 .left::-webkit-scrollbar{width:5px}
 .left::-webkit-scrollbar-thumb{background:rgba(234,88,12,.3);border-radius:3px}
 
-.team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(234,88,12,.12);margin-bottom:12px;overflow:hidden;
+.team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(234,88,12,.12);margin-bottom:0;overflow:hidden;
+  display:flex;flex-direction:column;min-height:0;
   backdrop-filter:blur(10px);transition:all .3s;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 .team-card:hover{border-color:rgba(234,88,12,.3);box-shadow:0 4px 20px rgba(234,88,12,.1)}
 .t-hdr{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.04)}
@@ -1089,7 +1185,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .rd{width:5px;height:5px;border-radius:50%}
 .rd.d{background:var(--dps)}.rd.h{background:var(--healer)}.rd.t{background:var(--tanker)}
 
-.t-list{padding:4px 8px}
+.t-list{padding:4px 8px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.t-list::-webkit-scrollbar{width:4px}
+.t-list::-webkit-scrollbar-track{background:rgba(255,255,255,.03);border-radius:4px}
+.t-list::-webkit-scrollbar-thumb{background:rgba(234,88,12,.28);border-radius:4px}
 .m-row{display:flex;align-items:center;padding:6px 8px;border-radius:8px;gap:8px;transition:all .2s;border-left:3px solid transparent}
 .m-row:hover{background:rgba(34,197,94,.05)}
 .m-row.is-me{background:linear-gradient(90deg, rgba(34,197,94,.15), transparent); border-left-color: var(--green-400); padding-left: 5px}
@@ -1119,7 +1218,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .bc-leave-inline:hover{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5);color:#fca5a5}
 
 /* ═══ RIGHT PANEL ═══ */
-.right{display:flex;flex-direction:column;overflow:hidden;
+.right{display:none;flex-direction:column;overflow:hidden;
   background:linear-gradient(180deg,rgba(26,10,4,.2),transparent 20%,transparent 80%,rgba(26,10,4,.15))}
 .r-tabs{display:flex;padding:12px 16px 0;gap:8px;flex-shrink:0}
 .r-tab{padding:8px 20px;border-radius:10px 10px 0 0;font-weight:600;font-size:13px;cursor:pointer;
@@ -1244,6 +1343,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .sketch-action-btn:hover{border-color:rgba(96,165,250,.72);background:linear-gradient(135deg,rgba(37,99,150,.72),rgba(12,36,54,.92));
   color:#eff6ff;box-shadow:0 0 22px rgba(96,165,250,.18),0 4px 18px rgba(0,0,0,.42)}
 .sketch-action-btn.disabled{opacity:.35;pointer-events:none;filter:saturate(.4) brightness(.75)}
+
+/* Tam an cac muc web dang dong: ban do, nhiem vu, timer, chien thuat, DLAM. */
+#rightMapTab,
+#rightTasksTab,
+#btnTactics,
+#btnSketch,
+#mapSketchBtn,
+#splitActionBtn .split-divider,
+.mob-tab[data-target="mob-map"],
+.mob-tab[data-target="mob-tasks"],
+.mob-tab[data-target="mob-tactics"],
+.mob-tab[data-target="mob-sketch"],
+.mob-tab[data-target="mob-timer"]{display:none!important}
+#splitActionBtn .split-side.left{margin-left:0;padding-left:28px;padding-right:28px;transform:none}
+#splitActionBtn .split-side.left>span{transform:none}
 
 .split-side{position:relative;display:flex;align-items:center;justify-content:center;
   padding:0 28px;cursor:pointer;z-index:2;user-select:none;
@@ -1377,6 +1491,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 
 /* ═══ NÚT ĐĂNG KÝ / HỦY COMPACT ═══ */
 .bc-signup-bar{flex-shrink:0;display:flex;gap:8px;align-items:center;margin-left:auto}
+.day-bar>.bc-signup-bar{margin-left:0}
 .bc-action-btn{padding:10px 24px;border-radius:8px;font-weight:800;font-size:16px;cursor:pointer;
   font-family:'Inter',sans-serif;transition:all .3s;display:flex;align-items:center;justify-content:center;gap:8px;
   border:1.5px solid rgba(34,197,94,.35);background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(251,191,36,.08));color:var(--green-300);
@@ -1392,10 +1507,10 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-action-btn.leave{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06);color:#fca5a5}
 .bc-action-btn.leave:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.12)}
 .bc-action-btn svg{width:14px;height:14px}
-.bc-session-stack{display:flex;flex-direction:column;gap:14px}
+.bc-session-stack{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0;height:100%}
 .bc-session-section,.bc-session-dropdown{border:1px solid rgba(255,255,255,.08);background:rgba(7,16,12,.6);border-radius:8px;overflow:hidden}
-.bc-session-section.featured{border-color:rgba(251,191,36,.35);box-shadow:0 0 0 1px rgba(251,191,36,.08) inset}
-.bc-session-head,.bc-session-dropdown>summary{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;background:rgba(255,255,255,.035);font-weight:800;color:var(--text)}
+.bc-session-section.featured{border-color:rgba(251,191,36,.35);box-shadow:0 0 0 1px rgba(251,191,36,.08) inset;display:flex;flex-direction:column;flex:1;min-height:0}
+.bc-session-head,.bc-session-dropdown>summary{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;background:rgba(255,255,255,.035);font-weight:800;color:var(--text);flex-shrink:0}
 .bc-session-dropdown>summary{list-style:none}
 .bc-session-dropdown>summary::-webkit-details-marker{display:none}
 .bc-session-title{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
@@ -1403,7 +1518,21 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-session-meta{font-size:11px;color:var(--text3);font-weight:700}
 .bc-league-badge{font-size:10px;letter-spacing:.08em;color:#111827;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:999px;padding:3px 8px}
 .bc-time-pill{font-size:11px;color:var(--green-300);border:1px solid rgba(34,197,94,.25);border-radius:999px;padding:3px 8px;background:rgba(34,197,94,.08)}
-.bc-session-body{padding:12px}
+.bc-session-body{padding:14px;flex:1;min-height:0;overflow:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));grid-auto-rows:minmax(0,1fr);gap:14px;align-items:stretch}
+.bc-session-body>.team-card{margin-bottom:0!important}
+@media (max-width: 1280px) and (min-width: 769px) {
+  .bc-session-body{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;padding:12px}
+  .left{padding:14px}
+}
+@media (max-height: 820px) and (min-width: 769px) {
+  .t-hdr{padding:8px 12px}
+  .m-row{padding:4px 7px}
+  .slot-e{padding:4px 7px}
+  .m-av{width:24px;height:24px}
+  .m-num{width:20px;height:20px;font-size:10px}
+  .m-name{font-size:12px}
+  .m-gn{font-size:10px}
+}
 .bc-signup-list{display:flex;flex-direction:column;gap:6px;max-height:min(60vh,540px);overflow-y:auto;overflow-x:hidden;margin:10px 0 16px;padding-right:2px}
 .bc-signup-list::-webkit-scrollbar{width:4px}
 .bc-signup-list::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:4px}
@@ -1545,6 +1674,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .day-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px }
   .day-tab { white-space: nowrap; font-size: 12px; padding: 6px 14px }
   .day-sep, .day-add { flex-shrink: 0 }
+  .roster-toolbar { display: none }
   
   /* Thay vì ẩn signup-bar, hiển thị dạng nút Nổi (FAB) trên Mobile */
   .bc-signup-bar {
@@ -1576,6 +1706,11 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .main::before { display: none }
   .left { display: none; padding: 8px; border-right: none }
   .right { display: none }
+  .bc-session-stack { display: block; height: auto; min-height: 0 }
+  .bc-session-section.featured { display: block }
+  .bc-session-body { display: block; overflow: visible; padding: 12px }
+  .bc-session-body > .team-card { margin-bottom: 12px !important }
+  .t-list { overflow: visible }
 
   /* Active mobile tab views */
   .left.mob-active { display: block }
@@ -1728,6 +1863,13 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   /* User badge mobile: ẩn tên, giữ ảnh + arrow */
   .user-badge .uname { display: none }
   .user-badge { padding: 4px 8px 4px 4px; }
+  .header-actions{gap:7px}
+  .feedback-btn{width:40px;padding:0}
+  .feedback-btn .feedback-btn-label{display:none}
+  .feedback-form{grid-template-columns:1fr}
+  .feedback-form-actions{align-items:stretch;flex-direction:column}
+  .feedback-submit{width:100%}
+  .feedback-item{grid-template-columns:1fr}
 
   /* Modal responsive */
   .modal { width: 90vw }
@@ -2350,15 +2492,25 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
     
 
 
-    <!-- User Badge ở góc phải: click để mở dropdown -->
-    <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
-      <img id="userAvatar" src="" alt="">
-      <span class="uname" id="userName"></span>
-      <span class="ub-arrow">▼</span>
-      <div class="user-dropdown" id="userDropdown">
-        <button class="ud-item" onclick="openProfileModal(event)">👤 Thông tin</button>
-        <div class="ud-sep"></div>
-        <button class="ud-item danger" onclick="logout(event)">🚪 Đăng xuất</button>
+    <div class="header-actions">
+      <button class="feedback-btn" type="button" onclick="openFeedbackModal(event)" title="Góp ý ẩn danh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+          <path d="M8 9h8"></path><path d="M8 13h5"></path>
+        </svg>
+        <span class="feedback-btn-label">Góp ý</span>
+      </button>
+
+      <!-- User Badge ở góc phải: click để mở dropdown -->
+      <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
+        <img id="userAvatar" src="" alt="">
+        <span class="uname" id="userName"></span>
+        <span class="ub-arrow">▼</span>
+        <div class="user-dropdown" id="userDropdown">
+          <button class="ud-item" onclick="openProfileModal(event)">👤 Thông tin</button>
+          <div class="ud-sep"></div>
+          <button class="ud-item danger" onclick="logout(event)">🚪 Đăng xuất</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2370,6 +2522,19 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </div>
     <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
+    <div class="roster-toolbar" id="rosterToolbar">
+      <div class="header-info roster-stats">
+        <div class="h-stat"><div class="val" id="statTotal">--</div><div class="lbl">Thành viên</div></div>
+        <div class="h-stat"><div class="val" id="statDPS" style="color:var(--dps)">--</div><div class="lbl">DPS</div></div>
+        <div class="h-stat"><div class="val" id="statHealer" style="color:var(--healer)">--</div><div class="lbl">Healer</div></div>
+        <div class="h-stat"><div class="val" id="statTanker" style="color:var(--tanker)">--</div><div class="lbl">Tanker</div></div>
+      </div>
+      <div class="split-btn disabled" id="splitActionBtn">
+        <div class="split-side left" id="btnTeamEditor" data-day="" onclick="openTeamEditor()" title="Chỉnh sửa đội hình"><span>✏️ Đội Hình</span></div>
+        <div class="split-divider"></div>
+        <div class="split-side right" id="btnTactics" data-day="" onclick="openTactics()" title="Lập chiến thuật"><span>⚔️ Chiến Thuật</span></div>
+      </div>
+    </div>
   </div>
 
 
@@ -2382,24 +2547,9 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
     </div>
     <div class="right">
       <div class="r-tabs" style="align-items: center;">
-        <div class="r-tab active" onclick="switchRTab(this,'pane-map')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Bản đồ</div>
-        <div class="r-tab" onclick="switchRTab(this,'pane-tasks')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Nhiệm vụ</div>
+        <div class="r-tab active" id="rightMapTab" onclick="switchRTab(this,'pane-map')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Bản đồ</div>
+        <div class="r-tab" id="rightTasksTab" onclick="switchRTab(this,'pane-tasks')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Nhiệm vụ</div>
         <div class="r-tab" id="timerTab" onclick="switchRTab(this,'pane-timer');initTimerPane()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Timer</div>
-        
-        <div class="header-info" style="margin-left:auto; gap:16px;">
-          <div class="h-stat" style="padding-right: 16px; border-right: 1px solid rgba(255,255,255,0.05); text-align: right;"><div class="val" id="statTotal" style="font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Thành viên</div></div>
-          <div class="h-stat" style="padding-right: 16px; border-right: 1px solid rgba(255,255,255,0.05);"><div class="val" id="statDPS" style="color:var(--dps); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">DPS</div></div>
-          <div class="h-stat" style="padding-right: 16px; border-right: 1px solid rgba(255,255,255,0.05);"><div class="val" id="statHealer" style="color:var(--healer); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Healer</div></div>
-          <div class="h-stat"><div class="val" id="statTanker" style="color:var(--tanker); font-size:16px;">--</div><div class="lbl" style="font-size:9px;">Tanker</div></div>
-        </div>
-
-        <!-- Nút Split: gộp Chỉnh Sửa Đội Hình + Lập Chiến Thuật -->
-        <div class="split-btn disabled" id="splitActionBtn" style="margin-bottom:5px">
-          <div class="split-side left" id="btnTeamEditor" data-day="" onclick="openTeamEditor()" title="Chỉnh sửa đội hình"><span>✏️ Đội Hình</span></div>
-          <div class="split-divider"></div>
-          <div class="split-side right" id="btnTactics" data-day="" onclick="openTactics()" title="Lập chiến thuật"><span>⚔️ Chiến Thuật</span></div>
-        </div>
-        <button class="sketch-action-btn disabled" id="btnSketch" data-day="" onclick="openTacticSketch()" title="Phác thảo tự do"><span>✎</span><span>DLAM</span></button>
       </div>
       <div class="r-content">
         <div class="r-pane active" id="pane-map">
@@ -2547,6 +2697,13 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
 const GUILD_ID = '450633680000385036';
+const FEEDBACK_WEBHOOK_URL = 'https://discord.com/api/webhooks/1510942626629812286/sfgMzhCOwjR32VSewFRmatqFn0Z5h2toU-wtgvFxiVRy428yhDyZEJMUVGdLWPLuoBS2';
+const FEEDBACK_CATEGORY_LABELS = {
+    feedback: 'Góp ý',
+    bug: 'Báo lỗi',
+    suggestion: 'Đề xuất',
+    other: 'Khác'
+};
 
 let sb = null;
 try {
@@ -3125,13 +3282,22 @@ function isCurrentUserSessionLeader(session) {
             leaderIds.team3,
             leaderIds.team4
         ].filter(Boolean);
+        if (leaderIds.teams && typeof leaderIds.teams === 'object') {
+            directLeaderIds.push(...Object.values(leaderIds.teams).filter(Boolean));
+        }
         if (directLeaderIds.includes(window.currentDiscordId)) return true;
     } catch (error) {}
 
-    const allTeams = ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'];
-    return allTeams.some((key) => parseSessionTeam(session[key]).some((player) =>
+    const dynamicTeams = getIndexTeamLayout(session).map((team) => team.id);
+    const rawTeams = parseIndexJsonObject(session?.teams || session?.teams_json, {});
+    const allTeams = [...dynamicTeams, 'waiting_list'];
+    return allTeams.some((key) => {
+        const fromField = parseSessionTeam(session[key]);
+        const fromDynamic = rawTeams && Array.isArray(rawTeams[key]) ? rawTeams[key] : [];
+        return [...fromField, ...fromDynamic].some((player) =>
         player?.id === window.currentDiscordId && (player.isLeader || player.ld || player.isTeamLeader)
-    ));
+        );
+    });
 }
 
 function canEditTeamRoster(session = currentSessionData) {
@@ -3483,13 +3649,16 @@ function buildIndexLegacyMirrorFromRoster(roster) {
 }
 
 function getIndexRosterSnapshot(session) {
-    if (!session) return { attack1: [], attack2: [], defense: [], forest: [] };
-    const mirror = buildIndexLegacyMirrorFromRoster(getIndexRosterState(session));
+    if (!session) return { attack1: [], attack2: [], defense: [], forest: [], team_layout: [], teams: {} };
+    const roster = getIndexRosterState(session);
+    const mirror = buildIndexLegacyMirrorFromRoster(roster);
     return {
         attack1: mirror.team_attack1 || [],
         attack2: mirror.team_attack2 || [],
         defense: mirror.team_defense || [],
-        forest: mirror.team_forest || []
+        forest: mirror.team_forest || [],
+        team_layout: roster.layout,
+        teams: roster.teams
     };
 }
 
@@ -3537,7 +3706,7 @@ function rebuildIndexSessionTeamsFromFlat(session, flatRoster, waitingList = [])
 
 function normalizeIndexSlotTemplateEntry(entry, index, fallbackTeam = 'team_attack1') {
     const slotIndex = Number.isFinite(Number(entry?.slot_index)) ? Number(entry.slot_index) : index;
-    const team = INDEX_ACTIVE_TEAM_KEYS.includes(entry?.team) ? entry.team : fallbackTeam;
+    const team = normalizeIndexTacticsTeamId(entry?.team, fallbackTeam);
     const role = ['DPS', 'Tanker', 'Healer'].includes(entry?.role) ? entry.role : 'DPS';
     const tacticalId = entry?.tactical_id || entry?.player_id || entry?.id || null;
     const reservedFor = entry?.reserved_for || entry?.replacement_for || entry?.player_id || entry?.id || null;
@@ -3552,30 +3721,59 @@ function normalizeIndexSlotTemplateEntry(entry, index, fallbackTeam = 'team_atta
     };
 }
 
+function normalizeIndexTacticsTeamId(value, fallbackTeam = 'team_attack1') {
+    const raw = String(value || '').trim();
+    if (raw && raw !== 'enemy' && raw !== 'waiting_list') return raw;
+    const fallback = String(fallbackTeam || '').trim();
+    return fallback && fallback !== 'enemy' && fallback !== 'waiting_list' ? fallback : 'team_attack1';
+}
+
 function buildIndexSlotTemplateFromRosterSnapshot(rosterSnapshot, payload = {}) {
     const snapshot = rosterSnapshot && typeof rosterSnapshot === 'object'
         ? rosterSnapshot
-        : { attack1: [], attack2: [], defense: [], forest: [] };
-    const teamMap = [
-        ['attack1', 'team_attack1'],
-        ['attack2', 'team_attack2'],
-        ['defense', 'team_defense'],
-        ['forest', 'team_forest']
-    ];
+        : { attack1: [], attack2: [], defense: [], forest: [], team_layout: [], teams: {} };
     const template = [];
-    teamMap.forEach(([rosterKey, teamKey]) => {
-        parseIndexJsonList(snapshot[rosterKey]).forEach((player) => {
-            template.push(normalizeIndexSlotTemplateEntry({
-                slot_index: template.length,
-                team: teamKey,
-                tactical_id: player?.id || null,
-                reserved_for: player?.id || null,
-                original_name: player?.gn || player?.name || player?.username || '',
-                role: player?.role || 'DPS',
-                sub: player?.sub || ''
-            }, template.length, teamKey));
+
+    if (snapshot.team_layout || snapshot.teams || snapshot.teams_json) {
+        const roster = getIndexRosterState({
+            team_layout: snapshot.team_layout,
+            teams: snapshot.teams || snapshot.teams_json,
+            waiting_list: []
         });
-    });
+        roster.layout.forEach((team) => {
+            (roster.teams[team.id] || []).forEach((player) => {
+                template.push(normalizeIndexSlotTemplateEntry({
+                    slot_index: template.length,
+                    team: team.id,
+                    tactical_id: player?.id || null,
+                    reserved_for: player?.id || null,
+                    original_name: player?.gn || player?.name || player?.username || '',
+                    role: player?.role || 'DPS',
+                    sub: player?.sub || ''
+                }, template.length, team.id));
+            });
+        });
+    } else {
+        const teamMap = [
+            ['attack1', 'team_attack1'],
+            ['attack2', 'team_attack2'],
+            ['defense', 'team_defense'],
+            ['forest', 'team_forest']
+        ];
+        teamMap.forEach(([rosterKey, teamKey]) => {
+            parseIndexJsonList(snapshot[rosterKey]).forEach((player) => {
+                template.push(normalizeIndexSlotTemplateEntry({
+                    slot_index: template.length,
+                    team: teamKey,
+                    tactical_id: player?.id || null,
+                    reserved_for: player?.id || null,
+                    original_name: player?.gn || player?.name || player?.username || '',
+                    role: player?.role || 'DPS',
+                    sub: player?.sub || ''
+                }, template.length, teamKey));
+            });
+        });
+    }
 
     (Array.isArray(payload?.botSlots) ? payload.botSlots : []).forEach((bot) => {
         const slotIndex = Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : -1;
@@ -3635,7 +3833,7 @@ function normalizeIndexSeedTacticsPayload(rawPayload, meta = {}, rosterFallback 
 function normalizeIndexBotSlot(bot, index = 0) {
     const seq = Number.isFinite(Number(bot?.seq)) ? Number(bot.seq) : (index + 1);
     const role = ['DPS', 'Tanker', 'Healer'].includes(bot?.role) ? bot.role : 'DPS';
-    const team = INDEX_ACTIVE_TEAM_KEYS.includes(bot?.team) ? bot.team : 'team_attack1';
+    const team = normalizeIndexTacticsTeamId(bot?.team, 'team_attack1');
     return {
         ...bot,
         id: bot?.id || `slotbot_${seq}`,
@@ -6873,6 +7071,312 @@ logout = async function(e) {
     document.getElementById('userBadge')?.classList.remove('open');
     await _origLogout();
 };
+
+// ═══ ANONYMOUS FEEDBACK ═══
+let _feedbackLoadedOnce = false;
+
+function getFeedbackCategoryLabel(category) {
+    return FEEDBACK_CATEGORY_LABELS[category] || FEEDBACK_CATEGORY_LABELS.feedback;
+}
+
+function isFeedbackStaff() {
+    return typeof hasElevatedRosterRole === 'function' && hasElevatedRosterRole();
+}
+
+function ensureFeedbackModal() {
+    if (document.getElementById('feedbackModalOv')) return;
+
+    const ov = document.createElement('div');
+    ov.id = 'feedbackModalOv';
+    ov.className = 'feedback-modal-ov';
+    ov.onclick = (ev) => { if (ev.target === ov) closeFeedbackModal(); };
+    ov.innerHTML = `
+      <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+        <div class="feedback-head">
+          <div>
+            <div class="feedback-title" id="feedbackModalTitle">Góp ý ẩn danh</div>
+            <div class="feedback-sub">Ẩn danh khi hiển thị trên web; quản trị vẫn nhận thông tin tài khoản để xử lý.</div>
+          </div>
+          <button class="feedback-close" type="button" onclick="closeFeedbackModal()">✕</button>
+        </div>
+        <div class="feedback-body">
+          <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
+            <label class="feedback-field">
+              <span class="feedback-label">Loại</span>
+              <select class="feedback-select" id="feedbackCategory">
+                <option value="feedback">Góp ý</option>
+                <option value="bug">Báo lỗi</option>
+                <option value="suggestion">Đề xuất</option>
+                <option value="other">Khác</option>
+              </select>
+            </label>
+            <label class="feedback-field full">
+              <span class="feedback-label">Nội dung</span>
+              <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required placeholder="Nhập góp ý của bạn..."></textarea>
+            </label>
+            <div class="feedback-note">Người xem chỉ thấy “Ẩn danh”. Admin/Quản lý nhận chi tiết người gửi qua Discord webhook.</div>
+            <div class="feedback-form-actions">
+              <div class="feedback-status" id="feedbackStatus"></div>
+              <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">Gửi góp ý</button>
+            </div>
+          </form>
+          <div class="feedback-list-head">
+            <div class="feedback-list-title">Góp ý gần đây</div>
+            <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">Tải lại</button>
+          </div>
+          <div class="feedback-list" id="feedbackList"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && document.getElementById('feedbackModalOv')?.classList.contains('active')) {
+            closeFeedbackModal();
+        }
+    });
+}
+
+async function openFeedbackModal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('userBadge')?.classList.remove('open');
+    ensureFeedbackModal();
+    document.getElementById('feedbackModalOv').classList.add('active');
+    setFeedbackStatus('');
+    if (!_feedbackLoadedOnce) {
+        await loadFeedbackList(true);
+        _feedbackLoadedOnce = true;
+    } else {
+        await loadFeedbackList(false);
+    }
+}
+
+function closeFeedbackModal() {
+    document.getElementById('feedbackModalOv')?.classList.remove('active');
+}
+
+function setFeedbackStatus(message, type = '') {
+    const el = document.getElementById('feedbackStatus');
+    if (!el) return;
+    el.className = 'feedback-status';
+    if (type) el.classList.add(type);
+    el.textContent = message || '';
+}
+
+function formatFeedbackTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
+}
+
+function summarizeFeedbackContent(value) {
+    const text = String(value || '').trim();
+    return text.length > 240 ? text.slice(0, 237).trimEnd() + '...' : text;
+}
+
+async function loadFeedbackList(showLoading = false) {
+    const list = document.getElementById('feedbackList');
+    if (!list) return;
+    if (!sb) {
+        list.innerHTML = '<div class="feedback-error">Chưa kết nối được Supabase.</div>';
+        return;
+    }
+    if (showLoading) list.innerHTML = '<div class="feedback-loading">Đang tải góp ý...</div>';
+
+    try {
+        const { data, error } = await sb
+            .from('bc_feedback')
+            .select('id, category, content, created_at')
+            .eq('guild_id', GUILD_ID)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (error) throw error;
+        renderFeedbackList(data || []);
+    } catch (err) {
+        const msg = /schema cache|does not exist|Could not find/i.test(err.message || '')
+            ? 'Chưa chạy migration bc_feedback trên Supabase.'
+            : `Không tải được góp ý: ${err.message || err}`;
+        list.innerHTML = `<div class="feedback-error">${escHtml(msg)}</div>`;
+    }
+}
+
+function renderFeedbackList(items) {
+    const list = document.getElementById('feedbackList');
+    if (!list) return;
+    if (!items.length) {
+        list.innerHTML = '<div class="feedback-empty">Chưa có góp ý nào.</div>';
+        return;
+    }
+
+    const canDelete = isFeedbackStaff();
+    list.innerHTML = items.map((item) => {
+        const deleteButton = canDelete
+            ? `<button class="feedback-delete" type="button" onclick="deleteFeedback('${escHtml(item.id)}')">Xóa</button>`
+            : '';
+        return `
+          <div class="feedback-item" data-feedback-id="${escHtml(item.id)}">
+            <div>
+              <div class="feedback-item-top">
+                <span class="feedback-anon">Ẩn danh</span>
+                <span class="feedback-chip">${escHtml(getFeedbackCategoryLabel(item.category))}</span>
+                <span class="feedback-time">${escHtml(formatFeedbackTime(item.created_at))}</span>
+              </div>
+              <div class="feedback-content">${escHtml(summarizeFeedbackContent(item.content))}</div>
+            </div>
+            ${deleteButton}
+          </div>`;
+    }).join('');
+}
+
+function limitDiscordText(value, max = 1000) {
+    const text = String(value ?? '').trim() || 'N/A';
+    return text.length > max ? text.slice(0, max - 3).trimEnd() + '...' : text;
+}
+
+async function getFeedbackReporterInfo() {
+    const discordId = window.currentDiscordId || '';
+    if (!sb || !discordId) return null;
+    try {
+        const { data } = await sb
+            .from('bc_users')
+            .select('discord_name, game_username, game_uid, position, sub_role')
+            .eq('discord_id', discordId)
+            .maybeSingle();
+        return data || null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function sendFeedbackWebhook({ category, content, userInfo }) {
+    const discordId = window.currentDiscordId || 'N/A';
+    const discordName = window.currentUserName || userInfo?.discord_name || 'User';
+    const avatarUrl = document.getElementById('userAvatar')?.src || '';
+    const categoryLabel = getFeedbackCategoryLabel(category);
+    const position = userInfo?.position || window.currentUserPosition || 'mem';
+    const gameText = [
+        `Tên game: ${userInfo?.game_username || 'N/A'}`,
+        `UID: ${userInfo?.game_uid || 'N/A'}`,
+        `Vũ khí/Sub role: ${userInfo?.sub_role || 'N/A'}`
+    ].join('\n');
+
+    const payload = {
+        username: 'Lang Gia Feedback',
+        embeds: [{
+            author: { name: discordName, icon_url: avatarUrl || undefined },
+            title: `Góp ý ẩn danh - ${categoryLabel}`,
+            description: limitDiscordText(content, 3900),
+            color: 16498468,
+            fields: [
+                { name: 'Discord', value: limitDiscordText(`${discordName}\nID: ${discordId}`), inline: true },
+                { name: 'Game', value: limitDiscordText(gameText), inline: true },
+                { name: 'Chức vụ', value: limitDiscordText(position), inline: true },
+                { name: 'Hiển thị trên web', value: 'Ẩn danh', inline: true }
+            ],
+            thumbnail: avatarUrl ? { url: avatarUrl } : undefined,
+            timestamp: new Date().toISOString()
+        }]
+    };
+
+    const response = await fetch(FEEDBACK_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+        throw new Error(`Webhook trả về HTTP ${response.status}`);
+    }
+}
+
+async function submitFeedback(e) {
+    if (e) e.preventDefault();
+    if (!sb) {
+        setFeedbackStatus('Chưa kết nối được Supabase.', 'error');
+        return;
+    }
+    if (!window.currentDiscordId) {
+        setFeedbackStatus('Vui lòng đăng nhập lại trước khi gửi góp ý.', 'error');
+        return;
+    }
+
+    const categoryEl = document.getElementById('feedbackCategory');
+    const contentEl = document.getElementById('feedbackContent');
+    const submitBtn = document.getElementById('feedbackSubmitBtn');
+    const category = FEEDBACK_CATEGORY_LABELS[categoryEl?.value] ? categoryEl.value : 'feedback';
+    const content = String(contentEl?.value || '').trim();
+
+    if (!content) {
+        setFeedbackStatus('Bạn cần nhập nội dung góp ý.', 'error');
+        contentEl?.focus();
+        return;
+    }
+    if (content.length > 1500) {
+        setFeedbackStatus('Nội dung tối đa 1500 ký tự.', 'error');
+        return;
+    }
+
+    submitBtn.disabled = true;
+    setFeedbackStatus('Đang gửi webhook...', '');
+    let webhookSent = false;
+    try {
+        const userInfo = await getFeedbackReporterInfo();
+        await sendFeedbackWebhook({ category, content, userInfo });
+        webhookSent = true;
+
+        setFeedbackStatus('Đang lưu góp ý ẩn danh...', '');
+        const { error } = await sb.from('bc_feedback').insert({
+            guild_id: GUILD_ID,
+            category,
+            content
+        });
+        if (error) throw error;
+
+        contentEl.value = '';
+        setFeedbackStatus('Đã gửi góp ý. Trên web sẽ hiển thị ẩn danh.', 'success');
+        await loadFeedbackList(false);
+    } catch (err) {
+        const prefix = webhookSent
+            ? 'Webhook đã gửi, nhưng không lưu được lên web'
+            : 'Không gửi được góp ý';
+        setFeedbackStatus(`${prefix}: ${err.message || err}`, 'error');
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+
+async function deleteFeedback(id) {
+    if (!id || !sb) return;
+    if (!isFeedbackStaff()) {
+        await customAlert('Bạn không có quyền xóa góp ý.', { type: 'error' });
+        return;
+    }
+    const ok = await customConfirm('Xóa vĩnh viễn góp ý này?', {
+        title: 'Xóa góp ý',
+        type: 'warn',
+        okText: 'Xóa',
+        cancelText: 'Hủy'
+    });
+    if (!ok) return;
+
+    setFeedbackStatus('Đang xóa góp ý...', '');
+    try {
+        const { error } = await sb
+            .from('bc_feedback')
+            .delete()
+            .eq('id', id)
+            .eq('guild_id', GUILD_ID);
+        if (error) throw error;
+        setFeedbackStatus('Đã xóa góp ý.', 'success');
+        await loadFeedbackList(false);
+    } catch (err) {
+        setFeedbackStatus(`Không xóa được góp ý: ${err.message || err}`, 'error');
+    }
+}
 
 // ═══ PROFILE MODAL ═══
 let _profileData = null;

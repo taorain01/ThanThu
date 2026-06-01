@@ -9,6 +9,8 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const bangchienRoster = require('../../utils/bangchienRoster');
+const supaSync = require('../../utils/supabaseSync');
 
 // Team config - maxSize sẽ được lấy dynamic từ DB
 function getTeamConfig(db) {
@@ -89,7 +91,7 @@ module.exports = {
         // Lấy TEAM_CONFIG dynamic
         const TEAM_CONFIG = getTeamConfig(db);
 
-        if (!targetTeamArg || !TEAM_CONFIG[targetTeamArg.toLowerCase()]) {
+        if (!targetTeamArg || (!isActiveSession && !TEAM_CONFIG[targetTeamArg.toLowerCase()])) {
             return message.reply('❌ Team không hợp lệ! Dùng: 1, 2, thu, hoặc rung');
         }
 
@@ -97,6 +99,97 @@ module.exports = {
         const targetConfig = TEAM_CONFIG[targetTeamKey];
 
         // Lấy data
+        if (isActiveSession) {
+            const normalizeArg = (value) => String(value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]+/g, ' ')
+                .trim();
+            const resolveTeam = (roster, rawArg) => {
+                const arg = normalizeArg(rawArg);
+                if (!arg) return null;
+                if (/^\d+$/.test(arg)) return roster.layout[Number(arg) - 1] || null;
+                const alias = {
+                    thu: 'team_defense',
+                    defense: 'team_defense',
+                    thur: 'team_defense',
+                    rung: 'team_forest',
+                    forest: 'team_forest'
+                }[arg];
+                if (alias) return roster.layout.find((team) => team.id === alias) || null;
+                return roster.layout.find((team) =>
+                    normalizeArg(team.id) === arg ||
+                    normalizeArg(team.name) === arg ||
+                    normalizeArg(team.name).includes(arg)
+                ) || null;
+            };
+
+            const roster = bangchienRoster.normalizeRoster(session);
+            const targetTeam = resolveTeam(roster, targetTeamArg);
+            if (!targetTeam) {
+                return message.reply('ERROR: Team khong hop le. Dung so thu tu team, ten team, `thu`, hoac `rung`.');
+            }
+
+            const found = bangchienRoster.findMember(roster, mention.id);
+            if (!found) {
+                return message.reply(`ERROR: **${mention.username}** khong co trong danh sach BC!`);
+            }
+            if (found.teamId === targetTeam.id) {
+                return message.reply(`WARN: **${mention.username}** da o ${targetTeam.name} roi!`);
+            }
+            if (found.member?.isLeader && !found.waiting) {
+                return message.reply(`WARN: **${mention.username}** la Leader BC, khong the di chuyen sang team khac.`);
+            }
+
+            const targetList = roster.teams[targetTeam.id] || [];
+            if (targetList.length >= targetTeam.capacity) {
+                return message.reply(`ERROR: ${targetTeam.name} da day (${targetList.length}/${targetTeam.capacity})!`);
+            }
+
+            const person = found.member;
+            const fromTeamName = found.waiting
+                ? 'Cho'
+                : (roster.layout.find((team) => team.id === found.teamId)?.name || found.teamId);
+            if (found.waiting) roster.waitingList.splice(found.index, 1);
+            else roster.teams[found.teamId].splice(found.index, 1);
+            roster.teams[targetTeam.id] = targetList;
+            targetList.push({ ...person, team: targetTeam.id });
+
+            db.updateActiveBangchien(session.party_key, {
+                team_layout: roster.layout,
+                teams: roster.teams,
+                waiting_list: roster.waitingList
+            });
+            const fresh = db.getActiveBangchien(session.party_key);
+            if (fresh) {
+                const formatted = supaSync.formatActiveSession
+                    ? supaSync.formatActiveSession(fresh, db, message.guild)
+                    : fresh;
+                await supaSync.syncBCSession(guildId, fresh.day || session.day || 'sat', formatted || fresh).catch(() => {});
+                const { refreshOverviewEmbed } = require('../../utils/bangchienState');
+                await refreshOverviewEmbed(client, guildId).catch(() => {});
+            }
+
+            const counts = bangchienRoster.getRosterCounts(roster);
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('DI CHUYEN THANH CONG')
+                .setDescription(`**${person.username || mention.username}** da duoc di chuyen tu **${fromTeamName}** sang **${targetTeam.name}**`)
+                .addFields(
+                    ...roster.layout.map((team) => ({
+                        name: `${team.icon || '*'} ${team.name}`,
+                        value: `${counts.byTeam[team.id] || 0}/${team.capacity}`,
+                        inline: true
+                    })),
+                    { name: 'Cho', value: `${counts.waiting}`, inline: true }
+                )
+                .setFooter({ text: 'Dung ?bc de xem' });
+
+            console.log(`[bcmove] ${message.author.username} di chuyen ${mention.username} tu ${found.teamId} -> ${targetTeam.id}`);
+            return message.reply({ embeds: [embed] });
+        }
+
         let teams = {
             attack1: isActiveSession ? [...session.team_attack1] : JSON.parse(session.team_attack1 || '[]'),
             attack2: isActiveSession ? [...session.team_attack2] : JSON.parse(session.team_attack2 || '[]'),

@@ -289,7 +289,7 @@ async function getSessionScopedTacticsRow(guildId, sessionId, day) {
     return Array.isArray(fallback.data) ? (fallback.data[0] || null) : (fallback.data || null);
 }
 
-const ACTIVE_TEAM_KEYS = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
+const ACTIVE_TEAM_KEYS = bangchienRoster.LEGACY_TEAM_KEYS || ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
 
 function parseSessionJsonList(value) {
     try {
@@ -299,51 +299,54 @@ function parseSessionJsonList(value) {
     }
 }
 
+function getSessionRosterForTactics(sessionRow) {
+    return bangchienRoster.normalizeRoster(sessionRow || {});
+}
+
 function getSessionRosterSnapshot(sessionRow) {
-    if (!sessionRow) return { attack1: [], attack2: [], defense: [], forest: [] };
+    if (!sessionRow) {
+        return { attack1: [], attack2: [], defense: [], forest: [], team_layout: [], teams: {} };
+    }
+    const roster = getSessionRosterForTactics(sessionRow);
+    const mirror = bangchienRoster.serializeRosterForStorage(roster);
     return {
-        attack1: parseSessionJsonList(sessionRow.team_attack1),
-        attack2: parseSessionJsonList(sessionRow.team_attack2),
-        defense: parseSessionJsonList(sessionRow.team_defense),
-        forest: parseSessionJsonList(sessionRow.team_forest)
+        attack1: mirror.team_attack1 || [],
+        attack2: mirror.team_attack2 || [],
+        defense: mirror.team_defense || [],
+        forest: mirror.team_forest || [],
+        team_layout: roster.layout,
+        teams: roster.teams
     };
 }
 
 function getSessionTeamSizes(sessionRow) {
-    try {
-        const raw = typeof sessionRow?.team_sizes === 'string'
-            ? JSON.parse(sessionRow.team_sizes || '{}')
-            : (sessionRow?.team_sizes || {});
-        return {
-            attack1: raw.attack1 ?? 10,
-            attack2: raw.attack2 ?? 10,
-            defense: raw.defense ?? 5,
-            forest: raw.forest ?? 5
-        };
-    } catch (error) {
-        return { attack1: 10, attack2: 10, defense: 5, forest: 5 };
-    }
+    const mirror = bangchienRoster.serializeRosterForStorage(getSessionRosterForTactics(sessionRow));
+    return mirror.team_sizes || { attack1: 10, attack2: 10, defense: 5, forest: 5 };
 }
 
 function getSessionActiveSlotLayout(sessionRow) {
-    const sizes = getSessionTeamSizes(sessionRow);
+    const roster = getSessionRosterForTactics(sessionRow);
     const layout = [];
-    Array.from({ length: Math.max(0, sizes.attack1 || 0) }).forEach(() => layout.push('team_attack1'));
-    Array.from({ length: Math.max(0, sizes.attack2 || 0) }).forEach(() => layout.push('team_attack2'));
-    Array.from({ length: Math.max(0, sizes.defense || 0) }).forEach(() => layout.push('team_defense'));
-    Array.from({ length: Math.max(0, sizes.forest || 0) }).forEach(() => layout.push('team_forest'));
+    roster.layout.forEach((team) => {
+        Array.from({ length: Math.max(0, Number(team.capacity) || 0) }).forEach(() => layout.push(team.id));
+    });
     return layout;
 }
 
 function getSessionFlatActiveRoster(sessionRow) {
-    return ACTIVE_TEAM_KEYS.flatMap((teamKey) =>
-        parseSessionJsonList(sessionRow?.[teamKey]).map((player) => ({ ...player, team: teamKey }))
-    );
+    return bangchienRoster.getActiveRosterMembers(sessionRow || {});
+}
+
+function normalizeTacticsTeamId(value, fallbackTeam = 'team_attack1') {
+    const raw = String(value || '').trim();
+    if (raw && raw !== 'enemy' && raw !== 'waiting_list') return raw;
+    const fallback = String(fallbackTeam || '').trim();
+    return fallback && fallback !== 'enemy' && fallback !== 'waiting_list' ? fallback : 'team_attack1';
 }
 
 function normalizeTacticsSlotTemplateEntry(entry, index = 0, fallbackTeam = 'team_attack1') {
     const slotIndex = Number.isFinite(Number(entry?.slot_index)) ? Number(entry.slot_index) : index;
-    const team = ACTIVE_TEAM_KEYS.includes(entry?.team) ? entry.team : fallbackTeam;
+    const team = normalizeTacticsTeamId(entry?.team, fallbackTeam);
     const role = ['DPS', 'Tanker', 'Healer'].includes(entry?.role) ? entry.role : 'DPS';
     const tacticalId = entry?.tactical_id || entry?.player_id || entry?.id || null;
     const reservedFor = entry?.reserved_for || entry?.replacement_for || entry?.player_id || entry?.id || null;
@@ -361,7 +364,7 @@ function normalizeTacticsSlotTemplateEntry(entry, index = 0, fallbackTeam = 'tea
 function normalizeTacticsBotSlot(bot, index = 0) {
     const seq = Number.isFinite(Number(bot?.seq)) ? Number(bot.seq) : (index + 1);
     const role = ['DPS', 'Tanker', 'Healer'].includes(bot?.role) ? bot.role : 'DPS';
-    const team = ACTIVE_TEAM_KEYS.includes(bot?.team) ? bot.team : 'team_attack1';
+    const team = normalizeTacticsTeamId(bot?.team, 'team_attack1');
     return {
         ...bot,
         id: bot?.id || `slotbot_${seq}`,
@@ -381,28 +384,49 @@ function normalizeTacticsBotSlot(bot, index = 0) {
 function buildSlotTemplateFromRosterSnapshot(rosterSnapshot, payload = {}) {
     const snapshot = rosterSnapshot && typeof rosterSnapshot === 'object'
         ? rosterSnapshot
-        : { attack1: [], attack2: [], defense: [], forest: [] };
-    const teamMap = [
-        ['attack1', 'team_attack1'],
-        ['attack2', 'team_attack2'],
-        ['defense', 'team_defense'],
-        ['forest', 'team_forest']
-    ];
+        : { attack1: [], attack2: [], defense: [], forest: [], team_layout: [], teams: {} };
     const template = [];
 
-    teamMap.forEach(([rosterKey, teamKey]) => {
-        parseSessionJsonList(snapshot[rosterKey]).forEach((player) => {
-            template.push(normalizeTacticsSlotTemplateEntry({
-                slot_index: template.length,
-                team: teamKey,
-                tactical_id: player?.id || null,
-                reserved_for: player?.id || null,
-                original_name: player?.gn || player?.name || player?.username || '',
-                role: player?.role || 'DPS',
-                sub: player?.sub || ''
-            }, template.length, teamKey));
+    if (snapshot.team_layout || snapshot.teams || snapshot.teams_json) {
+        const roster = bangchienRoster.normalizeRoster({
+            team_layout: snapshot.team_layout,
+            teams: snapshot.teams || snapshot.teams_json,
+            waiting_list: []
         });
-    });
+        roster.layout.forEach((team) => {
+            (roster.teams[team.id] || []).forEach((player) => {
+                template.push(normalizeTacticsSlotTemplateEntry({
+                    slot_index: template.length,
+                    team: team.id,
+                    tactical_id: player?.id || null,
+                    reserved_for: player?.id || null,
+                    original_name: player?.gn || player?.name || player?.username || '',
+                    role: player?.role || 'DPS',
+                    sub: player?.sub || ''
+                }, template.length, team.id));
+            });
+        });
+    } else {
+        const teamMap = [
+            ['attack1', 'team_attack1'],
+            ['attack2', 'team_attack2'],
+            ['defense', 'team_defense'],
+            ['forest', 'team_forest']
+        ];
+        teamMap.forEach(([rosterKey, teamKey]) => {
+            parseSessionJsonList(snapshot[rosterKey]).forEach((player) => {
+                template.push(normalizeTacticsSlotTemplateEntry({
+                    slot_index: template.length,
+                    team: teamKey,
+                    tactical_id: player?.id || null,
+                    reserved_for: player?.id || null,
+                    original_name: player?.gn || player?.name || player?.username || '',
+                    role: player?.role || 'DPS',
+                    sub: player?.sub || ''
+                }, template.length, teamKey));
+            });
+        });
+    }
 
     (Array.isArray(payload?.botSlots) ? payload.botSlots : []).forEach((bot) => {
         const slotIndex = Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : -1;
@@ -650,6 +674,8 @@ function syncTacticsPayloadToSessionRoster(rawPayload, sessionRow) {
     }
 
     payload.roster_snapshot = getSessionRosterSnapshot(sessionRow);
+    payload.team_layout = payload.roster_snapshot.team_layout || [];
+    payload.teams = payload.roster_snapshot.teams || {};
     payload.slot_template = nextBindings;
     payload.botSlots = nextBots;
     payload.version = Math.max(3, Number(payload.version) || 0);

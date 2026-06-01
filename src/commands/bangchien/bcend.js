@@ -9,6 +9,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 const { deleteBCSession, deleteAllBCSessions } = require('../../utils/supabaseSync');
+const bangchienRoster = require('../../utils/bangchienRoster');
 
 const BC_ROLE_NAME = 'bc';
 
@@ -100,12 +101,7 @@ module.exports = {
                 const sessionDay = session.day || null;
 
                 // Lấy participants
-                const participants = [
-                    ...(session.team_attack1 || []),
-                    ...(session.team_attack2 || []),
-                    ...(session.team_defense || []),
-                    ...(session.team_forest || [])
-                ];
+                const participants = bangchienRoster.getActiveRosterMembers(session);
 
                 // Auto-save Team Thủ/Rừng vào preset
                 const teamDefense = session.team_defense || [];
@@ -322,12 +318,7 @@ module.exports = {
         // Lấy danh sách người tham gia để xóa role
         let participants = [];
         if (isActive) {
-            participants = [
-                ...(session.team_attack1 || []),
-                ...(session.team_attack2 || []),
-                ...(session.team_defense || []),
-                ...(session.team_forest || [])
-            ];
+            participants = bangchienRoster.getActiveRosterMembers(session);
         } else if (session.team_defense && session.team_offense) {
             participants = [...session.team_defense, ...session.team_offense];
         } else if (session.participants) {

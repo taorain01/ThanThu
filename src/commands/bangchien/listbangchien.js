@@ -7,6 +7,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { DAY_CONFIG, parseDayArg, getDayNameWithDate, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const bangchienRoster = require('../../utils/bangchienRoster');
 
 // Helper: Lấy team config từ DB (size + tên tùy chỉnh, đồng bộ với bcsize và bcql_resize)
 function getTeamConfig(db) {
@@ -74,11 +75,10 @@ module.exports = {
 
         // Helper: tính stats cho 1 session
         const getStats = (s) => {
-            if (!s) return { total: 0, attack: 0, defense: 0, forest: 0 };
-            const attack = (s.team_attack1?.length || 0) + (s.team_attack2?.length || 0);
-            const defense = s.team_defense?.length || 0;
-            const forest = s.team_forest?.length || 0;
-            return { total: attack + defense + forest, attack, defense, forest };
+            if (!s) return { total: 0, waiting: 0, byTeam: {}, layout: [] };
+            const roster = bangchienRoster.normalizeRoster(s);
+            const counts = bangchienRoster.getRosterCounts(roster);
+            return { total: counts.active, waiting: counts.waiting, byTeam: counts.byTeam, layout: roster.layout };
         };
 
         const overviewEmbed = new EmbedBuilder()
@@ -96,6 +96,12 @@ module.exports = {
                 let line = `📅 **${dateStr}** (${stats.total}/30) - Đang diễn ra\n⚔️ ${_ovNames.attack1}: ${stats.attack}`;
                 if ((db.getTeamSize('defense') ?? 5) > 0) line += ` | 🛡️ ${_ovNames.defense}: ${stats.defense}`;
                 if ((db.getTeamSize('forest') ?? 5) > 0) line += ` | 🌲 ${_ovNames.forest}: ${stats.forest}`;
+                const teamLine = stats.layout
+                    .map((team) => `${team.icon || '*'} ${team.name}: ${stats.byTeam[team.id] || 0}`)
+                    .join(' | ');
+                line = `**${dateStr}** (${stats.total}/30) - Dang dien ra`;
+                if (teamLine) line += `\n${teamLine}`;
+                if (stats.waiting > 0) line += `\nCho: ${stats.waiting}`;
                 overviewEmbed.addFields({ name: '\u200b', value: line, inline: false });
             }
         }
@@ -146,19 +152,12 @@ module.exports = {
         const allRoleNames = ['DPS', 'Healer', 'Tanker'];
         const dpsShortTags = { 'Quạt Dù': 'QD', 'Vô Danh': 'VD', 'Song Đao': 'SD', 'Cửu Kiếm': '9K' };
 
-        // Parse 4 teams from session
-        const teams = {
-            attack1: typeof session.team_attack1 === 'string' ? JSON.parse(session.team_attack1 || '[]') : session.team_attack1 || [],
-            attack2: typeof session.team_attack2 === 'string' ? JSON.parse(session.team_attack2 || '[]') : session.team_attack2 || [],
-            defense: typeof session.team_defense === 'string' ? JSON.parse(session.team_defense || '[]') : session.team_defense || [],
-            forest: typeof session.team_forest === 'string' ? JSON.parse(session.team_forest || '[]') : session.team_forest || []
-        };
-        const waitingList = typeof session.waiting_list === 'string' ? JSON.parse(session.waiting_list || '[]') : session.waiting_list || [];
+        const roster = bangchienRoster.normalizeRoster(session);
+        const waitingList = roster.waitingList || [];
 
         // Collect all member IDs for batch fetch
         const allMemberIds = new Set();
-        Object.values(teams).forEach(team => team.forEach(p => allMemberIds.add(p.id)));
-        waitingList.forEach(p => allMemberIds.add(p.id));
+        bangchienRoster.getAllRosterMembers(roster).forEach(p => allMemberIds.add(p.id));
 
         // Batch fetch all members
         try {
@@ -266,7 +265,7 @@ module.exports = {
             hour: '2-digit', minute: '2-digit'
         });
 
-        const totalInTeams = teams.attack1.length + teams.attack2.length + teams.defense.length + teams.forest.length;
+        const totalInTeams = bangchienRoster.getRosterCounts(roster).active;
 
         const embed = new EmbedBuilder()
             .setColor(embedColor)
@@ -280,7 +279,25 @@ module.exports = {
 
         // Add teams - chỉ hiện team có maxSize > 0
         let currentNum = 1;
-        for (const [teamKey, config] of Object.entries(TEAM_CONFIG)) {
+        for (const config of roster.layout) {
+            const maxSize = Number(config.capacity) || 0;
+            if (maxSize <= 0) continue;
+            const team = roster.teams[config.id] || [];
+            const statsText = getTeamStats(team);
+            const teamList = formatTeamList(team, currentNum, maxSize);
+            const chunks = splitListIntoChunks(teamList);
+
+            chunks.forEach((chunk, index) => {
+                embed.addFields({
+                    name: index === 0 ? `${config.icon || '*'} ${config.name} (${team.length}/${maxSize}) [${statsText}]` : '\u200b',
+                    value: chunk,
+                    inline: false
+                });
+            });
+
+            currentNum += maxSize;
+        }
+        for (const [teamKey, config] of []) {
             if (config.maxSize === 0) {
                 // Skip team có size = 0, vẫn cộng maxSize để giữ số thứ tự liên tục
                 currentNum += config.maxSize;

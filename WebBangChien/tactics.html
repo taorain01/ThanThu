@@ -6668,13 +6668,16 @@ function buildPersistedTacticsPayload() {
 }
 
 function buildRosterSnapshot() {
-    if (!sessionData) return { attack1: [], attack2: [], defense: [], forest: [] };
-    const mirror = buildTacticsLegacyMirror(getSessionRosterState(sessionData));
+    if (!sessionData) return { attack1: [], attack2: [], defense: [], forest: [], team_layout: [], teams: {} };
+    const roster = getSessionRosterState(sessionData);
+    const mirror = buildTacticsLegacyMirror(roster);
     return {
         attack1: mirror.team_attack1 || [],
         attack2: mirror.team_attack2 || [],
         defense: mirror.team_defense || [],
-        forest: mirror.team_forest || []
+        forest: mirror.team_forest || [],
+        team_layout: roster.layout,
+        teams: roster.teams
     };
 }
 
@@ -6722,29 +6725,50 @@ function normalizeSlotTemplateEntry(entry, index = 0, fallbackTeam = 'team_attac
 function buildSlotTemplateFromRosterSnapshot(rosterSnapshot, payload = {}) {
     const snapshot = rosterSnapshot && typeof rosterSnapshot === 'object'
         ? rosterSnapshot
-        : { attack1: [], attack2: [], defense: [], forest: [] };
-    const teamMap = [
-        ['attack1', 'team_attack1'],
-        ['attack2', 'team_attack2'],
-        ['defense', 'team_defense'],
-        ['forest', 'team_forest']
-    ];
+        : { attack1: [], attack2: [], defense: [], forest: [], team_layout: [], teams: {} };
     const template = [];
 
-    teamMap.forEach(([rosterKey, teamKey]) => {
-        const players = Array.isArray(snapshot[rosterKey]) ? snapshot[rosterKey] : [];
-        players.forEach((player) => {
-            template.push(normalizeSlotTemplateEntry({
-                slot_index: template.length,
-                team: teamKey,
-                tactical_id: player?.id || null,
-                reserved_for: player?.id || null,
-                original_name: player?.gn || player?.name || player?.username || '',
-                role: player?.role || 'DPS',
-                sub: player?.sub || ''
-            }, template.length, teamKey));
+    if (snapshot.team_layout || snapshot.teams || snapshot.teams_json) {
+        const roster = getSessionRosterState({
+            team_layout: snapshot.team_layout,
+            teams: snapshot.teams || snapshot.teams_json,
+            waiting_list: []
         });
-    });
+        roster.layout.forEach((team) => {
+            (roster.teams[team.id] || []).forEach((player) => {
+                template.push(normalizeSlotTemplateEntry({
+                    slot_index: template.length,
+                    team: team.id,
+                    tactical_id: player?.id || null,
+                    reserved_for: player?.id || null,
+                    original_name: player?.gn || player?.name || player?.username || '',
+                    role: player?.role || 'DPS',
+                    sub: player?.sub || ''
+                }, template.length, team.id));
+            });
+        });
+    } else {
+        const teamMap = [
+            ['attack1', 'team_attack1'],
+            ['attack2', 'team_attack2'],
+            ['defense', 'team_defense'],
+            ['forest', 'team_forest']
+        ];
+        teamMap.forEach(([rosterKey, teamKey]) => {
+            const players = Array.isArray(snapshot[rosterKey]) ? snapshot[rosterKey] : [];
+            players.forEach((player) => {
+                template.push(normalizeSlotTemplateEntry({
+                    slot_index: template.length,
+                    team: teamKey,
+                    tactical_id: player?.id || null,
+                    reserved_for: player?.id || null,
+                    original_name: player?.gn || player?.name || player?.username || '',
+                    role: player?.role || 'DPS',
+                    sub: player?.sub || ''
+                }, template.length, teamKey));
+            });
+        });
+    }
 
     (Array.isArray(payload?.botSlots) ? payload.botSlots : []).forEach((bot) => {
         const slotIndex = Number.isFinite(Number(bot?.reserved_slot_index)) ? Number(bot.reserved_slot_index) : -1;

@@ -19,6 +19,7 @@ const {
     getDayNameWithDate,
     getNextDayDate
 } = require('./bangchienState');
+const bangchienRoster = require('./bangchienRoster');
 
 const BC_ROLE_NAME = 'bc';
 const pendingBcMenuSelections = new Map();
@@ -28,26 +29,11 @@ function menuStateKey(guildId, userId) {
 }
 
 function getSessionTotal(session) {
-    return (session.team_attack1?.length || 0) +
-        (session.team_attack2?.length || 0) +
-        (session.team_defense?.length || 0) +
-        (session.team_forest?.length || 0) +
-        (session.waiting_list?.length || 0);
-}
-
-function buildMiniBar(current, max) {
-    const filled = Math.round((current / Math.max(max, 1)) * 8);
-    return '[' + '█'.repeat(filled) + '░'.repeat(8 - filled) + ']';
+    return bangchienRoster.getRosterCounts(session).active;
 }
 
 function getAllSessionMembers(session) {
-    return [
-        ...(session.team_attack1 || []),
-        ...(session.team_attack2 || []),
-        ...(session.team_defense || []),
-        ...(session.team_forest || []),
-        ...(session.waiting_list || [])
-    ];
+    return bangchienRoster.getAllRosterMembers(session);
 }
 
 function isUserInSession(session, userId) {
@@ -120,12 +106,11 @@ function createBcMenu(guildId, userId) {
                 const timeStr = normalizeBcTime(s.time || LEAGUE_TIME);
                 const noteRaw = s.note && !/^league$/i.test(String(s.note)) ? String(s.note) : '';
                 const typeBadge = league ? ' · `LEAGUE`' : (noteRaw ? ` · \`${noteRaw}\`` : '');
-                const bar = buildMiniBar(total, 30);
 
                 if (joined) {
-                    return `✅ **${timeStr}**${typeBadge}  ${bar}  \`${total}/30\`  ← _Đã đăng ký_`;
+                    return `✅ **${timeStr}**${typeBadge}  \`${total}/30\`  ← _Đã đăng ký_`;
                 }
-                return `▫️ **${timeStr}**${typeBadge}  ${bar}  \`${total}/30\``;
+                return `▫️ **${timeStr}**${typeBadge}  \`${total}/30\``;
             });
 
             embed.addFields({

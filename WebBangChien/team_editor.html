@@ -1165,11 +1165,16 @@
       } catch (error) {}
 
       const dynamicTeams = normalizeTeamLayout(session).map((team) => team.id);
-      return [...dynamicTeams, 'waiting_list'].some((key) =>
-        safeParse(session[key], []).some((member) =>
+      const rawTeams = safeParse(session.teams || session.teams_json, {});
+      return [...dynamicTeams, 'waiting_list'].some((key) => {
+        const fromField = safeParse(session[key], []);
+        const fromDynamic = rawTeams && typeof rawTeams === 'object' && Array.isArray(rawTeams[key])
+          ? rawTeams[key]
+          : [];
+        return [...fromField, ...fromDynamic].some((member) =>
           member?.id === currentDiscordId && (member.isLeader || member.ld || member.isTeamLeader)
-        )
-      );
+        );
+      });
     }
 
     function refreshLeaderEditorPermission() {

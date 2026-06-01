@@ -8,20 +8,9 @@ const { LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
-// Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
+// Legacy state for deleting old roster-summary notification embeds when still tracked in memory.
 const _notifDebounceMap = new Map();
 const _sessionSummaryStateMap = new Map();
-const NOTIF_DEBOUNCE_MS = 3000; // Chờ 3 giây để gom tất cả thay đổi
-const SESSION_SUMMARY_LIMIT = 5;
-const SESSION_DAY_LABELS = {
-  mon: 'Thứ 2',
-  tue: 'Thứ 3',
-  wed: 'Thứ 4',
-  thu: 'Thứ 5',
-  fri: 'Thứ 6',
-  sat: 'Thứ 7',
-  sun: 'Chủ Nhật'
-};
 
 function resolvePrimaryGuild(client) {
   return client.guilds.cache.get(ALLOWED_GUILD_ID) || null;
@@ -304,209 +293,36 @@ async function refreshLiveBangchienMessage(client, guild, session) {
   await liveMessage.edit({ embeds: [newEmbed], components: [newButtons] });
 }
 
-const TEAM_LABELS_SHORT = {
-  team_attack1: 'team công 1',
-  team_attack2: 'team công 2',
-  team_defense: 'team thủ',
-  team_forest: 'team rừng',
-  waiting_list: 'hàng chờ'
-};
-
-function parseSessionTeamForDiff(value) {
-  try {
-    return Array.isArray(value) ? value : JSON.parse(value || '[]');
-  } catch (e) {
-    return [];
-  }
+function normalizeEmbedSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
-function parseLeaderIdsForDiff(value) {
-  try {
-    return typeof value === 'string' ? JSON.parse(value || '{}') : (value || {});
-  } catch (e) {
-    return {};
-  }
+function isRosterSummaryMessage(message, botUserId = null) {
+  if (botUserId && message.author?.id && message.author.id !== botUserId) return false;
+  return (message.embeds || []).some((embed) => {
+    const title = normalizeEmbedSearchText(embed?.title);
+    return title.includes('cap nhat doi hinh');
+  });
 }
 
-function parseTeamSizesForDiff(value) {
-  try {
-    return typeof value === 'string' ? JSON.parse(value || '{}') : (value || {});
-  } catch (e) {
-    return {};
+async function deleteRosterSummaryMessagesInChannel(client, channel, limit = 50) {
+  if (!channel?.messages?.fetch) return 0;
+
+  const messages = await channel.messages.fetch({ limit }).catch(() => null);
+  if (!messages) return 0;
+
+  let deleted = 0;
+  for (const [, message] of messages) {
+    if (!isRosterSummaryMessage(message, client.user?.id)) continue;
+    try {
+      await message.delete();
+      deleted++;
+    } catch (e) { }
   }
-}
-
-function parseTeamNamesForDiff(value) {
-  try {
-    return typeof value === 'string' ? JSON.parse(value || '{}') : (value || {});
-  } catch (e) {
-    return {};
-  }
-}
-
-function normalizeTeamLabelForSummary(rawValue, fallbackLabel) {
-  const value = String(rawValue || '').replace(/\s+/g, ' ').trim();
-  if (!value) return fallbackLabel;
-  return /^team\b/i.test(value) ? value : `team ${value}`;
-}
-
-function buildTeamLabelsForDiff(teamNamesValue) {
-  const remoteNames = parseTeamNamesForDiff(teamNamesValue);
-  const savedNames = db.getTeamNames ? db.getTeamNames() : {};
-  return {
-    team_attack1: normalizeTeamLabelForSummary(remoteNames.attack1 || savedNames.attack1, TEAM_LABELS_SHORT.team_attack1),
-    team_attack2: normalizeTeamLabelForSummary(remoteNames.attack2 || savedNames.attack2, TEAM_LABELS_SHORT.team_attack2),
-    team_defense: normalizeTeamLabelForSummary(remoteNames.defense || savedNames.defense, TEAM_LABELS_SHORT.team_defense),
-    team_forest: normalizeTeamLabelForSummary(remoteNames.forest || savedNames.forest, TEAM_LABELS_SHORT.team_forest),
-    waiting_list: TEAM_LABELS_SHORT.waiting_list
-  };
-}
-
-function getRosterDisplayName(member) {
-  return member?.gn || member?.game_username || member?.name || member?.username || member?.discord_name || member?.id || 'thành viên';
-}
-
-function buildSessionChangeSummaries(localSession, newData) {
-  const actorMeta = parseLeaderIdsForDiff(newData.leader_ids);
-  const editorAction = actorMeta.editor_action || 'sync';
-  const teamLabels = buildTeamLabelsForDiff(newData.team_names);
-
-  // Nếu là self_join hoặc self_leave: thông báo đúng là member tự thực hiện
-  // không dùng fallback về localSession.leader_name
-  const isSelfAction = editorAction === 'self_join' || editorAction === 'self_leave';
-  const actorName = isSelfAction
-    ? (actorMeta.editor_name || 'Thành viên')
-    : (actorMeta.editor_name || localSession.leader_name || 'Ai đó');
-
-  const oldTeams = {
-    team_attack1: parseSessionTeamForDiff(localSession.team_attack1),
-    team_attack2: parseSessionTeamForDiff(localSession.team_attack2),
-    team_defense: parseSessionTeamForDiff(localSession.team_defense),
-    team_forest: parseSessionTeamForDiff(localSession.team_forest),
-    waiting_list: parseSessionTeamForDiff(localSession.waiting_list)
-  };
-  const newTeams = {
-    team_attack1: parseSessionTeamForDiff(newData.team_attack1),
-    team_attack2: parseSessionTeamForDiff(newData.team_attack2),
-    team_defense: parseSessionTeamForDiff(newData.team_defense),
-    team_forest: parseSessionTeamForDiff(newData.team_forest),
-    waiting_list: parseSessionTeamForDiff(newData.waiting_list)
-  };
-  const oldLeaderIds = {
-    team1: localSession.team1_leader_id || null,
-    team2: localSession.team2_leader_id || null,
-    team3: localSession.team3_leader_id || null,
-    team4: localSession.team4_leader_id || null
-  };
-  const newLeaderIds = {
-    team1: actorMeta.team1 || null,
-    team2: actorMeta.team2 || null,
-    team3: actorMeta.team3 || null,
-    team4: actorMeta.team4 || null
-  };
-  const oldSizes = db.getAllTeamSizes ? db.getAllTeamSizes() : {
-    attack1: 10,
-    attack2: 10,
-    defense: 5,
-    forest: 5
-  };
-  const newSizes = parseTeamSizesForDiff(newData.team_sizes);
-  const leaderTeamKeys = {
-    team1: 'team_attack1',
-    team2: 'team_attack2',
-    team3: 'team_defense',
-    team4: 'team_forest'
-  };
-
-  const leaderMessages = [];
-  // Không thông báo leader thay đổi với self_join/self_leave
-  if (!isSelfAction) {
-    for (const [leaderKey, teamKey] of Object.entries(leaderTeamKeys)) {
-      const beforeId = oldLeaderIds[leaderKey] || null;
-      const afterId = newLeaderIds[leaderKey] || null;
-      if (beforeId === afterId) continue;
-      const target = newTeams[teamKey].find((member) => member.id === afterId);
-      if (afterId && target) {
-        leaderMessages.push(`${actorName} đã đặt ${getRosterDisplayName(target)} làm leader ${teamLabels[teamKey]}.`);
-      }
-    }
-  }
-
-  const sizeMessages = [];
-  const sizeKeys = {
-    attack1: 'Công 1',
-    attack2: 'Công 2',
-    defense: 'Thủ',
-    forest: 'Rừng'
-  };
-  const hasValidResizeTotal = [newSizes.attack1, newSizes.attack2, newSizes.defense, newSizes.forest]
-    .every((value) => Number.isFinite(Number(value)))
-    && (Number(newSizes.attack1) + Number(newSizes.attack2) + Number(newSizes.defense) + Number(newSizes.forest) === 30);
-  const changedSizes = (editorAction === 'resize' && hasValidResizeTotal)
-    ? Object.entries(sizeKeys)
-      .filter(([key]) => newSizes[key] !== undefined && newSizes[key] !== oldSizes[key])
-      .map(([key, label]) => `${label} ${oldSizes[key]}→${newSizes[key]}`)
-    : [];
-  if (changedSizes.length) {
-    sizeMessages.push(`${actorName} đã đổi size đội hình: ${changedSizes.join(', ')}.`);
-  }
-  const oldMap = new Map();
-  const newMap = new Map();
-  Object.entries(oldTeams).forEach(([teamKey, members]) => members.forEach((member) => oldMap.set(member.id, { teamKey, member })));
-  Object.entries(newTeams).forEach(([teamKey, members]) => members.forEach((member) => newMap.set(member.id, { teamKey, member })));
-
-  const moveMessages = [];
-  for (const [memberId, nextInfo] of newMap.entries()) {
-    const prevInfo = oldMap.get(memberId);
-    if (!prevInfo) {
-      // Thành viên mới xuất hiện
-      if (editorAction === 'self_join') {
-        // Chính người dùng tự đăng ký
-        moveMessages.push(`${actorName} đã tự đăng ký vào ${teamLabels[nextInfo.teamKey]}.`);
-      } else {
-        moveMessages.push(`${actorName} đã thêm ${getRosterDisplayName(nextInfo.member)} vào ${teamLabels[nextInfo.teamKey]}.`);
-      }
-      continue;
-    }
-    if (prevInfo.teamKey === nextInfo.teamKey) continue;
-    const memberName = getRosterDisplayName(nextInfo.member);
-    if (nextInfo.teamKey === 'waiting_list') {
-      moveMessages.push(`${actorName} đã đưa ${memberName} về hàng chờ.`);
-    } else if (prevInfo.teamKey === 'waiting_list') {
-      moveMessages.push(`${actorName} đã đưa ${memberName} vào ${teamLabels[nextInfo.teamKey]}.`);
-    } else {
-      moveMessages.push(`${actorName} đã di chuyển ${memberName} sang ${teamLabels[nextInfo.teamKey]}.`);
-    }
-  }
-
-  // Thành viên rời đi (tự hủy đăng ký)
-  for (const [memberId, prevInfo] of oldMap.entries()) {
-    if (!newMap.has(memberId)) {
-      if (editorAction === 'self_leave') {
-        moveMessages.push(`${actorName} đã tự hủy đăng ký.`);
-      }
-      // Các hành động leader kick sẽ không xuất hiện ở đây vì đã có kickToWaiting notification riêng
-    }
-  }
-
-  const uniqueMessages = [...new Set([...leaderMessages, ...sizeMessages, ...moveMessages])];
-  return uniqueMessages.slice(0, 4);
-}
-
-function buildSessionSummaryEmbed(session, history = []) {
-  const dayLabel = SESSION_DAY_LABELS[session?.day] || session?.day || 'Bang Chiến';
-  const timeLabel = session?.time || '19:30';
-  const visibleHistory = history.slice(-SESSION_SUMMARY_LIMIT).reverse();
-  const description = visibleHistory.length
-    ? visibleHistory.map((entry) => `• ${entry.text}`).join('\n')
-    : 'Chưa có thay đổi nào.';
-
-  return new EmbedBuilder()
-    .setColor(0x0F766E)
-    .setTitle(`📣 Cập nhật đội hình ${dayLabel} ${timeLabel}`)
-    .setDescription(description)
-    .setFooter({ text: `Giữ ${SESSION_SUMMARY_LIMIT} thay đổi gần nhất` })
-    .setTimestamp(new Date(visibleHistory[0]?.at || Date.now()));
+  return deleted;
 }
 
 async function resolveStoredSummaryMessage(channel, summaryState) {
@@ -531,76 +347,42 @@ async function clearSessionSummaryState(client, summaryKey, fallbackChannelId = 
       if (storedMessage) {
         try { await storedMessage.delete(); } catch (e) { }
       }
+      await deleteRosterSummaryMessagesInChannel(client, channel);
     }
   }
 
   _sessionSummaryStateMap.delete(summaryKey);
 }
 
-async function upsertSessionSummaryEmbed(channel, session, summaryKey, summaryState) {
-  const embed = buildSessionSummaryEmbed(session, summaryState.history || []);
-  const latestMessage = await channel.messages.fetch({ limit: 1 }).then((messages) => messages.first() || null).catch(() => null);
-  const storedMessage = await resolveStoredSummaryMessage(channel, summaryState);
-  const canEditLatest = storedMessage && latestMessage && storedMessage.id === latestMessage.id;
+async function clearRosterSummaryEmbedsForGuild(client, guild) {
+  if (!guild?.id) return;
 
-  if (canEditLatest) {
-    await storedMessage.edit({ embeds: [embed], content: '' });
-    summaryState.message = storedMessage;
-    summaryState.messageId = storedMessage.id;
-    _sessionSummaryStateMap.set(summaryKey, summaryState);
-    return;
+  const channelIds = new Set();
+  const configuredChannelId = db.getConfig ? db.getConfig(`bc_channel_${guild.id}`) : null;
+  if (configuredChannelId) channelIds.add(configuredChannelId);
+
+  const sessions = db.getActiveBangchienByGuild ? db.getActiveBangchienByGuild(guild.id) : [];
+  for (const session of sessions) {
+    if (session?.channel_id) channelIds.add(session.channel_id);
   }
 
-  if (storedMessage) {
-    try { await storedMessage.delete(); } catch (e) { }
+  let deletedTotal = 0;
+  for (const channelId of channelIds) {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel) continue;
+    deletedTotal += await deleteRosterSummaryMessagesInChannel(client, channel);
   }
 
-  const newMessage = await channel.send({ embeds: [embed] });
-  summaryState.message = newMessage;
-  summaryState.messageId = newMessage.id;
-  _sessionSummaryStateMap.set(summaryKey, summaryState);
+  if (deletedTotal > 0) {
+    console.log(`[ready] Deleted ${deletedTotal} old BC roster summary embed(s) in ${guild.name}`);
+  }
 }
 
-async function sendSessionChangeSummaries(client, guild, session, summaries = []) {
-  if (!session?.channel_id || !summaries.length) return;
-
-  const dedupKey = session.party_key || session.day || 'x';
-
-  // Lấy hoặc tạo buffer debounce cho session này
-  if (!_notifDebounceMap.has(dedupKey)) {
-    _notifDebounceMap.set(dedupKey, { summaries: [], timer: null, channelId: session.channel_id });
+async function clearRosterSummaryEmbedsForAllGuilds(client) {
+  for (const [, guild] of client.guilds.cache) {
+    if (!isAllowedGuildId(guild.id)) continue;
+    await clearRosterSummaryEmbedsForGuild(client, guild);
   }
-  const buf = _notifDebounceMap.get(dedupKey);
-
-  // Thêm summaries mới vào buffer (bỏ qua trùng lặp)
-  for (const s of summaries) {
-    if (!buf.summaries.includes(s)) buf.summaries.push(s);
-  }
-
-  // Reset timer — chờ thêm 3 giây kể từ thay đổi cuối cùng
-  if (buf.timer) clearTimeout(buf.timer);
-  buf.timer = setTimeout(async () => {
-    _notifDebounceMap.delete(dedupKey);
-    const allSummaries = buf.summaries;
-    if (!allSummaries.length) return;
-
-    const channel = await client.channels.fetch(buf.channelId).catch(() => null);
-    if (!channel) return;
-    const summaryState = _sessionSummaryStateMap.get(dedupKey) || {
-      history: [],
-      messageId: null,
-      message: null,
-      channelId: buf.channelId
-    };
-    summaryState.channelId = buf.channelId;
-    summaryState.history = [
-      ...(summaryState.history || []),
-      ...allSummaries.map((text) => ({ text, at: Date.now() }))
-    ].slice(-SESSION_SUMMARY_LIMIT);
-
-    await upsertSessionSummaryEmbed(channel, session, dedupKey, summaryState);
-    console.log(`[Supabase] 📨 Gửi/refresh embed gộp BC ${dedupKey}: ${allSummaries.length} thay đổi`);
-  }, NOTIF_DEBOUNCE_MS);
 }
 
 const TACTICS_DAY_LABELS = {
@@ -664,7 +446,6 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
       const leaderIds = (() => {
         try { return typeof remoteSession.leader_ids === 'string' ? JSON.parse(remoteSession.leader_ids || '{}') : (remoteSession.leader_ids || {}); } catch(e) { return {}; }
       })();
-      const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
       const partyKey = createPartyKey(guild.id, remoteSession.day, leaderIds.creator_id || 'web', remoteTime);
 
       // Tạo session trong SQLite
@@ -708,15 +489,8 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           partyKey
         );
 
-        // Khởi tạo memory state
-        // Set đầy đủ tất cả teams (không chỉ team_attack1) để tránh data loss
-        bangchienRegistrations.set(partyKey, [
-          ...parseTeam(remoteSession.team_attack1),
-          ...parseTeam(remoteSession.team_attack2),
-          ...parseTeam(remoteSession.team_defense),
-          ...parseTeam(remoteSession.team_forest),
-          ...parseTeam(remoteSession.waiting_list)
-        ]);
+        // Khởi tạo memory state từ roster động để không mất team custom.
+        bangchienRegistrations.set(partyKey, bangchienRoster.getAllRosterMembers(remoteSession));
         bangchienNotifications.set(partyKey, {
           intervalId: null, channelId: bcChannelId,
           leaderId: leaderIds.creator_id || 'web',
@@ -783,6 +557,7 @@ module.exports = {
 
     // ♦ Auto-cleanup session BC hết hạn + re-schedule timer
     await cleanupAndRescheduleBc(client);
+    await clearRosterSummaryEmbedsForAllGuilds(client);
 
     // ♦ Khởi tạo Supabase sync cho Web Bang Chiến
     const supaOk = supaSync.initSupabase();
@@ -803,6 +578,7 @@ module.exports = {
         // Boot-pull: kéo sessions từ Supabase vào SQLite (cho hosting bot với SQLite trống)
         const supabaseClient = supaSync.getSupabaseClient();
         await pullMissingSessionsFromSupabase(supabaseClient, db, guild);
+        await clearRosterSummaryEmbedsForGuild(client, guild);
 
         try {
           const { ensureWeekendDefaultSessions, refreshOverviewEmbed } = require('../../utils/bangchienState');
@@ -937,14 +713,7 @@ module.exports = {
               );
 
               // Khởi tạo trong memory
-              const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
-              bangchienRegistrations.set(partyKey, [
-                ...parseTeam(newData.team_attack1),
-                ...parseTeam(newData.team_attack2),
-                ...parseTeam(newData.team_defense),
-                ...parseTeam(newData.team_forest),
-                ...parseTeam(newData.waiting_list)
-              ]);
+              bangchienRegistrations.set(partyKey, bangchienRoster.getAllRosterMembers(newData));
               bangchienNotifications.set(partyKey, {
                 intervalId: null,
                 channelId: bcChannelId,
@@ -1037,12 +806,7 @@ module.exports = {
                 const partyKey = localSession.party_key;
                 const summaryKey = localSession.party_key || localSession.day || 'x';
 
-                const participants = [
-                  ...(localSession.team_attack1 || []),
-                  ...(localSession.team_attack2 || []),
-                  ...(localSession.team_defense || []),
-                  ...(localSession.team_forest || [])
-                ];
+                const participants = bangchienRoster.getActiveRosterMembers(localSession);
                 const bcRole = guild.roles.cache.find(r => r.name === 'bc');
                 if (bcRole && participants.length > 0) {
                   for (const p of participants) {
@@ -1094,7 +858,6 @@ module.exports = {
               (s.day === newData.day && normalizeBcTime(s.time || LEAGUE_TIME) === targetTime)
             );
             if (!localSession) return;
-            const sessionChangeSummaries = buildSessionChangeSummaries(localSession, newData);
 
             const parseTeam = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : (v || []); } catch(e) { return []; } };
             const leaderIds = (() => {
@@ -1226,8 +989,12 @@ module.exports = {
               await refreshStoredListbcDetailMessage(guild, freshSession).catch((e) => {
                 console.error('[Supabase] Khong refresh duoc listbc detail:', e.message);
               });
-              await sendSessionChangeSummaries(client, guild, freshSession, sessionChangeSummaries).catch((e) => {
-                console.error('[Supabase] Khong gui duoc thong bao doi hinh:', e.message);
+              await clearSessionSummaryState(
+                client,
+                freshSession.party_key || freshSession.day || 'x',
+                freshSession.channel_id || null
+              ).catch((e) => {
+                console.error('[Supabase] Khong xoa duoc embed thong bao doi hinh:', e.message);
               });
             }
 

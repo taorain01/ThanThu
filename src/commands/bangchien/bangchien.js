@@ -342,7 +342,14 @@ function createOverviewButton(guildId) {
     const db = require('../../database/db');
     const allSessions = db.getActiveBangchienByGuild(guildId);
 
-    if (allSessions.length === 0) return null;
+    const webButton = new ButtonBuilder()
+        .setLabel('🌐 Truy cập WEB')
+        .setStyle(ButtonStyle.Link)
+        .setURL('https://langgiawar.vercel.app/');
+
+    if (allSessions.length === 0) {
+        return new ActionRowBuilder().addComponents(webButton);
+    }
 
     const row = new ActionRowBuilder()
         .addComponents(
@@ -350,10 +357,7 @@ function createOverviewButton(guildId) {
                 .setCustomId(`bc_menu_${guildId}`)
                 .setLabel('📋 Đăng ký BANG CHIẾN')
                 .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setLabel('Xem trực tiếp')
-                .setStyle(ButtonStyle.Link)
-                .setURL('https://langgiawar.vercel.app/')
+            webButton
         );
     return row;
 }

@@ -1063,7 +1063,7 @@ function getActiveBangchienByDay(guildId, day) {
 
 function getActiveBangchienByDayTime(guildId, day, time = '19:30') {
     const normalizedTime = normalizeBangchienTime(time);
-    const stmt = db.prepare('SELECT * FROM bangchien_active WHERE guild_id = ? AND day = ? AND COALESCE(time, "19:30") = ? LIMIT 1');
+    const stmt = db.prepare("SELECT * FROM bangchien_active WHERE guild_id = ? AND day = ? AND COALESCE(time, '19:30') = ? LIMIT 1");
     const result = stmt.get(guildId, day, normalizedTime);
     return hydrateBangchienSession(result);
 }

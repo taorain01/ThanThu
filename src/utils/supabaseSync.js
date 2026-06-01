@@ -1463,7 +1463,8 @@ function listenForWebChanges(guildId, onSessionChange) {
         .on('postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'bc_sessions', filter: `guild_id=eq.${guildId}` },
             (payload) => {
-                console.log(`[Supabase] 🆕 Web đã tạo BC session mới (${payload.new.day})`);
+                const time = normalizeBcTime(payload.new.time || LEAGUE_TIME);
+                console.log(`[Supabase] Received BC session INSERT (${payload.new.day} ${time})`);
                 if (onSessionChange) {
                     onSessionChange({ ...payload.new, _inserted: true });
                 }
@@ -1474,21 +1475,22 @@ function listenForWebChanges(guildId, onSessionChange) {
             async (payload) => {
                 // Signal+Delete: web gửi status='ended' trước khi xóa
                 if (payload.new?.status === 'ended') {
-                    console.log(`[Supabase] 🗑️ Web signal ended cho session ${payload.new.day}`);
+                    const time = normalizeBcTime(payload.new.time || LEAGUE_TIME);
+                    console.log(`[Supabase] Received BC session ended signal (${payload.new.day} ${time})`);
                     if (onSessionChange) {
-                        onSessionChange({ day: payload.new.day, time: payload.new.time || LEAGUE_TIME, id: payload.new.id, _deleted: true });
+                        onSessionChange({ day: payload.new.day, time, id: payload.new.id, _deleted: true });
                     }
                     // Dọn row khỏi Supabase (web anon key có thể không xóa được)
                     try {
                         await supabase.from('bc_sessions').delete()
                             .eq('guild_id', guildId)
                             .eq('day', payload.new.day)
-                            .eq('time', payload.new.time || LEAGUE_TIME);
-                        console.log(`[Supabase] ✅ Bot đã dọn row ended: ${payload.new.day}`);
+                            .eq('time', time);
+                        console.log(`[Supabase] Cleaned ended BC session row (${payload.new.day} ${time})`);
                     } catch(e) {}
                     return;
                 }
-                console.log(`[Supabase] 🔄 Web đã sửa BC session (${payload.new.day})`);
+                console.log(`[Supabase] Received BC session UPDATE (${payload.new.day} ${normalizeBcTime(payload.new.time || LEAGUE_TIME)})`);
                 if (onSessionChange) {
                     onSessionChange(payload.new);
                 }

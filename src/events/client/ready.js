@@ -4,6 +4,7 @@ const { scheduleWeeklyReminders } = require('../../utils/yentiecReminder');
 const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/quanly/subrole/addrole');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
+const { LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
 // Debounce map: gom thông báo từ nhiều realtime event trong cùng 1 khoảng thời gian
@@ -870,7 +871,13 @@ module.exports = {
               const existing = db.getActiveBangchienByDayTime
                 ? db.getActiveBangchienByDayTime(guild.id, day, time)
                 : db.getActiveBangchienByDay(guild.id, day);
-              if (existing) { console.log(`[Supabase] ⚠️ Session ${day} đã tồn tại trong SQLite, bỏ qua INSERT`); return; }
+              if (existing) {
+                if (newData.id && !existing.supabase_session_id) {
+                  db.db.prepare('UPDATE bangchien_active SET supabase_session_id=? WHERE party_key=?').run(newData.id, existing.party_key);
+                }
+                console.log(`[Supabase] Session ${day} ${time} da ton tai trong SQLite, bo qua INSERT`);
+                return;
+              }
 
               // Lấy kênh BC đã set bằng ?setbc
               const bcChannelId = db.getConfig(`bc_channel_${guild.id}`);
@@ -1005,10 +1012,10 @@ module.exports = {
                 sessionsToDelete = sessions.filter(s => !remainingSet.has(getSessionIdentityKey(s)));
                 console.log(`[Supabase] x️ Fallback DELETE: tìm ${sessionsToDelete.length} session cần xóa`);
               } else if (newData.day) {
-                const targetTime = newData.time || LEAGUE_TIME;
-                const found = sessions.find(s => s.day === newData.day && (s.time || LEAGUE_TIME) === targetTime);
+                const targetTime = normalizeBcTime(newData.time || LEAGUE_TIME);
+                const found = sessions.find(s => s.day === newData.day && normalizeBcTime(s.time || LEAGUE_TIME) === targetTime);
                 if (found) sessionsToDelete = [found];
-                console.log(`[Supabase] x️ Web ã xóa BC session ${newData.day}`);
+                console.log(`[Supabase] Web da xoa BC session ${newData.day} ${targetTime}`);
               }
 
               for (const localSession of sessionsToDelete) {
@@ -1063,7 +1070,7 @@ module.exports = {
           }
 
           // CASE: UPDATE session từ web
-          console.log(`[Supabase] 🔄 Web đã sửa BC session (${newData.day})`);
+          console.log(`[Supabase] Sync nguoc BC session update (${newData.day} ${normalizeBcTime(newData.time || LEAGUE_TIME)})`);
           try {
             const sessions = db.getActiveBangchienByGuild(guild.id);
             const targetTime = normalizeBcTime(newData.time || LEAGUE_TIME);

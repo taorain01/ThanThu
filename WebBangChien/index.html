@@ -4267,12 +4267,16 @@ function isCurrentUserSessionLeader(session) {
         if (directLeaderIds.includes(window.currentDiscordId)) return true;
     } catch (error) {}
 
-    const dynamicTeams = getIndexTeamLayout(session).map((team) => team.id);
-    const rawTeams = parseIndexJsonObject(session?.teams || session?.teams_json, {});
-    const allTeams = [...dynamicTeams, 'waiting_list'];
-    return allTeams.some((key) => {
-        const fromField = parseSessionTeam(session[key]);
-        const fromDynamic = rawTeams && Array.isArray(rawTeams[key]) ? rawTeams[key] : [];
+    const layout = getIndexTeamLayout(session);
+    const rawTeams = getIndexRosterTeamsObject(session, layout) || {};
+    return [...layout, { id: 'waiting_list' }].some((team, index) => {
+        const key = team.id;
+        const fromField = key === 'waiting_list'
+            ? parseSessionTeam(session[key])
+            : getIndexLegacyTeamMembers(session, team, index);
+        const fromDynamic = key !== 'waiting_list'
+            ? (getIndexDynamicTeamMembers(rawTeams, team, index) || [])
+            : [];
         return [...fromField, ...fromDynamic].some((player) =>
         player?.id === window.currentDiscordId && (player.isLeader || player.ld || player.isTeamLeader)
         );
@@ -4459,9 +4463,7 @@ function applySessionFilter(query, session) {
 
 function attachSessionRosterPayload(payload, session, teamLayout, teams) {
     payload.team_layout = teamLayout || [];
-    if (Object.prototype.hasOwnProperty.call(session || {}, 'teams_json')) {
-        payload.teams_json = JSON.stringify(teams || {});
-    }
+    payload.teams_json = JSON.stringify(teams || {});
     return payload;
 }
 
@@ -4497,6 +4499,10 @@ function removeUnavailableRosterPayloadFields(payload, error) {
 }
 
 async function updateSessionRosterPayload(payload, session) {
+    const layout = Array.isArray(payload.team_layout) ? payload.team_layout : [];
+    const teams = parseIndexJsonObject(payload.teams_json, {});
+    const requiresDynamicRoster = layout.length > 4
+        || Object.keys(teams || {}).some((key) => !INDEX_ACTIVE_TEAM_KEYS.includes(key));
     const applyUpdate = async () => {
         const query = sb.from('bc_sessions').update(payload);
         return applySessionFilter(query, session);
@@ -4506,6 +4512,7 @@ async function updateSessionRosterPayload(payload, session) {
     for (let attempt = 0; result.error && attempt < 3; attempt++) {
         const message = String(result.error.message || '');
         if (!/(team_layout|teams|teams_json|schema cache|Could not find)/i.test(message)) break;
+        if (requiresDynamicRoster && /(team_layout|teams_json)/i.test(message)) break;
         if (!removeUnavailableRosterPayloadFields(payload, result.error)) break;
         result = await applyUpdate();
     }
@@ -4716,13 +4723,67 @@ function getIndexTeamLayout(session) {
     }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order: index + 1 }));
 }
 
+function getIndexRosterSourceDecision(session, layout = getIndexTeamLayout(session)) {
+    const rawTeams = getIndexRosterTeamsObject(session, layout);
+    const dynamic = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams) ? rawTeams : null;
+    const dynamicTotal = dynamic
+        ? layout.reduce((sum, team, index) => {
+            const list = getIndexDynamicTeamMembers(dynamic, team, index);
+            return sum + (Array.isArray(list) ? list.length : 0);
+        }, 0)
+        : 0;
+    const legacyTotal = layout.reduce((sum, team, index) => sum + getIndexLegacyTeamMembers(session, team, index).length, 0);
+    return {
+        rawTeams: dynamic,
+        preferLegacy: legacyTotal > 0 && dynamicTotal === 0
+    };
+}
+
+function getIndexRosterTeamsObject(session, layout = getIndexTeamLayout(session)) {
+    const candidates = [parseIndexJsonObject(session?.teams, null), parseIndexJsonObject(session?.teams_json, null)]
+        .filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+    let best = null;
+    let bestCount = -1;
+    candidates.forEach((candidate) => {
+        const count = layout.reduce((sum, team, index) => {
+            const list = getIndexDynamicTeamMembers(candidate, team, index);
+            return sum + (Array.isArray(list) ? list.length : 0);
+        }, 0);
+        if (count > bestCount) {
+            best = candidate;
+            bestCount = count;
+        }
+    });
+    return best;
+}
+
+function getIndexDynamicTeamMembers(rawTeams, team, index) {
+    if (!rawTeams || typeof rawTeams !== 'object' || !team) return null;
+    if (Array.isArray(rawTeams[team.id])) return rawTeams[team.id];
+    const legacyKey = INDEX_ACTIVE_TEAM_KEYS[index];
+    if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) return rawTeams[legacyKey];
+    return null;
+}
+
+function getIndexLegacyTeamMembers(session, team, index) {
+    if (!session || !team) return [];
+    const direct = parseIndexJsonList(session?.[team.id]);
+    if (Array.isArray(direct) && direct.length) return direct;
+    const legacyKey = INDEX_ACTIVE_TEAM_KEYS[index];
+    if (legacyKey && legacyKey !== team.id) {
+        const fallback = parseIndexJsonList(session?.[legacyKey]);
+        if (Array.isArray(fallback) && fallback.length) return fallback;
+    }
+    return Array.isArray(direct) ? direct : [];
+}
+
 function getIndexRosterState(session) {
     const layout = getIndexTeamLayout(session);
-    const rawTeams = parseIndexJsonObject(session?.teams || session?.teams_json, null);
+    const { rawTeams, preferLegacy } = getIndexRosterSourceDecision(session, layout);
     const teams = {};
-    layout.forEach((team) => {
-        const fromDynamic = rawTeams && Array.isArray(rawTeams[team.id]) ? rawTeams[team.id] : null;
-        teams[team.id] = (fromDynamic || parseIndexJsonList(session?.[team.id])).map((player) => ({
+    layout.forEach((team, index) => {
+        const fromDynamic = !preferLegacy ? getIndexDynamicTeamMembers(rawTeams, team, index) : null;
+        teams[team.id] = (fromDynamic || getIndexLegacyTeamMembers(session, team, index)).map((player) => ({
             ...player,
             team: team.id
         }));

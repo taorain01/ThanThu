@@ -1342,6 +1342,60 @@
       }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order:index + 1 }));
     }
 
+    function getRosterSourceDecision(session = {}, layout = normalizeTeamLayout(session)) {
+      const rawTeams = getRosterTeamsObject(session, layout);
+      const dynamic = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams) ? rawTeams : null;
+      const dynamicTotal = dynamic
+        ? layout.reduce((sum, team, index) => {
+            const list = getDynamicTeamMembers(dynamic, team, index);
+            return sum + (Array.isArray(list) ? list.length : 0);
+          }, 0)
+        : 0;
+      const legacyTotal = layout.reduce((sum, team, index) => sum + getLegacyTeamMembers(session, team, index).length, 0);
+      return {
+        rawTeams: dynamic,
+        preferLegacy: legacyTotal > 0 && dynamicTotal === 0
+      };
+    }
+
+    function getRosterTeamsObject(session = {}, layout = normalizeTeamLayout(session)) {
+      const candidates = [safeParse(session?.teams, null), safeParse(session?.teams_json, null)]
+        .filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+      let best = null;
+      let bestCount = -1;
+      candidates.forEach((candidate) => {
+        const count = layout.reduce((sum, team, index) => {
+          const list = getDynamicTeamMembers(candidate, team, index);
+          return sum + (Array.isArray(list) ? list.length : 0);
+        }, 0);
+        if (count > bestCount) {
+          best = candidate;
+          bestCount = count;
+        }
+      });
+      return best;
+    }
+
+    function getDynamicTeamMembers(rawTeams, team, index) {
+      if (!rawTeams || typeof rawTeams !== 'object' || !team) return null;
+      if (Array.isArray(rawTeams[team.id])) return rawTeams[team.id];
+      const legacyKey = LEGACY_TEAM_IDS[index];
+      if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) return rawTeams[legacyKey];
+      return null;
+    }
+
+    function getLegacyTeamMembers(session = {}, team, index) {
+      if (!session || !team) return [];
+      const direct = safeParse(session[team.id], []);
+      if (Array.isArray(direct) && direct.length) return direct;
+      const legacyKey = LEGACY_TEAM_IDS[index];
+      if (legacyKey && legacyKey !== team.id) {
+        const fallback = safeParse(session[legacyKey], []);
+        if (Array.isArray(fallback) && fallback.length) return fallback;
+      }
+      return Array.isArray(direct) ? direct : [];
+    }
+
     function normalizeSessionTime(value, fallback = '19:30') {
       const raw = String(value || fallback || '19:30').trim().toLowerCase();
       const match = raw.match(/^(\d{1,2})(?:[:h](\d{0,2}))?$/);
@@ -1404,12 +1458,13 @@
 
     function getEditorSessionActiveCount(session) {
       if (!session) return 0;
-      const rawTeams = safeParse(session.teams || session.teams_json, null);
-      return normalizeTeamLayout(session).reduce((total, team) => {
-        const fromDynamic = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams) && Array.isArray(rawTeams[team.id])
-          ? rawTeams[team.id]
+      const layout = normalizeTeamLayout(session);
+      const { rawTeams, preferLegacy } = getRosterSourceDecision(session, layout);
+      return layout.reduce((total, team, index) => {
+        const fromDynamic = !preferLegacy
+          ? getDynamicTeamMembers(rawTeams, team, index)
           : null;
-        const members = fromDynamic || safeParse(session[team.id], []);
+        const members = fromDynamic || getLegacyTeamMembers(session, team, index);
         return total + (Array.isArray(members) ? members.length : 0);
       }, 0);
     }
@@ -1549,12 +1604,12 @@
     function normalizeDynamicRosterState(state) {
       if (!state) return state;
       const layout = normalizeTeamLayout(state);
-      const rawTeams = safeParse(state.teams || state.teams_json, null);
+      const { rawTeams, preferLegacy } = getRosterSourceDecision(state, layout);
       const teams = {};
-      layout.forEach((team) => {
-        teams[team.id] = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams)
-          ? [...(rawTeams[team.id] || [])]
-          : [...safeParse(state[team.id], [])];
+      layout.forEach((team, index) => {
+        const fromDynamic = !preferLegacy ? getDynamicTeamMembers(rawTeams, team, index) : null;
+        const source = fromDynamic || getLegacyTeamMembers(state, team, index);
+        teams[team.id] = (Array.isArray(source) ? source : []).map((member) => ({ ...member, team: team.id }));
         state[team.id] = teams[team.id];
       });
       state.team_layout = layout;
@@ -1637,12 +1692,15 @@
         if (directLeaderIds.includes(currentDiscordId)) return true;
       } catch (error) {}
 
-      const dynamicTeams = normalizeTeamLayout(session).map((team) => team.id);
-      const rawTeams = safeParse(session.teams || session.teams_json, {});
-      return [...dynamicTeams, 'waiting_list'].some((key) => {
-        const fromField = safeParse(session[key], []);
-        const fromDynamic = rawTeams && typeof rawTeams === 'object' && Array.isArray(rawTeams[key])
-          ? rawTeams[key]
+      const layout = normalizeTeamLayout(session);
+      const rawTeams = getRosterTeamsObject(session, layout) || {};
+      return [...layout, { id: 'waiting_list' }].some((team, index) => {
+        const key = team.id;
+        const fromField = key === 'waiting_list'
+          ? safeParse(session[key], [])
+          : getLegacyTeamMembers(session, team, index);
+        const fromDynamic = key !== 'waiting_list'
+          ? (getDynamicTeamMembers(rawTeams, team, index) || [])
           : [];
         return [...fromField, ...fromDynamic].some((member) =>
           member?.id === currentDiscordId && (member.isLeader || member.ld || member.isTeamLeader)
@@ -1692,7 +1750,7 @@
         time: session.time || '19:30'
       };
       state.team_layout = safeParse(session.team_layout, null);
-      state.teams = safeParse(session.teams || session.teams_json, null);
+      state.teams = getRosterTeamsObject(session, normalizeTeamLayout(session));
       return normalizeDynamicRosterState(state);
     }
 
@@ -1913,7 +1971,7 @@
         id: session.id || null,
         day: session.day || null,
         team_layout: safeParse(session.team_layout, []),
-        teams: safeParse(session.teams || session.teams_json, {}),
+        teams: getRosterTeamsObject(session, normalizeTeamLayout(session)) || {},
         team_attack1: safeParse(session.team_attack1, []),
         team_attack2: safeParse(session.team_attack2, []),
         team_defense: safeParse(session.team_defense, []),
@@ -2037,6 +2095,12 @@
 
     function shouldOfferRosterDraft(draft, remoteSession = currentSessionData) {
       if (!draft || !remoteSession) return false;
+      const draftActiveCount = getEditorSessionActiveCount(draft.snapshot);
+      const remoteActiveCount = getEditorSessionActiveCount(remoteSession);
+      if (draftActiveCount === 0 && remoteActiveCount > 0) {
+        removeRosterDraft(draft.session_id, draft.day);
+        return false;
+      }
       const remoteFingerprint = getSessionFingerprint(remoteSession);
       if (!draft.fingerprint || draft.fingerprint === remoteFingerprint) return false;
       if (draft.base_fingerprint && draft.base_fingerprint === remoteFingerprint) return true;
@@ -2047,6 +2111,10 @@
 
     function applyRosterDraft(draft) {
       if (!draft?.snapshot) return false;
+      if (getEditorSessionActiveCount(draft.snapshot) === 0 && getEditorSessionActiveCount(currentSessionData) > 0) {
+        removeRosterDraft(draft.session_id, draft.day);
+        return false;
+      }
       currentDay = draft.day || currentDay;
       currentSessionId = draft.session_id || currentSessionId;
       localState = cloneSessionState({
@@ -2200,12 +2268,11 @@
     }
 
     function getQuickSourceTeams(session, layout = normalizeTeamLayout(session)) {
-      const rawTeams = safeParse(session?.teams || session?.teams_json, null);
+      const rawTeams = getRosterTeamsObject(session, layout);
       const hasDynamicTeams = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams);
       return layout.reduce((acc, team, index) => {
-        let list = hasDynamicTeams && Array.isArray(rawTeams[team.id]) ? rawTeams[team.id] : null;
-        if (!Array.isArray(list)) list = safeParse(session?.[team.id], null);
-        if (!Array.isArray(list) && LEGACY_TEAM_IDS[index]) list = safeParse(session?.[LEGACY_TEAM_IDS[index]], []);
+        let list = hasDynamicTeams ? getDynamicTeamMembers(rawTeams, team, index) : null;
+        if (!Array.isArray(list)) list = getLegacyTeamMembers(session, team, index);
         acc[team.id] = Array.isArray(list) ? list.map((member) => ({ ...member })) : [];
         return acc;
       }, {});
@@ -3868,6 +3935,23 @@
       const actionsToSync = pendingSyncActions.size ? new Set(pendingSyncActions) : new Set([pendingEditorAction || 'sync']);
       pendingSyncActions = new Set();
       pendingEditorAction = getRepresentativePendingAction(actionsToSync);
+      if (!currentSessionId) {
+        actionsToSync.forEach((item) => pendingSyncActions.add(item));
+        pendingEditorAction = getRepresentativePendingAction();
+        updateSyncBadge('Loi: chua xac dinh session');
+        await customAlert('Khong the luu vi chua xac dinh duoc session id. Hay fetch lai du lieu roi thu lai.');
+        return;
+      }
+      const snapshotActiveCount = Object.values(snapshot.teams || {})
+        .reduce((sum, members) => sum + (Array.isArray(members) ? members.length : 0), 0);
+      const remoteActiveCount = getEditorSessionActiveCount(currentSessionData);
+      if (actionsToSync.has('resize') && snapshotActiveCount === 0 && remoteActiveCount > 0) {
+        actionsToSync.forEach((item) => pendingSyncActions.add(item));
+        pendingEditorAction = getRepresentativePendingAction();
+        updateSyncBadge('Chan ghi roster rong');
+        await customAlert('Da chan viec ghi roster rong len session dang co nguoi. Hay fetch lai du lieu truoc khi resize.');
+        return;
+      }
       snapshot.leader_ids = {
         ...(snapshot.leader_ids || {}),
         editor_id: currentDiscordId || null,
@@ -3999,7 +4083,8 @@
       await saveRosterSnapshotForSession(snapshot, 'web_sync');
       await recordRosterWebLog(actionsToSync, beforeFingerprint, snapshotFingerprint, snapshot);
       const stillPending = pendingSyncActions.size || debounceTimer;
-      if (!stillPending && getSessionFingerprint(buildCurrentSessionSnapshot()) === snapshotFingerprint) {
+      const suspiciousEmptySync = snapshotActiveCount === 0 && remoteActiveCount > 0;
+      if (!suspiciousEmptySync && !stillPending && getSessionFingerprint(buildCurrentSessionSnapshot()) === snapshotFingerprint) {
         removeRosterDraft(snapshot.id || currentSessionId, snapshot.day || currentDay);
         localMutationAt = 0;
         pendingEditorAction = null;

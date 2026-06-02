@@ -1576,6 +1576,7 @@ function listenForWebChanges(guildId, onSessionChange) {
                     return {};
                 }
             })();
+        const normalizedRoster = bangchienRoster.normalizeRoster(session);
 
         return JSON.stringify({
             day: session.day || null,
@@ -1584,21 +1585,8 @@ function listenForWebChanges(guildId, onSessionChange) {
             team_defense: isLocal ? (session.team_defense || []) : safeParseTeam(session.team_defense),
             team_forest: isLocal ? (session.team_forest || []) : safeParseTeam(session.team_forest),
             waiting_list: isLocal ? (session.waiting_list || []) : safeParseTeam(session.waiting_list),
-            team_layout: (() => {
-                try {
-                    return typeof session.team_layout === 'string'
-                        ? JSON.parse(session.team_layout || '[]')
-                        : (session.team_layout || []);
-                } catch (e) { return []; }
-            })(),
-            teams: (() => {
-                try {
-                    const rawTeams = session.teams || session.teams_json;
-                    return typeof rawTeams === 'string'
-                        ? JSON.parse(rawTeams || '{}')
-                        : (rawTeams || {});
-                } catch (e) { return {}; }
-            })(),
+            team_layout: normalizedRoster.layout,
+            teams: normalizedRoster.teams,
             leader_ids: leaderIds,
             time: session.time || '19:30',
             note: session.note || '',

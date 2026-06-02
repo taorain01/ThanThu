@@ -110,20 +110,75 @@ function normalizeLayout(rawLayout, session = {}) {
     return layout;
 }
 
+function getDynamicTeamMembers(rawTeams, team, index) {
+    if (!rawTeams || typeof rawTeams !== 'object' || !team) return null;
+    if (Array.isArray(rawTeams[team.id])) return rawTeams[team.id];
+    const legacyKey = LEGACY_TEAM_KEYS[index];
+    if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) return rawTeams[legacyKey];
+    return null;
+}
+
+function getLegacyTeamMembers(session = {}, team, index) {
+    if (!session || !team) return [];
+    const direct = Array.isArray(session[team.id])
+        ? session[team.id]
+        : parseJson(session[team.id], []);
+    if (Array.isArray(direct) && direct.length) return direct;
+    const legacyKey = LEGACY_TEAM_KEYS[index];
+    if (legacyKey && legacyKey !== team.id) {
+        const fallback = Array.isArray(session[legacyKey])
+            ? session[legacyKey]
+            : parseJson(session[legacyKey], []);
+        if (Array.isArray(fallback) && fallback.length) return fallback;
+    }
+    return Array.isArray(direct) ? direct : [];
+}
+
+function getDynamicTeamTotal(rawTeams, layout) {
+    if (!rawTeams || typeof rawTeams !== 'object' || !Array.isArray(layout)) return 0;
+    return layout.reduce((sum, team, index) => {
+        const list = getDynamicTeamMembers(rawTeams, team, index);
+        return sum + (Array.isArray(list) ? list.length : 0);
+    }, 0);
+}
+
+function getBestDynamicTeams(rawTeams, layout, session = {}) {
+    const candidates = [rawTeams, session.teams, session.teams_json]
+        .map((value) => parseJson(value, null))
+        .filter((value) => value && typeof value === 'object' && !Array.isArray(value));
+    let best = null;
+    let bestCount = -1;
+    for (const candidate of candidates) {
+        const count = getDynamicTeamTotal(candidate, layout);
+        if (count > bestCount) {
+            best = candidate;
+            bestCount = count;
+        }
+    }
+    return best;
+}
+
 function normalizeTeams(rawTeams, layout, session = {}) {
-    const parsed = parseJson(rawTeams ?? session.teams ?? session.teams_json, null);
+    const parsed = getBestDynamicTeams(rawTeams, layout, session);
     const teams = {};
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        for (const team of layout) {
-            teams[team.id] = Array.isArray(parsed[team.id])
-                ? parsed[team.id].map(cloneMember)
-                : [];
+        const dynamicTotal = getDynamicTeamTotal(parsed, layout);
+        const legacyTotal = layout.reduce((sum, team, index) => sum + getLegacyTeamMembers(session, team, index).length, 0);
+        const preferLegacy = legacyTotal > 0 && dynamicTotal === 0;
+        for (const [index, team] of layout.entries()) {
+            const dynamicList = !preferLegacy ? getDynamicTeamMembers(parsed, team, index) : null;
+            const source = dynamicList || getLegacyTeamMembers(session, team, index);
+            teams[team.id] = (Array.isArray(source) ? source : []).map((member) => ({
+                ...cloneMember(member),
+                team: team.id
+            }));
         }
     } else {
-        for (const team of layout) {
-            teams[team.id] = Array.isArray(session[team.id])
-                ? session[team.id].map(cloneMember)
-                : parseJson(session[team.id], []).map(cloneMember);
+        for (const [index, team] of layout.entries()) {
+            teams[team.id] = getLegacyTeamMembers(session, team, index).map((member) => ({
+                ...cloneMember(member),
+                team: team.id
+            }));
         }
     }
     return teams;

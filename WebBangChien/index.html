@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
@@ -1241,11 +1241,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 .fb-comment-no{font-size:10.5px;color:var(--text3);opacity:.6}
 .feedback-delete{
-  position:absolute;top:10px;right:10px;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
-  border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;cursor:pointer;opacity:.72;transition:opacity .18s,background .18s;
+  margin-left:auto;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
+  border-radius:8px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;opacity:0;
+  transition:opacity .18s,background .18s,border-color .18s;white-space:nowrap;flex-shrink:0;
 }
-.feedback-item:hover .feedback-delete{opacity:1}
-.feedback-delete:hover{background:rgba(248,113,113,.16);border-color:rgba(248,113,113,.42)}
+.fb-comment:hover .feedback-delete{opacity:1}
+.feedback-delete:hover{background:rgba(248,113,113,.2);border-color:rgba(248,113,113,.48)}
 
 /* ═══ PROFILE MODAL ═══ */
 .profile-modal-ov{
@@ -1571,6 +1572,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .day-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,.05);box-shadow:0 0 12px rgba(251,191,36,.1)}
 .day-add svg{width:16px;height:16px}
 .day-log-btn{
+  position:sticky;
+  right:8px;
+  z-index:12;
   height:32px;
   min-width:58px;
   padding:0 13px;
@@ -3338,7 +3342,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
         </svg>
         <span class="feedback-btn-label">Góp ý</span>
       </button>
-      <button class="feedback-btn" type="button" onclick="openReleaseModal(event)" title="Cập nhật LangGiaWar V1.2">
+      <button class="feedback-btn" type="button" onclick="openReleaseModal(event)" title="Cập nhật LangGiaWar V1.3">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
@@ -8715,75 +8719,105 @@ function ensureFeedbackModal() {
         _feedbackBackdropPointerDown = false;
     });
     ov.innerHTML = `
-      <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+      <div class="feedback-modal release-modal" role="dialog" aria-modal="true" aria-labelledby="releaseModalTitle">
         <div class="feedback-head">
           <div class="feedback-head-left">
-            <div class="feedback-head-icon">💬</div>
+            <div class="feedback-head-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                <path d="M9 7h7"></path><path d="M9 11h5"></path>
+              </svg>
+            </div>
             <div class="feedback-head-text">
-              <div class="feedback-title" id="feedbackModalTitle">Góp ý &amp; Bình luận</div>
-              <div class="feedback-sub">Ẩn danh trên web • Quản trị nhận đầy đủ qua Discord</div>
+              <div class="feedback-title" id="releaseModalTitle">LangGiaWar V1.3</div>
+              <div class="feedback-sub">Tóm tắt các cập nhật mới</div>
             </div>
           </div>
           <div class="feedback-head-stats">
-            <div class="feedback-stat"><div class="feedback-stat-num" id="feedbackTotalCount">–</div><div class="feedback-stat-lbl">Góp ý</div></div>
+            <div class="feedback-stat"><div class="feedback-stat-num">6</div><div class="feedback-stat-lbl">Cập nhật</div></div>
           </div>
-          <button class="feedback-close" type="button" onclick="closeFeedbackModal()">✕</button>
+          <button class="feedback-close" type="button" onclick="closeReleaseModal()">✕</button>
         </div>
-        <div class="feedback-body">
-          <div class="feedback-col-left">
-            <div class="feedback-compose-label">Viết bình luận</div>
-            <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
-              <!-- Hidden real select for form submission -->
-              <select class="feedback-select" id="feedbackCategory" style="display:none">
-                <option value="feedback">Góp ý</option>
-                <option value="bug">Báo lỗi</option>
-                <option value="suggestion">Đề xuất</option>
-                <option value="other">Khác</option>
-              </select>
-              <!-- Visual category buttons -->
-              <div class="feedback-field">
-                <span class="feedback-label">Loại</span>
-                <div class="feedback-category-grid" id="feedbackCatGrid">
-                  <button type="button" class="feedback-cat-btn cat-feedback active-cat" data-cat="feedback" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Góp ý
-                  </button>
-                  <button type="button" class="feedback-cat-btn cat-bug" data-cat="bug" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Báo lỗi
-                  </button>
-                  <button type="button" class="feedback-cat-btn cat-suggestion" data-cat="suggestion" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Đề xuất
-                  </button>
-                  <button type="button" class="feedback-cat-btn cat-other" data-cat="other" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Khác
-                  </button>
-                </div>
+        <div class="release-body">
+          <div class="release-badge">LangGiaWar V1.3</div>
+          <div class="release-list">
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
               </div>
-              <div class="feedback-field">
-                <span class="feedback-label">Nội dung</span>
-                <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required
-                  placeholder="Chia sẻ góp ý, báo lỗi hoặc đề xuất của bạn..."
-                  oninput="updateFeedbackCharCount(this)"></textarea>
-                <div class="feedback-char-count" id="feedbackCharCount">0 / 1500</div>
+              <div>
+                <div class="release-item-title">Danh sách thành viên (Roster)</div>
+                <div class="release-item-text">Giao diện roster mới toàn màn hình, lọc theo vai trò/đội, xem log hoạt động, và đồng bộ thời gian thực với bot Discord.</div>
               </div>
-              <div class="feedback-form-actions">
-                <div class="feedback-status" id="feedbackStatus"></div>
-                <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">✦ Gửi góp ý</button>
-              </div>
-            </form>
-          </div>
-          <div class="feedback-col-right">
-            <div class="feedback-list-head">
-              <div class="feedback-list-title">
-                Cộng đồng nói
-                <span class="feedback-list-title-count" id="feedbackCountBadge">0</span>
-              </div>
-              <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                Tải lại
-              </button>
             </div>
-            <div class="feedback-list" id="feedbackList"></div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Chỉnh sửa thành viên trên web</div>
+                <div class="release-item-text">Admin có thể mở popup chỉnh sửa thông tin thành viên (tên, vai trò, đội) ngay trên web mà không cần dùng lệnh bot.</div>
+              </div>
+            </div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <path d="M9 9h6"></path><path d="M9 12h6"></path><path d="M9 15h4"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Góp ý nâng cấp</div>
+                <div class="release-item-text">Trang góp ý được thiết kế lại thành dạng bình luận có danh mục (Góp ý / Báo lỗi / Đề xuất), avatar ngẫu nhiên và đếm ký tự.</div>
+              </div>
+            </div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Đăng ký bang chiến đẹp hơn</div>
+                <div class="release-item-text">Modal đăng ký trang chiến được thiết kế lại gọn hơn, checkbox tuỳ chỉnh, hiển thị tên rõ ràng hơn và không bị che chữ.</div>
+              </div>
+            </div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Sa bàn chiến thuật: Bot Slots</div>
+                <div class="release-item-text">Leader có thể tạo quân giả (bot slot) trên sa bàn để setup chiến thuật trước khi đủ 30 người thật tham gia.</div>
+              </div>
+            </div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Nhạc nền: Autoplay & Playlist</div>
+                <div class="release-item-text">Thêm toggle bật/tắt autoplay kiểu switch vàng, menu playlist mở sang cạnh bên, giao diện nhạc gọn đẹp hơn.</div>
+              </div>
+            </div>
           </div>
+          <div class="release-note">Bản cập nhật tập trung vào quản lý thành viên, sa bàn chiến thuật và trải nghiệm giao diện toàn diện hơn.</div>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -8830,71 +8864,6 @@ function ensureReleaseModal() {
     ov.addEventListener('pointercancel', () => {
         _releaseBackdropPointerDown = false;
     });
-    ov.innerHTML = `
-      <div class="feedback-modal release-modal" role="dialog" aria-modal="true" aria-labelledby="releaseModalTitle">
-        <div class="feedback-head">
-          <div class="feedback-head-left">
-            <div class="feedback-head-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                <path d="M9 7h7"></path><path d="M9 11h5"></path>
-              </svg>
-            </div>
-            <div class="feedback-head-text">
-              <div class="feedback-title" id="releaseModalTitle">LangGiaWar V1.2</div>
-              <div class="feedback-sub">Tóm tắt các cập nhật mới</div>
-            </div>
-          </div>
-          <div class="feedback-head-stats">
-            <div class="feedback-stat"><div class="feedback-stat-num">3</div><div class="feedback-stat-lbl">Cập nhật</div></div>
-          </div>
-          <button class="feedback-close" type="button" onclick="closeReleaseModal()">✕</button>
-        </div>
-        <div class="release-body">
-          <div class="release-badge">LangGiaWar V1.2</div>
-          <div class="release-list">
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
-                  <path d="M10 21h4"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Nút Cập nhật</div>
-                <div class="release-item-text">Thêm nút Cập nhật cạnh nút Góp ý, đồng bộ thiết kế nền tối, viền vàng và icon rõ ràng.</div>
-              </div>
-            </div>
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="9" cy="7" r="4"></circle>
-                  <path d="M19 8v6"></path><path d="M22 11h-6"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Addmem trên web</div>
-                <div class="release-item-text">Người có quyền có thể thêm thành viên trực tiếp trên web để cập nhật danh sách nhanh hơn.</div>
-              </div>
-            </div>
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 7h-9"></path><path d="M14 17H5"></path>
-                  <circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Pick Role trên web</div>
-                <div class="release-item-text">Thành viên có thể tự chọn vai trò trực tiếp trên web.</div>
-              </div>
-            </div>
-          </div>
-          <div class="release-note">Bản cập nhật tập trung vào thao tác quản lý thành viên và trải nghiệm sử dụng ngay trên web.</div>
-        </div>
-      </div>`;
     document.body.appendChild(ov);
 
     document.addEventListener('keydown', (ev) => {

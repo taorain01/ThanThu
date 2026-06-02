@@ -107,12 +107,12 @@ async function getSupabasePlan(memberIds, localDeleteIds, leftLocalIds) {
     for (const row of remoteUsers || []) {
         const discordId = String(row.discord_id || '');
         if (!discordId) continue;
-        if (leftLocalIds.has(discordId) || isLeftRemoteUser(row)) continue;
-
         const reasons = [];
         if (row.guild_id && row.guild_id !== ALLOWED_GUILD_ID) reasons.push('supabase_other_server');
         if (!memberIds.has(discordId)) reasons.push('supabase_not_in_main_server');
         if (localDeleteIds.has(discordId)) reasons.push('matched_local_delete');
+        if (!memberIds.has(discordId) && leftLocalIds.has(discordId)) reasons.push('local_marked_left');
+        if (!memberIds.has(discordId) && isLeftRemoteUser(row)) reasons.push('remote_marked_left');
 
         if (reasons.length > 0) {
             deleteUsers.push({ ...row, reasons });
@@ -208,6 +208,7 @@ async function deleteSupabaseRows(supabase, deleteUsers) {
 function buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm, localResult = null, supabaseResult = null }) {
     const sample = [
         ...localPlan.deleteUsers.slice(0, 8).map(row => `- SQLite: ${formatUser(row)} [${row.reasons.join(', ')}]`),
+        ...supabasePlan.deleteUsers.slice(0, 8).map(row => `- Supabase: ${formatUser(row)} [${row.reasons.join(', ')}]`),
         ...localPlan.deletePending.slice(0, 4).map(row => `- pending_ids: ${row.game_username || row.game_uid} guild:${row.guild_id}`)
     ].slice(0, 10);
 

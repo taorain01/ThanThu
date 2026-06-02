@@ -25,6 +25,35 @@ module.exports = {
                 return;
             }
 
+            const activeSessions = db.getActiveBangchienByGuild(member.guild.id);
+
+            if (member.user?.bot) {
+                db.deleteUser(member.id);
+                db.clearUserDisplay(member.id);
+                await cleanupWeekendBcRegulars(member.guild, member.id, 'guild_bot_remove');
+                for (const session of activeSessions) {
+                    db.removeBangchienParticipant(session.party_key, member.id);
+                }
+
+                try {
+                    if (supaSync.isReady()) {
+                        await memberRosterSync.deleteUserFromSupabase(member.id);
+                        for (const session of activeSessions) {
+                            const updatedSession = db.getActiveBangchien(session.party_key);
+                            const formatted = updatedSession
+                                ? supaSync.formatActiveSession(updatedSession, db, member.guild)
+                                : null;
+                            if (formatted) await supaSync.syncBCSession(member.guild.id, updatedSession.day || session.day, formatted);
+                        }
+                    }
+                } catch (syncError) {
+                    console.error('[guildMemberRemove] Supabase bot delete failed:', syncError.message);
+                }
+
+                console.log(`[guildMemberRemove] Deleted bot account from roster data: ${userData.discord_name} (${member.id})`);
+                return;
+            }
+
             // Automatically mark as left when they leave Discord
             const result = db.markUserAsLeft(member.id);
 
@@ -39,7 +68,6 @@ module.exports = {
                 await cleanupWeekendBcRegulars(member.guild, member.id, 'guild_member_remove');
 
                 // 2. Xóa khỏi tất cả session BC active
-                const activeSessions = db.getActiveBangchienByGuild(member.guild.id);
                 for (const session of activeSessions) {
                     db.removeBangchienParticipant(session.party_key, member.id);
                 }

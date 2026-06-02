@@ -317,6 +317,7 @@
     .pill.tanker { color: var(--tanker); border-color: rgba(255,173,77,.32);  background: rgba(255,173,77,.07); }
     .pill.pending{ color: var(--gold);   border-color: rgba(245,200,66,.32); background: rgba(245,200,66,.07); }
     .pill.you    { color: var(--gold);   border-color: rgba(245,200,66,.4);  background: rgba(245,200,66,.1); font-size: 10px; padding: 1px 6px; }
+    .pill.owner  { color: #fff; border-color: rgba(255,120,120,.35); background: rgba(255,120,120,.1); }
     .pill.bc     { color: #fff; border-color: rgba(255,120,120,.35); background: rgba(255,120,120,.1); }
     .pill.pbc    { color: var(--gold); border-color: rgba(245,200,66,.3); background: rgba(245,200,66,.08); }
     .pill.kc     { color: var(--green); border-color: rgba(62,207,114,.3); background: rgba(62,207,114,.07); }
@@ -472,10 +473,9 @@
       <label>Chức vụ</label>
       <select id="positionFilter">
         <option value="all">Tất cả</option>
-        <option value="bc">Bang chủ</option>
-        <option value="pbc">Phó bang chủ</option>
+        <option value="owner">Chủ guild</option>
+        <option value="pbc">Phó guild</option>
         <option value="kc">Kỳ cựu</option>
-        <option value="ql">Quản lý</option>
         <option value="mem">Thành viên</option>
       </select>
     </div>
@@ -512,6 +512,7 @@
   const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
   const GUILD_ID = '450633680000385036';
+  const GUILD_OWNER_DISCORD_ID = '395151484179841024';
   const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
 
   const params = new URLSearchParams(window.location.search);
@@ -522,7 +523,7 @@
   const COMBAT_ROLES = ['DPS', 'Healer', 'Tanker'];
   const WEAPON_ROLES = ['QD', 'VD', 'SD', '9K', 'DR', 'HD'];
   const WEAPON_LABELS = { QD:'Quạt Đủ', VD:'Vô Danh', SD:'Song Đao', '9K':'Cửu Kiếm', DR:'Dù Rơi', HD:'Hoành Đao' };
-  const POSITION_LABELS = { bc:'Bang chủ', pbc:'Phó bang chủ', kc:'Kỳ cựu', ql:'Quản lý', mem:'Thành viên' };
+  const POSITION_LABELS = { owner:'Chủ guild', pbc:'Phó guild', kc:'Kỳ cựu', mem:'Thành viên' };
 
   let sb = null, currentSession = null, currentDiscordId = '', currentUserName = 'Người dùng';
   let isManager = false, activeRows = [], pendingRows = [], sessionMemberIds = new Set(), sessionMemberMap = new Map();
@@ -560,6 +561,18 @@
     return 'mem';
   }
   function isLeftRow(row) { return Boolean(row?.left_at) || normalizePosition(row?.position) === 'left'; }
+  function displayPosition(row = {}) {
+    if (String(row?.discord_id || '') === GUILD_OWNER_DISCORD_ID) return 'owner';
+    const pos = normalizePosition(row?.position);
+    if (pos === 'pbc' || pos === 'kc') return pos;
+    return 'mem';
+  }
+  function isActiveRosterRow(row) {
+    if (!row?.discord_id || String(row.discord_id).startsWith('pending_')) return false;
+    if (isLeftRow(row)) return false;
+    if (Object.prototype.hasOwnProperty.call(row, 'lang_gia_member')) return row.lang_gia_member === true;
+    return true;
+  }
   function normalizeCombat(v, fallback='') {
     const k = normalizeText(v);
     if (k==='healer') return 'Healer'; if (k==='tanker'||k==='tank') return 'Tanker'; if (k==='dps') return 'DPS'; return fallback;
@@ -575,7 +588,7 @@
   }
   function rowCombat(r) { return normalizeCombat(r?.combat_role, normalizeWeapon(r?.weapon_role||r?.sub_role) ? 'DPS' : ''); }
   function rowWeapon(r) { return normalizeWeapon(r?.weapon_role||r?.sub_role); }
-  function positionSort(r) { return ({bc:0,pbc:1,kc:2,ql:3,mem:4,left:5})[normalizePosition(r?.position)] ?? 9; }
+  function positionSort(r) { return ({owner:0,pbc:1,kc:2,mem:3})[displayPosition(r)] ?? 9; }
   function isManagerPosition(pos) { return ['bc','pbc','kc','ql'].includes(normalizePosition(pos)); }
 
   function showStatus(msg, type='') {
@@ -700,7 +713,7 @@
   async function fetchActiveRows() {
     const { data, error } = await sb.from('bc_users').select('*').eq('guild_id', GUILD_ID).range(0, 4999);
     if (error) throw error;
-    return (data||[]).filter(r => r?.discord_id && !String(r.discord_id).startsWith('pending_') && !isLeftRow(r))
+    return (data||[]).filter(isActiveRosterRow)
       .map(hydrateRowFromSession)
       .sort((a,b) => positionSort(a) - positionSort(b) || String(a.game_username||a.discord_name||'').localeCompare(String(b.game_username||b.discord_name||''),'vi'));
   }
@@ -754,7 +767,7 @@
       if (item.type==='pending') { if (cm!=='all'||wp!=='all'||pos!=='all') return false; return true; }
       if (cm!=='all' && rowCombat(r) !== cm) return false;
       if (wp!=='all' && rowWeapon(r) !== wp) return false;
-      if (pos!=='all' && normalizePosition(r.position) !== pos) return false;
+      if (pos!=='all' && displayPosition(r) !== pos) return false;
       if (sm==='available' && SESSION_ID && sessionMemberIds.has(String(r.discord_id))) return false;
       return true;
     });
@@ -805,8 +818,8 @@
   }
 
   function renderActiveRow(row) {
-    const pos = normalizePosition(row.position);
-    const posClass = pos === 'left' ? 'mem' : pos;
+    const pos = displayPosition(row);
+    const posClass = pos;
     const initial = String(row.game_username||row.discord_name||'?').trim().charAt(0).toUpperCase();
     const joined = row.joined_at ? new Date(row.joined_at).toLocaleDateString('vi-VN') : '—';
     const isSelf = String(row.discord_id) === String(currentDiscordId);
@@ -855,7 +868,8 @@
     renderStats();
     const visible = filteredRows();
     const sessionText = currentSession ? ` • Session ${currentSession.day||''}${currentSession.locked?' (đã chốt)':''}` : '';
-    els.subtitle.textContent = `${currentUserName} • ${isManager ? 'Quản lý' : 'Thành viên'}${sessionText}`;
+    const selfRow = activeRows.find(r => String(r.discord_id) === String(currentDiscordId)) || { discord_id: currentDiscordId, position: 'mem' };
+    els.subtitle.textContent = `${currentUserName} • ${POSITION_LABELS[displayPosition(selfRow)] || 'Thành viên'}${sessionText}`;
     if (!visible.length) {
       els.list.innerHTML = '<div class="empty">Không có thành viên nào khớp bộ lọc.</div>'; return;
     }
@@ -886,7 +900,7 @@
     if (!row || !isManager) return;
     const gameUsername = promptValue('Tên game', row.game_username||''); if (gameUsername===null) return;
     const gameUid = promptValue('UID game', row.game_uid||''); if (gameUid===null) return;
-    const position = promptValue('Chức vụ (bc/pbc/kc/ql/mem)', normalizePosition(row.position)); if (position===null) return;
+    const position = promptValue('Chức vụ (pbc/kc/mem)', displayPosition(row) === 'owner' ? 'mem' : displayPosition(row)); if (position===null) return;
     const joinedDate = promptValue('Ngày vào (YYYY-MM-DD, để trống nếu không đổi)', row.joined_at ? row.joined_at.slice(0,10) : ''); if (joinedDate===null) return;
     showStatus('Đang lưu...', '');
     const { error } = await sb.rpc('bc_manager_update_member', {

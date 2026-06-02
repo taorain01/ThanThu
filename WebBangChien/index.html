@@ -280,7 +280,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 /* ── Collapsed: thu gọn thành mini bar ── */
 .mp-wrap.collapsed {
-  width: 88px;
+  width: 122px;
   border-radius: 50px;
   overflow: hidden;
   cursor: grab;
@@ -365,6 +365,49 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mp-wrap.collapsed .mp-mini-info { display: none; }
+/* Nút tự động phát nhạc trên mini bar */
+.mp-mini-autoplay {
+  position: relative;
+  background: rgba(255,255,255,.035);
+  border: 1px solid rgba(200,162,44,.18);
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  color: rgba(200,162,44,.48);
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s;
+  flex-shrink: 0;
+}
+.mp-mini-autoplay::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.35);
+  transition: transform .22s cubic-bezier(.25,.46,.45,.94), background .22s, box-shadow .22s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+.mp-mini-autoplay:hover {
+  background: rgba(200,162,44,.12);
+  border-color: rgba(200,162,44,.55);
+  color: rgba(255,245,210,.86);
+}
+.mp-mini-autoplay.on {
+  background: rgba(200,162,44,.16);
+  border-color: rgba(200,162,44,.62);
+  color: #ffe566;
+  box-shadow: 0 0 10px rgba(200,162,44,.22);
+}
+.mp-mini-autoplay.on::after {
+  transform: translateX(14px);
+  background: radial-gradient(circle at 35% 35%, #ffe566, #c8a22c);
+  box-shadow: 0 0 6px rgba(200,162,44,.6), 0 1px 3px rgba(0,0,0,.4);
+}
+.mp-wrap:not(.collapsed) .mp-mini-autoplay { display: none; }
 /* Nút play mini */
 .mp-mini-play {
   background: none; border: 1px solid rgba(200,162,44,.4);
@@ -3781,6 +3824,7 @@ const DAY_LABELS = {
     fri: 'Thứ 6', sat: 'Thứ 7', sun: 'Chủ Nhật'
 };
 const calSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+const GUILD_OWNER_DISCORD_ID = '395151484179841024';
 const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
 
 function isTacticsSessionScopedUnavailableError(error) {
@@ -7961,7 +8005,7 @@ function ensureReleaseModal() {
               </div>
               <div>
                 <div class="release-item-title">Addmem trên web</div>
-                <div class="release-item-text">Quản lý có thể thêm thành viên trực tiếp trên web để cập nhật danh sách nhanh hơn.</div>
+                <div class="release-item-text">Người có quyền có thể thêm thành viên trực tiếp trên web để cập nhật danh sách nhanh hơn.</div>
               </div>
             </div>
             <div class="release-item">
@@ -8301,10 +8345,23 @@ function switchPmTab(el, paneId) {
 }
 
 const POS_LABELS = {
-    'bc': '👑 Bang Chủ', 'pbc': '⚔️ Phó Bang Chủ',
-    'kc': '🌟 Kỳ Cựu', 'ql': '🛡️ Quản Lý',
-    'mem': '👤 Thành viên'
+    owner: '👑 Chủ Guild',
+    pbc: '⚔️ Phó Guild',
+    kc: '🌟 Kỳ Cựu',
+    mem: '👤 Thành viên'
 };
+function normalizePublicPosition(position, discordId = window.currentDiscordId) {
+    if (String(discordId || '') === GUILD_OWNER_DISCORD_ID) return 'owner';
+    const normalized = String(position || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    if (['pbc', 'pho bang chu', 'pho guild'].includes(normalized)) return 'pbc';
+    if (['kc', 'ky cuu'].includes(normalized)) return 'kc';
+    return 'mem';
+}
 const ROLE_CLASS = { 'Healer': 'healer', 'Tanker': 'tanker', 'DPS': 'dps' };
 // Map: sub_role code (từ bot) → tên hiển thị đẹp
 const SUB_LABELS = {
@@ -8358,7 +8415,7 @@ async function fetchAndRenderProfile() {
         }
 
         // Hiện badge chức vụ
-        const pos = userData?.position || window.currentUserPosition || 'mem';
+        const pos = normalizePublicPosition(userData?.position || window.currentUserPosition || 'mem', discordId);
         document.getElementById('pmPosBadge').textContent = POS_LABELS[pos] || pos;
 
         // Fetch bc_sessions để tính số BC đã tham gia
@@ -8993,6 +9050,8 @@ document.addEventListener('keydown', (e) => {
     <div class="mp-mini-info">
       <div class="mp-mini-track" id="mpMiniTrack">♪  Nhạc Lang Gia...</div>
     </div>
+    <!-- Nút tự động phát nhạc mini (hiện khi thu gọn) -->
+    <button class="mp-mini-autoplay" id="mpMiniAutoplay" onclick="mpToggleAutoplayMini(event)" title="Tự động phát nhạc" aria-label="Tự động phát nhạc" aria-pressed="true"></button>
     <!-- Nút Play mini (luôn hiện kể cả thu gọn) - Click = toggle play/pause -->
     <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay(); event.stopPropagation();" title="Play / Pause">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -9317,6 +9376,12 @@ document.addEventListener('keydown', (e) => {
   function syncAutoplayUI() {
     const checkbox = $('mpAutoplay');
     if (checkbox) checkbox.checked = autoplayEnabled;
+    const miniBtn = $('mpMiniAutoplay');
+    if (miniBtn) {
+      miniBtn.classList.toggle('on', autoplayEnabled);
+      miniBtn.setAttribute('aria-pressed', autoplayEnabled ? 'true' : 'false');
+      miniBtn.title = autoplayEnabled ? 'Tắt tự động phát nhạc' : 'Bật tự động phát nhạc';
+    }
   }
 
   // Build EQ bars
@@ -9773,6 +9838,11 @@ document.addEventListener('keydown', (e) => {
       _mpRemoveAutoListeners();
       _mpAutoStarted = false;
     }
+  };
+
+  window.mpToggleAutoplayMini=function(event){
+    if (event) event.stopPropagation();
+    window.mpSetAutoplay(!autoplayEnabled);
   };
 
   // Auto next

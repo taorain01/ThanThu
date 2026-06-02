@@ -26,7 +26,20 @@ async function execute(message, args) {
     }
 
     if (!ttsService.isConnected(guildId)) {
-        return reply(message, 'Bot chưa ở voice channel nào. Dùng `?join` trước.');
+        const botVoiceChannel =
+            message.guild.members.me?.voice?.channel
+            || message.guild.voiceStates.cache.get(message.client.user.id)?.channel;
+
+        if (!botVoiceChannel) {
+            return reply(message, 'Bot chưa ở voice channel nào.');
+        }
+
+        try {
+            await ttsService.joinChannel(botVoiceChannel);
+        } catch (error) {
+            console.error('[Troll] Voice attach error:', error.message);
+            return reply(message, 'Bot đang ở voice nhưng không kết nối phát TTS được.');
+        }
     }
 
     const spoken = await ttsService.speak(guildId, text);

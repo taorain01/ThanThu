@@ -206,13 +206,16 @@ function buildUserRecord(user, guildId, guild = null) {
         member = guild.members.cache.get(user.discord_id) || null;
     }
 
+    const isTrackedDiscordUser = !!(guild && user.discord_id && !String(user.discord_id).startsWith('pending_'));
+    const missingFromGuild = isTrackedDiscordUser && !member;
+    const isBotAccount = !!member?.user?.bot;
     const discordCombat = getMemberCombatRole(member);
     const discordWeapon = getMemberWeaponRole(member);
     const combatRole = normalizeCombatRole(user.combat_role, null) || discordCombat || (normalizeWeaponRole(user.weapon_role || user.sub_role) ? 'DPS' : null);
     const weaponRole = combatRole === 'DPS'
         ? (normalizeWeaponRole(user.weapon_role) || normalizeWeaponRole(user.sub_role) || discordWeapon)
         : null;
-    const isLeft = isLeftUserRecord(user);
+    const isLeft = isLeftUserRecord(user) || missingFromGuild || isBotAccount;
     const langGiaRole = guild?.roles?.cache?.find((role) => role.name === 'LangGia');
     const hasLangGia = !isLeft && !!(member && langGiaRole && member.roles.cache.has(langGiaRole.id));
 

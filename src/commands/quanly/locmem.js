@@ -10,6 +10,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const db = require('../../database/db');
+const { findLangGiaRole } = require('../../utils/langGiaRole');
 
 // Check if user has high-level role (BC, PBC, KC)
 function hasHighLevelRole(member) {
@@ -30,7 +31,7 @@ async function execute(message, args) {
     }
 
     // Find LangGia role
-    const langGiaRole = message.guild.roles.cache.find(r => r.name === 'LangGia');
+    const langGiaRole = findLangGiaRole(message.guild);
     if (!langGiaRole) {
         return message.channel.send('❌ Không tìm thấy role **LangGia** trong server!');
     }

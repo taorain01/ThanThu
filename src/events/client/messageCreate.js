@@ -1,6 +1,7 @@
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../database/db');
 const { isAllowedGuildId } = require('../../config/guildAccess');
+const { hasLangGiaRole } = require('../../utils/langGiaRole');
 
 // Import member management commands
 const addmemCommand = require('../../commands/quanly/addmem');
@@ -256,7 +257,7 @@ module.exports = {
 
             if (isRegistration) {
                 // Kiểm tra role LangGia
-                if (!message.member.roles.cache.some(r => r.name === 'LangGia')) {
+                if (!hasLangGiaRole(message.member)) {
                     try { await message.react('❓'); } catch (e) { }
                     return;
                 }
@@ -324,7 +325,7 @@ module.exports = {
 
             if (content === '-1') {
                 // Kiểm tra role LangGia
-                if (!message.member.roles.cache.some(r => r.name === 'LangGia')) {
+                if (!hasLangGiaRole(message.member)) {
                     try { await message.react('❓'); } catch (e) { }
                     return;
                 }
@@ -919,7 +920,7 @@ module.exports = {
         // ?mem, ?me - Xem thông tin thành viên (quản lý)
         if (['mem', 'me'].includes(commandName)) {
             // Chỉ role LangGia trở lên mới được dùng
-            if (!message.member.roles.cache.some(r => r.name === 'LangGia')) {
+            if (!hasLangGiaRole(message.member)) {
                 return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
             }
             return memCommand.execute(message, args);
@@ -954,7 +955,7 @@ module.exports = {
         // ?setavt, ?setavatar, ?avatar, ?avt - Set custom avatar
         if (['setavt', 'setavatar', 'avatar', 'avt'].includes(commandName)) {
             // Chỉ role LangGia trở lên mới được dùng
-            if (!message.member.roles.cache.some(r => r.name === 'LangGia')) {
+            if (!hasLangGiaRole(message.member)) {
                 return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
             }
             const setavtCommand = require('../../commands/quanly/setavt');
@@ -1186,7 +1187,7 @@ module.exports = {
         // ?album - Xem album ảnh của bạn
         if (['album', 'xemanh', 'myalbum', 'anh'].includes(commandName)) {
             // Chỉ role LangGia trở lên mới được dùng
-            if (!message.member.roles.cache.some(r => r.name === 'LangGia')) {
+            if (!hasLangGiaRole(message.member)) {
                 return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
             }
             const albumCommand = require('../../commands/apps/album');

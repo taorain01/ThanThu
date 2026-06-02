@@ -1,5 +1,7 @@
 const db = require('../database/db');
 const supaSync = require('./supabaseSync');
+const { hasLangGiaRole } = require('./langGiaRole');
+const bangchienRoster = require('./bangchienRoster');
 
 const COMBAT_ROLES = {
     DPS: { name: 'DPS', color: 0x0099FF },
@@ -216,8 +218,7 @@ function buildUserRecord(user, guildId, guild = null) {
         ? (normalizeWeaponRole(user.weapon_role) || normalizeWeaponRole(user.sub_role) || discordWeapon)
         : null;
     const isLeft = isLeftUserRecord(user) || missingFromGuild || isBotAccount;
-    const langGiaRole = guild?.roles?.cache?.find((role) => role.name === 'LangGia');
-    const hasLangGia = !isLeft && !!(member && langGiaRole && member.roles.cache.has(langGiaRole.id));
+    const hasLangGia = !isLeft && hasLangGiaRole(member);
 
     return {
         discord_id: user.discord_id,
@@ -474,14 +475,9 @@ function deleteLocalPending(record) {
 }
 
 function sessionContainsUser(session, discordId) {
-    const teams = [
-        session.team_attack1,
-        session.team_attack2,
-        session.team_defense,
-        session.team_forest,
-        session.waiting_list
-    ];
-    return teams.some((list) => (Array.isArray(list) ? list : []).some((item) => String(item?.id) === String(discordId)));
+    return bangchienRoster
+        .getAllRosterMembers(session)
+        .some((item) => String(item?.id) === String(discordId));
 }
 
 async function refreshSessionsForUser(guild, discordId) {

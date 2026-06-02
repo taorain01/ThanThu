@@ -257,9 +257,10 @@
     .teams-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
-      grid-auto-rows:minmax(180px,1fr);
+      grid-auto-rows:auto;
       gap:10px;
-      align-items:stretch;
+      align-items:start;
+      align-content:start;
       height:calc(100% - 2px);
       overflow-y:auto;
       padding-right:4px;
@@ -277,7 +278,7 @@
       overflow:hidden;
     }
     .team-card{
-      align-self:stretch;
+      align-self:start;
       height:auto;
       display:flex;
       flex-direction:column;
@@ -531,6 +532,13 @@
       font-size:18px;
       color:var(--gold);
       margin-top:4px;
+    }
+    .stats-box small{
+      display:block;
+      margin-top:2px;
+      font-size:11px;
+      line-height:1.25;
+      color:var(--muted);
     }
     .stats-box span{
       font-size:11px;
@@ -942,7 +950,7 @@
       <div id="resizeRows" style="display:flex;flex-direction:column;gap:14px"></div>
       <div id="resizeTotalBar" style="margin-top:18px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:.85rem;opacity:.75">📊 Tổng số slot</span>
-        <span id="resizeTotalText" style="font-weight:700;font-size:1.05rem;color:#7dd3fc">0 / 30</span>
+        <span id="resizeTotalText" style="font-weight:700;font-size:1.05rem;color:#7dd3fc">0 slot</span>
       </div>
       <div id="resizeWarning" style="margin-top:8px;font-size:.8rem;color:#f87171;display:none">⚠️ Tổng vượt quá 30 — nên kiểm tra lại</div>
       <div class="modal-actions">
@@ -1027,7 +1035,8 @@
       { id:'team_forest', name:'TEAM RỪNG', icon:'🌲', capacity:5, order:4 }
     ];
     const MAX_DYNAMIC_TEAMS = 8;
-    const ACTIVE_SLOT_TOTAL = 30;
+    const DEFAULT_ACTIVE_SLOT_TOTAL = 30;
+    const MAX_TEAM_CAPACITY = 30;
     const SORT_OPTIONS = [
       { value: 'default', label: 'Mặc định' },
       { value: 'role', label: 'Theo vai trò' },
@@ -1202,7 +1211,7 @@
           id,
           name: String(team?.name || `TEAM ${index + 1}`).trim().slice(0, 32),
           icon: String(team?.icon || DEFAULT_DYNAMIC_LAYOUT[index]?.icon || '⚔️').trim().slice(0, 8),
-          capacity: Math.max(1, Math.min(ACTIVE_SLOT_TOTAL, Number(team?.capacity ?? 1) || 1)),
+          capacity: Math.max(1, Math.min(MAX_TEAM_CAPACITY, Number(team?.capacity ?? 1) || 1)),
           order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1
         };
       }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order:index + 1 }));
@@ -1280,6 +1289,11 @@
       }, 0);
     }
 
+    function getEditorSessionCapacity(session) {
+      const total = normalizeTeamLayout(session).reduce((sum, team) => sum + (Number(team.capacity) || 0), 0);
+      return total > 0 ? total : DEFAULT_ACTIVE_SLOT_TOTAL;
+    }
+
     function getEditorSessionKindText(session) {
       if (!session) return '';
       const note = String(session.note || '').trim();
@@ -1292,7 +1306,7 @@
       const time = normalizeSessionTime(session?.time || '19:30');
       const kind = getEditorSessionKindText(session);
       const count = getEditorSessionActiveCount(session);
-      return `${day} • ${time}${kind ? ` • ${kind}` : ''} • ${count}/${ACTIVE_SLOT_TOTAL}`;
+      return `${day} • ${time}${kind ? ` • ${kind}` : ''} • ${count}/${getEditorSessionCapacity(session)}`;
     }
 
     async function fetchEditorSessionOptions() {
@@ -1584,7 +1598,7 @@
     }
 
     function ensureViewState() {
-      sortState = TEAM_ORDER.reduce((acc, teamKey) => {
+      sortState = getActiveTeamKeys().reduce((acc, teamKey) => {
         acc[teamKey] = sortState[teamKey] || 'default';
         return acc;
       }, {});
@@ -1677,12 +1691,21 @@
       return teamKey === 'waiting_list' ? filteredEntries : sortTeamEntries(filteredEntries, teamKey);
     }
 
+    function getActiveTeamKeys(state = localState) {
+      if (Array.isArray(state?.team_layout) && state.team_layout.length) {
+        return state.team_layout.map((team) => team.id).filter(Boolean);
+      }
+      return TEAM_ORDER.slice();
+    }
+
     function getAllRosterMembers() {
-      return [...TEAM_ORDER, 'waiting_list'].flatMap((teamKey) => (localState?.[teamKey] || []).map((member) => ({ teamKey, member })));
+      return [...getActiveTeamKeys(), 'waiting_list'].flatMap((teamKey) => (localState?.[teamKey] || []).map((member) => ({ teamKey, member })));
     }
 
     function buildStatsModel() {
-      const activeCount = TEAM_ORDER.reduce((sum, teamKey) => sum + ((localState?.[teamKey] || []).length), 0);
+      const activeCount = getActiveTeamKeys().reduce((sum, teamKey) => sum + ((localState?.[teamKey] || []).length), 0);
+      const waitingCount = (localState?.waiting_list || []).length;
+      const totalCount = activeCount + waitingCount;
       const totalSlots = Object.values(getTeamCaps()).reduce((sum, value) => sum + value, 0);
       const roleCounts = { Healer: 0, Tanker: 0, DPS: 0 };
       const subtypeCounts = new Map();
@@ -1698,6 +1721,8 @@
 
       return {
         activeCount,
+        waitingCount,
+        totalCount,
         totalSlots,
         roleCounts,
         subtypeCounts: [...subtypeCounts.entries()]
@@ -2326,8 +2351,8 @@
       if (!source?.session) return { ok: false, error: 'Nguon khong hop le.' };
       const layout = normalizeTeamLayout(source.session).map((team) => ({ ...team }));
       const totalCapacity = layout.reduce((sum, team) => sum + (Number(team.capacity) || 0), 0);
-      if (!layout.length || totalCapacity !== ACTIVE_SLOT_TOTAL) {
-        return { ok: false, error: `Layout nguon khong hop le: ${totalCapacity}/${ACTIVE_SLOT_TOTAL} slot active.` };
+      if (!layout.length || totalCapacity !== DEFAULT_ACTIVE_SLOT_TOTAL) {
+        return { ok: false, error: `Layout nguon khong hop le: ${totalCapacity}/${DEFAULT_ACTIVE_SLOT_TOTAL} slot active.` };
       }
 
       const sourceTeams = getQuickSourceTeams(source.session, layout);
@@ -2421,6 +2446,7 @@
         state: nextState,
         layout,
         activeCount,
+        capacity: totalCapacity,
         waitingCount: nextState.waiting_list.length,
         skipped,
         duplicates,
@@ -2477,7 +2503,7 @@
       setQuickTeamPreviewHtml(`
         <div class="quick-summary">
           <div class="quick-stat"><span>Nguon</span><strong>${escapeHtml(preview.source.type === 'active' ? 'Active' : 'Snapshot')}</strong></div>
-          <div class="quick-stat"><span>Active</span><strong>${preview.activeCount}/${ACTIVE_SLOT_TOTAL}</strong></div>
+          <div class="quick-stat"><span>Active</span><strong>${preview.activeCount}/${preview.capacity}</strong></div>
           <div class="quick-stat"><span>Waiting</span><strong>${preview.waitingCount}</strong></div>
           <div class="quick-stat"><span>Skip</span><strong>${preview.skipped.length}</strong></div>
         </div>
@@ -3158,7 +3184,8 @@
         <div class="stats-summary">
           <div class="stats-box">
             <span>Tổng tham gia</span>
-            <strong>${stats.activeCount}/${stats.totalSlots}</strong>
+            <strong>${stats.totalCount}</strong>
+            <small>Active ${stats.activeCount}/${stats.totalSlots} - Chờ ${stats.waitingCount}</small>
           </div>
           <div class="stats-box">
             <span>Healer</span>
@@ -3225,10 +3252,10 @@
 
       const seen = new Map();
       const totalCapacity = Object.values(getTeamCaps()).reduce((sum, value) => sum + value, 0);
-      if (totalCapacity !== ACTIVE_SLOT_TOTAL) {
-        errors.push(`Tổng slot active phải đúng ${ACTIVE_SLOT_TOTAL}, hiện tại ${totalCapacity}.`);
+      if (totalCapacity !== DEFAULT_ACTIVE_SLOT_TOTAL) {
+        errors.push(`Tổng slot active phải đúng ${DEFAULT_ACTIVE_SLOT_TOTAL}, hiện tại ${totalCapacity}.`);
       }
-      [...TEAM_ORDER, 'waiting_list'].forEach((teamKey) => {
+      [...getActiveTeamKeys(), 'waiting_list'].forEach((teamKey) => {
         (localState[teamKey] || []).forEach((member) => {
           const id = String(member?.id || '');
           if (!id) {
@@ -3243,7 +3270,7 @@
         });
       });
 
-      TEAM_ORDER.forEach((teamKey) => {
+      getActiveTeamKeys().forEach((teamKey) => {
         const members = localState[teamKey] || [];
         const teamName = getValidationTeamName(teamKey);
         const cap = getTeamCapacityFor(teamKey, localState);
@@ -3833,7 +3860,7 @@
         const id = normalizeTeamId(row.dataset.teamId, `team_custom_${index + 1}`);
         const icon = (row.querySelector('.resize-icon')?.value || row.dataset.icon || '•').trim().slice(0, 8) || '•';
         const name = (row.querySelector('.resize-name')?.value || `TEAM ${index + 1}`).trim().slice(0, 32) || `TEAM ${index + 1}`;
-        const capacity = Math.max(1, Math.min(ACTIVE_SLOT_TOTAL, Number(row.querySelector('.resize-size')?.value || 1)));
+        const capacity = Math.max(1, Math.min(MAX_TEAM_CAPACITY, Number(row.querySelector('.resize-size')?.value || 1)));
         return { id, icon, name, capacity, order: index + 1 };
       });
     }
@@ -3910,14 +3937,14 @@
         const warning = document.getElementById('resizeWarning');
         const saveButton = document.getElementById('btnResizeSave');
         if (totalText) {
-          totalText.textContent = `${total} / ${ACTIVE_SLOT_TOTAL}`;
-          totalText.style.color = total === ACTIVE_SLOT_TOTAL ? '#7dd3fc' : '#f87171';
+          totalText.textContent = `${total} / ${DEFAULT_ACTIVE_SLOT_TOTAL}`;
+          totalText.style.color = total === DEFAULT_ACTIVE_SLOT_TOTAL ? '#7dd3fc' : '#f87171';
         }
         if (warning) {
-          warning.style.display = total === ACTIVE_SLOT_TOTAL ? 'none' : 'block';
-          warning.textContent = `Tổng slot phải đúng ${ACTIVE_SLOT_TOTAL}. Hiện tại: ${total}/${ACTIVE_SLOT_TOTAL}.`;
+          warning.style.display = total === DEFAULT_ACTIVE_SLOT_TOTAL ? 'none' : 'block';
+          warning.textContent = `Tổng slot phải đúng ${DEFAULT_ACTIVE_SLOT_TOTAL}. Hiện tại: ${total}/${DEFAULT_ACTIVE_SLOT_TOTAL}.`;
         }
-        if (saveButton) saveButton.disabled = total !== ACTIVE_SLOT_TOTAL;
+        if (saveButton) saveButton.disabled = total !== DEFAULT_ACTIVE_SLOT_TOTAL;
         return;
       }
       let total = 0;
@@ -3926,10 +3953,10 @@
       });
       const totalText = document.getElementById('resizeTotalText');
       const warning = document.getElementById('resizeWarning');
-      if (totalText) totalText.textContent = `${total} / 30`;
-      if (warning) warning.style.display = total > 30 ? 'block' : 'none';
+      if (totalText) totalText.textContent = `${total} / ${DEFAULT_ACTIVE_SLOT_TOTAL}`;
+      if (warning) warning.style.display = total === DEFAULT_ACTIVE_SLOT_TOTAL ? 'none' : 'block';
       // Đổi màu chữ tổng
-      if (totalText) totalText.style.color = total > 30 ? '#f87171' : '#7dd3fc';
+      if (totalText) totalText.style.color = total === DEFAULT_ACTIVE_SLOT_TOTAL ? '#7dd3fc' : '#f87171';
     }
 
     function openResizeModal() {
@@ -4021,8 +4048,8 @@
           await customAlert(`Tối đa ${MAX_DYNAMIC_TEAMS} đội.`);
           return;
         }
-        if (totalSize !== ACTIVE_SLOT_TOTAL) {
-          await customAlert(`Tổng slot active phải đúng ${ACTIVE_SLOT_TOTAL}. Hiện tại: ${totalSize}/${ACTIVE_SLOT_TOTAL}.`);
+        if (totalSize !== DEFAULT_ACTIVE_SLOT_TOTAL) {
+          await customAlert(`Tổng slot active phải đúng ${DEFAULT_ACTIVE_SLOT_TOTAL}. Hiện tại: ${totalSize}/${DEFAULT_ACTIVE_SLOT_TOTAL}.`);
           return;
         }
         const seen = new Set();
@@ -4055,6 +4082,22 @@
             delete localState[team.id];
           }
         });
+
+        const remainingWaiting = [];
+        waiting.forEach((member) => {
+          const target = nextLayout.find((team) => (nextTeams[team.id] || []).length < team.capacity);
+          if (target) {
+            nextTeams[target.id].push({
+              ...member,
+              team: target.id,
+              isTeamLeader: false,
+              ld: false
+            });
+          } else {
+            remainingWaiting.push(member);
+          }
+        });
+        waiting = remainingWaiting;
 
         localState.team_layout = nextLayout;
         localState.teams = nextTeams;

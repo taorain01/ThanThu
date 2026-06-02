@@ -16,8 +16,7 @@ const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 const memberRosterSync = require('../../utils/memberRosterSync');
-
-const LANG_GIA_ROLE_NAME = 'LangGia';
+const { findLangGiaRole } = require('../../utils/langGiaRole');
 
 /**
  * Check if user has Ky Cu role
@@ -239,7 +238,7 @@ async function execute(message, args) {
     try {
         const member = await message.guild.members.fetch(targetDiscordId).catch(() => null);
         if (member) {
-            const langGiaRole = message.guild.roles.cache.find(r => r.name === LANG_GIA_ROLE_NAME);
+            const langGiaRole = findLangGiaRole(message.guild);
             if (langGiaRole && member.roles.cache.has(langGiaRole.id)) {
                 await member.roles.remove(langGiaRole);
                 roleRemoved = true;

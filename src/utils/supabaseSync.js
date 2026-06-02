@@ -7,6 +7,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { LEAGUE_TIME, normalizeBcTime, getSessionIdentityKey } = require('./bangchienState');
 const bangchienRoster = require('./bangchienRoster');
+const { findLangGiaRole, hasLangGiaRole } = require('./langGiaRole');
 
 // Khởi tạo Supabase client với service_role key (full quyền)
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -1133,7 +1134,7 @@ async function syncUsers(users, guildId, guild = null) {
     if (!isReady()) return;
     try {
         // Tim role LangGia trong Discord guild
-        const langGiaRole = guild?.roles?.cache?.find(r => r.name === 'LangGia');
+        const langGiaRole = findLangGiaRole(guild);
 
         const records = [];
         for (const u of users) {
@@ -1143,7 +1144,7 @@ async function syncUsers(users, guildId, guild = null) {
                 try {
                     const member = guild.members.cache.get(u.discord_id);
                     if (member) {
-                        hasLangGia = member.roles.cache.has(langGiaRole.id);
+                        hasLangGia = hasLangGiaRole(member) || member.roles.cache.has(langGiaRole.id);
                     }
                 } catch (e) {}
             }
@@ -1223,12 +1224,12 @@ async function syncOneUser(user, guildId, guild = null) {
         let hasLangGia = false;
         const isLeft = isLeftUserRecord(user);
         if (!isLeft && guild) {
-            const langGiaRole = guild.roles?.cache?.find(r => r.name === 'LangGia');
+            const langGiaRole = findLangGiaRole(guild);
             if (langGiaRole) {
                 try {
                     const member = guild.members.cache.get(user.discord_id)
                         || await guild.members.fetch(user.discord_id).catch(() => null);
-                    if (member) hasLangGia = member.roles.cache.has(langGiaRole.id);
+                    if (member) hasLangGia = hasLangGiaRole(member) || member.roles.cache.has(langGiaRole.id);
                 } catch (e) {}
             }
         }

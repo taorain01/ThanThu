@@ -17,6 +17,7 @@ const { syncStoredPositionForMember, ensureTrackedMemberFromDiscord, resolveStor
 const supaSync = require('../../utils/supabaseSync');
 const memberRosterSync = require('../../utils/memberRosterSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
+const { hasLangGiaRole, isLangGiaRole } = require('../../utils/langGiaRole');
 
 // ID role Server Booster (Discord cấp tự động)
 const BOOSTER_ROLE_ID = '740457614470545408';
@@ -58,25 +59,25 @@ module.exports = {
             // ═══════════════════════════════════════════════════════════════
             // ROLE LANGGIA THAY ĐỔI → Sync lang_gia_member lên Supabase
             // ═══════════════════════════════════════════════════════════════
-            const langGiaRoleChanged = addedRoles.some(r => r.name === 'LangGia')
-                                    || removedRoles.some(r => r.name === 'LangGia');
+            const langGiaRoleChanged = addedRoles.some(isLangGiaRole)
+                                    || removedRoles.some(isLangGiaRole);
             if (langGiaRoleChanged) {
                 try {
                     let user = db.getUserByDiscordId(newMember.id);
 
                     // Nếu user chưa có trong DB hoặc đã rời bang (left_at) → tạo/rejoin để sync được
-                    if ((!user || user.left_at) && addedRoles.some(r => r.name === 'LangGia')) {
+                    if ((!user || user.left_at) && addedRoles.some(isLangGiaRole)) {
                         const position = resolveStoredPositionFromDiscord(newMember, 'mem');
                         await ensureTrackedMemberFromDiscord(newMember, position, guildId);
                         user = db.getUserByDiscordId(newMember.id);
                         console.log(`[guildMemberUpdate] 🆕 Tạo/rejoin user trong DB cho ${newMember.user.tag} (position: ${position})`);
                     }
 
-                    const hasRole = newMember.roles.cache.some(r => r.name === 'LangGia');
+                    const hasRole = hasLangGiaRole(newMember);
                     if (user) {
                         await memberRosterSync.syncUserRecord(user, guildId, newMember.guild);
                     }
-                    if (!hasRole && removedRoles.some(r => r.name === 'LangGia')) {
+                    if (!hasRole && removedRoles.some(isLangGiaRole)) {
                         await cleanupWeekendBcRegulars(newMember.guild, newMember.id, 'lang_gia_removed');
                     }
                     console.log(`[guildMemberUpdate] 🔄 Role LangGia ${hasRole ? 'ADDED' : 'REMOVED'} → synced lang_gia_member=${hasRole} cho ${newMember.user.tag}`);

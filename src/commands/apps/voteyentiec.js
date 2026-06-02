@@ -8,6 +8,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { hasLangGiaRole } = require('../../utils/langGiaRole');
 
 const TIME_OPTIONS = [
     { label: '19:00', value: '19:00', emoji: '🕖' },
@@ -122,8 +123,7 @@ async function handleVote(interaction) {
     }
 
     // Kiểm tra role LangGia
-    const langGiaRole = interaction.guild.roles.cache.find(r => r.name === 'LangGia');
-    if (!langGiaRole || !interaction.member.roles.cache.has(langGiaRole.id)) {
+    if (!hasLangGiaRole(interaction.member)) {
         return interaction.reply({ content: '❌ Bạn không phải là thành viên của guild.', ephemeral: true });
     }
 

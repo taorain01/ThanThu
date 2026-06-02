@@ -17,6 +17,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const memberRosterSync = require('../../utils/memberRosterSync');
 const { logMemberRosterAction } = require('../../utils/memberRosterLog');
+const { findLangGiaRole, LANG_GIA_ROLE_NAME } = require('../../utils/langGiaRole');
 
 function getPendingByUid(gameUid, guildId) {
     try {
@@ -528,8 +529,8 @@ async function execute(message, args) {
             const member = await message.guild.members.fetch(targetUser.id);
             const choDuyetRole = message.guild.roles.cache.find(r => r.name === 'Chờ Duyệt');
             if (choDuyetRole && member.roles.cache.has(choDuyetRole.id)) await member.roles.remove(choDuyetRole);
-            let langGiaRole = message.guild.roles.cache.find(r => r.name === 'LangGia');
-            if (!langGiaRole) langGiaRole = await message.guild.roles.create({ name: 'LangGia', color: 0x3498DB });
+            let langGiaRole = findLangGiaRole(message.guild);
+            if (!langGiaRole) langGiaRole = await message.guild.roles.create({ name: LANG_GIA_ROLE_NAME, color: 0x3498DB });
             if (!member.roles.cache.has(langGiaRole.id)) await member.roles.add(langGiaRole);
         } catch (e) { /* ignore */ }
 

@@ -4,6 +4,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
+const { findLangGiaRole } = require('../../utils/langGiaRole');
 
 const BC_VOICE_CHANNEL_ID = '1451262767603519528';
 const ALLOWED_ROLES = ['Kỳ Cựu', 'Quản Lý'];
@@ -32,24 +33,26 @@ module.exports = {
 
         // Xử lý ?momic all / ?bcmicon all - bật mic cho role BC và LangGia
         if (args[0]?.toLowerCase() === 'all') {
-            const BC_ROLE_NAMES = ['bc', 'LangGia'];
+            const roleTargets = [
+                { label: 'bc', role: message.guild.roles.cache.find(r => r.name === 'bc') },
+                { label: 'LangGia/Lang Gia', role: findLangGiaRole(message.guild) }
+            ];
             let successRoles = [];
             let failRoles = [];
 
-            for (const roleName of BC_ROLE_NAMES) {
-                const role = message.guild.roles.cache.find(r => r.name === roleName);
+            for (const { label, role } of roleTargets) {
                 if (role) {
                     try {
                         await voiceChannel.permissionOverwrites.edit(role.id, {
                             Speak: true,
                             Connect: true
                         });
-                        successRoles.push(roleName);
+                        successRoles.push(role.name);
                     } catch (e) {
-                        failRoles.push(roleName);
+                        failRoles.push(label);
                     }
                 } else {
-                    failRoles.push(`${roleName} (không tìm thấy)`);
+                    failRoles.push(`${label} (không tìm thấy)`);
                 }
             }
 

@@ -1,15 +1,11 @@
 const db = require('../database/db');
 const supaSync = require('./supabaseSync');
+const { hasLangGiaRole, LANG_GIA_ROLE_NAME, LANG_GIA_ROLE_NAMES } = require('./langGiaRole');
 
 const BC_REGULAR_DAYS = ['sat', 'sun'];
-const LANG_GIA_ROLE_NAME = 'LangGia';
 
 function isBcRegularDay(day) {
     return BC_REGULAR_DAYS.includes(day);
-}
-
-function hasLangGiaRole(member) {
-    return !!member?.roles?.cache?.some((role) => role.name === LANG_GIA_ROLE_NAME);
 }
 
 async function fetchMember(guild, discordId, memberOverride = null) {
@@ -156,6 +152,8 @@ async function applyRemoteBcRegularChange(guild, change) {
 
 module.exports = {
     BC_REGULAR_DAYS,
+    LANG_GIA_ROLE_NAME,
+    LANG_GIA_ROLE_NAMES,
     isBcRegularDay,
     hasLangGiaRole,
     getBcRegularEligibility,

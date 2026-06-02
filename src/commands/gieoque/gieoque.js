@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../../database/db');
+const { hasLangGiaRole } = require('../../utils/langGiaRole');
 const { isCoreQuestion, rollCoreOutcome } = require('../../utils/gieoqueCore');
 
 // Helper: delay
@@ -102,7 +103,7 @@ async function execute(message, args) {
     const userName = message.member?.displayName || message.author.username;
     const isFemale = message.member?.roles.cache.some(role => role.name === 'Nữ Nhi Quốc');
     const gender = isFemale ? 'Nữ' : 'Nam';
-    const isLangGia = message.member?.roles.cache.some(role => role.name === 'LangGia');
+    const isLangGia = hasLangGiaRole(message.member);
     const isWWM = message.member?.roles.cache.some(role => role.name === 'WWM');
 
     // 4. Gửi thông báo đang xử lý

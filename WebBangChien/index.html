@@ -2160,6 +2160,30 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-active-grid.dense{gap:8px}
 .bc-active-grid.dense .t-hdr{padding:7px 9px}
 .bc-active-grid.dense .m-row{padding:3px 5px}
+@media (min-width: 769px) {
+  .bc-active-grid.fit-active-roster .t-list{overflow:hidden}
+  .bc-active-grid.fit-active-roster .m-row{
+    height:var(--bc-member-row-h,26px);
+    min-height:0;
+    padding-top:2px;
+    padding-bottom:2px;
+    gap:6px;
+  }
+  .bc-active-grid.fit-active-roster .m-num{
+    width:calc(var(--bc-member-row-h,26px) - 4px);
+    height:calc(var(--bc-member-row-h,26px) - 4px);
+  }
+  .bc-active-grid.fit-active-roster .m-av{
+    width:calc(var(--bc-member-row-h,26px) - 2px);
+    height:calc(var(--bc-member-row-h,26px) - 2px);
+  }
+  .bc-active-grid.fit-active-roster .m-gn{display:var(--bc-member-sub-display,block)}
+  .bc-active-grid.fit-active-roster .m-tag{
+    padding:2px 6px;
+    font-size:9px;
+  }
+  .bc-waiting-side .t-list{overflow-y:auto}
+}
 @media (max-width: 1280px) and (min-width: 769px) {
   .bc-session-body{padding:12px}
   .bc-roster-layout{grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:12px}
@@ -6298,6 +6322,37 @@ function getIndexRosterGridColumns(teamCount) {
     return 2;
 }
 
+function syncIndexRosterFit(root = document) {
+    const grids = [...root.querySelectorAll('.bc-active-grid')];
+    const isDesktop = !window.matchMedia?.('(max-width: 768px)').matches;
+    grids.forEach((grid) => {
+        grid.classList.toggle('fit-active-roster', isDesktop);
+        if (!isDesktop) {
+            grid.style.removeProperty('--bc-member-row-h');
+            grid.style.removeProperty('--bc-member-sub-display');
+            return;
+        }
+
+        const cards = [...grid.children].filter((child) => child.classList?.contains('team-card'));
+        const teamCount = Math.max(cards.length, 1);
+        const styles = window.getComputedStyle(grid);
+        const cssColumns = Number.parseInt(styles.getPropertyValue('--bc-team-columns'), 10);
+        const columns = cssColumns || getIndexRosterGridColumns(teamCount);
+        const rows = Math.max(1, Math.ceil(teamCount / columns));
+        const rowGap = Number.parseFloat(styles.rowGap || styles.gap || '0') || 0;
+        const gridHeight = grid.clientHeight || grid.getBoundingClientRect().height || 0;
+        const cardHeight = Math.max(96, (gridHeight - rowGap * (rows - 1)) / rows);
+        const maxCapacity = Math.max(1, ...cards.map((card) => Number(card.dataset.teamCapacity) || 1));
+        const firstHead = grid.querySelector('.team-card .t-hdr');
+        const headerHeight = firstHead?.getBoundingClientRect()?.height || (teamCount >= 5 ? 40 : 48);
+        const bodyPadding = teamCount >= 7 ? 6 : 8;
+        const rawHeight = Math.floor((cardHeight - headerHeight - bodyPadding) / maxCapacity);
+        const rowHeight = Math.max(18, Math.min(30, rawHeight || 22));
+        grid.style.setProperty('--bc-member-row-h', `${rowHeight}px`);
+        grid.style.setProperty('--bc-member-sub-display', rowHeight < 23 ? 'none' : 'block');
+    });
+}
+
 function buildTeamsHtml(data) {
     const SVG = {
         sword: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>',
@@ -6342,6 +6397,7 @@ function buildTeamsHtml(data) {
             players.forEach(p => { if (p.role === 'DPS') stats.d++; else if (p.role === 'Healer') stats.h++; else stats.t++; });
 
             let card = `<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key === 'waiting_list' ? ' style="color:var(--gold)"' : ''}>${t.title}</div><div class="t-cnt">${t.max ? players.length + '/' + t.max + ' thành viên' : players.length + ' người chờ'}</div></div></div><div class="t-roles">`;
+            card = card.replace('<div class="team-card"', `<div class="team-card" data-team-key="${escapeIndexHtml(t.key)}" data-team-capacity="${t.max || Math.max(players.length, 1)}"`);
             if (stats.d) card += `<div class="rb d"><div class="rd d"></div>${stats.d}</div>`;
             if (stats.h) card += `<div class="rb h"><div class="rd h"></div>${stats.h}</div>`;
             if (stats.t) card += `<div class="rb t"><div class="rd t"></div>${stats.t}</div>`;
@@ -6523,6 +6579,7 @@ function buildTeamsHtml(data) {
 
 function renderTeams(data) {
     document.getElementById('leftPanel').innerHTML = buildTeamsHtml(data);
+    requestAnimationFrame(() => syncIndexRosterFit());
 }
 
 function selectSessionByKey(sessionKey) {
@@ -6604,6 +6661,7 @@ function renderDaySessions(day, preferredKey = null) {
     html += `<section class="bc-session-section featured">${renderHead(selected, true)}<div class="bc-session-body">${buildTeamsHtml(selected)}</div></section>`;
     html += '</div>';
     document.getElementById('leftPanel').innerHTML = html;
+    requestAnimationFrame(() => syncIndexRosterFit());
 }
 
 function updateStats(data) {
@@ -7342,7 +7400,10 @@ if (mapBgImg) {
 let _resizeTimer = null;
 window.addEventListener('resize', () => {
     clearTimeout(_resizeTimer);
-    _resizeTimer = setTimeout(scheduleMapUpdate, 50);
+    _resizeTimer = setTimeout(() => {
+        scheduleMapUpdate();
+        syncIndexRosterFit();
+    }, 50);
 });
 // ResizeObserver cho map-box (khi panel thay đổi kích thước)
 const mapBoxEl = document.getElementById('mapBox');

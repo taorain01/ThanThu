@@ -308,6 +308,31 @@
     .teams-grid.dense .panel-head{padding:5px 7px}
     .teams-grid.dense .panel-body{padding:3px 5px}
     .teams-grid.dense .member-row{padding:3px 5px}
+    @media (min-width: 769px) {
+      .teams-grid.fit-active-roster .team-card .panel-body{overflow:hidden}
+      .teams-grid.fit-active-roster .member-row{
+        height:var(--editor-member-row-h,26px);
+        min-height:0;
+        padding-top:2px;
+        padding-bottom:2px;
+        gap:5px;
+      }
+      .teams-grid.fit-active-roster .slot-badge{
+        height:calc(var(--editor-member-row-h,26px) - 2px);
+        min-width:24px;
+        padding:0 6px;
+      }
+      .teams-grid.fit-active-roster .avatar{
+        width:calc(var(--editor-member-row-h,26px) - 4px);
+        height:calc(var(--editor-member-row-h,26px) - 4px);
+      }
+      .teams-grid.fit-active-roster .member-sub{display:var(--editor-member-sub-display,block)}
+      .teams-grid.fit-active-roster .leader-btn,
+      .teams-grid.fit-active-roster .kick-btn{
+        padding:4px 6px;
+      }
+      .waiting-card .panel-body{overflow-y:auto}
+    }
     .waiting-card{
       min-height:0;
     }
@@ -2819,6 +2844,33 @@
       container.dataset.teamCount = String(teamCount);
     }
 
+    function applyEditorRosterFit(container, visibleTeams = getVisibleTeams()) {
+      if (!container) return;
+      const isDesktop = !window.matchMedia?.('(max-width: 768px)').matches;
+      container.classList.toggle('fit-active-roster', isDesktop);
+      if (!isDesktop) {
+        container.style.removeProperty('--editor-member-row-h');
+        container.style.removeProperty('--editor-member-sub-display');
+        return;
+      }
+
+      const teamCount = Math.max(visibleTeams.length, 1);
+      const columns = getTeamGridColumnCount(teamCount);
+      const rows = Math.max(1, Math.ceil(teamCount / columns));
+      const styles = window.getComputedStyle(container);
+      const rowGap = Number.parseFloat(styles.rowGap || styles.gap || '0') || 0;
+      const gridHeight = container.clientHeight || container.getBoundingClientRect().height || 0;
+      const cardHeight = Math.max(96, (gridHeight - rowGap * (rows - 1)) / rows);
+      const maxCapacity = Math.max(1, ...visibleTeams.map((team) => Number(team.max) || 1));
+      const firstHead = container.querySelector('.team-card .panel-head');
+      const headerHeight = firstHead?.getBoundingClientRect()?.height || (teamCount >= 5 ? 38 : 44);
+      const bodyPadding = teamCount >= 7 ? 6 : 8;
+      const rawHeight = Math.floor((cardHeight - headerHeight - bodyPadding) / maxCapacity);
+      const rowHeight = Math.max(18, Math.min(30, rawHeight || 22));
+      container.style.setProperty('--editor-member-row-h', `${rowHeight}px`);
+      container.style.setProperty('--editor-member-sub-display', rowHeight < 23 ? 'none' : 'block');
+    }
+
     function getVisibleTeams() {
       if (!localState) return [];
       if (Array.isArray(localState.team_layout) && localState.team_layout.length) {
@@ -3687,6 +3739,8 @@
         setupDropZone(card, team.key);
         teamsGrid.appendChild(card);
       });
+      applyEditorRosterFit(teamsGrid, visibleTeams);
+      requestAnimationFrame(() => applyEditorRosterFit(teamsGrid, visibleTeams));
 
       const waitingMembers = localState.waiting_list || [];
       const waitingEntries = buildViewEntries('waiting_list');
@@ -3715,6 +3769,8 @@
       const nextColumnCount = getTeamGridColumnCount();
       if (localState && !isDragging && nextColumnCount !== teamGridColumnCount) {
         renderEditor();
+      } else if (localState && !isDragging) {
+        applyEditorRosterFit(document.getElementById('teamsGrid'), getVisibleTeams());
       }
     }
 

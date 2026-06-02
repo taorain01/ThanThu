@@ -82,21 +82,42 @@ module.exports = {
 
         // Lấy tất cả mentions
         const mentions = [...message.mentions.users.values()];
+        const activeRosterForLeader = isActiveSession ? bangchienRoster.normalizeRoster(session) : null;
+        const expectedLeaderCount = activeRosterForLeader?.layout?.length || 4;
 
         // ========== TÍNH NĂNG MỚI: SET TẤT CẢ 4 LEADER CÙNG LÚC ==========
         // Bằng 4 mentions
-        if (mentions.length === 4) {
+        if (mentions.length === expectedLeaderCount) {
             return await this.setAllLeaders(message, session, isActiveSession, mentions, day, db);
         }
 
         // Bằng 4 số slot
         const slotNumbers = filteredArgs.map(a => parseInt(a)).filter(n => !isNaN(n) && n >= 1);
-        if (slotNumbers.length === 4 && mentions.length === 0) {
+        if (slotNumbers.length === expectedLeaderCount && mentions.length === 0) {
             return await this.setLeadersBySlots(message, session, isActiveSession, slotNumbers, day, db);
         }
 
         // Hướng dẫn
-        if (filteredArgs.length < 1 || (mentions.length === 0 && slotNumbers.length !== 4 && !(isActiveSession && slotNumbers.length >= 2))) {
+        if (filteredArgs.length < 1 || (mentions.length === 0 && slotNumbers.length !== expectedLeaderCount && !(isActiveSession && slotNumbers.length >= 2))) {
+            if (isActiveSession && activeRosterForLeader) {
+                let cursor = 1;
+                const starts = [];
+                const ranges = activeRosterForLeader.layout.map((team) => {
+                    const start = cursor;
+                    const capacity = Number(team.capacity) || 0;
+                    cursor += capacity;
+                    starts.push(start);
+                    return `${team.icon || ''} ${team.name || team.id}: ${start}-${cursor - 1}`.trim();
+                });
+                return message.reply(
+                    'ERROR: Cach dung ?bcleader\n\n' +
+                    `Set ${expectedLeaderCount} leader bang slot:\n` +
+                    `\`?bcleader ${day || 't7'} ${starts.join(' ')}\`\n` +
+                    `${ranges.join('\n')}\n\n` +
+                    `Set 1 leader:\n` +
+                    `\`?bcleader ${day || 't7'} 1 @user\``
+                );
+            }
             const dayHint = day ? `${DAY_CONFIG[day].name} ` : '';
             const sizes = getTeamSizes(db);
             const slotStartAtt2 = 1 + sizes.attack1;
@@ -336,6 +357,76 @@ module.exports = {
         const results = [];
         const errors = [];
 
+        if (isActiveSession) {
+            const roster = bangchienRoster.normalizeRoster(session);
+            if (mentions.length !== roster.layout.length) {
+                return message.reply(`ERROR: Can nhap dung ${roster.layout.length} leader cho ${roster.layout.length} team.`);
+            }
+
+            for (let i = 0; i < roster.layout.length; i++) {
+                const team = roster.layout[i];
+                const user = mentions[i];
+                const list = roster.teams[team.id] || [];
+                const idx = list.findIndex((player) => String(player.id) === String(user.id));
+                const label = `${team.icon || ''} ${team.name || team.id}`.trim();
+                if (idx === -1) {
+                    errors.push(`${user.username}: khong co trong ${label}`);
+                    continue;
+                }
+
+                const person = { ...list[idx], isTeamLeader: true, ld: true };
+                list.splice(idx, 1);
+                roster.teams[team.id] = [
+                    person,
+                    ...list.map((player) => ({ ...player, isTeamLeader: false, ld: false }))
+                ];
+                results.push(`${user.username} -> ${label}`);
+
+                try {
+                    const voiceChannel = message.guild.channels.cache.get(BC_VOICE_CHANNEL_ID);
+                    if (voiceChannel) {
+                        await voiceChannel.permissionOverwrites.edit(user.id, {
+                            Speak: true,
+                            Connect: true
+                        });
+                    }
+                } catch (e) {
+                    console.error(`[bcleader] Loi cap quyen voice cho ${user.username}:`, e.message);
+                }
+            }
+
+            const updates = {
+                team_layout: roster.layout,
+                teams: roster.teams,
+                waiting_list: roster.waitingList
+            };
+            roster.layout.slice(0, 4).forEach((team, index) => {
+                const leader = (roster.teams[team.id] || []).find((player) => player.isTeamLeader || player.ld);
+                updates[`team${index + 1}_leader_id`] = leader?.id || null;
+            });
+            db.updateActiveBangchien(session.party_key, updates);
+            const fresh = db.getActiveBangchien(session.party_key);
+            if (fresh) {
+                const formatted = supaSync.formatActiveSession
+                    ? supaSync.formatActiveSession(fresh, db, message.guild)
+                    : fresh;
+                await supaSync.syncBCSession(message.guild.id, fresh.day || session.day || 'sat', formatted || fresh).catch(() => {});
+            }
+
+            const dayName = day ? DAY_CONFIG[day].name : '';
+            const embed = new EmbedBuilder()
+                .setColor(0x9B59B6)
+                .setTitle(`DA DAT LEADER ${dayName}`)
+                .setDescription(
+                    (results.length > 0 ? `Thanh cong:\n${results.join('\n')}` : '') +
+                    (errors.length > 0 ? `\n\nLoi:\n${errors.join('\n')}` : '')
+                )
+                .setFooter({ text: 'Da cap quyen noi trong voice BC neu co kenh.' });
+
+            console.log(`[bcleader] ${message.author.username} set all dynamic leaders: ${mentions.map(u => u.username).join(', ')}`);
+            return message.reply({ embeds: [embed] });
+        }
+
         // Lấy tất cả team data
         let teams = {
             team_attack1: isActiveSession ? session.team_attack1 : JSON.parse(session.team_attack1 || '[]'),
@@ -440,6 +531,105 @@ module.exports = {
         const BC_VOICE_CHANNEL_ID = '1461450602033844368';
         const results = [];
         const errors = [];
+
+        if (isActiveSession) {
+            const roster = bangchienRoster.normalizeRoster(session);
+            if (slotNumbers.length !== roster.layout.length) {
+                return message.reply(`ERROR: Can nhap dung ${roster.layout.length} slot leader.`);
+            }
+
+            const seenTeams = new Set();
+            const selected = [];
+            const getSlotInfo = (slotNum) => {
+                let cursor = 1;
+                for (const team of roster.layout) {
+                    const capacity = Number(team.capacity) || 0;
+                    if (slotNum >= cursor && slotNum < cursor + capacity) {
+                        const index = slotNum - cursor;
+                        const list = roster.teams[team.id] || [];
+                        return { team, teamId: team.id, index, member: list[index] || null };
+                    }
+                    cursor += capacity;
+                }
+                return null;
+            };
+
+            for (const slotNum of slotNumbers) {
+                const info = getSlotInfo(slotNum);
+                if (!info || !info.member) {
+                    errors.push(`Slot ${slotNum}: khong co nguoi active`);
+                    continue;
+                }
+                if (seenTeams.has(info.teamId)) {
+                    errors.push(`Slot ${slotNum}: trung team`);
+                    continue;
+                }
+                seenTeams.add(info.teamId);
+                selected.push({ slotNum, info });
+            }
+
+            if (errors.length) {
+                return message.reply(`ERROR:\n${errors.join('\n')}`);
+            }
+
+            for (const team of roster.layout) {
+                (roster.teams[team.id] || []).forEach((player) => {
+                    player.isTeamLeader = false;
+                    player.ld = false;
+                });
+            }
+
+            for (const item of selected) {
+                const team = item.info.team;
+                const list = roster.teams[team.id] || [];
+                const person = { ...list[item.info.index], isTeamLeader: true, ld: true };
+                list.splice(item.info.index, 1);
+                list.unshift(person);
+                roster.teams[team.id] = list;
+                const label = `${team.icon || ''} ${team.name || team.id}`.trim();
+                results.push(`${person.username || person.name || person.gn || person.id} -> ${label} (slot ${item.slotNum})`);
+
+                try {
+                    const voiceChannel = message.guild.channels.cache.get(BC_VOICE_CHANNEL_ID);
+                    if (voiceChannel) {
+                        await voiceChannel.permissionOverwrites.edit(person.id, {
+                            Speak: true,
+                            Connect: true
+                        });
+                    }
+                } catch (e) {
+                    console.error(`[bcleader] Loi cap quyen voice cho ${person.username || person.id}:`, e.message);
+                }
+            }
+
+            const updates = {
+                team_layout: roster.layout,
+                teams: roster.teams,
+                waiting_list: roster.waitingList
+            };
+            roster.layout.slice(0, 4).forEach((team, index) => {
+                const leader = (roster.teams[team.id] || []).find((player) => player.isTeamLeader || player.ld);
+                updates[`team${index + 1}_leader_id`] = leader?.id || null;
+            });
+            db.updateActiveBangchien(session.party_key, updates);
+            const fresh = db.getActiveBangchien(session.party_key);
+            if (fresh) {
+                const formatted = supaSync.formatActiveSession
+                    ? supaSync.formatActiveSession(fresh, db, message.guild)
+                    : fresh;
+                await supaSync.syncBCSession(message.guild.id, fresh.day || session.day || 'sat', formatted || fresh).catch(() => {});
+            }
+
+            const dayName = day ? DAY_CONFIG[day].name : '';
+            const embed = new EmbedBuilder()
+                .setColor(0x9B59B6)
+                .setTitle(`DA DAT LEADER THEO SLOT ${dayName}`)
+                .setDescription(`Thanh cong:\n${results.join('\n')}`)
+                .setFooter({ text: 'Da cap quyen noi trong voice BC neu co kenh.' });
+
+            console.log(`[bcleader] ${message.author.username} set dynamic leaders by slots: ${slotNumbers.join(', ')}`);
+            return message.reply({ embeds: [embed] });
+        }
 
         // Lấy team sizes
         const sizes = getTeamSizes(db);

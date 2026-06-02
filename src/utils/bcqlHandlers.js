@@ -5,6 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db');
+const bangchienRoster = require('./bangchienRoster');
 const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed, getListbcDetailKey } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
 
@@ -49,10 +50,217 @@ function parseDayFromCustomId(customId) {
     return null;
 }
 
+function getMemberName(member, fallback = 'Unknown') {
+    return member?.username || member?.name || member?.gn || member?.game_username || fallback;
+}
+
+function normalizeLookupText(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function getRoster(session) {
+    return bangchienRoster.normalizeRoster(session || {});
+}
+
+function getTeamLabel(team) {
+    if (!team) return 'Team';
+    return `${team.icon || '*'} ${team.name || team.id}`.trim();
+}
+
+function getTeamLabelById(roster, teamId) {
+    if (teamId === 'waiting_list') return 'Cho';
+    return getTeamLabel(roster.layout.find((team) => team.id === teamId)) || teamId;
+}
+
+function getTeamList(roster, teamId) {
+    if (teamId === 'waiting_list') return roster.waitingList;
+    roster.teams[teamId] = roster.teams[teamId] || [];
+    return roster.teams[teamId];
+}
+
+function resolveRosterTeam(roster, rawArg) {
+    const arg = normalizeLookupText(rawArg);
+    if (!arg) return null;
+    if (/^\d+$/.test(arg)) return roster.layout[Number(arg) - 1] || null;
+    const legacyAlias = {
+        thu: 'team_defense',
+        thur: 'team_defense',
+        defense: 'team_defense',
+        def: 'team_defense',
+        rung: 'team_forest',
+        forest: 'team_forest',
+        jng: 'team_forest'
+    }[arg];
+    if (legacyAlias) return roster.layout.find((team) => team.id === legacyAlias) || null;
+    return roster.layout.find((team) => {
+        const id = normalizeLookupText(team.id);
+        const name = normalizeLookupText(team.name);
+        return id === arg || name === arg || name.includes(arg);
+    }) || null;
+}
+
+function getRosterSlotStarts(roster) {
+    let start = 1;
+    const starts = {};
+    for (const team of roster.layout) {
+        starts[team.id] = start;
+        start += Number(team.capacity) || 0;
+    }
+    starts.waiting_list = start;
+    return starts;
+}
+
+function getRosterSlotInfo(roster, slotNumber) {
+    const slot = Number(slotNumber);
+    if (!Number.isInteger(slot) || slot < 1) return null;
+    let cursor = 1;
+    for (const team of roster.layout) {
+        const capacity = Number(team.capacity) || 0;
+        if (slot >= cursor && slot < cursor + capacity) {
+            const index = slot - cursor;
+            const list = getTeamList(roster, team.id);
+            return {
+                teamId: team.id,
+                team,
+                index,
+                startSlot: cursor,
+                capacity,
+                member: list[index] || null,
+                waiting: false,
+                firstEmptySlot: cursor + list.length
+            };
+        }
+        cursor += capacity;
+    }
+    const waitIndex = slot - cursor;
+    if (waitIndex < 0) return null;
+    return {
+        teamId: 'waiting_list',
+        team: null,
+        index: waitIndex,
+        startSlot: cursor,
+        capacity: Number.POSITIVE_INFINITY,
+        member: roster.waitingList[waitIndex] || null,
+        waiting: true,
+        firstEmptySlot: cursor + roster.waitingList.length
+    };
+}
+
+function getRosterSelectMembers(roster) {
+    const active = roster.layout.flatMap((team) => (roster.teams[team.id] || []).map((member) => ({
+        ...member,
+        teamId: team.id,
+        teamLabel: getTeamLabel(team)
+    })));
+    const waiting = (roster.waitingList || []).map((member) => ({
+        ...member,
+        teamId: 'waiting_list',
+        teamLabel: 'Cho'
+    }));
+    return [...active, ...waiting];
+}
+
+function clearTeamLeaderFlags(member) {
+    return { ...member, isTeamLeader: false, ld: false };
+}
+
+function saveRosterToSession(partyKey, roster) {
+    return db.updateActiveBangchien(partyKey, {
+        team_layout: roster.layout,
+        teams: roster.teams,
+        waiting_list: roster.waitingList
+    });
+}
+
+function moveMemberToWaiting(roster, userId) {
+    const found = bangchienRoster.findMember(roster, userId);
+    if (!found) return false;
+    if (found.waiting) return true;
+    const source = getTeamList(roster, found.teamId);
+    const [member] = source.splice(found.index, 1);
+    if (member) roster.waitingList.push(clearTeamLeaderFlags({ ...member, team: 'waiting_list' }));
+    return !!member;
+}
+
+function promoteWaitingMember(roster, userId) {
+    const waitIndex = roster.waitingList.findIndex((member) => String(member?.id) === String(userId));
+    if (waitIndex === -1) return false;
+    const target = roster.layout.find((team) => (roster.teams[team.id] || []).length < Number(team.capacity || 0));
+    if (!target) return false;
+    const [member] = roster.waitingList.splice(waitIndex, 1);
+    roster.teams[target.id] = roster.teams[target.id] || [];
+    roster.teams[target.id].push({ ...member, team: target.id });
+    return true;
+}
+
+function parseResizeLayoutText(text, currentLayout) {
+    const lines = String(text || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    if (!lines.length) return { error: 'Phai nhap it nhat 1 team.' };
+    if (lines.length > bangchienRoster.MAX_TEAMS) return { error: `Toi da ${bangchienRoster.MAX_TEAMS} team.` };
+
+    const layout = [];
+    const seen = new Set();
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        const [leftRaw, capacityRaw, extra] = line.split('|');
+        if (!leftRaw || capacityRaw == null || extra != null) {
+            return { error: `Dong ${index + 1} sai dinh dang. Dung: icon ten team | slot` };
+        }
+        const capacity = Number.parseInt(String(capacityRaw).trim(), 10);
+        if (!Number.isInteger(capacity) || capacity < 1 || capacity > bangchienRoster.MAX_ACTIVE_MEMBERS) {
+            return { error: `Slot dong ${index + 1} phai tu 1 den ${bangchienRoster.MAX_ACTIVE_MEMBERS}.` };
+        }
+
+        const left = leftRaw.trim();
+        const parts = left.split(/\s+/).filter(Boolean);
+        const oldTeam = currentLayout[index] || {};
+        const icon = (parts.length > 1 ? parts.shift() : oldTeam.icon || '*').slice(0, 8);
+        const name = (parts.join(' ') || left || oldTeam.name || `TEAM ${index + 1}`).trim().slice(0, 32);
+        let id = oldTeam.id || `team_custom_${index + 1}`;
+        id = String(id).replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 40) || `team_custom_${index + 1}`;
+        while (seen.has(id)) id = `${id}_${index + 1}`;
+        seen.add(id);
+
+        layout.push({ id, icon, name, capacity, order: index + 1 });
+    }
+
+    const total = layout.reduce((sum, team) => sum + team.capacity, 0);
+    if (total !== bangchienRoster.MAX_ACTIVE_MEMBERS) {
+        return { error: `Tong slot phai dung ${bangchienRoster.MAX_ACTIVE_MEMBERS}. Hien tai: ${total}.` };
+    }
+    return { layout };
+}
+
+function applyResizeLayout(roster, nextLayout) {
+    const flatActive = roster.layout.flatMap((team) => (roster.teams[team.id] || []).map((member) => ({ ...member })));
+    const nextTeams = {};
+    let cursor = 0;
+    for (const team of nextLayout) {
+        const count = Number(team.capacity) || 0;
+        nextTeams[team.id] = flatActive.slice(cursor, cursor + count).map((member) => ({ ...member, team: team.id }));
+        cursor += count;
+    }
+    const overflow = flatActive.slice(cursor).map((member) => clearTeamLeaderFlags({ ...member, team: 'waiting_list' }));
+    return {
+        layout: nextLayout,
+        teams: nextTeams,
+        waitingList: [...overflow, ...(roster.waitingList || []).map((member) => ({ ...member, team: 'waiting_list' }))]
+    };
+}
+
 function parsePartyKeyFromCustomId(customId) {
     const prefixes = [
         'bcql_kick_select_',
         'bcql_priority_select_',
+        'bcql_priority_',
         'bcql_swap_modal_',
         'bcql_add_modal_',
         'bcql_resize_modal_',
@@ -182,7 +390,10 @@ async function handleBcqlButton(interaction) {
 
     // ========== NÚT LOẠI BỎ ==========
     if (customId.startsWith('bcql_kick_')) {
-        const allMembers = [
+        const roster = getRoster(session);
+        const allMembers = getRosterSelectMembers(roster)
+            .filter(p => p.id !== session.leader_id);
+        /*
             ...(() => { const n = getTeamEmojis(); return [
                 ...session.team_attack1.map(p => ({ ...p, team: n.attack1 })),
                 ...session.team_attack2.map(p => ({ ...p, team: n.attack2 })),
@@ -192,14 +403,16 @@ async function handleBcqlButton(interaction) {
             ]; })()
         ].filter(p => p.id !== session.leader_id); // Không cho kick leader
 
+        */
+
         if (allMembers.length === 0) {
             await interaction.reply({ content: '⚠️ Không có ai để loại bỏ!', flags: MessageFlags.Ephemeral });
             return true;
         }
 
         const options = allMembers.slice(0, 25).map((p, i) => ({
-            label: p.username || `User ${i + 1}`,
-            description: `Team: ${p.team}`,
+            label: getMemberName(p, `User ${i + 1}`),
+            description: `Team: ${p.teamLabel || p.teamId || 'Team'}`.slice(0, 100),
             value: p.id
         }));
 
@@ -218,7 +431,8 @@ async function handleBcqlButton(interaction) {
 
     // ========== NÚT ƯU TIÊN ==========
     if (customId.startsWith('bcql_priority_')) {
-        const waitingList = session.waiting_list || [];
+        const roster = getRoster(session);
+        const waitingList = roster.waitingList || [];
 
         if (waitingList.length === 0) {
             await interaction.reply({ content: '⚠️ Danh sách chờ trống!', flags: MessageFlags.Ephemeral });
@@ -226,7 +440,7 @@ async function handleBcqlButton(interaction) {
         }
 
         const options = waitingList.slice(0, 25).map((p, i) => ({
-            label: p.username || `User ${i + 1}`,
+            label: getMemberName(p, `User ${i + 1}`),
             description: `Vị trí chờ: ${i + 1}`,
             value: p.id
         }));
@@ -249,12 +463,9 @@ async function handleBcqlButton(interaction) {
         // Defer reply NGAY ĐẦU vì quá trình chốt DS + cấp role mất nhiều thời gian
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        const teamAttack1 = session.team_attack1 || [];
-        const teamAttack2 = session.team_attack2 || [];
-        const teamDefense = session.team_defense || [];
-        const teamForest = session.team_forest || [];
-        const waitingList = session.waiting_list || [];
-        const total = teamAttack1.length + teamAttack2.length + teamDefense.length + teamForest.length;
+        const roster = getRoster(session);
+        const waitingList = roster.waitingList || [];
+        const total = bangchienRoster.getRosterCounts(roster).active;
 
         if (total === 0) {
             await interaction.editReply({ content: '⚠️ Chưa có ai đăng ký!' });
@@ -315,6 +526,36 @@ async function handleBcqlButton(interaction) {
         }
 
         // Dynamic slot numbers - đồng bộ với bcsize
+        {
+            const starts = getRosterSlotStarts(roster);
+            const embed = new EmbedBuilder()
+                .setColor(0x9B59B6)
+                .setTitle('CHOT DS BANG CHIEN LANG GIA')
+                .setDescription(`Leader: ${session.leader_name} | Tong: **${total}** nguoi`);
+
+            for (const team of roster.layout) {
+                const list = roster.teams[team.id] || [];
+                embed.addFields({
+                    name: `${getTeamLabel(team)} (${list.length}/${team.capacity}) [${getStats(list)}]`,
+                    value: formatTeam(list, starts[team.id] || 1),
+                    inline: false
+                });
+            }
+
+            if (waitingList.length > 0) {
+                embed.addFields({
+                    name: `Cho (${waitingList.length})`,
+                    value: waitingList.map((p, i) => `${i + 1}. <@${p.id}>`).join('\n'),
+                    inline: false
+                });
+            }
+
+            embed.setTimestamp();
+            await interaction.channel.send({ embeds: [embed] });
+            await interaction.editReply({ content: `Da chot danh sach! (${total} nguoi)\nMoi nguoi van co the dang ky nhung se vao hang cho.\nDung Team Editor tren web de mo khoa.` });
+            return true;
+        }
+
         const attack1Size = db.getTeamSize('attack1') || 10;
         const attack2Size = db.getTeamSize('attack2') || 10;
         const slotstartAtt2 = 1 + attack1Size;
@@ -404,6 +645,12 @@ async function handleBcqlButton(interaction) {
             .setRequired(true)
             .setMaxLength(40);
 
+        const roster = getRoster(session);
+        const teamHint = roster.layout
+            .map((team, index) => `${index + 1}:${team.name || team.id}`)
+            .join(' | ')
+            .slice(0, 100);
+
         const teamInput = new TextInputBuilder()
             .setCustomId('team')
             .setLabel('Team (1/2/thu/rung) - để trống = tự động')
@@ -411,6 +658,10 @@ async function handleBcqlButton(interaction) {
             .setPlaceholder('1, 2, thu, hoặc rung')
             .setRequired(false)
             .setMaxLength(4);
+        teamInput
+            .setLabel('Team so/ten - de trong = tu dong')
+            .setPlaceholder(teamHint || '1, 2, team name')
+            .setMaxLength(40);
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(userInput),
@@ -450,6 +701,30 @@ async function handleBcqlButton(interaction) {
 
     // ========== NÚT RESIZE ==========
     if (customId.startsWith('bcql_resize_')) {
+        {
+            const dayParam5 = day || 'sat';
+            const roster = getRoster(session);
+            const layoutValue = roster.layout
+                .map((team) => `${team.icon || '*'} ${team.name || team.id} | ${Number(team.capacity) || 1}`)
+                .join('\n');
+            const modal = new ModalBuilder()
+                .setCustomId(`bcql_resize_modal_${partyKey}_${dayParam5}`)
+                .setTitle('Resize doi hinh dynamic');
+
+            const layoutInput = new TextInputBuilder()
+                .setCustomId('layout_lines')
+                .setLabel('Moi dong: icon ten team | slot')
+                .setStyle(TextInputStyle.Paragraph)
+                .setPlaceholder('* TEAM 1 | 6\n* TEAM 2 | 6\n* TEAM 3 | 6\n* TEAM 4 | 6\n* TEAM 5 | 6')
+                .setValue(layoutValue.slice(0, 1200))
+                .setRequired(true)
+                .setMaxLength(1200);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(layoutInput));
+            await interaction.showModal(modal);
+            return true;
+        }
+
         const dayParam5 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_resize_modal_${partyKey}_${dayParam5}`)
@@ -515,6 +790,29 @@ async function handleBcqlButton(interaction) {
 
     // ========== NÚT SET LEADER ==========
     if (customId.startsWith('bcql_setleader_')) {
+        {
+            const dayParam6 = day || 'sat';
+            const roster = getRoster(session);
+            const starts = getRosterSlotStarts(roster);
+            const sampleSlots = roster.layout
+                .map((team) => starts[team.id] || 1)
+                .join(' ');
+            const modal = new ModalBuilder()
+                .setCustomId(`bcql_setleader_modal_${partyKey}_${dayParam6}`)
+                .setTitle('Set leader theo slot');
+
+            const leadersInput = new TextInputBuilder()
+                .setCustomId('leaders_input')
+                .setLabel('Nhap slot leader, moi team toi da 1')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder(`VD: ${sampleSlots}`.slice(0, 100))
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(leadersInput));
+            await interaction.showModal(modal);
+            return true;
+        }
+
         const dayParam6 = day || 'sat';
         const modal = new ModalBuilder()
             .setCustomId(`bcql_setleader_modal_${partyKey}_${dayParam6}`)
@@ -578,6 +876,25 @@ async function handleBcqlSelect(interaction) {
             return true;
         }
 
+        {
+            const roster = getRoster(freshSession);
+            for (const userId of selectedIds) {
+                if (moveMemberToWaiting(roster, userId)) kicked++;
+
+                // Recurring signup is disabled; do not mutate recurring tables from active flows.
+            }
+
+            saveRosterToSession(partyKey, roster);
+
+            await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+            await interaction.update({ content: `Da chuyen ${kicked} nguoi xuong hang cho!`, components: [] });
+            if (day) {
+                await refreshListbcEmbed(interaction, session, day);
+            }
+            return true;
+        }
+
         const teams = {
             attack1: [...(freshSession.team_attack1 || [])],
             attack2: [...(freshSession.team_attack2 || [])],
@@ -624,6 +941,30 @@ async function handleBcqlSelect(interaction) {
     if (customId.startsWith('bcql_priority_select_')) {
         const selectedIds = interaction.values;
         let moved = 0;
+
+        {
+            const freshSession = db.getActiveBangchien(partyKey);
+            if (!freshSession) {
+                await interaction.update({ content: 'BC khong ton tai!', components: [] });
+                return true;
+            }
+
+            const roster = getRoster(freshSession);
+            for (const userId of selectedIds) {
+                if (promoteWaitingMember(roster, userId)) moved++;
+            }
+
+            saveRosterToSession(partyKey, roster);
+
+            await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+            await interaction.update({ content: `Da dua ${moved} nguoi len team!`, components: [] });
+
+            if (day) {
+                await refreshListbcEmbed(interaction, session, day);
+            }
+            return true;
+        }
 
         // Lấy session mới nhất
         const freshSession = db.getActiveBangchien(partyKey);
@@ -717,6 +1058,74 @@ async function handleBcqlModal(interaction) {
     if (customId.startsWith('bcql_swap_modal_')) {
         const pos1 = parseInt(interaction.fields.getTextInputValue('position1'));
         const pos2 = parseInt(interaction.fields.getTextInputValue('position2'));
+
+        {
+            const freshSession = db.getActiveBangchien(partyKey) || session;
+            const roster = getRoster(freshSession);
+
+            if (isNaN(pos1) || isNaN(pos2) || pos1 < 1 || pos2 < 1) {
+                await interaction.reply({ content: 'Vi tri khong hop le!', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+
+            const from = getRosterSlotInfo(roster, pos1);
+            const to = getRosterSlotInfo(roster, pos2);
+            if (!from || !to) {
+                await interaction.reply({ content: 'Vi tri khong hop le!', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            if (!from.member) {
+                await interaction.reply({ content: 'Vi tri nguon khong co nguoi!', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+            if (from.teamId === to.teamId && from.index === to.index) {
+                await interaction.reply({ content: 'Hai slot dang trung nhau.', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+
+            const fromList = getTeamList(roster, from.teamId);
+            const toList = getTeamList(roster, to.teamId);
+            const fromLabel = getTeamLabelById(roster, from.teamId);
+            const toLabel = getTeamLabelById(roster, to.teamId);
+
+            if (to.member) {
+                const member1 = { ...from.member, team: to.teamId };
+                const member2 = { ...to.member, team: from.teamId };
+                if (from.teamId === to.teamId) {
+                    fromList[from.index] = from.member;
+                    fromList[to.index] = to.member;
+                    [fromList[from.index], fromList[to.index]] = [fromList[to.index], fromList[from.index]];
+                } else {
+                    fromList[from.index] = from.waiting ? clearTeamLeaderFlags(member2) : member2;
+                    toList[to.index] = to.waiting ? clearTeamLeaderFlags(member1) : member1;
+                }
+            } else {
+                if (pos2 !== to.firstEmptySlot) {
+                    await interaction.reply({
+                        content: `Phai di chuyen vao slot trong dau tien cua ${toLabel}: ${to.firstEmptySlot}`,
+                        flags: MessageFlags.Ephemeral
+                    });
+                    return true;
+                }
+                if (!to.waiting && toList.length >= to.capacity) {
+                    await interaction.reply({ content: `${toLabel} da day!`, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+                const [movedMember] = fromList.splice(from.index, 1);
+                const nextMember = { ...movedMember, team: to.teamId };
+                toList.push(to.waiting ? clearTeamLeaderFlags(nextMember) : nextMember);
+            }
+
+            saveRosterToSession(partyKey, roster);
+            await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+            await interaction.reply({
+                content: `Da cap nhat slot ${pos1} (${fromLabel}) -> ${pos2} (${toLabel})`,
+                flags: MessageFlags.Ephemeral
+            });
+            if (day) await refreshListbcEmbed(interaction, session, day);
+            return true;
+        }
 
         if (isNaN(pos1) || isNaN(pos2) || pos1 < 1 || pos2 < 1) {
             await interaction.reply({ content: '❌ Vị trí không hợp lệ!', flags: MessageFlags.Ephemeral });
@@ -942,8 +1351,8 @@ async function handleBcqlModal(interaction) {
         }
 
         // Check if already registered
-        const allMembers = [...session.team_attack1, ...session.team_attack2, ...session.team_defense, ...session.team_forest, ...session.waiting_list];
-        if (allMembers.some(p => p.id === userId)) {
+        const duplicateRoster = getRoster(session);
+        if (bangchienRoster.findMember(duplicateRoster, userId)) {
             await interaction.reply({ content: '❌ Người này đã đăng ký rồi!', flags: MessageFlags.Ephemeral });
             return true;
         }
@@ -951,6 +1360,58 @@ async function handleBcqlModal(interaction) {
         // Lookup tên ingame từ DB
         const addUserInfo = db.getUserByDiscordId(userId);
         const addGameName = addUserInfo?.game_username || '';
+
+        {
+            const freshSession = db.getActiveBangchien(partyKey) || session;
+            const roster = getRoster(freshSession);
+            if (bangchienRoster.findMember(roster, userId)) {
+                await interaction.reply({ content: 'Nguoi nay da dang ky roi!', flags: MessageFlags.Ephemeral });
+                return true;
+            }
+
+            const participant = {
+                id: userId,
+                username: user.username,
+                gn: addGameName,
+                name: addGameName || user.username,
+                role: 'DPS',
+                joinedAt: Date.now()
+            };
+
+            let result;
+            if (teamInput) {
+                const targetTeam = resolveRosterTeam(roster, teamInput);
+                if (!targetTeam) {
+                    await interaction.reply({ content: `Khong tim thay team: ${teamInput}`, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+                const targetList = getTeamList(roster, targetTeam.id);
+                if (targetList.length >= Number(targetTeam.capacity || 0)) {
+                    await interaction.reply({ content: `${getTeamLabel(targetTeam)} da day!`, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+                targetList.push({ ...participant, team: targetTeam.id });
+                saveRosterToSession(partyKey, roster);
+                result = { success: true, teamName: getTeamLabel(targetTeam) };
+            } else {
+                result = db.addBangchienParticipant(partyKey, participant, guildId);
+                if (!result.success) {
+                    await interaction.reply({ content: `${result.error}`, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+            }
+
+            await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+
+            const targetName = result.teamName || result.team || 'team';
+            await interaction.reply({ content: `Da them ${user.username} vao ${targetName}!`, flags: MessageFlags.Ephemeral });
+
+            if (day) {
+                await refreshListbcEmbed(interaction, session, day);
+            }
+            return true;
+        }
 
         // Add to specified team or auto
         const result = db.addBangchienParticipant(partyKey, { id: userId, username: user.username, gn: addGameName, name: addGameName || user.username, role: 'DPS' }, guildId);
@@ -976,6 +1437,41 @@ async function handleBcqlModal(interaction) {
 
     // ========== MODAL RESIZE ==========
     if (customId.startsWith('bcql_resize_modal_')) {
+        {
+            let layoutRaw = null;
+            try {
+                layoutRaw = interaction.fields.getTextInputValue('layout_lines').trim();
+            } catch (e) {
+                layoutRaw = null;
+            }
+
+            if (layoutRaw !== null) {
+                const roster = getRoster(session);
+                const parsed = parseResizeLayoutText(layoutRaw, roster.layout);
+                if (parsed.error) {
+                    await interaction.reply({ content: parsed.error, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+
+                const nextRoster = applyResizeLayout(roster, parsed.layout);
+                saveRosterToSession(partyKey, nextRoster);
+
+                await refreshOverviewEmbed(interaction.client, guildId);
+                await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+
+                const lines = parsed.layout.map((team) => `${getTeamLabel(team)}: ${team.capacity} slot`);
+                await interaction.reply({
+                    content: `Da cap nhat doi hinh dynamic:\n${lines.join('\n')}`,
+                    flags: MessageFlags.Ephemeral
+                });
+
+                if (day && session) {
+                    await refreshListbcEmbed(interaction, session, day);
+                }
+                return true;
+            }
+        }
+
         // Parse 4 con số từ 1 field dạng "10 10 5 5"
         const sizesRaw = interaction.fields.getTextInputValue('all_sizes').trim();
         const sizeParts = sizesRaw.split(/[\s,]+/).map(s => parseInt(s)).filter(n => !isNaN(n));
@@ -1056,6 +1552,54 @@ async function handleBcqlModal(interaction) {
     if (customId.startsWith('bcql_setleader_modal_')) {
         const leadersStr = interaction.fields.getTextInputValue('leaders_input').trim();
         const slotNumbers = leadersStr.split(/\s+/).map(s => parseInt(s)).filter(n => !isNaN(n));
+
+        {
+            const roster = getRoster(session);
+            if (slotNumbers.length === 0 || slotNumbers.length > roster.layout.length) {
+                await interaction.reply({ content: `Nhap 1-${roster.layout.length} slot leader!`, flags: MessageFlags.Ephemeral });
+                return true;
+            }
+
+            const seenTeams = new Set();
+            const selected = [];
+            for (const slotNum of slotNumbers) {
+                const info = getRosterSlotInfo(roster, slotNum);
+                if (!info || info.waiting || !info.member) {
+                    await interaction.reply({ content: `Slot ${slotNum} khong hop le hoac khong co nguoi active.`, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+                if (seenTeams.has(info.teamId)) {
+                    await interaction.reply({ content: `Moi team chi duoc set 1 leader. Slot ${slotNum} bi trung team.`, flags: MessageFlags.Ephemeral });
+                    return true;
+                }
+                seenTeams.add(info.teamId);
+                selected.push({ slotNum, info });
+            }
+
+            for (const team of roster.layout) {
+                (roster.teams[team.id] || []).forEach((member) => {
+                    member.isTeamLeader = false;
+                    member.ld = false;
+                });
+            }
+
+            const results = [];
+            for (const item of selected) {
+                const member = getTeamList(roster, item.info.teamId)[item.info.index];
+                member.isTeamLeader = true;
+                member.ld = true;
+                results.push(`${getMemberName(member)} -> ${getTeamLabel(item.info.team)} (slot ${item.slotNum})`);
+            }
+
+            saveRosterToSession(partyKey, roster);
+            await refreshOverviewEmbed(interaction.client, guildId);
+            await syncSessionToSupabase(guildId, partyKey, interaction.guild);
+
+            await interaction.reply({ content: `Da set Leader:\n${results.join('\n')}`, flags: MessageFlags.Ephemeral });
+
+            if (day) await refreshListbcEmbed(interaction, session, day);
+            return true;
+        }
 
         if (slotNumbers.length === 0 || slotNumbers.length > 4) {
             await interaction.reply({ content: '❌ Nhập 1-4 số slot (cách nhau bằng dấu cách)!', flags: MessageFlags.Ephemeral });

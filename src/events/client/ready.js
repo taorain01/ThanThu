@@ -471,18 +471,12 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           waiting_list: remoteSession.waiting_list || []
         });
 
-        // Ghi dữ liệu team vào SQLite
+        // Ghi leader mirror; roster dynamic da duoc serialize trong createActiveBangchien.
         db.db.prepare(`
           UPDATE bangchien_active
-          SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?,
-              team1_leader_id=?, team2_leader_id=?, team3_leader_id=?, team4_leader_id=?
+          SET team1_leader_id=?, team2_leader_id=?, team3_leader_id=?, team4_leader_id=?
           WHERE party_key=?
         `).run(
-          remoteSession.team_attack1 || '[]',
-          remoteSession.team_attack2 || '[]',
-          remoteSession.team_defense || '[]',
-          remoteSession.team_forest || '[]',
-          remoteSession.waiting_list || '[]',
           leaderIds.team1 || null,
           leaderIds.team2 || null,
           leaderIds.team3 || null,
@@ -697,20 +691,6 @@ module.exports = {
                 team_forest: newData.team_forest || [],
                 waiting_list: newData.waiting_list || []
               });
-              const stringifyTeam = (v) => typeof v === 'string' ? v : JSON.stringify(v || []);
-              db.db.prepare(`
-                UPDATE bangchien_active
-                SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?
-                WHERE party_key=?
-              `).run(
-                stringifyTeam(newData.team_attack1),
-                stringifyTeam(newData.team_attack2),
-                stringifyTeam(newData.team_defense),
-                stringifyTeam(newData.team_forest),
-                stringifyTeam(newData.waiting_list),
-                partyKey
-              );
-
               // Khởi tạo trong memory
               bangchienRegistrations.set(partyKey, bangchienRoster.getAllRosterMembers(newData));
               bangchienNotifications.set(partyKey, {

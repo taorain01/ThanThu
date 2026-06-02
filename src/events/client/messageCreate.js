@@ -1269,6 +1269,18 @@ module.exports = {
             return rteamCommand.execute(message, args);
         }
 
+        // ?rt-, ?rteam- - Random chia 2 team sau khi loại người khỏi voice pool
+        if (['rt-', 'rteam-', 'randomteam-'].includes(commandName)) {
+            const rteamCommand = require('../../commands/apps/rteam');
+            return rteamCommand.executeMinus(message, args);
+        }
+
+        // ?rt+, ?rteam+ - Random chia 2 team sau khi thêm người vào voice pool
+        if (['rt+', 'rteam+', 'randomteam+'].includes(commandName)) {
+            const rteamCommand = require('../../commands/apps/rteam');
+            return rteamCommand.executePlus(message, args);
+        }
+
         // ?rrteam, ?rrt - Random lại kết quả chia đội trước đó
         if (['rrteam', 'rrt'].includes(commandName)) {
             const rteamCommand = require('../../commands/apps/rteam');

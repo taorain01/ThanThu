@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 
 // Lưu danh sách args theo channelId để ?rrteam dùng lại
 const lastTeamArgs = new Map();
+const TEAM_SIZE = 10;
 
 /**
  * Shuffle array (Fisher-Yates)
@@ -23,6 +24,7 @@ function buildTeamEmbed(players, requester, isReroll = false) {
     const shuffledPlayers = shuffle([...players]);
     const team1 = shuffledPlayers.slice(0, 5);
     const team2 = shuffledPlayers.slice(5, 10);
+    const omitted = shuffledPlayers.slice(TEAM_SIZE);
 
     const embed = new EmbedBuilder()
         .setColor(isReroll ? 0xFFA500 : 0x00FFFF)
@@ -45,6 +47,14 @@ function buildTeamEmbed(players, requester, isReroll = false) {
         .setTimestamp()
         .setFooter({ text: `Yêu cầu bởi ${requester.username}`, iconURL: requester.displayAvatarURL() });
 
+    if (omitted.length > 0) {
+        embed.addFields({
+            name: 'Không vào đội',
+            value: omitted.map((p, i) => `**${i + 1}.** ${p}`).join('\n'),
+            inline: false
+        });
+    }
+
     return embed;
 }
 
@@ -56,6 +66,49 @@ function sortVoiceMembers(membersCollection) {
     return [...membersCollection.values()].sort((a, b) =>
         a.displayName.localeCompare(b.displayName)
     );
+}
+
+function formatMention(userId) {
+    return `<@${userId}>`;
+}
+
+function unique(values) {
+    return [...new Set(values)];
+}
+
+function getTargetUserIds(message, args) {
+    const ids = [];
+    for (const arg of args) {
+        const mentionMatch = arg.match(/^<@!?(\d{15,25})>$/);
+        const rawIdMatch = arg.match(/^(\d{15,25})$/);
+        const id = mentionMatch?.[1] || rawIdMatch?.[1];
+        if (id) ids.push(id);
+    }
+    for (const user of message.mentions.users.values()) {
+        ids.push(user.id);
+    }
+    return unique(ids);
+}
+
+function getVoicePlayerIds(message) {
+    const voiceChannel = message.member?.voice?.channel;
+    if (!voiceChannel) return { voiceChannel: null, playerIds: [] };
+    const playerIds = voiceChannel.members
+        .filter(member => !member.user.bot)
+        .map(member => member.id);
+    return { voiceChannel, playerIds };
+}
+
+async function sendTeamFromPool(message, playerIds) {
+    const players = unique(playerIds).map(formatMention);
+    if (players.length < TEAM_SIZE) {
+        return message.reply(`❌ Cần ít nhất **${TEAM_SIZE}** người để random, hiện chỉ có **${players.length}** người.`);
+    }
+
+    lastTeamArgs.set(message.channel.id, [...players]);
+
+    const embed = buildTeamEmbed(players, message.author, false);
+    return message.channel.send({ embeds: [embed] });
 }
 
 /**
@@ -145,6 +198,50 @@ async function execute(message, args) {
 }
 
 /**
+ * ?rt- @user @user2 - Loại user khỏi pool voice rồi random 10 người.
+ */
+async function executeMinus(message, args) {
+    if (args.length === 0) {
+        return message.reply('❌ Cách dùng: `?rt- @user @user2` để loại người khỏi voice trước khi random.');
+    }
+
+    const { voiceChannel, playerIds } = getVoicePlayerIds(message);
+    if (!voiceChannel) {
+        return message.reply('❌ Bạn cần ở trong **voice channel** để dùng `?rt-`.');
+    }
+
+    const excludedIds = getTargetUserIds(message, args);
+    if (excludedIds.length === 0) {
+        return message.reply('❌ Không tìm thấy user cần loại. Hãy mention user hoặc nhập Discord ID.');
+    }
+
+    const excluded = new Set(excludedIds);
+    const pool = playerIds.filter(id => !excluded.has(id));
+    return sendTeamFromPool(message, pool);
+}
+
+/**
+ * ?rt+ @user @user2 - Thêm user vào pool voice rồi random 10 người.
+ */
+async function executePlus(message, args) {
+    if (args.length === 0) {
+        return message.reply('❌ Cách dùng: `?rt+ @user @user2` để thêm người vào pool random.');
+    }
+
+    const { voiceChannel, playerIds } = getVoicePlayerIds(message);
+    if (!voiceChannel) {
+        return message.reply('❌ Bạn cần ở trong **voice channel** để dùng `?rt+`.');
+    }
+
+    const addedIds = getTargetUserIds(message, args);
+    if (addedIds.length === 0) {
+        return message.reply('❌ Không tìm thấy user cần thêm. Hãy mention user hoặc nhập Discord ID.');
+    }
+
+    return sendTeamFromPool(message, [...playerIds, ...addedIds]);
+}
+
+/**
  * ?rrteam command - Random lại từ kết quả ?rteam trước đó
  */
 async function reroll(message) {
@@ -157,4 +254,4 @@ async function reroll(message) {
     return message.channel.send({ embeds: [embed] });
 }
 
-module.exports = { execute, reroll, lastTeamArgs };
+module.exports = { execute, executeMinus, executePlus, reroll, lastTeamArgs };

@@ -192,6 +192,8 @@
     .stat-chip.healer .val { color: var(--healer); }
     .stat-chip.tanker .val { color: var(--tanker); }
     .stat-chip.pending .val { color: var(--gold); }
+    .stat-chip.total .val { color: #e2e8f0; }
+    .stat-chip.total { border-color: rgba(226,232,240,.2); background: rgba(226,232,240,.04); }
 
     /* ── STATUS MESSAGE ── */
     .status-msg {
@@ -777,9 +779,11 @@
     const dps = activeRows.filter(r=>rowCombat(r)==='DPS').length;
     const healer = activeRows.filter(r=>rowCombat(r)==='Healer').length;
     const tanker = activeRows.filter(r=>rowCombat(r)==='Tanker').length;
+    const total = activeRows.length + pendingRows.length;
     els.stats.innerHTML = `
-      <div class="stat-chip"><span class="val">${activeRows.length}</span><span class="lbl">Thành viên</span></div>
-      ${pendingRows.length ? `<div class="stat-chip pending"><span class="val">${pendingRows.length}</span><span class="lbl">Chờ duyệt</span></div>` : ''}
+      <div class="stat-chip"><span class="val">${activeRows.length}</span><span class="lbl">Discord</span></div>
+      <div class="stat-chip pending"><span class="val">${pendingRows.length}</span><span class="lbl">Chưa vào Discord</span></div>
+      <div class="stat-chip total"><span class="val">${total}</span><span class="lbl">Tổng</span></div>
       <div class="stat-chip dps"><span class="val">${dps}</span><span class="lbl">DPS</span></div>
       <div class="stat-chip healer"><span class="val">${healer}</span><span class="lbl">Healer</span></div>
       <div class="stat-chip tanker"><span class="val">${tanker}</span><span class="lbl">Tanker</span></div>`;

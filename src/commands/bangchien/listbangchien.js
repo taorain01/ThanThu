@@ -67,59 +67,76 @@ module.exports = {
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CASE 2: ?listbc → Tóm tắt ngắn gọn (giống ?bc) + 1 nút WEB
+        // CASE 2: ?listbc → Tóm tắt các ngày + buttons
         // ═══════════════════════════════════════════════════════════════════
         const allSessions = db.getActiveBangchienByGuild(guildId) || [];
-        // Sắp xếp theo ngày (primary days trước) rồi theo thời gian
-        allSessions.sort((a, b) => {
-            const aDayIndex = Object.keys(DAY_CONFIG).indexOf(a.day);
-            const bDayIndex = Object.keys(DAY_CONFIG).indexOf(b.day);
-            if (aDayIndex !== bDayIndex) return aDayIndex - bDayIndex;
-            return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
-        });
+        // Sắp xếp theo ngày tạo gần nhất (thay vì cố định Thứ 2 -> CN)
+        allSessions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        // Group sessions by day (giống ?bc)
-        const byDay = {};
-        const dayOrder = [];
-        for (const s of allSessions) {
-            if (!byDay[s.day]) { byDay[s.day] = []; dayOrder.push(s.day); }
-            byDay[s.day].push(s);
-        }
+        // Helper: tính stats cho 1 session
+        const getStats = (s) => {
+            if (!s) return { total: 0, waiting: 0, byTeam: {}, layout: [] };
+            const roster = bangchienRoster.normalizeRoster(s);
+            const counts = bangchienRoster.getRosterCounts(roster);
+            return { total: counts.active, waiting: counts.waiting, byTeam: counts.byTeam, layout: roster.layout };
+        };
 
         const overviewEmbed = new EmbedBuilder()
             .setColor(0xFFD700)
-            .setTitle('⚔️  Bang Chiến Lang Gia');
+            .setTitle('📋 BANG CHIẾN TUẦN NÀY');
 
         if (allSessions.length === 0) {
-            overviewEmbed.setDescription('> Chưa có phiên Bang Chiến nào đang mở.');
+            overviewEmbed.setDescription('📅 Chưa có phiên Bang Chiến nào đang mở.');
         } else {
-            for (const dayKey of dayOrder) {
-                const lines = byDay[dayKey].map(session => {
-                    const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
-                    const counts = bangchienRoster.getRosterCounts(session);
-                    const total = counts.active;
-                    const waiting = counts.waiting;
-                    const waitStr = waiting > 0 ? ` _(+${waiting} chờ)_` : '';
-                    return `▫️ **${timeStr}**  \`${total}/30\`${waitStr}`;
-                });
-                overviewEmbed.addFields({ name: `📅 ${getDayNameWithDate(dayKey)}`, value: lines.join('\n'), inline: false });
+            for (const sessionItem of allSessions) {
+                const stats = getStats(sessionItem);
+                const dateStr = getDayNameWithDate(sessionItem.day).toUpperCase();
+                const teamLine = stats.layout
+                    .map((team) => `${team.icon || '*'} ${team.name}: ${stats.byTeam[team.id] || 0}`)
+                    .join(' | ');
+                let line = `**${dateStr}** (${stats.total}/30) - Đang diễn ra`;
+                if (teamLine) line += `\n${teamLine}`;
+                if (stats.waiting > 0) line += `\nChờ: ${stats.waiting}`;
+                overviewEmbed.addFields({ name: '\u200b', value: line, inline: false });
             }
         }
 
         overviewEmbed
-            .setFooter({ text: `Tổng ${allSessions.length} trận đang mở` })
+            .setFooter({ text: hasPermission ? '💡 Bấm nút để xem chi tiết và quản lý' : '💡 Chỉ Kỳ Cựu mới xem chi tiết' })
             .setTimestamp();
 
-        // Chỉ 1 nút Truy cập WEB
-        const webRow = new ActionRowBuilder()
-            .addComponents(
+        const overviewComponents = [];
+        if (hasPermission && allSessions.length > 0) {
+            const shortLabels = { mon: 'T2', tue: 'T3', wed: 'T4', thu: 'T5', fri: 'T6', sat: 'T7', sun: 'CN' };
+            const row = new ActionRowBuilder();
+            for (const sessionItem of allSessions.slice(0, 4)) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`listbc_view_${sessionItem.party_key}`)
+                        .setLabel(`📋 ${shortLabels[sessionItem.day] || sessionItem.day} ${sessionItem.time || LEAGUE_TIME}`)
+                        .setStyle(ButtonStyle.Primary)
+                );
+            }
+            // Add 1 nút Truy cập WEB cùng với các nút trên nếu có (hàng có tối đa 5 components)
+            row.addComponents(
                 new ButtonBuilder()
                     .setLabel('🌐 Truy cập WEB')
                     .setStyle(ButtonStyle.Link)
                     .setURL('https://langgiawar.vercel.app/')
             );
+            overviewComponents.push(row);
+        } else {
+            const webRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setLabel('🌐 Truy cập WEB')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL('https://langgiawar.vercel.app/')
+                );
+            overviewComponents.push(webRow);
+        }
 
-        return await message.reply({ embeds: [overviewEmbed], components: [webRow] });
+        return await message.reply({ embeds: [overviewEmbed], components: overviewComponents });
     },
 
 

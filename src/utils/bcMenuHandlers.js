@@ -92,7 +92,7 @@ function createBcMenu(guildId, userId) {
         // Group theo ngày, giữ thứ tự đúng
         const byDay = {};
         const dayOrder = [];
-        for (const s of sessions.slice(0, 10)) {
+        for (const s of sessions) {
             if (!byDay[s.day]) { byDay[s.day] = []; dayOrder.push(s.day); }
             byDay[s.day].push(s);
         }
@@ -155,6 +155,14 @@ function createBcMenu(guildId, userId) {
                 .setLabel('Đóng')
                 .setStyle(ButtonStyle.Secondary)
         ));
+        if (selected.size > 0) {
+            components.push(new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bcmenu_clear_${guildId}`)
+                    .setLabel('Bo chon tat ca')
+                    .setStyle(ButtonStyle.Secondary)
+            ));
+        }
     } else {
         components.push(new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -435,6 +443,17 @@ async function handleBcMenuButton(interaction) {
     if (customId.startsWith('bcmenu_close_')) {
         pendingBcMenuSelections.delete(menuStateKey(guildId, userId));
         await interaction.editReply({ content: 'Đã đóng menu.', embeds: [], components: [] });
+        return true;
+    }
+
+    if (customId.startsWith('bcmenu_clear_')) {
+        pendingBcMenuSelections.set(menuStateKey(guildId, userId), new Set());
+        const { embed, components } = createBcMenu(guildId, userId);
+        await interaction.editReply({
+            content: 'Da bo chon tat ca tran. Bam Xac nhan de luu huy dang ky.',
+            embeds: [embed],
+            components
+        });
         return true;
     }
 

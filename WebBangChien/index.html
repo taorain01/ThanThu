@@ -285,6 +285,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   overflow: hidden;
   cursor: grab;
 }
+/* Collapsed: cứng max-height để không gì lòi ra */
+.mp-wrap.collapsed .mp-body {
+  max-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
+}
 .mp-wrap.mp-dragging {
   cursor: grabbing;
   transition: none !important;
@@ -614,23 +621,64 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   box-shadow:0 0 8px rgba(200,162,44,.6);
   border:1px solid rgba(255,215,0,.5);
 }
-.mp-autoplay{
-  display:flex;align-items:center;gap:8px;
-  padding:0 14px 10px;
-  color:rgba(255,245,210,.62);
-  font-size:10.5px;font-weight:700;
-  cursor:pointer;
+/* ── Autoplay toggle switch ── */
+.mp-autoplay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 10px;
+  cursor: pointer;
+  user-select: none;
 }
-.mp-autoplay input{
-  width:14px;height:14px;
-  flex-shrink:0;
-  accent-color:#c8a22c;
-  cursor:pointer;
+.mp-autoplay input[type="checkbox"] {
+  display: none;
 }
-.mp-autoplay span{
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+/* Track (nền toggle) */
+.mp-autoplay .mp-toggle-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.12);
+  transition: background .22s, border-color .22s, box-shadow .22s;
+  flex-shrink: 0;
 }
-.mp-autoplay:hover{color:var(--gold)}
+/* Thumb (nút tròn) */
+.mp-autoplay .mp-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.35);
+  transition: transform .22s cubic-bezier(.25,.46,.45,.94), background .22s, box-shadow .22s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4);
+}
+/* ON state */
+.mp-autoplay input:checked ~ .mp-toggle-track {
+  background: linear-gradient(135deg, rgba(200,162,44,.55), rgba(150,90,0,.4));
+  border-color: rgba(200,162,44,.7);
+  box-shadow: 0 0 8px rgba(200,162,44,.35);
+}
+.mp-autoplay input:checked ~ .mp-toggle-track::after {
+  transform: translateX(14px);
+  background: radial-gradient(circle at 35% 35%, #ffe566, #c8a22c);
+  box-shadow: 0 0 6px rgba(200,162,44,.6), 0 1px 3px rgba(0,0,0,.4);
+}
+.mp-autoplay .mp-autoplay-lbl {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(255,245,210,.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color .18s;
+}
+.mp-autoplay:hover .mp-autoplay-lbl { color: rgba(255,245,210,.9); }
+.mp-autoplay:hover .mp-toggle-track { border-color: rgba(200,162,44,.4); }
 /* Playlist list toggle */
 .mp-list-btn{
   width:100%;padding:6px 14px 10px;
@@ -9021,7 +9069,8 @@ document.addEventListener('keydown', (e) => {
     </div>
     <label class="mp-autoplay" for="mpAutoplay" title="Bật/tắt tự phát nhạc khi mở web">
       <input type="checkbox" id="mpAutoplay" checked onchange="mpSetAutoplay(this.checked)">
-      <span>Tự động phát nhạc</span>
+      <span class="mp-toggle-track"></span>
+      <span class="mp-autoplay-lbl">Tự động phát nhạc</span>
     </label>
     <!-- Playlist dropdown -->
     <button class="mp-list-btn" onclick="mpToggleList()">

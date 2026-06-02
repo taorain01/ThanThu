@@ -5858,20 +5858,81 @@ function normalizeTacticsTeamId(value, fallback) {
         .slice(0, 40) || fallback;
 }
 
+function repairTacticsMojibakeText(value) {
+    let raw = String(value || '');
+    if (!/(?:[ÃÄÆ]|á[»º]|[\u0080-\u009f\u2018-\u201d])/.test(raw)) return raw;
+    if (typeof TextDecoder === 'undefined') return raw;
+    raw = raw.replace(/\u0102(?=[\u0080-\u00bf\u2018-\u201d])/g, '\u00c3');
+    const win1252 = {
+        '\u20ac': 0x80, '\u201a': 0x82, '\u0192': 0x83, '\u201e': 0x84, '\u2026': 0x85, '\u2020': 0x86,
+        '\u2021': 0x87, '\u02c6': 0x88, '\u2030': 0x89, '\u0160': 0x8a, '\u2039': 0x8b, '\u0152': 0x8c,
+        '\u017d': 0x8e, '\u2018': 0x91, '\u2019': 0x92, '\u201c': 0x93, '\u201d': 0x94, '\u2022': 0x95,
+        '\u2013': 0x96, '\u2014': 0x97, '\u02dc': 0x98, '\u2122': 0x99, '\u0161': 0x9a, '\u203a': 0x9b,
+        '\u0153': 0x9c, '\u017e': 0x9e, '\u0178': 0x9f
+    };
+    const bytes = [];
+    for (const ch of raw) {
+        const code = ch.codePointAt(0);
+        if (code <= 0xff) bytes.push(code);
+        else if (win1252[ch] !== undefined) bytes.push(win1252[ch]);
+        else return String(value || '');
+    }
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+    } catch (error) {
+        return String(value || '');
+    }
+}
+
+function normalizeTacticsTeamDisplayName(value, index = 0) {
+    const raw = repairTacticsMojibakeText(value).trim();
+    const fallback = DEFAULT_TACTICS_TEAM_LAYOUT[index]?.name || `Team ${index + 1}`;
+    if (!raw) return fallback;
+    const key = raw
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[Đđ]/g, 'D')
+        .replace(/[^A-Za-z0-9]+/g, ' ')
+        .trim()
+        .toUpperCase();
+    const teamCongMatch = key.match(/^TEAM CONG(?:\s+(.+))?$/);
+    if (teamCongMatch) return `TEAM CÔNG${teamCongMatch[1] ? ` ${teamCongMatch[1]}` : ''}`;
+    const congMatch = key.match(/^CONG(?:\s+(.+))?$/);
+    if (congMatch) return `Công${congMatch[1] ? ` ${congMatch[1]}` : ''}`;
+    const teamThuMatch = key.match(/^TEAM THU(?:\s+(.+))?$/);
+    if (teamThuMatch) return `TEAM THỦ${teamThuMatch[1] && teamThuMatch[1] !== 'NHA' ? ` ${teamThuMatch[1]}` : ''}`;
+    const teamRungMatch = key.match(/^TEAM RUNG(?:\s+(.+))?$/);
+    if (teamRungMatch) return `TEAM RỪNG${teamRungMatch[1] ? ` ${teamRungMatch[1]}` : ''}`;
+    const known = {
+        'TEAM CONG 1': 'TEAM CÔNG 1',
+        'TEAM CONG 2': 'TEAM CÔNG 2',
+        'TEAM THU': 'TEAM THỦ',
+        'TEAM THU NHA': 'TEAM THỦ',
+        'TEAM RUNG': 'TEAM RỪNG',
+        'CONG 1': 'Công 1',
+        'CONG 2': 'Công 2',
+        'THU': 'Thủ',
+        'THU NHA': 'Thủ',
+        'RUNG': 'Rừng'
+    };
+    if (known[key]) return known[key];
+    return raw;
+}
+
 function getSessionTeamLayout(data = sessionData) {
     const rawLayout = parseTacticsJsonList(data?.team_layout);
     const names = parseTacticsJsonObject(data?.team_names);
     const sizes = parseTacticsJsonObject(data?.team_sizes);
     const source = rawLayout.length
         ? rawLayout
-        : DEFAULT_TACTICS_TEAM_LAYOUT.map((team) => {
+        : DEFAULT_TACTICS_TEAM_LAYOUT.map((team, index) => {
             const sizeKey = team.id === 'team_attack1' ? 'attack1'
                 : team.id === 'team_attack2' ? 'attack2'
                 : team.id === 'team_defense' ? 'defense'
                 : 'forest';
             return {
                 ...team,
-                name: names[sizeKey] || team.name,
+                name: normalizeTacticsTeamDisplayName(names[sizeKey] || team.name, index),
                 capacity: Number(sizes[sizeKey] ?? team.capacity) || team.capacity
             };
         }).filter((team) => Number(team.capacity) > 0);
@@ -5883,7 +5944,7 @@ function getSessionTeamLayout(data = sessionData) {
         seen.add(id);
         return {
             id,
-            name: String(team?.name || `Team ${index + 1}`).trim().slice(0, 32),
+            name: normalizeTacticsTeamDisplayName(team?.name, index).slice(0, 32),
             icon: String(team?.icon || DEFAULT_TACTICS_TEAM_LAYOUT[index]?.icon || '•').trim().slice(0, 8),
             capacity: Math.max(1, Math.min(30, Number(team?.capacity ?? 1) || 1)),
             order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1

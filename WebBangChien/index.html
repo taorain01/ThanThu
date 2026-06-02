@@ -4605,6 +4605,67 @@ function normalizeIndexTeamId(value, fallback) {
         .slice(0, 40) || fallback;
 }
 
+function repairIndexMojibakeText(value) {
+    let raw = String(value || '');
+    if (!/(?:[ÃÄÆ]|á[»º]|[\u0080-\u009f\u2018-\u201d])/.test(raw)) return raw;
+    if (typeof TextDecoder === 'undefined') return raw;
+    raw = raw.replace(/\u0102(?=[\u0080-\u00bf\u2018-\u201d])/g, '\u00c3');
+    const win1252 = {
+        '\u20ac': 0x80, '\u201a': 0x82, '\u0192': 0x83, '\u201e': 0x84, '\u2026': 0x85, '\u2020': 0x86,
+        '\u2021': 0x87, '\u02c6': 0x88, '\u2030': 0x89, '\u0160': 0x8a, '\u2039': 0x8b, '\u0152': 0x8c,
+        '\u017d': 0x8e, '\u2018': 0x91, '\u2019': 0x92, '\u201c': 0x93, '\u201d': 0x94, '\u2022': 0x95,
+        '\u2013': 0x96, '\u2014': 0x97, '\u02dc': 0x98, '\u2122': 0x99, '\u0161': 0x9a, '\u203a': 0x9b,
+        '\u0153': 0x9c, '\u017e': 0x9e, '\u0178': 0x9f
+    };
+    const bytes = [];
+    for (const ch of raw) {
+        const code = ch.codePointAt(0);
+        if (code <= 0xff) bytes.push(code);
+        else if (win1252[ch] !== undefined) bytes.push(win1252[ch]);
+        else return String(value || '');
+    }
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+    } catch (error) {
+        return String(value || '');
+    }
+}
+
+function normalizeIndexTeamDisplayName(value, index = 0) {
+    const raw = repairIndexMojibakeText(value).trim();
+    const fallback = INDEX_DEFAULT_TEAM_LAYOUT[index]?.name || `TEAM ${index + 1}`;
+    if (!raw) return fallback;
+    const key = raw
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[Đđ]/g, 'D')
+        .replace(/[^A-Za-z0-9]+/g, ' ')
+        .trim()
+        .toUpperCase();
+    const teamCongMatch = key.match(/^TEAM CONG(?:\s+(.+))?$/);
+    if (teamCongMatch) return `TEAM CÔNG${teamCongMatch[1] ? ` ${teamCongMatch[1]}` : ''}`;
+    const congMatch = key.match(/^CONG(?:\s+(.+))?$/);
+    if (congMatch) return `Công${congMatch[1] ? ` ${congMatch[1]}` : ''}`;
+    const teamThuMatch = key.match(/^TEAM THU(?:\s+(.+))?$/);
+    if (teamThuMatch) return `TEAM THỦ${teamThuMatch[1] && teamThuMatch[1] !== 'NHA' ? ` ${teamThuMatch[1]}` : ''}`;
+    const teamRungMatch = key.match(/^TEAM RUNG(?:\s+(.+))?$/);
+    if (teamRungMatch) return `TEAM RỪNG${teamRungMatch[1] ? ` ${teamRungMatch[1]}` : ''}`;
+    const known = {
+        'TEAM CONG 1': 'TEAM CÔNG 1',
+        'TEAM CONG 2': 'TEAM CÔNG 2',
+        'TEAM THU': 'TEAM THỦ',
+        'TEAM THU NHA': 'TEAM THỦ',
+        'TEAM RUNG': 'TEAM RỪNG',
+        'CONG 1': 'Công 1',
+        'CONG 2': 'Công 2',
+        'THU': 'Thủ',
+        'THU NHA': 'Thủ',
+        'RUNG': 'Rừng'
+    };
+    if (known[key]) return known[key];
+    return raw;
+}
+
 function getIndexTeamLayout(session) {
     const rawLayout = parseIndexJsonList(session?.team_layout);
     const names = parseIndexJsonObject(session?.team_names);
@@ -4630,7 +4691,7 @@ function getIndexTeamLayout(session) {
         seen.add(id);
         return {
             id,
-            name: String(team?.name || `TEAM ${index + 1}`).trim().slice(0, 32),
+            name: normalizeIndexTeamDisplayName(team?.name, index).slice(0, 32),
             icon: String(team?.icon || INDEX_DEFAULT_TEAM_LAYOUT[index]?.icon || '•').trim().slice(0, 8),
             capacity: Math.max(1, Math.min(INDEX_MAX_ACTIVE, Number(team?.capacity ?? 1) || 1)),
             order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1
@@ -6280,7 +6341,7 @@ function buildTeamsHtml(data) {
             const stats = { d: 0, h: 0, t: 0 };
             players.forEach(p => { if (p.role === 'DPS') stats.d++; else if (p.role === 'Healer') stats.h++; else stats.t++; });
 
-            let card = `<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key === 'waiting_list' ? ' style="color:var(--gold)"' : ''}>${t.title}</div><div class="t-cnt">${t.max ? players.length + '/' + t.max + ' thĂ nh viĂªn' : players.length + ' ngÆ°á»i chá»'}</div></div></div><div class="t-roles">`;
+            let card = `<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key === 'waiting_list' ? ' style="color:var(--gold)"' : ''}>${t.title}</div><div class="t-cnt">${t.max ? players.length + '/' + t.max + ' thành viên' : players.length + ' người chờ'}</div></div></div><div class="t-roles">`;
             if (stats.d) card += `<div class="rb d"><div class="rd d"></div>${stats.d}</div>`;
             if (stats.h) card += `<div class="rb h"><div class="rd h"></div>${stats.h}</div>`;
             if (stats.t) card += `<div class="rb t"><div class="rd t"></div>${stats.t}</div>`;

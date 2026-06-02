@@ -21,6 +21,13 @@ let supportsBcTacticsHistorySessionIdColumn = true;
 let supportsBcRosterSnapshotsTable = true;
 let warnedBcRosterSnapshotsMissing = false;
 
+function isTacticsSessionScopedUnavailableError(error) {
+    const message = error?.message || String(error || '');
+    return error?.code === '42P10' ||
+        /session_id/i.test(message) ||
+        /no unique or exclusion constraint matching the ON CONFLICT specification/i.test(message);
+}
+
 /**
  * Khởi tạo Supabase client (gọi 1 lần khi bot start)
  */
@@ -381,7 +388,7 @@ async function getSessionScopedTacticsRow(guildId, sessionId, day) {
             .maybeSingle();
 
         if (!result.error) return result.data || null;
-        if (/session_id/i.test(result.error.message || '')) {
+        if (isTacticsSessionScopedUnavailableError(result.error)) {
             supportsBcTacticsSessionIdColumn = false;
         } else {
             handleSyncError('getSessionScopedTacticsRow', result.error);
@@ -815,7 +822,7 @@ async function fetchLatestGuildTacticsSeedSource(guildId, excludeSessionId = nul
             .limit(10);
 
         if (liveResult.error) {
-            if (/session_id/i.test(liveResult.error.message || '')) {
+            if (isTacticsSessionScopedUnavailableError(liveResult.error)) {
                 supportsBcTacticsSessionIdColumn = false;
             } else {
                 handleSyncError('fetchLatestGuildTacticsSeedSource live', liveResult.error);
@@ -909,7 +916,7 @@ async function upsertSessionScopedTacticsPayload(guildId, sessionRow, payload) {
             }, { onConflict: 'guild_id,session_id' });
 
         if (!scoped.error) return null;
-        if (/session_id/i.test(scoped.error.message || '')) {
+        if (isTacticsSessionScopedUnavailableError(scoped.error)) {
             supportsBcTacticsSessionIdColumn = false;
         } else {
             return scoped.error;

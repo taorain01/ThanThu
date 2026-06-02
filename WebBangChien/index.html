@@ -2736,6 +2736,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 </style>
 </head>
 <body class="theme-dark" oncontextmenu="return false;">
+<div id="legacyDuplicateScreens" hidden>
 
 <!-- Hiệu ứng lửa bay toàn trang -->
 <div class="fire-container" id="fireContainer"></div>
@@ -2859,8 +2860,9 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       </div>
     </div>
   </div>
-</head>
-<body class="theme-dark" oncontextmenu="return false;">
+</div>
+</div>
+<div id="appRoot">
 
 <!-- Hiệu ứng lửa bay toàn trang -->
 <div class="fire-container" id="fireContainer"></div>
@@ -3015,6 +3017,12 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       </button>
 
       <!-- User Badge ở góc phải: click để mở dropdown -->
+      <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
+        <img id="userAvatar" src="" alt="Avatar">
+        <span class="uname" id="userName" data-text="User">User</span>
+        <span class="ub-arrow">▼</span>
+        <div class="user-dropdown" id="userDropdown">
+          <button class="ud-item" onclick="openProfileModal(event)">👤 Hồ sơ</button>
           <div class="ud-sep"></div>
           <button class="ud-item danger" onclick="logout(event)">🚪 Đăng xuất</button>
         </div>
@@ -3207,6 +3215,15 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 </div>
 
 <script>
+function removeDuplicateStaticScreens() {
+    ['fireContainer', 'landingPage', 'loadingScreen', 'notMemberScreen', 'guestScreen'].forEach((id) => {
+        const nodes = Array.from(document.querySelectorAll(`[id="${id}"]`));
+        nodes.slice(0, -1).forEach((node) => node.remove());
+    });
+}
+
+removeDuplicateStaticScreens();
+
 // ═══ SUPABASE CONFIG ═══
 const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
@@ -3717,6 +3734,13 @@ const DAY_LABELS = {
 };
 const calSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
+
+function isTacticsSessionScopedUnavailableError(error) {
+    const message = error?.message || String(error || '');
+    return error?.code === '42P10' ||
+        /session_id/i.test(message) ||
+        /no unique or exclusion constraint matching the ON CONFLICT specification/i.test(message);
+}
 
 function normalizeSessionTime(value, fallback = LEAGUE_TIME) {
     const raw = String(value || fallback || LEAGUE_TIME).trim().toLowerCase();
@@ -4592,7 +4616,7 @@ async function persistIndexTacticsPayloadForSession(sessionRow, payload) {
         }, { onConflict: 'guild_id,session_id' });
 
         if (!scoped.error) return null;
-        if (/session_id/i.test(scoped.error.message || '')) {
+        if (isTacticsSessionScopedUnavailableError(scoped.error)) {
             supportsTacticsSessionIdColumn = false;
         } else {
             return scoped.error;
@@ -4632,7 +4656,7 @@ async function fetchCurrentSessionTacticsRow(selectClause = 'markers,notes,updat
             .maybeSingle();
 
         if (!scoped.error) return scoped.data || null;
-        if (/session_id/i.test(scoped.error.message || '')) {
+        if (isTacticsSessionScopedUnavailableError(scoped.error)) {
             supportsTacticsSessionIdColumn = false;
         } else {
             console.warn('[Index] Load session tactics failed:', scoped.error);
@@ -4667,7 +4691,7 @@ async function fetchLatestGuildTacticsSeed() {
             .limit(10);
 
         if (liveResult.error) {
-            if (/session_id/i.test(liveResult.error.message || '')) {
+            if (isTacticsSessionScopedUnavailableError(liveResult.error)) {
                 supportsTacticsSessionIdColumn = false;
             } else {
                 console.warn('[Index] Load latest live tactics failed:', liveResult.error);
@@ -6141,7 +6165,14 @@ if (mapBoxEl && window.ResizeObserver) {
 }
 
 // ═══ INIT ═══
-checkAuth();
+checkAuth().catch((error) => {
+    console.error('[LangGia] checkAuth failed:', error);
+    document.querySelectorAll('#loadingScreen').forEach((el) => el.classList.add('hidden'));
+    const hasActiveScreen = document.querySelector('#mainApp.active, #guestScreen.active, #notMemberScreen.active');
+    if (!hasActiveScreen) {
+        document.querySelectorAll('#landingPage').forEach((el) => el.classList.remove('hidden'));
+    }
+});
 
 // ═══ MỞ TRANG CHIẾN THUẬT ═══
 function openTactics() {
@@ -9886,5 +9917,6 @@ document.addEventListener('keydown', (e) => {
   initTheme();
 })();
 </script>
+</div>
 </body>
 </html>

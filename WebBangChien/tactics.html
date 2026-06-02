@@ -1588,6 +1588,13 @@ let supportsTacticsSessionIdColumn = true;
 let supportsTacticsHistorySessionIdColumn = true;
 let memberAccessWatchChannel = null;
 
+function isTacticsSessionScopedUnavailableError(error) {
+    const message = error?.message || String(error || '');
+    return error?.code === '42P10' ||
+        /session_id/i.test(message) ||
+        /no unique or exclusion constraint matching the ON CONFLICT specification/i.test(message);
+}
+
 function hasKcWebAccess(discordId = window.currentDiscordId) {
     return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
 }
@@ -7628,7 +7635,7 @@ async function persistTacticsPayload(tacticsData) {
             session_id: sessionId
         }, { onConflict: 'guild_id,session_id' });
         if (!scoped.error) return null;
-        if (/session_id/i.test(scoped.error.message || '')) {
+        if (isTacticsSessionScopedUnavailableError(scoped.error)) {
             supportsTacticsSessionIdColumn = false;
         } else {
             return scoped.error;
@@ -13903,7 +13910,7 @@ loadPersistedTacticsData = async function() {
                     notes: scoped.data?.notes || '',
                     toastMessage: 'Da tai chien thuat session hien tai!'
                 })) return true;
-            } else if (/session_id/i.test(scoped.error.message || '')) {
+            } else if (isTacticsSessionScopedUnavailableError(scoped.error)) {
                 supportsTacticsSessionIdColumn = false;
             } else {
                 console.warn('[Tactics] Load session-scoped bc_tactics failed:', scoped.error);
@@ -13947,7 +13954,7 @@ loadPersistedTacticsData = async function() {
                 .order('updated_at', { ascending: false })
                 .limit(10);
 
-        if (liveSource.error && /session_id/i.test(liveSource.error.message || '')) {
+        if (liveSource.error && isTacticsSessionScopedUnavailableError(liveSource.error)) {
             supportsTacticsSessionIdColumn = false;
         } else if (liveSource.error) {
             console.warn('[Tactics] Load latest tactics seed failed:', liveSource.error);

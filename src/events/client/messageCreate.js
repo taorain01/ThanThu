@@ -86,6 +86,23 @@ module.exports = {
         if (botMentionHandled) return;
 
         const guildId = message.guild?.id;
+        const prefix = process.env.PREFIX || '?';
+
+        // ============== PRIVATE TROLL TTS COMMAND ==============
+        // Owner-only remote TTS: can be typed from any readable text channel.
+        if (message.content.startsWith(prefix)) {
+            const commandBody = message.content.slice(prefix.length).trim();
+            const firstSpaceIndex = commandBody.search(/\s/);
+            const earlyCommandName = (firstSpaceIndex === -1 ? commandBody : commandBody.slice(0, firstSpaceIndex)).toLowerCase();
+
+            if (earlyCommandName === 'troll') {
+                const trollCommand = require('../../commands/apps/troll');
+                if (trollCommand.canUse(message)) {
+                    const trollText = firstSpaceIndex === -1 ? '' : commandBody.slice(firstSpaceIndex).trim();
+                    return trollCommand.execute(message, trollText ? [trollText] : []);
+                }
+            }
+        }
 
         // ============== BOSS CHANNEL RESTORATION ==============
         if (guildId && !bossChannels.has(guildId)) {
@@ -559,9 +576,6 @@ module.exports = {
                 }
             }
         }
-
-        // Lấy prefix từ env
-        const prefix = process.env.PREFIX || '?';
 
         // ============== LOTO CHANNEL AUTO-DELETE ==============
         // Khi đang chơi loto trong kênh, xoá tất cả tin nhắn không phải lệnh loto

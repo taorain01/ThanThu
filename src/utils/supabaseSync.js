@@ -18,6 +18,8 @@ let supportsBcSessionsTeamNamesColumn = true; // Flag auto-fallback cho cột te
 let supportsBcSessionsDynamicRosterColumns = true;
 let supportsBcTacticsSessionIdColumn = true;
 let supportsBcTacticsHistorySessionIdColumn = true;
+let supportsBcRosterSnapshotsTable = true;
+let warnedBcRosterSnapshotsMissing = false;
 
 /**
  * Khởi tạo Supabase client (gọi 1 lần khi bot start)
@@ -81,6 +83,106 @@ function handleSyncError(context, error) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+function isMissingRosterSnapshotTableError(error) {
+    const message = error?.message || String(error || '');
+    return /bc_roster_snapshots|schema cache|find the table|relation.*does not exist|does not exist/i.test(message);
+}
+
+function parseJsonObject(value, fallback = {}) {
+    const parsed = bangchienRoster.parseJson(value, fallback);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+}
+
+function buildRosterSnapshotPayload(guildId, session = {}, source = 'bot') {
+    if (!guildId || !session?.id) return null;
+    const roster = bangchienRoster.normalizeRoster(session);
+    const legacyKeys = bangchienRoster.LEGACY_TEAM_KEYS || ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
+    const sizeKeys = bangchienRoster.LEGACY_SIZE_KEYS || {
+        team_attack1: 'attack1',
+        team_attack2: 'attack2',
+        team_defense: 'defense',
+        team_forest: 'forest'
+    };
+    const legacyTeams = {
+        team_attack1: [],
+        team_attack2: [],
+        team_defense: [],
+        team_forest: []
+    };
+    const teamSizes = {};
+    const teamNames = {};
+
+    roster.layout.slice(0, legacyKeys.length).forEach((team, index) => {
+        const legacyKey = legacyKeys[index];
+        const sizeKey = sizeKeys[legacyKey];
+        legacyTeams[legacyKey] = (roster.teams[team.id] || []).map((member) => ({ ...member, team: legacyKey }));
+        if (sizeKey) {
+            teamSizes[sizeKey] = Number(team.capacity) || 0;
+            teamNames[sizeKey] = team.name || legacyKey;
+        }
+    });
+
+    const normalizedTime = normalizeBcTime(session.time || LEAGUE_TIME);
+    const label = [session.day, normalizedTime, session.note].filter(Boolean).join(' ');
+
+    return {
+        guild_id: guildId,
+        source_session_id: session.id,
+        day: session.day || null,
+        time: normalizedTime,
+        label: label || null,
+        captured_at: new Date().toISOString(),
+        source_updated_at: session.updated_at || null,
+        team_layout: roster.layout || [],
+        teams: roster.teams || {},
+        team_attack1: legacyTeams.team_attack1 || [],
+        team_attack2: legacyTeams.team_attack2 || [],
+        team_defense: legacyTeams.team_defense || [],
+        team_forest: legacyTeams.team_forest || [],
+        waiting_list: roster.waitingList || [],
+        team_sizes: Object.keys(teamSizes).length ? teamSizes : parseJsonObject(session.team_sizes, {}),
+        team_names: Object.keys(teamNames).length ? teamNames : parseJsonObject(session.team_names, {}),
+        leader_ids: parseJsonObject(session.leader_ids, {}),
+        source
+    };
+}
+
+async function saveRosterSnapshot(guildId, session, source = 'bot') {
+    if (!isReady() || !supportsBcRosterSnapshotsTable) return false;
+    const payload = buildRosterSnapshotPayload(guildId, session, source);
+    if (!payload) return false;
+    try {
+        const { error } = await supabase
+            .from('bc_roster_snapshots')
+            .upsert(payload, { onConflict: 'guild_id,source_session_id' });
+
+        if (error) {
+            if (isMissingRosterSnapshotTableError(error)) {
+                supportsBcRosterSnapshotsTable = false;
+                if (!warnedBcRosterSnapshotsMissing) {
+                    warnedBcRosterSnapshotsMissing = true;
+                    console.warn('[Supabase] bc_roster_snapshots chua san sang, bo qua roster snapshot.');
+                }
+                return false;
+            }
+            handleSyncError('saveRosterSnapshot', error);
+            return false;
+        }
+        return true;
+    } catch (error) {
+        if (isMissingRosterSnapshotTableError(error)) {
+            supportsBcRosterSnapshotsTable = false;
+            if (!warnedBcRosterSnapshotsMissing) {
+                warnedBcRosterSnapshotsMissing = true;
+                console.warn('[Supabase] bc_roster_snapshots chua san sang, bo qua roster snapshot.');
+            }
+            return false;
+        }
+        handleSyncError('saveRosterSnapshot exception', error);
+        return false;
+    }
+}
+
 // SYNC BANG CHIẾN SESSIONS
 // ═══════════════════════════════════════════════════════════════
 
@@ -198,6 +300,7 @@ async function syncBCSession(guildId, day, sessionData) {
                 if (sessionLookupError) {
                     handleSyncError('syncBCSession session lookup', sessionLookupError);
                 } else if (savedSession?.id) {
+                    await saveRosterSnapshot(guildId, savedSession, 'bot_sync');
                     await ensureSessionScopedTacticsPayload(guildId, savedSession);
                 }
             } catch (syncError) {
@@ -224,6 +327,19 @@ async function deleteBCSession(guildId, day, time = LEAGUE_TIME) {
     }
     try {
         // STEP 1: UPDATE status='ended' → web nhận Realtime UPDATE event
+        const { data: existingSession, error: snapshotLookupError } = await supabase
+            .from('bc_sessions')
+            .select('*')
+            .eq('guild_id', guildId)
+            .eq('day', day)
+            .eq('time', normalizedTime)
+            .maybeSingle();
+        if (snapshotLookupError) {
+            handleSyncError('deleteBCSession snapshot lookup', snapshotLookupError);
+        } else if (existingSession?.id) {
+            await saveRosterSnapshot(guildId, existingSession, 'bot_delete');
+        }
+
         await supabase
             .from('bc_sessions')
             .update({ status: 'ended' })
@@ -933,6 +1049,18 @@ async function deleteAllBCSessions(guildId) {
     }
     try {
         // STEP 1: UPDATE tất cả status='ended' → web nhận Realtime UPDATE event
+        const { data: existingSessions, error: snapshotLookupError } = await supabase
+            .from('bc_sessions')
+            .select('*')
+            .eq('guild_id', guildId);
+        if (snapshotLookupError) {
+            handleSyncError('deleteAllBCSessions snapshot lookup', snapshotLookupError);
+        } else {
+            for (const session of (existingSessions || [])) {
+                if (session?.id) await saveRosterSnapshot(guildId, session, 'bot_delete_all');
+            }
+        }
+
         await supabase
             .from('bc_sessions')
             .update({ status: 'ended' })
@@ -1532,9 +1660,10 @@ function listenForWebChanges(guildId, onSessionChange) {
         .channel('bc-web-changes')
         .on('postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'bc_sessions', filter: `guild_id=eq.${guildId}` },
-            (payload) => {
+            async (payload) => {
                 const time = normalizeBcTime(payload.new.time || LEAGUE_TIME);
                 console.log(`[Supabase] Received BC session INSERT (${payload.new.day} ${time})`);
+                await saveRosterSnapshot(guildId, payload.new, 'bot_realtime_insert');
                 if (onSessionChange) {
                     onSessionChange({ ...payload.new, _inserted: true });
                 }
@@ -1547,6 +1676,7 @@ function listenForWebChanges(guildId, onSessionChange) {
                 if (payload.new?.status === 'ended') {
                     const time = normalizeBcTime(payload.new.time || LEAGUE_TIME);
                     console.log(`[Supabase] Received BC session ended signal (${payload.new.day} ${time})`);
+                    await saveRosterSnapshot(guildId, payload.new, 'bot_realtime_ended');
                     if (onSessionChange) {
                         onSessionChange({ day: payload.new.day, time, id: payload.new.id, _deleted: true });
                     }
@@ -1561,6 +1691,7 @@ function listenForWebChanges(guildId, onSessionChange) {
                     return;
                 }
                 console.log(`[Supabase] Received BC session UPDATE (${payload.new.day} ${normalizeBcTime(payload.new.time || LEAGUE_TIME)})`);
+                await saveRosterSnapshot(guildId, payload.new, 'bot_realtime_update');
                 if (onSessionChange) {
                     onSessionChange(payload.new);
                 }
@@ -1569,6 +1700,7 @@ function listenForWebChanges(guildId, onSessionChange) {
         .on('postgres_changes',
             { event: 'DELETE', schema: 'public', table: 'bc_sessions', filter: `guild_id=eq.${guildId}` },
             async (payload) => {
+                if (payload.old?.id) await saveRosterSnapshot(guildId, payload.old, 'bot_realtime_delete');
                 const deletedDay = payload.old?.day;
                 const deletedTime = payload.old?.time || LEAGUE_TIME;
                 console.log(`[Supabase] 🗑️ Nhận DELETE event (day=${deletedDay || 'unknown'})`);
@@ -1953,6 +2085,7 @@ async function getSupabaseStorageReport() {
         'bc_users',
         'bc_tactics',
         'bc_tactics_history',
+        'bc_roster_snapshots',
         'bc_regulars',
         'bc_logs',
         'bc_exp_levels'
@@ -1964,6 +2097,7 @@ async function getSupabaseStorageReport() {
         'bc_users': 512,
         'bc_tactics': 8192,         // markers JSON rất lớn
         'bc_tactics_history': 10240, // markers + roster snapshot
+        'bc_roster_snapshots': 8192,
         'bc_regulars': 128,
         'bc_logs': 256,
         'bc_exp_levels': 256
@@ -2022,6 +2156,7 @@ module.exports = {
     isReady,
     getSupabaseClient: () => supabase,
     syncBCSession,
+    saveRosterSnapshot,
     deleteBCSession,
     deleteAllBCSessions,
     saveBattleTacticsHistorySnapshot,

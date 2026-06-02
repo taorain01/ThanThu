@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const memberRosterSync = require('../../utils/memberRosterSync');
 
 // DPS Sub-types config với aliases - tên role KHÔNG có prefix "DPS"
 const dpsSubTypes = {
@@ -92,6 +93,12 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
                     .setDescription(`Bạn đã là **DPS ${dpsSubConfig.name}** rồi!`)
                     .setTimestamp();
 
+                try {
+                    await memberRosterSync.updateRoleFromDiscordSelection(member, 'dps', dpsSubConfig.key, interaction.guild);
+                } catch (roleSyncError) {
+                    console.error('[pickrole] Sync combat_role failed:', roleSyncError.message);
+                }
+
                 return interaction.reply({
                     embeds: [embed],
                     flags: MessageFlags.Ephemeral
@@ -122,18 +129,7 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
 
             // Lưu sub_role vào DB + sync Supabase ngay
             try {
-                const _db = require('../../database/db');
-                const subRoleShortMap = {
-                    'quatdu': 'QD', 'vodanh': 'VD', 'songdao': 'SD',
-                    'cuukiem': '9K', 'duroi': 'DR', 'hoanhdao': 'HD'
-                };
-                const shortCode = subRoleShortMap[dpsSubConfig.key] || dpsSubConfig.key?.toUpperCase() || 'DPS';
-                _db.setUserSubRole(member.id, shortCode);
-                const _user = _db.getUserByDiscordId(member.id);
-                if (_user) {
-                    const _supaSync = require('../../utils/supabaseSync');
-                    if (_supaSync.isReady()) await _supaSync.syncOneUser(_user, interaction.guild.id, interaction.guild);
-                }
+                await memberRosterSync.updateRoleFromDiscordSelection(member, 'dps', dpsSubConfig.key, interaction.guild);
             } catch(e) { console.error('[pickrole] Lưu sub_role lỗi:', e.message); }
 
             // Auto-refresh bangchien embed + sync Supabase cho TẤT CẢ ngày
@@ -229,6 +225,12 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
                 .setDescription(`Bạn đã là **${selectedRole.name}** rồi!`)
                 .setTimestamp();
 
+            try {
+                await memberRosterSync.updateRoleFromDiscordSelection(member, selectedRole.name, null, interaction.guild);
+            } catch (roleSyncError) {
+                console.error('[pickrole] Sync combat_role failed:', roleSyncError.message);
+            }
+
             return interaction.reply({
                 embeds: [embed],
                 flags: MessageFlags.Ephemeral
@@ -266,6 +268,12 @@ async function handleRoleSelection(interaction, roleType, dpsType = null) {
                 const guildId = interaction.guild.id;
                 const userId = interaction.user.id;
                 const partyKeys = getGuildBangchienKeys(guildId);
+
+                try {
+                    await memberRosterSync.updateRoleFromDiscordSelection(member, selectedRole.name, null, interaction.guild);
+                } catch (roleSyncError) {
+                    console.error('[pickrole] Sync combat_role failed:', roleSyncError.message);
+                }
 
                 for (const partyKey of partyKeys) {
                     const registrations = bangchienRegistrations.get(partyKey) || [];

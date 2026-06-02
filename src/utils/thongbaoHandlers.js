@@ -115,6 +115,7 @@ async function handleButton(interaction, client) {
         // ═══════════════════════════════════════════════════════════════
         if (customId.startsWith('edit_confirm_')) {
             const db = require('../database/db');
+            const memberRosterSync = require('./memberRosterSync');
             const parts = customId.split('_');
             const targetUserId = parts[2];
             const authorizedUserId = parts[3];
@@ -166,6 +167,7 @@ async function handleButton(interaction, client) {
 
                 // Update in database
                 db.upsertUser(updateData);
+                await memberRosterSync.syncUserByDiscordId(targetUserId, interaction.guild);
 
                 // Remove pending edit
                 client.pendingEdits.delete(key);

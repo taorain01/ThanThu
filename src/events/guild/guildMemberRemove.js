@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
+const memberRosterSync = require('../../utils/memberRosterSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 
 // Channel ID to send leave notifications
@@ -51,7 +52,7 @@ module.exports = {
                             ...userData,
                             position: 'Khong co'
                         };
-                        await supaSync.syncOneUser(updatedUser, member.guild.id, member.guild);
+                        await memberRosterSync.syncUserRecord(updatedUser, member.guild.id, member.guild);
                         for (const session of activeSessions) {
                             const updatedSession = db.getActiveBangchien(session.party_key);
                             const formatted = updatedSession

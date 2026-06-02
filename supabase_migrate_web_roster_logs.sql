@@ -22,7 +22,7 @@ CREATE POLICY "Staff and session leaders can insert web bc_logs"
     TO authenticated
     WITH CHECK (
         source = 'web'
-        AND action = 'roster_sync'
+        AND action IN ('roster_sync', 'quick_team')
         AND (performed_by IS NULL OR performed_by = public.bc_current_discord_id())
         AND public.bc_is_session_leader(
             guild_id,

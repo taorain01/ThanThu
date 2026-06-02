@@ -54,7 +54,7 @@ client.once("ready", async () => {
   const { initVoiceExpTracker } = require('./utils/voiceExpTracker');
   initVoiceExpTracker(client);
 
-  // Khởi tạo weekly scheduler (gửi lịch boss + hướng dẫn phòng ảnh hàng tuần)
+  // Khởi tạo scheduler định kỳ (weekly cho boss/gieoque, monthly cho phòng ảnh)
   const { initWeeklyScheduler } = require('./utils/weeklyScheduler');
   initWeeklyScheduler(client);
 

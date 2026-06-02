@@ -8,6 +8,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const memberRosterSync = require('../../utils/memberRosterSync');
 
 /**
  * Check if user has high-level role (BC, PBC, KC)
@@ -41,9 +42,12 @@ function ensurePendingIdsTable() {
                 game_uid TEXT NOT NULL,
                 game_username TEXT NOT NULL,
                 added_by TEXT NOT NULL,
+                added_by_name TEXT,
                 added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 joined_at DATETIME,
-                guild_id TEXT
+                guild_id TEXT,
+                source TEXT DEFAULT 'bot',
+                supabase_id TEXT
             )
         `).run();
 
@@ -62,6 +66,15 @@ function ensurePendingIdsTable() {
                 console.error('Error adding guild_id column:', e);
             }
         }
+        try {
+            db.db.prepare(`ALTER TABLE pending_ids ADD COLUMN added_by_name TEXT`).run();
+        } catch (e) { }
+        try {
+            db.db.prepare(`ALTER TABLE pending_ids ADD COLUMN source TEXT DEFAULT 'bot'`).run();
+        } catch (e) { }
+        try {
+            db.db.prepare(`ALTER TABLE pending_ids ADD COLUMN supabase_id TEXT`).run();
+        } catch (e) { }
     } catch (e) {
         console.error('Error creating pending_ids table:', e);
     }
@@ -97,12 +110,12 @@ function getPendingByUid(gameUid, guildId) {
     }
 }
 
-function insertPendingId(gameUid, gameName, authorId, joinedAt, guildId) {
+function insertPendingId(gameUid, gameName, authorId, authorName, joinedAt, guildId) {
     try {
         return db.db.prepare(`
-            INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at, guild_id)
-            VALUES (?, ?, ?, ?, ?)
-        `).run(gameUid, gameName, authorId, joinedAt, guildId || null);
+            INSERT INTO pending_ids (game_uid, game_username, added_by, added_by_name, joined_at, guild_id, source)
+            VALUES (?, ?, ?, ?, ?, ?, 'bot')
+        `).run(gameUid, gameName, authorId, authorName || authorId, joinedAt, guildId || null);
     } catch (e) {
         return db.db.prepare(`
             INSERT INTO pending_ids (game_uid, game_username, added_by, joined_at)
@@ -111,19 +124,19 @@ function insertPendingId(gameUid, gameName, authorId, joinedAt, guildId) {
     }
 }
 
-function updatePendingId(gameUid, gameName, authorId, joinedAt, guildId) {
+function updatePendingId(gameUid, gameName, authorId, authorName, joinedAt, guildId) {
     try {
         if (guildId) {
             const result = db.db.prepare(`
                 UPDATE pending_ids
-                SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?, guild_id = ?
+                SET game_username = ?, added_by = ?, added_by_name = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?, guild_id = ?, source = 'bot'
                 WHERE game_uid = ? AND (guild_id = ? OR guild_id IS NULL)
-            `).run(gameName, authorId, joinedAt, guildId, gameUid, guildId);
+            `).run(gameName, authorId, authorName || authorId, joinedAt, guildId, gameUid, guildId);
             return result;
         }
         return db.db.prepare(`
             UPDATE pending_ids
-            SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?
+            SET game_username = ?, added_by = ?, added_at = CURRENT_TIMESTAMP, joined_at = ?, source = 'bot'
             WHERE game_uid = ?
         `).run(gameName, authorId, joinedAt, gameUid);
     } catch (e) {
@@ -356,7 +369,8 @@ async function execute(message, args) {
 
     // Insert new entry
     try {
-        insertPendingId(gameUid, gameName, message.author.id, joinDate.toISOString(), guildId);
+        insertPendingId(gameUid, gameName, message.author.id, message.author.username, joinDate.toISOString(), guildId);
+        await memberRosterSync.syncPendingByUid(gameUid, guildId);
 
         const embed = new EmbedBuilder()
             .setColor(0x00D166)
@@ -428,7 +442,12 @@ async function handleConfirmation(interaction) {
             deletePendingByUid(gameUid, guildId);
 
             // 3. Thêm vào pending_ids với ngày vào CŨ (giữ nguyên)
-            insertPendingId(gameUid, data.gameName, authorId, keepJoinDate, guildId);
+            if (data.leftUser?.discord_id && !String(data.leftUser.discord_id).startsWith('pending_')) {
+                await memberRosterSync.deleteUserFromSupabase(data.leftUser.discord_id);
+            }
+
+            insertPendingId(gameUid, data.gameName, authorId, interaction.user.username, keepJoinDate, guildId);
+            await memberRosterSync.syncPendingByUid(gameUid, guildId);
 
             const joinDateObj = new Date(keepJoinDate);
             const embed = new EmbedBuilder()
@@ -478,7 +497,12 @@ async function handleConfirmation(interaction) {
             deletePendingByUid(gameUid, guildId);
 
             // 3. Thêm vào pending_ids với ngày vào MỚI (hôm nay hoặc Xnt)
-            insertPendingId(gameUid, data.gameName, authorId, data.joinDate.toISOString(), guildId);
+            if (data.leftUser?.discord_id && !String(data.leftUser.discord_id).startsWith('pending_')) {
+                await memberRosterSync.deleteUserFromSupabase(data.leftUser.discord_id);
+            }
+
+            insertPendingId(gameUid, data.gameName, authorId, interaction.user.username, data.joinDate.toISOString(), guildId);
+            await memberRosterSync.syncPendingByUid(gameUid, guildId);
 
             const embed = new EmbedBuilder()
                 .setColor(0x3498DB)
@@ -532,7 +556,8 @@ async function handleConfirmation(interaction) {
     // Confirm - update the entry
     try {
         const guildId = data.guildId || interaction.guild?.id || null;
-        updatePendingId(gameUid, data.gameName, authorId, data.joinDate.toISOString(), guildId);
+        updatePendingId(gameUid, data.gameName, authorId, interaction.user.username, data.joinDate.toISOString(), guildId);
+        await memberRosterSync.syncPendingByUid(gameUid, guildId);
 
         const embed = new EmbedBuilder()
             .setColor(0xF59E0B)

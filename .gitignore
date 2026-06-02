@@ -33,6 +33,8 @@ VoiceBot/
 VoiceBot 2/
 anh/
 tools/dist/
+reports/
+
 
 # === File nén ===
 *.zip

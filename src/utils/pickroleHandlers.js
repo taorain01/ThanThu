@@ -21,6 +21,7 @@
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 const { bangchienNotifications, bangchienRegistrations, getGuildBangchienKeys } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
+const memberRosterSync = require('./memberRosterSync');
 
 /**
  * Xử lý tất cả button interactions liên quan đến chọn role
@@ -131,6 +132,12 @@ async function handleButton(interaction, client) {
                 .setTimestamp()
                 .setFooter({ text: 'Dùng ?pr hoặc /pickrole để chọn lại role khác' });
 
+            try {
+                await memberRosterSync.updateRoleFromDiscordSelection(member, roleType, dpsSubType, guild);
+            } catch (roleSyncError) {
+                console.error('[pickroleHandlers] Sync combat_role failed:', roleSyncError.message);
+            }
+
             return interaction.update({
                 embeds: [embed],
                 components: []
@@ -184,6 +191,12 @@ async function handleButton(interaction, client) {
             embeds: [successEmbed],
             components: []  // Xóa buttons sau khi pick xong
         });
+
+        try {
+            await memberRosterSync.updateRoleFromDiscordSelection(member, roleType, dpsSubType, guild);
+        } catch (roleSyncError) {
+            console.error('[pickroleHandlers] Sync combat_role failed:', roleSyncError.message);
+        }
 
         // Auto-refresh bangchien embed + overview + sync Supabase
         try {

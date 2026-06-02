@@ -1,21 +1,25 @@
 /**
- * Weekly Scheduler - Gửi embed định kỳ hàng tuần
+ * Periodic Scheduler - gửi embed định kỳ
  * 
  * Tự động gửi:
  * - Lịch Boss Guild (vào kênh boss đã đăng ký)
- * - Hướng dẫn Phòng Ảnh (vào kênh album đã đăng ký)
+ * - Hướng dẫn Phòng Ảnh mỗi tháng 1 lần (vào kênh album đã đăng ký)
  * - Hướng dẫn Gieo Quẻ & Cầu Duyên (vào kênh gieoque đã đăng ký)
- * 
- * Kết hợp với inactivity timer đã có sẵn trong messageCreate.js
  */
 
 const db = require('../database/db');
 const { lastScheduleEmbed, bossChannels } = require('./bossState');
-const { lastPhongAnhMessage, lastGieoQueGuideWeekly } = require('./weeklyState');
+const {
+    lastPhongAnhMessage,
+    lastGieoQueGuideWeekly,
+    phongAnhGuideSentMonth,
+    getCurrentMonth1st8AM
+} = require('./weeklyState');
 const { sendTacticsStorageReport } = require('./tacticsStorageReport');
 const { isAllowedGuildId } = require('../config/guildAccess');
 
 const WEEKLY_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 ngày
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /**
  * Gửi embed lịch Boss Guild (xóa cũ trước)
@@ -64,21 +68,26 @@ async function sendBossScheduleEmbed(client) {
 /**
  * Gửi embed Hướng dẫn Phòng Ảnh (xóa cũ trước)
  */
-async function sendPhongAnhHelp(client) {
+async function sendPhongAnhHelp(client, monthKey = null) {
     try {
         const albumChannelId = db.getAlbumChannelId();
         if (!albumChannelId) {
             console.log('[WeeklyScheduler] ⚠️ Chưa set kênh Phòng Ảnh');
-            return;
+            return null;
         }
 
         const channel = await client.channels.fetch(albumChannelId).catch(() => null);
         if (!channel || !isAllowedGuildId(channel.guild?.id)) {
             console.log('[WeeklyScheduler] ⚠️ Không tìm thấy kênh Phòng Ảnh');
-            return;
+            return null;
         }
 
-        // Xóa embed cũ nếu có
+        // Xóa embed cũ nếu có, kể cả sau khi bot restart.
+        const dbLastMsgId = db.getConfig(`pa_guide_msg_${albumChannelId}`);
+        if (dbLastMsgId && !lastPhongAnhMessage.has(albumChannelId)) {
+            lastPhongAnhMessage.set(albumChannelId, dbLastMsgId);
+        }
+
         const oldMsgId = lastPhongAnhMessage.get(albumChannelId);
         if (oldMsgId) {
             try {
@@ -93,11 +102,93 @@ async function sendPhongAnhHelp(client) {
 
         if (sentMessage) {
             lastPhongAnhMessage.set(albumChannelId, sentMessage.id);
-            console.log(`[WeeklyScheduler] 📸 Gửi hướng dẫn Phòng Ảnh tại ${channel.name} (ID: ${sentMessage.id})`);
+            db.setConfig(`pa_guide_msg_${albumChannelId}`, sentMessage.id);
+
+            if (monthKey) {
+                phongAnhGuideSentMonth.set(albumChannelId, monthKey);
+                db.setConfig(`pa_guide_month_${albumChannelId}`, monthKey);
+            }
+
+            const monthInfo = monthKey ? ` tháng ${monthKey}` : '';
+            console.log(`[MonthlyScheduler] 📸 Gửi hướng dẫn Phòng Ảnh tại ${channel.name}${monthInfo} (ID: ${sentMessage.id})`);
         }
+
+        return sentMessage;
     } catch (e) {
         console.error('[WeeklyScheduler] Phòng Ảnh help error:', e.message);
+        return null;
     }
+}
+
+function isBeforeMonthlyPhongAnhSendTime() {
+    const now = new Date();
+    const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    return vnTime.getUTCDate() === 1 && vnTime.getUTCHours() < 8;
+}
+
+async function sendMonthlyPhongAnhHelpIfDue(client) {
+    const albumChannelId = db.getAlbumChannelId();
+    if (!albumChannelId) {
+        console.log('[MonthlyScheduler] ⚠️ Chưa set kênh Phòng Ảnh');
+        return null;
+    }
+
+    if (isBeforeMonthlyPhongAnhSendTime()) {
+        return null;
+    }
+
+    const monthKey = getCurrentMonth1st8AM();
+    const dbMonth = db.getConfig(`pa_guide_month_${albumChannelId}`);
+    if (dbMonth && !phongAnhGuideSentMonth.has(albumChannelId)) {
+        phongAnhGuideSentMonth.set(albumChannelId, dbMonth);
+    }
+
+    if (phongAnhGuideSentMonth.get(albumChannelId) === monthKey) {
+        return null;
+    }
+
+    return sendPhongAnhHelp(client, monthKey);
+}
+
+function getTimeUntilNextMonth1st8AM() {
+    const now = new Date();
+    const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const nextRun = new Date(vnTime);
+
+    nextRun.setUTCDate(1);
+    nextRun.setUTCHours(8, 0, 0, 0);
+
+    if (vnTime.getTime() >= nextRun.getTime()) {
+        nextRun.setUTCMonth(nextRun.getUTCMonth() + 1);
+    }
+
+    return nextRun.getTime() - vnTime.getTime();
+}
+
+function scheduleMonthlyPhongAnhHelp(client) {
+    sendMonthlyPhongAnhHelpIfDue(client).catch((e) => {
+        console.error('[MonthlyScheduler] Phòng Ảnh startup check error:', e.message);
+    });
+
+    const scheduleNext = () => {
+        const delayMs = getTimeUntilNextMonth1st8AM();
+        const timeoutMs = Math.min(delayMs, MAX_TIMEOUT_MS);
+        const delayHours = (timeoutMs / (60 * 60 * 1000)).toFixed(1);
+
+        console.log(`[MonthlyScheduler] ⏰ Kiểm tra Phòng Ảnh tiếp theo sau ${delayHours} giờ`);
+
+        setTimeout(async () => {
+            if (delayMs > MAX_TIMEOUT_MS) {
+                scheduleNext();
+                return;
+            }
+
+            await sendMonthlyPhongAnhHelpIfDue(client);
+            scheduleNext();
+        }, timeoutMs);
+    };
+
+    scheduleNext();
 }
 
 /**
@@ -181,6 +272,8 @@ function getTimeUntilNextMonday8AM() {
  * Khởi động Weekly Scheduler
  */
 function initWeeklyScheduler(client) {
+    scheduleMonthlyPhongAnhHelp(client);
+
     const delayMs = getTimeUntilNextMonday8AM();
     const delayHours = (delayMs / (60 * 60 * 1000)).toFixed(1);
 
@@ -191,7 +284,6 @@ function initWeeklyScheduler(client) {
         // Gửi lần đầu
         console.log('[WeeklyScheduler] 🔔 Gửi embed hàng tuần...');
         sendBossScheduleEmbed(client);
-        sendPhongAnhHelp(client);
         sendGieoQueGuide(client);
         sendTacticsStorageReport();
 
@@ -199,7 +291,6 @@ function initWeeklyScheduler(client) {
         setInterval(() => {
             console.log('[WeeklyScheduler] 🔔 Gửi embed hàng tuần...');
             sendBossScheduleEmbed(client);
-            sendPhongAnhHelp(client);
             sendGieoQueGuide(client);
             sendTacticsStorageReport();
         }, WEEKLY_INTERVAL);

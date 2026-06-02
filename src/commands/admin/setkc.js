@@ -5,7 +5,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
-const supaSync = require('../../utils/supabaseSync');
+const memberRosterSync = require('../../utils/memberRosterSync');
 const { ensureTrackedMemberFromDiscord } = require('../../utils/discordPositionSync');
 
 const OWNER_ID = '395151484179841024';
@@ -49,7 +49,7 @@ async function execute(message) {
             db.updateUserPosition(mentionedUser.id, 'kc');
             userData = db.getUserByDiscordId(mentionedUser.id);
             try {
-                await supaSync.syncOneUser(userData, message.guild.id);
+                await memberRosterSync.syncUserRecord(userData, message.guild.id, message.guild);
             } catch (syncError) {
                 console.error('[setkc] Sync existing KC user failed:', syncError.message);
             }

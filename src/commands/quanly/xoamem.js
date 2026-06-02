@@ -7,6 +7,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const memberRosterSync = require('../../utils/memberRosterSync');
 
 /**
  * Check if user has high-level role (BC, PBC, KC)
@@ -128,12 +129,14 @@ async function execute(message, args) {
         // Delete from users table
         if (existingUser) {
             db.db.prepare('DELETE FROM users WHERE discord_id = ?').run(targetDiscordId);
+            await memberRosterSync.deleteUserFromSupabase(targetDiscordId);
             deletedFrom.push('users');
         }
 
         // Delete from pending_ids table
         if (pendingEntry) {
             db.db.prepare('DELETE FROM pending_ids WHERE id = ?').run(pendingEntry.id);
+            await memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id);
             deletedFrom.push('pending_ids');
         }
 

@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const supaSync = require('./supabaseSync');
+const memberRosterSync = require('./memberRosterSync');
 
 function normalizeText(value = '') {
     return String(value || '')
@@ -80,7 +81,7 @@ async function syncStoredPositionForMember(member, guildId = member?.guild?.id) 
 
     try {
         if (updatedUser && guildId) {
-            await supaSync.syncOneUser(updatedUser, guildId, member.guild);
+            await memberRosterSync.syncUserRecord(updatedUser, guildId, member.guild);
         }
     } catch (error) {
         console.error('[discordPositionSync] Sync one user failed:', error.message);
@@ -119,7 +120,7 @@ async function ensureTrackedMemberFromDiscord(member, position = 'mem', guildId 
     const updatedUser = db.getUserByDiscordId(member.id);
     try {
         if (updatedUser && guildId) {
-            await supaSync.syncOneUser(updatedUser, guildId, member.guild);
+            await memberRosterSync.syncUserRecord(updatedUser, guildId, member.guild);
         }
     } catch (error) {
         console.error('[discordPositionSync] ensureTrackedMemberFromDiscord sync failed:', error.message);

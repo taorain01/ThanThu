@@ -4,6 +4,93 @@
 -- guild staff or the leader of the active session being edited.
 -- ============================================
 
+CREATE TABLE IF NOT EXISTS public.bc_tactics (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    session_id UUID,
+    day TEXT NOT NULL,
+    markers JSONB DEFAULT '[]'::jsonb,
+    drawings JSONB DEFAULT '[]'::jsonb,
+    notes TEXT,
+    updated_by TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(guild_id, session_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.bc_tactics_history (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    session_id UUID,
+    day TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('edit', 'battle')),
+    saved_at TIMESTAMPTZ DEFAULT NOW(),
+    saved_by TEXT,
+    roster JSONB,
+    markers JSONB NOT NULL,
+    result_note TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.bc_tactics_presets (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    discord_id TEXT NOT NULL,
+    preset_name TEXT NOT NULL,
+    markers JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.bc_tactics
+    ADD COLUMN IF NOT EXISTS session_id UUID,
+    ADD COLUMN IF NOT EXISTS drawings JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE public.bc_tactics_history
+    ADD COLUMN IF NOT EXISTS session_id UUID;
+
+ALTER TABLE public.bc_tactics
+    DROP CONSTRAINT IF EXISTS bc_tactics_guild_id_day_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bc_tactics_guild_session_unique
+    ON public.bc_tactics(guild_id, session_id)
+    WHERE session_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_tactics_history_guild_day
+    ON public.bc_tactics_history(guild_id, day, saved_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tactics_history_guild_session
+    ON public.bc_tactics_history(guild_id, session_id, saved_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tactics_presets_user
+    ON public.bc_tactics_presets(guild_id, discord_id);
+
+ALTER TABLE public.bc_tactics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bc_tactics_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bc_tactics_presets ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.bc_tactics;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.bc_tactics_history;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.bc_tactics_presets;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.bc_current_discord_id()
 RETURNS TEXT
 LANGUAGE sql

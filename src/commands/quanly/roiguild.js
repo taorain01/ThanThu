@@ -15,6 +15,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
+const memberRosterSync = require('../../utils/memberRosterSync');
 
 const LANG_GIA_ROLE_NAME = 'LangGia';
 
@@ -180,6 +181,7 @@ async function execute(message, args) {
 
             // Remove from pending_ids
             db.db.prepare('DELETE FROM pending_ids WHERE id = ?').run(pendingEntry.id);
+            await memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id);
 
             const embed = new EmbedBuilder()
                 .setColor(0x808080)
@@ -214,6 +216,7 @@ async function execute(message, args) {
     if (pendingEntry) {
         try {
             db.db.prepare('DELETE FROM pending_ids WHERE id = ?').run(pendingEntry.id);
+            await memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id);
         } catch (e) { /* ignore */ }
     }
 
@@ -257,7 +260,7 @@ async function execute(message, args) {
                 ...userData,
                 position: 'Khong co'
             };
-            await supaSync.syncOneUser(updatedUser, message.guild.id, message.guild);
+            await memberRosterSync.syncUserRecord(updatedUser, message.guild.id, message.guild);
             for (const session of activeSessions) {
                 const updatedSession = db.getActiveBangchien(session.party_key);
                 const formatted = updatedSession

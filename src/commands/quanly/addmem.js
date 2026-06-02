@@ -15,6 +15,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const memberRosterSync = require('../../utils/memberRosterSync');
 
 function getPendingByUid(gameUid, guildId) {
     try {
@@ -495,6 +496,7 @@ async function execute(message, args) {
 
         // Remove from pending_ids if it exists there (by UID or name)
         deletePendingForMember(gameUid, gameName, guildId);
+        await memberRosterSync.deletePendingFromSupabase(gameUid, guildId);
 
         // Add custom kc name if needed
         const posValidation = validatePosition(normalizedPosition);
@@ -529,6 +531,8 @@ async function execute(message, args) {
             if (!langGiaRole) langGiaRole = await message.guild.roles.create({ name: 'LangGia', color: 0x3498DB });
             if (!member.roles.cache.has(langGiaRole.id)) await member.roles.add(langGiaRole);
         } catch (e) { /* ignore */ }
+
+        await memberRosterSync.syncUserByDiscordId(targetUser.id, message.guild);
 
         return message.channel.send({ embeds: [embed] });
     } catch (error) {

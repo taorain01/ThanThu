@@ -57,16 +57,9 @@ const GIEOQUE_INACTIVITY_TIME = 60 * 60 * 1000; // 1 giờ
 // Dùng shared state từ weeklyState để cả inactivity timer và weekly scheduler cùng track
 const {
     lastGieoQueGuideWeekly: lastGieoQueGuide,
-    lastPhongAnhMessage,
     gieoQueGuideSentWeek,
-    phongAnhGuideSentWeek,
-    getCurrentWeekMonday,
     getCurrentWeekMonday8AM
 } = require('../../utils/weeklyState');
-
-// Map<channelId, timeoutId> for phonganh help
-const phongAnhReminders = new Map();
-const PHONGANH_INACTIVITY_TIME = 30 * 60 * 1000; // 30 phút
 
 
 // Import thongbao commands
@@ -417,65 +410,6 @@ module.exports = {
                         try { await message.react('⚠️'); } catch (e) { }
                     }
                 }
-            }
-
-            // ============== PHONG ANH AUTO-HELP REMINDER (1 lần/tuần, reset 8h sáng thứ 2) ==============
-            // Sau 8h sáng thứ Hai: tin nhắn cuối cùng trong kênh → 1 giờ không hoạt động → gửi hướng dẫn
-            // Mỗi tin nhắn mới sẽ RESET timer (debounce), chỉ gửi sau tin nhắn CUỐI CÙNG
-            // Sau khi đã gửi, không gửi lại cho đến 8h sáng thứ Hai tuần sau
-            const currentWeekPA = getCurrentWeekMonday8AM();
-
-            // Lấy từ DB hoặc cache (để tránh mất khi restart)
-            const dbWeekPA = db.getConfig(`pa_guide_week_${albumChannelId}`);
-            if (dbWeekPA && !phongAnhGuideSentWeek.has(albumChannelId)) {
-                phongAnhGuideSentWeek.set(albumChannelId, dbWeekPA);
-            }
-            const lastSentWeekPA = phongAnhGuideSentWeek.get(albumChannelId);
-
-            if (lastSentWeekPA !== currentWeekPA) {
-                // Xóa timer cũ nếu có (debounce - reset timer mỗi tin nhắn mới)
-                if (phongAnhReminders.has(albumChannelId)) {
-                    clearTimeout(phongAnhReminders.get(albumChannelId));
-                    phongAnhReminders.delete(albumChannelId);
-                }
-
-                // Set new timeout: 1 giờ sau tin nhắn cuối cùng
-                const timeoutId = setTimeout(async () => {
-                    try {
-                        const channel = await client.channels.fetch(albumChannelId);
-                        if (channel) {
-                            // Xóa tin nhắn help cũ nếu có
-                            const dbLastMsgId = db.getConfig(`pa_guide_msg_${albumChannelId}`);
-                            if (dbLastMsgId && !lastPhongAnhMessage.has(albumChannelId)) {
-                                lastPhongAnhMessage.set(albumChannelId, dbLastMsgId);
-                            }
-                            const lastMsgId = lastPhongAnhMessage.get(albumChannelId);
-                            if (lastMsgId) {
-                                try {
-                                    const oldMsg = await channel.messages.fetch(lastMsgId).catch(() => null);
-                                    if (oldMsg) await oldMsg.delete();
-                                } catch (e) { /* Ignore delete error */ }
-                            }
-
-                            const helpphonganhCommand = require('../../commands/quanly/helpphonganh');
-                            const sentMessage = await helpphonganhCommand.execute({ channel: channel, guildId, client });
-
-                            if (sentMessage) {
-                                lastPhongAnhMessage.set(albumChannelId, sentMessage.id);
-                                phongAnhGuideSentWeek.set(albumChannelId, currentWeekPA);
-                                // Lưu vào DB
-                                db.setConfig(`pa_guide_week_${albumChannelId}`, currentWeekPA);
-                                db.setConfig(`pa_guide_msg_${albumChannelId}`, sentMessage.id);
-                                console.log(`[PhongAnh] Sent auto-help in ${channel.name} (tuần ${currentWeekPA})`);
-                            }
-                        }
-                        phongAnhReminders.delete(albumChannelId);
-                    } catch (e) {
-                        console.error('[PhongAnh] Auto-help error:', e.message);
-                    }
-                }, GIEOQUE_INACTIVITY_TIME); // Dùng chung 1 giờ
-
-                phongAnhReminders.set(albumChannelId, timeoutId);
             }
         }
 

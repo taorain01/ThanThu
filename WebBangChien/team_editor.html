@@ -178,6 +178,45 @@
     .title-wrap{display:flex;flex-direction:column;gap:4px}
     .title{font-size:22px;font-weight:900;color:var(--gold)}
     .sub{font-size:12px;color:var(--muted)}
+    .session-select-wrap{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+      color:var(--text);
+    }
+    .session-select{
+      width:clamp(220px,28vw,360px);
+      max-width:100%;
+      height:38px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:0 34px 0 12px;
+      outline:none;
+      font:800 13px Inter,Segoe UI,Arial,sans-serif;
+      letter-spacing:.2px;
+      cursor:pointer;
+    }
+    .session-select:focus{
+      border-color:var(--line-strong);
+      box-shadow:0 0 0 2px rgba(58,208,126,.12);
+    }
+    .session-select:disabled{
+      cursor:default;
+      opacity:.72;
+    }
+    .session-select option{
+      background:#07110b;
+      color:#f8fafc;
+    }
+    .session-update-time{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+    }
     .toolbar{
       margin-left:auto;
       display:flex;
@@ -633,9 +672,34 @@
     .history-title{margin-top:6px;font-weight:800;color:var(--text)}
     .history-meta{margin-top:5px;font-size:12px;color:var(--muted)}
     .history-empty{padding:28px 12px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
+    .quick-team-modal{width:min(980px,100%);max-height:min(88vh,820px);display:flex;flex-direction:column;gap:14px}
+    .quick-team-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .quick-team-title{margin:0;font-size:18px;font-weight:900;color:var(--text)}
+    .quick-team-sub{margin-top:4px;font-size:12px;color:var(--muted);line-height:1.45}
+    .quick-team-grid{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:14px;min-height:360px;overflow:hidden}
+    .quick-team-sources,.quick-team-preview{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035);overflow:auto;padding:10px}
+    .quick-team-sources{display:flex;flex-direction:column;gap:8px}
+    .quick-source{width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);color:var(--text);padding:11px 12px;cursor:pointer}
+    .quick-source:hover,.quick-source.active{border-color:rgba(58,208,126,.42);background:rgba(58,208,126,.08)}
+    .quick-source-title{font-weight:900;font-size:13px}
+    .quick-source-meta{margin-top:5px;color:var(--muted);font-size:12px;line-height:1.35}
+    .quick-source-kind{display:inline-flex;align-items:center;gap:5px;margin-top:8px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;color:var(--gold);font-size:11px;font-weight:800}
+    .quick-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+    .quick-stat{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(0,0,0,.12)}
+    .quick-stat span{display:block;color:var(--muted);font-size:11px}
+    .quick-stat strong{display:block;margin-top:4px;font-size:18px;color:var(--text)}
+    .quick-preview-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+    .quick-team-card{border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.12);padding:10px}
+    .quick-team-card h4{margin:0 0 8px;font-size:12px;color:var(--text);display:flex;justify-content:space-between;gap:8px}
+    .quick-team-card ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+    .quick-team-card li{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .quick-warning{margin-top:12px;border:1px solid rgba(255,182,90,.34);background:rgba(255,182,90,.09);border-radius:12px;padding:10px;color:#ffd9a3;font-size:12px;line-height:1.45}
+    .quick-empty{height:100%;min-height:240px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;padding:18px;font-size:13px}
     @media (max-width: 1100px){
       .content{grid-template-columns:1fr}
       .teams-grid{grid-template-columns:1fr}
+      .quick-team-grid{grid-template-columns:1fr;min-height:0}
+      .quick-team-sources,.quick-team-preview{max-height:38vh}
     }
 
     @media (min-width: 1101px){
@@ -671,9 +735,12 @@
       .toolbar { justify-content: center !important; flex: unset !important; gap: 8px; flex-wrap: wrap; margin-left: 0; }
 
       .back-link { padding: 8px 12px; font-size: 12px }
-      .title-wrap { text-align: right; }
+      .title-wrap { text-align: right; min-width:0; }
       .title-wrap .title { font-size: 16px }
       .title-wrap .sub { font-size: 11px }
+      .session-select-wrap{justify-content:flex-end;flex-wrap:wrap;gap:4px}
+      .session-select{width:min(230px,calc(100vw - 132px));height:34px;font-size:12px;padding-left:10px}
+      .session-update-time{font-size:10px;width:100%;text-align:right}
       .toolbar .btn { font-size: 11px; padding: 8px 10px }
       .toolbar .badge { font-size: 11px; padding: 6px 10px }
 
@@ -703,6 +770,7 @@
 
       /* Modal responsive */
       .modal { width: 90vw; padding: 16px }
+      .quick-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
     }
 
     /* ═══ NÚT SPLIT — Chuyển trang ═══ */
@@ -752,6 +820,31 @@
     .page-transition-overlay .pt-text{font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
       color:var(--gold);text-shadow:0 0 16px rgba(246,196,83,.4);opacity:0;transform:translateY(10px);transition:all .3s ease .2s}
     .page-transition-overlay.active .pt-icon,.page-transition-overlay.active .pt-text{opacity:1;transform:none}
+    .member-roster-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .member-roster-overlay.show { display: flex }
+    .member-roster-frame {
+      width: min(1180px, 100%);
+      height: min(860px, 94vh);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #06120a;
+      box-shadow: 0 28px 80px rgba(0,0,0,.55);
+    }
+    @media (max-width: 768px) {
+      .member-roster-overlay { padding: 0 }
+      .member-roster-frame { width: 100%; height: 100vh; border: 0; border-radius: 0 }
+    }
   </style>
 </head>
 <body class="theme-dark">
@@ -776,7 +869,12 @@
         <a href="./index.html" class="back-link">← Quay lại</a>
         <div class="title-wrap" style="flex:unset;">
           <div class="title" id="pageTitle" style="display:none">Team Editor</div>
-          <div class="sub" id="pageSub" style="color:var(--text); font-weight:800; font-size:13px; letter-spacing:0.5px;">Đang tải session...</div>
+          <div class="sub session-select-wrap" id="pageSub" style="color:var(--text); font-weight:800; font-size:13px; letter-spacing:0.5px;">
+            <select class="session-select" id="sessionSelect" title="Chọn session để edit" disabled>
+              <option>Đang tải session...</option>
+            </select>
+            <span class="session-update-time" id="sessionUpdateTime"></span>
+          </div>
         </div>
       </div>
       
@@ -791,6 +889,8 @@
 
       <div class="toolbar" style="flex:1; justify-content:flex-end; align-items:center; display:flex;">
         <span class="badge open" id="lockBadge">📂 Chưa chốt</span>
+        <button class="btn primary" id="btnMemberRoster">+ Thành viên</button>
+        <button class="btn warn" id="btnQuickTeam">L&#7853;p Team Nhanh</button>
         <button class="btn" id="btnRefresh">📡 Fetch Bot</button>
         <button class="btn" id="btnValidateRoster">✅ Kiểm tra</button>
         <button class="btn" id="btnHistory">🕘 Lịch sử</button>
@@ -864,11 +964,40 @@
     </div>
   </div>
 
+  <div class="modal-wrap" id="quickTeamModal">
+    <div class="modal quick-team-modal">
+      <div class="quick-team-head">
+        <div>
+          <h3 class="quick-team-title">L&#7853;p Team Nhanh</h3>
+          <div class="quick-team-sub">Chon mot session hoac snapshot cu, xem preview, roi ghi de doi hinh hien tai.</div>
+        </div>
+        <span class="badge" id="quickTeamSourceCount">0 nguon</span>
+      </div>
+      <div class="quick-team-grid">
+        <div class="quick-team-sources" id="quickTeamSources">
+          <div class="quick-empty">Dang tai nguon copy...</div>
+        </div>
+        <div class="quick-team-preview" id="quickTeamPreview">
+          <div class="quick-empty">Chon mot nguon de xem preview.</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="btnQuickTeamCancel">Dong</button>
+        <button class="btn primary" id="btnQuickTeamApply" disabled>Ap dung</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="member-roster-overlay" id="memberRosterOverlay" aria-hidden="true">
+    <iframe class="member-roster-frame" id="memberRosterFrame" title="Danh sach thanh vien"></iframe>
+  </div>
+
   <script>
     const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
     const GUILD_ID = '450633680000385036';
     const DAY_LABELS = { mon:'Thứ 2', tue:'Thứ 3', wed:'Thứ 4', thu:'Thứ 5', fri:'Thứ 6', sat:'Thứ 7', sun:'Chủ Nhật' };
+    const DAY_ORDER = { mon:1, tue:2, wed:3, thu:4, fri:5, sat:6, sun:0 };
     let TEAM_ORDER = ['team_attack1','team_attack2','team_defense','team_forest'];
     const TEAM_LEADER_KEY_MAP = {
       team_attack1: 'team1',
@@ -925,6 +1054,8 @@
     let currentDay = null;
     let currentSessionId = null;
     let currentSessionData = null;
+    let editorSessionOptions = [];
+    let isChangingSession = false;
     let localState = null;
     let currentUserPosition = 'mem';
     let currentDiscordId = null;
@@ -954,6 +1085,10 @@
     let centerNoticeTimer = null;
     let localMutationAt = 0;
     let memberAccessWatchChannel = null;
+    let quickTeamSources = [];
+    let selectedQuickTeamSource = null;
+    let selectedQuickTeamPreview = null;
+    let supportsRosterSnapshots = true;
     const ROSTER_DRAFT_VERSION = 1;
     const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
 
@@ -1071,6 +1206,205 @@
           order: Number.isFinite(Number(team?.order)) ? Number(team.order) : index + 1
         };
       }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order:index + 1 }));
+    }
+
+    function normalizeSessionTime(value, fallback = '19:30') {
+      const raw = String(value || fallback || '19:30').trim().toLowerCase();
+      const match = raw.match(/^(\d{1,2})(?:[:h](\d{0,2}))?$/);
+      if (!match) return fallback || '19:30';
+      const hour = Math.max(0, Math.min(23, Number(match[1])));
+      const minute = Math.max(0, Math.min(59, Number(match[2] || '0')));
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    }
+
+    function getDaysFromNow(dayKey) {
+      const target = DAY_ORDER[dayKey];
+      if (target === undefined) return 99;
+      let diff = target - new Date().getDay();
+      if (diff < 0) diff += 7;
+      return diff;
+    }
+
+    function sortEditorSessions(a, b) {
+      const dayDiff = getDaysFromNow(a?.day) - getDaysFromNow(b?.day);
+      if (dayDiff !== 0) return dayDiff;
+      const timeDiff = normalizeSessionTime(a?.time || '19:30').localeCompare(normalizeSessionTime(b?.time || '19:30'));
+      if (timeDiff !== 0) return timeDiff;
+      return String(a?.id || '').localeCompare(String(b?.id || ''));
+    }
+
+    function getEditorSessionValue(session) {
+      if (!session) return '';
+      return session.id ? String(session.id) : `${session.day || ''}|${normalizeSessionTime(session.time || '19:30')}`;
+    }
+
+    function normalizeEditorSessionList(sessions) {
+      const byValue = new Map();
+      (sessions || []).forEach((session) => {
+        if (!session) return;
+        const normalized = {
+          ...session,
+          time: normalizeSessionTime(session.time || '19:30')
+        };
+        byValue.set(getEditorSessionValue(normalized), normalized);
+      });
+      return [...byValue.values()].sort(sortEditorSessions);
+    }
+
+    function setEditorSessionOptions(sessions) {
+      editorSessionOptions = normalizeEditorSessionList(sessions);
+    }
+
+    function upsertEditorSessionOption(session) {
+      if (!session) return;
+      const value = getEditorSessionValue(session);
+      const next = editorSessionOptions.filter((item) => getEditorSessionValue(item) !== value);
+      const status = String(session.status || 'active').toLowerCase();
+      if (status === 'active') next.push(session);
+      setEditorSessionOptions(next);
+    }
+
+    function getEditorSessionByValue(value) {
+      return editorSessionOptions.find((session) => getEditorSessionValue(session) === String(value || '')) || null;
+    }
+
+    function getEditorSessionActiveCount(session) {
+      if (!session) return 0;
+      const rawTeams = safeParse(session.teams || session.teams_json, null);
+      return normalizeTeamLayout(session).reduce((total, team) => {
+        const fromDynamic = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams) && Array.isArray(rawTeams[team.id])
+          ? rawTeams[team.id]
+          : null;
+        const members = fromDynamic || safeParse(session[team.id], []);
+        return total + (Array.isArray(members) ? members.length : 0);
+      }, 0);
+    }
+
+    function getEditorSessionKindText(session) {
+      if (!session) return '';
+      const note = String(session.note || '').trim();
+      if (note && !/^league$/i.test(note)) return note;
+      return normalizeSessionTime(session.time || '19:30') === '19:30' ? 'LEAGUE' : '';
+    }
+
+    function getEditorSessionOptionText(session) {
+      const day = DAY_LABELS[session?.day] || session?.day || 'Không rõ ngày';
+      const time = normalizeSessionTime(session?.time || '19:30');
+      const kind = getEditorSessionKindText(session);
+      const count = getEditorSessionActiveCount(session);
+      return `${day} • ${time}${kind ? ` • ${kind}` : ''} • ${count}/${ACTIVE_SLOT_TOTAL}`;
+    }
+
+    async function fetchEditorSessionOptions() {
+      let result = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('status', 'active');
+
+      if (result.error && /status/i.test(result.error.message || '')) {
+        result = await sb
+          .from('bc_sessions')
+          .select('*')
+          .eq('guild_id', GUILD_ID);
+      }
+      if (result.error) throw result.error;
+      return normalizeEditorSessionList(result.data || []);
+    }
+
+    async function fetchEditorSessionById(sessionId) {
+      if (!sessionId) return null;
+      const { data, error } = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('id', sessionId)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
+    }
+
+    function rememberEditorSessionTarget(session, { replaceUrl = false } = {}) {
+      if (!session) return;
+      try {
+        if (session.day) sessionStorage.setItem('team_editor_target_day', session.day);
+        if (session.id) sessionStorage.setItem('team_editor_target_session_id', String(session.id));
+        else sessionStorage.removeItem('team_editor_target_session_id');
+      } catch (error) {}
+
+      if (!replaceUrl || !window.history?.replaceState) return;
+      const params = new URLSearchParams(window.location.search);
+      if (session.day) params.set('day', session.day);
+      else params.delete('day');
+      if (session.id) params.set('session', String(session.id));
+      else params.delete('session');
+      params.delete('ts');
+      const query = params.toString();
+      const nextUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash || ''}`;
+      window.history.replaceState(null, '', nextUrl);
+    }
+
+    function renderSessionSelector() {
+      const select = document.getElementById('sessionSelect');
+      const meta = document.getElementById('sessionUpdateTime');
+      if (meta) meta.textContent = lastSyncAt ? `cập nhật ${lastSyncAt}` : '';
+      if (!select) return;
+
+      const sessions = editorSessionOptions.length
+        ? editorSessionOptions
+        : (currentSessionData ? [currentSessionData] : []);
+      const selectedValue = getEditorSessionValue(currentSessionData) || String(currentSessionId || '');
+      const fingerprint = `${selectedValue}::${sessions.map((session) => `${getEditorSessionValue(session)}:${getEditorSessionOptionText(session)}`).join('|')}`;
+
+      if (select.dataset.fingerprint !== fingerprint) {
+        select.replaceChildren();
+        if (!sessions.length) {
+          const option = document.createElement('option');
+          option.textContent = 'Chưa có session';
+          select.appendChild(option);
+        } else {
+          sessions.forEach((session) => {
+            const option = document.createElement('option');
+            option.value = getEditorSessionValue(session);
+            option.textContent = getEditorSessionOptionText(session);
+            select.appendChild(option);
+          });
+        }
+        select.dataset.fingerprint = fingerprint;
+      }
+
+      if (selectedValue) select.value = selectedValue;
+      select.disabled = isChangingSession || sessions.length <= 1;
+      select.title = sessions.length > 1 ? 'Chọn session để edit' : 'Chỉ có một session hiện có';
+    }
+
+    async function changeEditorSession(sessionValue) {
+      const nextSession = getEditorSessionByValue(sessionValue);
+      if (!nextSession) {
+        renderSessionSelector();
+        return;
+      }
+      if (getEditorSessionValue(nextSession) === getEditorSessionValue(currentSessionData)) return;
+
+      isChangingSession = true;
+      renderSessionSelector();
+      updateSyncBadge('Đang chuyển session...', true);
+      try {
+        if (!(await flushPendingSyncBeforeNavigation())) {
+          await customAlert('Đội hình chưa đồng bộ xong. Vui lòng thử lại sau vài giây.');
+          return;
+        }
+        rememberEditorSessionTarget(nextSession, { replaceUrl: true });
+        await loadSession();
+        showCenterNotice('Đã chuyển session');
+      } catch (error) {
+        console.warn('[TeamEditor] Change session failed:', error);
+        await customAlert(error.message || 'Không chuyển được session.');
+      } finally {
+        isChangingSession = false;
+        renderSessionSelector();
+        updateStickyOffset();
+      }
     }
 
     function normalizeDynamicRosterState(state) {
@@ -1471,6 +1805,7 @@
 
     function rememberSnapshot(snapshot) {
       currentSessionData = snapshot;
+      upsertEditorSessionOption(snapshot);
       lastRemoteFingerprint = getSessionFingerprint(snapshot);
     }
 
@@ -1616,6 +1951,7 @@
         resize: 'Resize đội',
         lock: 'Chốt/mở khóa',
         restore_draft: 'Khôi phục bản nháp',
+        quick_team: 'Lap team nhanh',
         sync: 'Đồng bộ'
       };
       return labels[action] || action || 'Đồng bộ';
@@ -1643,9 +1979,10 @@
         edited_at: new Date().toISOString()
       };
       try {
+        const logAction = details.primary_action === 'quick_team' ? 'quick_team' : 'roster_sync';
         const { error } = await sb.from('bc_logs').insert({
           guild_id: GUILD_ID,
-          action: 'roster_sync',
+          action: logAction,
           details,
           performed_by: currentDiscordId || null,
           source: 'web'
@@ -1653,6 +1990,584 @@
         if (error) console.warn('[TeamEditor] Write roster log failed:', error);
       } catch (error) {
         console.warn('[TeamEditor] Write roster log exception:', error);
+      }
+    }
+
+    function isRosterSnapshotMissingError(error) {
+      const message = error?.message || String(error || '');
+      return /bc_roster_snapshots|schema cache|find the table|relation.*does not exist|does not exist/i.test(message);
+    }
+
+    async function saveRosterSnapshotForSession(snapshot, source = 'web_sync') {
+      if (!sb || !supportsRosterSnapshots || !snapshot?.id) return false;
+      const payload = {
+        guild_id: GUILD_ID,
+        source_session_id: snapshot.id,
+        day: snapshot.day || currentDay || null,
+        time: normalizeSessionTime(snapshot.time || localState?.time || currentSessionData?.time || '19:30'),
+        label: `${DAY_LABELS[snapshot.day || currentDay] || snapshot.day || currentDay || 'Session'} ${normalizeSessionTime(snapshot.time || '19:30')}`.trim(),
+        captured_at: new Date().toISOString(),
+        source_updated_at: snapshot.updated_at || null,
+        team_layout: snapshot.team_layout || [],
+        teams: snapshot.teams || {},
+        team_attack1: snapshot.team_attack1 || [],
+        team_attack2: snapshot.team_attack2 || [],
+        team_defense: snapshot.team_defense || [],
+        team_forest: snapshot.team_forest || [],
+        waiting_list: snapshot.waiting_list || [],
+        team_sizes: snapshot.team_sizes || {},
+        team_names: snapshot.team_names || {},
+        leader_ids: snapshot.leader_ids || {},
+        source
+      };
+      try {
+        const { error } = await sb
+          .from('bc_roster_snapshots')
+          .upsert(payload, { onConflict: 'guild_id,source_session_id' });
+        if (error) {
+          if (isRosterSnapshotMissingError(error)) {
+            supportsRosterSnapshots = false;
+            console.warn('[TeamEditor] bc_roster_snapshots chua san sang, bo qua snapshot.');
+            return false;
+          }
+          console.warn('[TeamEditor] Save roster snapshot failed:', error);
+          return false;
+        }
+        return true;
+      } catch (error) {
+        if (isRosterSnapshotMissingError(error)) {
+          supportsRosterSnapshots = false;
+          console.warn('[TeamEditor] bc_roster_snapshots chua san sang, bo qua snapshot.');
+          return false;
+        }
+        console.warn('[TeamEditor] Save roster snapshot exception:', error);
+        return false;
+      }
+    }
+
+    function getQuickMemberId(member) {
+      return String(member?.id || member?.discord_id || member?.discordId || '').trim();
+    }
+
+    function getQuickSourceTeams(session, layout = normalizeTeamLayout(session)) {
+      const rawTeams = safeParse(session?.teams || session?.teams_json, null);
+      const hasDynamicTeams = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams);
+      return layout.reduce((acc, team, index) => {
+        let list = hasDynamicTeams && Array.isArray(rawTeams[team.id]) ? rawTeams[team.id] : null;
+        if (!Array.isArray(list)) list = safeParse(session?.[team.id], null);
+        if (!Array.isArray(list) && LEGACY_TEAM_IDS[index]) list = safeParse(session?.[LEGACY_TEAM_IDS[index]], []);
+        acc[team.id] = Array.isArray(list) ? list.map((member) => ({ ...member })) : [];
+        return acc;
+      }, {});
+    }
+
+    function getQuickSourceWaiting(session) {
+      const list = safeParse(session?.waiting_list, []);
+      return Array.isArray(list) ? list.map((member) => ({ ...member })) : [];
+    }
+
+    function getQuickCurrentRosterEntries() {
+      if (!localState) return [];
+      const layout = Array.isArray(localState.team_layout) && localState.team_layout.length
+        ? localState.team_layout.map((team) => ({ ...team }))
+        : normalizeTeamLayout(localState);
+      const teams = getQuickSourceTeams(localState, layout);
+      const activeEntries = layout.flatMap((team) => (teams[team.id] || []).map((member) => ({
+        member,
+        teamId: team.id,
+        teamName: team.name || team.id,
+        wasActive: true
+      })));
+      const waitingEntries = getQuickSourceWaiting(localState).map((member) => ({
+        member,
+        teamId: 'waiting_list',
+        teamName: 'Hang cho',
+        wasActive: false
+      }));
+      return [...activeEntries, ...waitingEntries];
+    }
+
+    function getQuickSourceRosterInfo(session) {
+      const layout = normalizeTeamLayout(session);
+      const teams = getQuickSourceTeams(session, layout);
+      const waiting = getQuickSourceWaiting(session);
+      const activeCount = layout.reduce((sum, team) => sum + (teams[team.id] || []).length, 0);
+      const capacity = layout.reduce((sum, team) => sum + (Number(team.capacity) || 0), 0);
+      return { layout, teams, waiting, activeCount, waitingCount: waiting.length, capacity };
+    }
+
+    function getQuickSourceLabel(session) {
+      const day = DAY_LABELS[session?.day] || session?.day || 'Session';
+      const time = normalizeSessionTime(session?.time || '19:30');
+      const note = String(session?.note || '').trim();
+      return `${day} - ${time}${note && !/^league$/i.test(note) ? ` - ${note}` : ''}`;
+    }
+
+    function buildQuickSourceFromSession(session) {
+      const info = getQuickSourceRosterInfo(session);
+      const id = String(session?.id || `${session?.day || ''}|${session?.time || ''}`);
+      return {
+        key: `active:${id}`,
+        type: 'active',
+        sourceSessionId: String(session?.id || ''),
+        label: getQuickSourceLabel(session),
+        session: { ...session },
+        updatedAt: session?.updated_at || session?.created_at || '',
+        activeCount: info.activeCount,
+        waitingCount: info.waitingCount,
+        capacity: info.capacity
+      };
+    }
+
+    function buildQuickSourceFromSnapshot(row) {
+      const session = { ...row, id: row.source_session_id };
+      const info = getQuickSourceRosterInfo(session);
+      return {
+        key: `snapshot:${row.source_session_id}`,
+        type: 'snapshot',
+        sourceSessionId: String(row.source_session_id || ''),
+        snapshotId: row.id,
+        label: row.label || getQuickSourceLabel(session),
+        session,
+        updatedAt: row.captured_at || row.updated_at || '',
+        activeCount: info.activeCount,
+        waitingCount: info.waitingCount,
+        capacity: info.capacity
+      };
+    }
+
+    async function fetchQuickRosterSnapshots() {
+      if (!supportsRosterSnapshots) return [];
+      try {
+        const { data, error } = await sb
+          .from('bc_roster_snapshots')
+          .select('*')
+          .eq('guild_id', GUILD_ID)
+          .order('captured_at', { ascending: false })
+          .limit(50);
+        if (error) {
+          if (isRosterSnapshotMissingError(error)) {
+            supportsRosterSnapshots = false;
+            return [];
+          }
+          console.warn('[TeamEditor] Load roster snapshots failed:', error);
+          return [];
+        }
+        return data || [];
+      } catch (error) {
+        if (isRosterSnapshotMissingError(error)) {
+          supportsRosterSnapshots = false;
+          return [];
+        }
+        console.warn('[TeamEditor] Load roster snapshots exception:', error);
+        return [];
+      }
+    }
+
+    async function fetchQuickTeamSources() {
+      let activeResult = await sb
+        .from('bc_sessions')
+        .select('*')
+        .eq('guild_id', GUILD_ID)
+        .eq('status', 'active');
+      if (activeResult.error && /status/i.test(activeResult.error.message || '')) {
+        activeResult = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID);
+      }
+      if (activeResult.error) throw activeResult.error;
+
+      const currentId = String(currentSessionId || '');
+      const activeSources = (activeResult.data || [])
+        .filter((session) => String(session.id || '') !== currentId)
+        .map(buildQuickSourceFromSession);
+      const activeSourceIds = new Set(activeSources.map((source) => source.sourceSessionId).filter(Boolean));
+      const snapshotSources = (await fetchQuickRosterSnapshots())
+        .filter((row) => String(row.source_session_id || '') !== currentId)
+        .filter((row) => !activeSourceIds.has(String(row.source_session_id || '')))
+        .map(buildQuickSourceFromSnapshot);
+
+      return [...activeSources, ...snapshotSources].sort((a, b) => {
+        const at = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const bt = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return bt - at;
+      });
+    }
+
+    function renderQuickTeamSources() {
+      const container = document.getElementById('quickTeamSources');
+      const count = document.getElementById('quickTeamSourceCount');
+      if (count) count.textContent = `${quickTeamSources.length} nguon`;
+      if (!container) return;
+      if (!quickTeamSources.length) {
+        container.innerHTML = '<div class="quick-empty">Khong co session hoac snapshot nao de copy.</div>';
+        return;
+      }
+      container.innerHTML = quickTeamSources.map((source, index) => {
+        const isActive = selectedQuickTeamSource?.key === source.key;
+        const kind = source.type === 'active' ? 'Active session' : 'Snapshot';
+        const updated = source.updatedAt ? new Date(source.updatedAt).toLocaleString('vi-VN', { hour12: false }) : 'khong ro';
+        return `
+          <button class="quick-source ${isActive ? 'active' : ''}" type="button" data-quick-source="${index}">
+            <div class="quick-source-title">${escapeHtml(source.label)}</div>
+            <div class="quick-source-meta">${source.activeCount}/${source.capacity} active - ${source.waitingCount} waiting<br>Cap nhat: ${escapeHtml(updated)}</div>
+            <span class="quick-source-kind">${escapeHtml(kind)}</span>
+          </button>
+        `;
+      }).join('');
+      container.querySelectorAll('[data-quick-source]').forEach((button) => {
+        button.addEventListener('click', () => selectQuickTeamSource(Number(button.dataset.quickSource)));
+      });
+    }
+
+    function setQuickTeamPreviewHtml(html) {
+      const preview = document.getElementById('quickTeamPreview');
+      if (preview) preview.innerHTML = html;
+      const applyButton = document.getElementById('btnQuickTeamApply');
+      if (applyButton) {
+        applyButton.disabled = !(selectedQuickTeamPreview?.ok && isLeaderEditor && !localState?.locked);
+      }
+    }
+
+    function normalizeQuickCombatRole(value, fallback = 'DPS') {
+      const normalized = normalizePlainText(value || fallback);
+      if (normalized.includes('HEAL')) return 'Healer';
+      if (normalized.includes('TANK')) return 'Tanker';
+      if (normalized === 'H') return 'Healer';
+      if (normalized === 'T') return 'Tanker';
+      return 'DPS';
+    }
+
+    function normalizeQuickWeaponRole(value) {
+      return normalizeDpsSubtypeKey(value) || '';
+    }
+
+    function isActiveQuickTeamUser(row) {
+      return !!row
+        && row.lang_gia_member === true
+        && !row.left_at
+        && !isLeftWebPosition(row.position);
+    }
+
+    async function fetchQuickTeamActiveUsers() {
+      let result = await sb
+        .from('bc_users')
+        .select('discord_id,discord_name,game_username,game_uid,position,sub_role,combat_role,weapon_role,lang_gia_member,left_at')
+        .eq('guild_id', GUILD_ID);
+      if (result.error && /(combat_role|weapon_role|left_at)/i.test(result.error.message || '')) {
+        result = await sb
+          .from('bc_users')
+          .select('discord_id,discord_name,game_username,game_uid,position,sub_role,lang_gia_member')
+          .eq('guild_id', GUILD_ID);
+      }
+      if (result.error) throw result.error;
+      const map = new Map();
+      (result.data || []).forEach((row) => {
+        if (isActiveQuickTeamUser(row) && row.discord_id) map.set(String(row.discord_id), row);
+      });
+      return map;
+    }
+
+    function hydrateQuickTeamMember(sourceMember, userRow) {
+      const id = String(userRow.discord_id || getQuickMemberId(sourceMember));
+      const gameName = userRow.game_username || sourceMember?.gn || sourceMember?.game_username || sourceMember?.name || sourceMember?.username || id;
+      const discordName = userRow.discord_name || sourceMember?.username || sourceMember?.discord_name || sourceMember?.name || id;
+      const role = normalizeQuickCombatRole(userRow.combat_role || sourceMember?.combat_role || sourceMember?.role || 'DPS');
+      const weapon = normalizeQuickWeaponRole(userRow.weapon_role || userRow.sub_role || sourceMember?.weapon_role || sourceMember?.sub_role || sourceMember?.sub);
+      return {
+        ...sourceMember,
+        id,
+        discord_id: id,
+        username: discordName,
+        discord_name: discordName,
+        name: gameName,
+        gn: gameName,
+        game_username: gameName,
+        game_uid: userRow.game_uid || sourceMember?.game_uid || sourceMember?.uid || '',
+        role,
+        combat_role: role,
+        sub: weapon,
+        sub_role: weapon,
+        weapon_role: weapon,
+        isLeader: false,
+        isTeamLeader: false,
+        ld: false
+      };
+    }
+
+    function applyQuickLeaderMapping(state, sourceSession) {
+      const sourceLeaderIds = safeParse(sourceSession?.leader_ids, {});
+      const sourceLayout = normalizeTeamLayout(sourceSession);
+      const sourceTeams = getQuickSourceTeams(sourceSession, sourceLayout);
+      const currentLeaderIds = JSON.parse(JSON.stringify(localState?.leader_ids || {}));
+      const nextLeaderIds = {
+        ...currentLeaderIds,
+        teams: {}
+      };
+      ['team1', 'team2', 'team3', 'team4'].forEach((key) => { nextLeaderIds[key] = null; });
+
+      (state.team_layout || []).forEach((team, index) => {
+        const legacyKey = TEAM_LEADER_KEY_MAP[team.id] || `team${index + 1}`;
+        const explicitLeader = (sourceTeams[team.id] || []).find((member) => member?.isTeamLeader || member?.ld || member?.isLeader);
+        const candidateId = String(sourceLeaderIds?.teams?.[team.id] || sourceLeaderIds?.[legacyKey] || getQuickMemberId(explicitLeader) || '').trim();
+        const leaderId = candidateId && (state[team.id] || []).some((member) => String(member.id) === candidateId)
+          ? candidateId
+          : null;
+        nextLeaderIds.teams[team.id] = leaderId;
+        if (TEAM_LEADER_KEY_MAP[team.id]) nextLeaderIds[TEAM_LEADER_KEY_MAP[team.id]] = leaderId;
+        (state[team.id] || []).forEach((member) => {
+          const isLeader = !!leaderId && String(member.id) === leaderId;
+          member.isTeamLeader = isLeader;
+          member.ld = isLeader;
+        });
+      });
+      state.leader_ids = nextLeaderIds;
+    }
+
+    function buildQuickTeamPreview(source, activeUsers) {
+      if (!source?.session) return { ok: false, error: 'Nguon khong hop le.' };
+      const layout = normalizeTeamLayout(source.session).map((team) => ({ ...team }));
+      const totalCapacity = layout.reduce((sum, team) => sum + (Number(team.capacity) || 0), 0);
+      if (!layout.length || totalCapacity !== ACTIVE_SLOT_TOTAL) {
+        return { ok: false, error: `Layout nguon khong hop le: ${totalCapacity}/${ACTIVE_SLOT_TOTAL} slot active.` };
+      }
+
+      const sourceTeams = getQuickSourceTeams(source.session, layout);
+      const sourceWaiting = getQuickSourceWaiting(source.session);
+      const nextState = {
+        ...(localState || {}),
+        locked: localState?.locked === true,
+        note: localState?.note || currentSessionData?.note || '',
+        time: localState?.time || currentSessionData?.time || '19:30',
+        team_layout: layout,
+        teams: {},
+        waiting_list: [],
+        team_sizes: {},
+        team_names: {}
+      };
+      layout.forEach((team) => {
+        nextState[team.id] = [];
+        nextState.teams[team.id] = nextState[team.id];
+      });
+      LEGACY_TEAM_IDS.forEach((teamId) => { if (!nextState[teamId]) nextState[teamId] = []; });
+
+      const seen = new Set();
+      const skipped = [];
+      const duplicates = [];
+      const overflow = [];
+      const displacedCurrent = [];
+      const preservedCurrentWaiting = [];
+
+      const addMember = (sourceMember, targetTeamId, forceWaiting = false) => {
+        const id = getQuickMemberId(sourceMember);
+        const display = getMemberDisplayName(sourceMember);
+        if (!id) {
+          skipped.push({ name: display, reason: 'missing_id' });
+          return;
+        }
+        if (seen.has(id)) {
+          duplicates.push({ id, name: display });
+          return;
+        }
+        const userRow = activeUsers.get(id);
+        if (!userRow) {
+          skipped.push({ id, name: display, reason: 'inactive' });
+          return;
+        }
+        seen.add(id);
+        const member = hydrateQuickTeamMember(sourceMember, userRow);
+        if (forceWaiting || targetTeamId === 'waiting_list') {
+          nextState.waiting_list.push(member);
+          return;
+        }
+        const target = nextState[targetTeamId] || [];
+        const capacity = layout.find((team) => team.id === targetTeamId)?.capacity || 0;
+        if (target.length < capacity) {
+          target.push(member);
+        } else {
+          nextState.waiting_list.push(member);
+          overflow.push({ id, name: getMemberDisplayName(member), from: targetTeamId });
+        }
+      };
+
+      layout.forEach((team) => {
+        (sourceTeams[team.id] || []).forEach((member) => addMember(member, team.id, false));
+      });
+      sourceWaiting.forEach((member) => addMember(member, 'waiting_list', true));
+
+      getQuickCurrentRosterEntries().forEach((entry) => {
+        const id = getQuickMemberId(entry.member);
+        const display = getMemberDisplayName(entry.member);
+        if (!id || seen.has(id)) return;
+        const userRow = activeUsers.get(id);
+        if (!userRow) {
+          skipped.push({ id, name: display, reason: 'current_inactive' });
+          return;
+        }
+        seen.add(id);
+        const member = hydrateQuickTeamMember(entry.member, userRow);
+        nextState.waiting_list.push(member);
+        if (entry.wasActive) displacedCurrent.push({ id, name: getMemberDisplayName(member), from: entry.teamName });
+        else preservedCurrentWaiting.push({ id, name: getMemberDisplayName(member) });
+      });
+
+      applyQuickLeaderMapping(nextState, source.session);
+      const mirror = buildLegacyMirrorFromState(nextState);
+      Object.assign(nextState, mirror);
+      nextState.teams = buildTeamsPayloadFromState(nextState);
+
+      const activeCount = layout.reduce((sum, team) => sum + (nextState[team.id] || []).length, 0);
+      return {
+        ok: true,
+        source,
+        state: nextState,
+        layout,
+        activeCount,
+        waitingCount: nextState.waiting_list.length,
+        skipped,
+        duplicates,
+        overflow,
+        displacedCurrent,
+        preservedCurrentWaiting
+      };
+    }
+
+    function formatQuickNameList(items, limit = 8) {
+      const names = (items || []).map((item) => item?.name || item?.id).filter(Boolean);
+      if (!names.length) return '';
+      const shown = names.slice(0, limit).join(', ');
+      return names.length > limit ? `${shown}, +${names.length - limit} nguoi nua` : shown;
+    }
+
+    function renderQuickTeamPreview() {
+      if (!selectedQuickTeamSource) {
+        selectedQuickTeamPreview = null;
+        setQuickTeamPreviewHtml('<div class="quick-empty">Chon mot nguon de xem preview.</div>');
+        return;
+      }
+      const preview = selectedQuickTeamPreview;
+      if (!preview) {
+        setQuickTeamPreviewHtml('<div class="quick-empty">Dang dung preview...</div>');
+        return;
+      }
+      if (!preview.ok) {
+        setQuickTeamPreviewHtml(`<div class="quick-empty">${escapeHtml(preview.error || 'Nguon khong hop le.')}</div>`);
+        return;
+      }
+
+      const teamCards = preview.layout.map((team) => {
+        const members = preview.state[team.id] || [];
+        const shown = members.slice(0, 10).map((member) => `<li>${escapeHtml(getMemberDisplayName(member))}</li>`).join('');
+        const more = members.length > 10 ? `<li>+${members.length - 10} nguoi nua</li>` : '';
+        return `
+          <div class="quick-team-card">
+            <h4><span>${escapeHtml(team.name || team.id)}</span><span>${members.length}/${team.capacity}</span></h4>
+            <ul>${shown || '<li>Trong</li>'}${more}</ul>
+          </div>
+        `;
+      }).join('');
+
+      const warnings = [];
+      if (preview.skipped.length) warnings.push(`${preview.skipped.length} nguoi bi skip vi khong con active trong bc_users.`);
+      if (preview.duplicates.length) warnings.push(`${preview.duplicates.length} ban ghi trung bi bo qua.`);
+      if (preview.overflow.length) warnings.push(`${preview.overflow.length} nguoi vuot slot duoc dua vao waiting_list.`);
+      if (preview.displacedCurrent?.length) {
+        warnings.push(`${preview.displacedCurrent.length} nguoi dang o team hien tai se bi day xuong waiting_list: ${formatQuickNameList(preview.displacedCurrent)}.`);
+      }
+      if (preview.preservedCurrentWaiting?.length) warnings.push(`${preview.preservedCurrentWaiting.length} nguoi dang cho hien tai duoc giu trong waiting_list.`);
+      const warningHtml = warnings.length ? `<div class="quick-warning">${warnings.map(escapeHtml).join('<br>')}</div>` : '';
+      setQuickTeamPreviewHtml(`
+        <div class="quick-summary">
+          <div class="quick-stat"><span>Nguon</span><strong>${escapeHtml(preview.source.type === 'active' ? 'Active' : 'Snapshot')}</strong></div>
+          <div class="quick-stat"><span>Active</span><strong>${preview.activeCount}/${ACTIVE_SLOT_TOTAL}</strong></div>
+          <div class="quick-stat"><span>Waiting</span><strong>${preview.waitingCount}</strong></div>
+          <div class="quick-stat"><span>Skip</span><strong>${preview.skipped.length}</strong></div>
+        </div>
+        <div class="quick-preview-list">${teamCards}</div>
+        ${warningHtml}
+      `);
+    }
+
+    async function selectQuickTeamSource(index) {
+      selectedQuickTeamSource = quickTeamSources[index] || null;
+      selectedQuickTeamPreview = null;
+      renderQuickTeamSources();
+      setQuickTeamPreviewHtml('<div class="quick-empty">Dang hydrate thanh vien tu bc_users...</div>');
+      if (!selectedQuickTeamSource) return;
+      try {
+        const activeUsers = await fetchQuickTeamActiveUsers();
+        selectedQuickTeamPreview = buildQuickTeamPreview(selectedQuickTeamSource, activeUsers);
+      } catch (error) {
+        console.warn('[TeamEditor] Build quick team preview failed:', error);
+        selectedQuickTeamPreview = { ok: false, error: error.message || 'Khong dung duoc preview.' };
+      }
+      renderQuickTeamPreview();
+    }
+
+    async function openQuickTeamModal() {
+      if (!isLeaderEditor) {
+        await customAlert('Ban khong co quyen sua doi hinh.');
+        return;
+      }
+      if (localState?.locked) {
+        await customAlert('Session da locked, khong the lap team nhanh.');
+        return;
+      }
+      if (!(await flushPendingSyncBeforeNavigation())) {
+        await customAlert('Doi hinh chua dong bo xong. Thu lai sau vai giay.');
+        return;
+      }
+      const modal = document.getElementById('quickTeamModal');
+      modal?.classList.add('show');
+      quickTeamSources = [];
+      selectedQuickTeamSource = null;
+      selectedQuickTeamPreview = null;
+      renderQuickTeamSources();
+      setQuickTeamPreviewHtml('<div class="quick-empty">Dang tai nguon copy...</div>');
+      try {
+        quickTeamSources = await fetchQuickTeamSources();
+        renderQuickTeamSources();
+        if (quickTeamSources.length) await selectQuickTeamSource(0);
+        else renderQuickTeamPreview();
+      } catch (error) {
+        console.warn('[TeamEditor] Load quick team sources failed:', error);
+        setQuickTeamPreviewHtml(`<div class="quick-empty">${escapeHtml(error.message || 'Khong tai duoc nguon copy.')}</div>`);
+      }
+    }
+
+    function closeQuickTeamModal() {
+      document.getElementById('quickTeamModal')?.classList.remove('show');
+      selectedQuickTeamSource = null;
+      selectedQuickTeamPreview = null;
+    }
+
+    async function applyQuickTeam() {
+      if (!selectedQuickTeamPreview?.ok) return;
+      if (!isLeaderEditor || localState?.locked) {
+        await customAlert('Session khong cho phep chinh sua.');
+        return;
+      }
+      const ok = await customConfirm(`Ghi de doi hinh hien tai bang "${selectedQuickTeamPreview.source.label}"?`, {
+        title: 'Lap Team Nhanh',
+        icon: '+',
+        type: 'warn',
+        okText: 'Ap dung',
+        cancelText: 'Huy'
+      });
+      if (!ok) return;
+      localState = selectedQuickTeamPreview.state;
+      normalizeDynamicRosterState(localState);
+      normalizeLeaderState();
+      markLocalMutation();
+      const displaced = selectedQuickTeamPreview.displacedCurrent || [];
+      closeQuickTeamModal();
+      renderEditor();
+      showCenterNotice(displaced.length ? `${displaced.length} nguoi da vao Hang Cho` : 'Da lap team nhanh');
+      scheduleSync('quick_team', 'Da lap team nhanh, dang dong bo...');
+      if (displaced.length) {
+        await customAlert(`Da lap team nhanh.\n\nNhung nguoi dang o team hien tai da duoc dua xuong Hang Cho:\n- ${displaced.map((item) => item.name || item.id).join('\n- ')}`, {
+          title: 'Nguoi bi dua vao Hang Cho',
+          icon: '!',
+          type: 'warn'
+        });
       }
     }
 
@@ -1682,7 +2597,7 @@
         .select('id,action,details,performed_by,source,created_at')
         .eq('guild_id', GUILD_ID)
         .eq('source', 'web')
-        .eq('action', 'roster_sync')
+        .in('action', ['roster_sync', 'quick_team'])
         .order('created_at', { ascending: false })
         .limit(30);
       if (currentSessionId) query = query.contains('details', { session_id: currentSessionId });
@@ -1741,6 +2656,7 @@
     function getRepresentativePendingAction(actions = pendingSyncActions) {
       const ordered = [...(actions || [])];
       if (!ordered.length) return 'sync';
+      if (ordered.includes('quick_team')) return 'quick_team';
       if (ordered.includes('resize')) return 'resize';
       if (ordered.includes('setleader')) return 'setleader';
       if (ordered.includes('move')) return 'move';
@@ -1835,9 +2751,7 @@
     function updateHeader() {
       const label = DAY_LABELS[currentDay] || currentDay || 'Không rõ ngày';
       document.getElementById('pageTitle').textContent = `✏️ Team Editor - ${label}`;
-      const sessionTime = localState?.time || currentSessionData?.time || '19:30';
-      const last = lastSyncAt ? ` • cập nhật ${lastSyncAt}` : '';
-      document.getElementById('pageSub').textContent = `${label} • ${sessionTime}${last}`;
+      renderSessionSelector();
 
       const locked = localState?.locked === true;
       const lockBadge = document.getElementById('lockBadge');
@@ -1854,6 +2768,8 @@
       lockBadge.title = supportsSessionLocked ? '' : 'Supabase hiện chưa có cột locked, chỉ dùng được chỉnh đội hình cơ bản';
 
       document.getElementById('btnResize').disabled = !isLeaderEditor || locked;
+      const quickTeamBtn = document.getElementById('btnQuickTeam');
+      if (quickTeamBtn) quickTeamBtn.disabled = !isLeaderEditor || locked;
     }
 
     function updateSyncBadge(text, isBusy = false) {
@@ -2827,6 +3743,7 @@
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
       rememberSnapshot(snapshot);
       lastSyncedFingerprint = snapshotFingerprint;
+      await saveRosterSnapshotForSession(snapshot, 'web_sync');
       await recordRosterWebLog(actionsToSync, beforeFingerprint, snapshotFingerprint, snapshot);
       const stillPending = pendingSyncActions.size || debounceTimer;
       if (!stillPending && getSessionFingerprint(buildCurrentSessionSnapshot()) === snapshotFingerprint) {
@@ -3189,21 +4106,73 @@
       scheduleSync('lock', willLock ? 'Đã chốt trên web, đang gom thay đổi...' : 'Đã mở khóa trên web, đang gom thay đổi...');
     }
 
+    function openMemberRosterPopup(mode = 'add') {
+      const overlay = document.getElementById('memberRosterOverlay');
+      const frame = document.getElementById('memberRosterFrame');
+      if (!overlay || !frame) return;
+      const query = new URLSearchParams({
+        embed: '1',
+        mode,
+        ts: String(Date.now())
+      });
+      if (currentSessionId || currentSessionData?.id) query.set('session', String(currentSessionId || currentSessionData.id));
+      if (currentDay) query.set('day', String(currentDay));
+      frame.src = `./member_roster.html?${query.toString()}`;
+      overlay.classList.add('show');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeMemberRosterPopup() {
+      const overlay = document.getElementById('memberRosterOverlay');
+      const frame = document.getElementById('memberRosterFrame');
+      if (!overlay || !frame) return;
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+      frame.src = 'about:blank';
+    }
+
+    window.addEventListener('message', async (event) => {
+      const data = event.data || {};
+      if (data.type === 'memberRosterClose') {
+        closeMemberRosterPopup();
+        return;
+      }
+      if (data.type === 'memberRosterSessionUpdated') {
+        try {
+          await loadSession();
+          showCenterNotice('Da cap nhat thanh vien');
+        } catch (error) {
+          console.warn('[TeamEditor] Reload sau member roster failed:', error);
+        }
+      }
+    });
+
     async function loadSession() {
       const params = new URLSearchParams(window.location.search);
-      currentDay = params.get('day') || sessionStorage.getItem('team_editor_target_day') || 'sat';
-      currentSessionId = params.get('session') || sessionStorage.getItem('team_editor_target_session_id') || null;
+      const urlDay = params.get('day');
+      const urlSessionId = params.get('session');
+      const requestedDay = urlDay || sessionStorage.getItem('team_editor_target_day') || 'sat';
+      const requestedSessionId = urlSessionId || (urlDay ? null : sessionStorage.getItem('team_editor_target_session_id')) || null;
 
-      let query = sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID);
-      if (currentSessionId) query = query.eq('id', currentSessionId);
-      else query = query.eq('day', currentDay);
-      const { data, error } = await query.maybeSingle();
-      if (error) throw error;
+      setEditorSessionOptions(await fetchEditorSessionOptions());
+      let data = requestedSessionId
+        ? editorSessionOptions.find((session) => String(session.id || '') === String(requestedSessionId))
+        : null;
+      if (!data && requestedSessionId) data = await fetchEditorSessionById(requestedSessionId);
+      if (!data && requestedDay) {
+        const sameDaySessions = editorSessionOptions.filter((session) => session.day === requestedDay);
+        data = sameDaySessions.find((session) => normalizeSessionTime(session.time || '19:30') === '19:30')
+          || sameDaySessions[0]
+          || null;
+      }
+      if (!data) data = editorSessionOptions[0] || null;
       if (!data) throw new Error('Không tìm thấy session đang chọn.');
+      upsertEditorSessionOption(data);
 
       currentDay = data.day;
       currentSessionId = data.id;
       currentSessionData = data;
+      rememberEditorSessionTarget(data, { replaceUrl: true });
       lastRemoteFingerprint = getSessionFingerprint(data);
       lastSyncedFingerprint = lastRemoteFingerprint;
       localMutationAt = 0;
@@ -3227,6 +4196,7 @@
     function hydrateFromRealtime(nextSession) {
       currentSessionId = nextSession?.id || currentSessionId;
       currentSessionData = nextSession;
+      upsertEditorSessionOption(nextSession);
       lastRemoteFingerprint = getSessionFingerprint(nextSession);
       lastSyncedFingerprint = lastRemoteFingerprint;
       localMutationAt = 0;
@@ -3369,12 +4339,17 @@
       btn.disabled = false;
       setTimeout(() => { btn.textContent = '📡 Fetch Bot'; }, 3000);
     });
+    document.getElementById('btnMemberRoster').addEventListener('click', () => openMemberRosterPopup('add'));
+    document.getElementById('btnQuickTeam').addEventListener('click', openQuickTeamModal);
+    document.getElementById('sessionSelect').addEventListener('change', (event) => changeEditorSession(event.target.value));
     document.getElementById('btnResize').addEventListener('click', openResizeModal);
     document.getElementById('btnValidateRoster').addEventListener('click', runRosterValidation);
     document.getElementById('btnHistory').addEventListener('click', openRosterHistoryModal);
     document.getElementById('btnResizeCancel').addEventListener('click', closeResizeModal);
     document.getElementById('btnResizeSave').addEventListener('click', applyResize);
     document.getElementById('btnHistoryClose').addEventListener('click', closeRosterHistoryModal);
+    document.getElementById('btnQuickTeamCancel').addEventListener('click', closeQuickTeamModal);
+    document.getElementById('btnQuickTeamApply').addEventListener('click', applyQuickTeam);
     document.getElementById('btnLockToggle').addEventListener('click', toggleLocked);
     // Fix: Dùng mousedown thay vì click để tránh modal bị đóng khi người dùng
     // giữ chuột quét chọn văn bản bên trong modal rồi thả chuột ra vùng backdrop.
@@ -3384,6 +4359,9 @@
     });
     document.getElementById('historyModal').addEventListener('mousedown', (event) => {
       if (event.target.id === 'historyModal') closeRosterHistoryModal();
+    });
+    document.getElementById('quickTeamModal').addEventListener('mousedown', (event) => {
+      if (event.target.id === 'quickTeamModal') closeQuickTeamModal();
     });
     document.addEventListener('click', (event) => {
       if (!activeSortMenu) return;

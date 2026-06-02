@@ -11,7 +11,9 @@ const lastGieoQueGuideWeekly = new Map();
 
 // Map<channelId, mondayDateString> - track tuần nào đã gửi guide rồi
 const gieoQueGuideSentWeek = new Map();
-const phongAnhGuideSentWeek = new Map();
+
+// Map<channelId, YYYY-MM> - track tháng nào đã gửi hướng dẫn Phòng Ảnh rồi
+const phongAnhGuideSentMonth = new Map();
 
 /**
  * Lấy ngày thứ Hai của tuần hiện tại (giờ VN UTC+7)
@@ -49,11 +51,29 @@ function getCurrentWeekMonday8AM() {
     return monday.toISOString().split('T')[0];
 }
 
+/**
+ * Lấy tháng hiện tại theo mốc 8h sáng ngày 1 hàng tháng (giờ VN UTC+7).
+ * Trước 8h sáng ngày 1 vẫn tính là tháng trước.
+ * @returns {string} YYYY-MM
+ */
+function getCurrentMonth1st8AM() {
+    const now = new Date();
+    const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const monthDate = new Date(vnTime);
+
+    if (vnTime.getUTCDate() === 1 && vnTime.getUTCHours() < 8) {
+        monthDate.setUTCMonth(monthDate.getUTCMonth() - 1);
+    }
+
+    return `${monthDate.getUTCFullYear()}-${String(monthDate.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 module.exports = {
     lastPhongAnhMessage,
     lastGieoQueGuideWeekly,
     gieoQueGuideSentWeek,
-    phongAnhGuideSentWeek,
+    phongAnhGuideSentMonth,
     getCurrentWeekMonday,
-    getCurrentWeekMonday8AM
+    getCurrentWeekMonday8AM,
+    getCurrentMonth1st8AM
 };

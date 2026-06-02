@@ -4,6 +4,7 @@ const { scheduleWeeklyReminders } = require('../../utils/yentiecReminder');
 const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/quanly/subrole/addrole');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
+const memberRosterSync = require('../../utils/memberRosterSync');
 const { LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
@@ -591,15 +592,13 @@ module.exports = {
           console.error('[Supabase] Loi tao default weekend sessions:', defaultSessionErr.message);
         }
 
-        // Sync tất cả users lên Supabase bc_users
+        // Member roster bootstrap: Supabase is the source of truth after first seed.
         try {
-          const allUsers = db.getAllUsers ? db.getAllUsers() : [];
-          if (allUsers.length > 0) {
-            await supaSync.syncUsers(allUsers, guild.id, guild);
-            console.log(`[Supabase] Đã sync ${allUsers.length} users khi start`);
-          }
+          await guild.members.fetch().catch(() => null);
+          await memberRosterSync.bootstrapRoster(guild);
+          memberRosterSync.listenForRosterChanges(guild);
         } catch (userSyncErr) {
-          console.error('[Supabase] Lỗi sync users:', userSyncErr.message);
+          console.error('[Supabase] Lỗi bootstrap member roster:', userSyncErr.message);
         }
 
         // Recurring signup is temporarily disabled; keep existing data untouched.

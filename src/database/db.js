@@ -40,6 +40,11 @@ function initializeDatabase() {
             added_by TEXT,
             server_name TEXT,
             notes TEXT,
+            combat_role TEXT,
+            weapon_role TEXT,
+            source TEXT DEFAULT 'bot',
+            revision INTEGER DEFAULT 0,
+            role_updated_at DATETIME,
             joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             left_at DATETIME,
             rejoin_count INTEGER DEFAULT 0,
@@ -132,6 +137,22 @@ function initializeDatabase() {
         // Column already exists, ignore
     }
 
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN combat_role TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN weapon_role TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN source TEXT DEFAULT "bot"').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN revision INTEGER DEFAULT 0').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE users ADD COLUMN role_updated_at DATETIME').run();
+    } catch (e) { }
+
     // Track which Discord guild/user created a member record.
     try {
         db.prepare('ALTER TABLE users ADD COLUMN guild_id TEXT').run();
@@ -140,9 +161,33 @@ function initializeDatabase() {
         db.prepare('ALTER TABLE users ADD COLUMN added_by TEXT').run();
     } catch (e) { }
 
+    db.prepare(`
+        CREATE TABLE IF NOT EXISTS pending_ids (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_uid TEXT NOT NULL,
+            game_username TEXT NOT NULL,
+            added_by TEXT NOT NULL,
+            added_by_name TEXT,
+            added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            joined_at DATETIME,
+            guild_id TEXT,
+            source TEXT DEFAULT 'bot',
+            supabase_id TEXT
+        )
+    `).run();
+
     // Scope pending IDs per Discord guild for commands that list or link members.
     try {
         db.prepare('ALTER TABLE pending_ids ADD COLUMN guild_id TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE pending_ids ADD COLUMN added_by_name TEXT').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE pending_ids ADD COLUMN source TEXT DEFAULT "bot"').run();
+    } catch (e) { }
+    try {
+        db.prepare('ALTER TABLE pending_ids ADD COLUMN supabase_id TEXT').run();
     } catch (e) { }
     try {
         db.prepare('CREATE INDEX IF NOT EXISTS idx_users_guild_active ON users(guild_id, left_at)').run();
@@ -665,7 +710,23 @@ function setTeamNames(names) {
  * @returns {Object} Result object
  */
 function upsertUser(userData) {
-    const { discordId, discordName, gameUsername, gameUid, position, guildId, addedBy, serverName, notes, joinedAt } = userData;
+    const {
+        discordId,
+        discordName,
+        gameUsername,
+        gameUid,
+        position,
+        guildId,
+        addedBy,
+        serverName,
+        notes,
+        joinedAt,
+        combatRole,
+        weaponRole,
+        source,
+        revision,
+        roleUpdatedAt
+    } = userData;
 
     // Use provided joinedAt or current timestamp
     const joinDate = joinedAt || new Date().toISOString();
@@ -687,6 +748,26 @@ function upsertUser(userData) {
     `);
 
     const result = stmt.run(discordId, discordName, gameUsername, gameUid, position || 'mem', guildId || null, addedBy || null, serverName, notes, joinDate);
+    try {
+        db.prepare(`
+            UPDATE users SET
+                combat_role = COALESCE(?, combat_role),
+                weapon_role = COALESCE(?, weapon_role),
+                sub_role = COALESCE(?, sub_role),
+                source = COALESCE(?, source),
+                revision = COALESCE(?, revision),
+                role_updated_at = COALESCE(?, role_updated_at)
+            WHERE discord_id = ?
+        `).run(
+            combatRole || null,
+            weaponRole || null,
+            weaponRole || null,
+            source || null,
+            Number.isFinite(Number(revision)) ? Number(revision) : null,
+            roleUpdatedAt || null,
+            discordId
+        );
+    } catch (e) { }
     return { success: true, changes: result.changes };
 }
 
@@ -941,7 +1022,7 @@ function markUserAsLeft(discordId, leftAt) {
  * @returns {Object} Result object
  */
 function rejoinUser(discordId, newData) {
-    const { discordName, gameUsername, gameUid, position, guildId, addedBy, joinedAt } = newData;
+    const { discordName, gameUsername, gameUid, position, guildId, addedBy, joinedAt, combatRole, weaponRole, source, revision, roleUpdatedAt } = newData;
 
     const stmt = db.prepare(`
         UPDATE users SET 
@@ -959,6 +1040,26 @@ function rejoinUser(discordId, newData) {
     `);
 
     const result = stmt.run(discordName, gameUsername, gameUid, position, guildId || null, addedBy || null, joinedAt, discordId);
+    try {
+        db.prepare(`
+            UPDATE users SET
+                combat_role = COALESCE(?, combat_role),
+                weapon_role = COALESCE(?, weapon_role),
+                sub_role = COALESCE(?, sub_role),
+                source = COALESCE(?, source),
+                revision = COALESCE(?, revision),
+                role_updated_at = COALESCE(?, role_updated_at)
+            WHERE discord_id = ?
+        `).run(
+            combatRole || null,
+            weaponRole || null,
+            weaponRole || null,
+            source || null,
+            Number.isFinite(Number(revision)) ? Number(revision) : null,
+            roleUpdatedAt || null,
+            discordId
+        );
+    } catch (e) { }
     return { success: result.changes > 0, changes: result.changes };
 }
 

@@ -15,6 +15,7 @@ const { EmbedBuilder } = require('discord.js');
 const { getRoleMappings, DISPLAY_ROLE_NAME } = require('../../commands/quanly/subrole/addrole');
 const { syncStoredPositionForMember, ensureTrackedMemberFromDiscord, resolveStoredPositionFromDiscord } = require('../../utils/discordPositionSync');
 const supaSync = require('../../utils/supabaseSync');
+const memberRosterSync = require('../../utils/memberRosterSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 
 // ID role Server Booster (Discord cấp tự động)
@@ -73,7 +74,7 @@ module.exports = {
 
                     const hasRole = newMember.roles.cache.some(r => r.name === 'LangGia');
                     if (user) {
-                        await supaSync.syncOneUser(user, guildId, newMember.guild);
+                        await memberRosterSync.syncUserRecord(user, guildId, newMember.guild);
                     }
                     if (!hasRole && removedRoles.some(r => r.name === 'LangGia')) {
                         await cleanupWeekendBcRegulars(newMember.guild, newMember.id, 'lang_gia_removed');

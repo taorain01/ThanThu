@@ -322,6 +322,9 @@
     .pill.kc     { color: var(--green); border-color: rgba(62,207,114,.3); background: rgba(62,207,114,.07); }
     .pill.ql     { color: #a5d8ff; border-color: rgba(165,216,255,.3); background: rgba(165,216,255,.06); }
     .pill.mem    { color: var(--muted); }
+    .pill.session-in { color: #c8ffd8; border-color: rgba(62,207,114,.32); background: rgba(62,207,114,.08); }
+    .pill.session-out { color: var(--muted); }
+    .joined-stack { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-width: 0; }
 
     /* role-edit for self */
     .role-edit { display: flex; gap: 5px; }
@@ -509,7 +512,7 @@
   const POSITION_LABELS = { bc:'Bang chủ', pbc:'Phó bang chủ', kc:'Kỳ cựu', ql:'Quản lý', mem:'Thành viên' };
 
   let sb = null, currentSession = null, currentDiscordId = '', currentUserName = 'Người dùng';
-  let isManager = false, activeRows = [], pendingRows = [], sessionMemberIds = new Set();
+  let isManager = false, activeRows = [], pendingRows = [], sessionMemberIds = new Set(), sessionMemberMap = new Map();
   let realtimeChannel = null, reloadTimer = null;
 
   try {
@@ -532,7 +535,7 @@
   function esc(v) { return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
   function cssEscape(v) { return window.CSS?.escape ? CSS.escape(String(v)) : String(v).replace(/["\\]/g, '\\$&'); }
   function normalizeText(v = '') {
-    return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[đð]/g,'d').replace(/[^a-z0-9]+/g,' ').trim();
   }
   function normalizePosition(v = 'mem') {
     const k = normalizeText(v);
@@ -550,7 +553,7 @@
   }
   function normalizeWeapon(v) {
     const raw = String(v||'').trim(); if (!raw) return '';
-    const u = raw.toUpperCase().replace('Ð','D');
+    const u = raw.toUpperCase().replace(/[ĐÐ]/g,'D');
     if (WEAPON_ROLES.includes(u)) return u;
     const k = normalizeText(raw);
     if (k.includes('quat')) return 'QD'; if (k.includes('vo danh')) return 'VD'; if (k.includes('song dao')) return 'SD';
@@ -577,15 +580,79 @@
     if (!v) return fb;
     try { return JSON.parse(v); } catch(_) { return fb; }
   }
-  function collectSessionIds(sess) {
-    const ids = new Set();
-    if (!sess) return ids;
+  function getSessionPlayerId(player) {
+    return String(player?.id || player?.discord_id || player?.discordId || player?.user_id || '').trim();
+  }
+  function getSessionTeamLabels(sess) {
+    const labels = new Map([
+      ['team_attack1', 'Cong 1'],
+      ['team_attack2', 'Cong 2'],
+      ['team_defense', 'Thu nha'],
+      ['team_forest', 'Rung'],
+      ['waiting_list', 'Hang cho']
+    ]);
+    const teamNames = parseMaybeJson(sess?.team_names, {});
+    if (teamNames && typeof teamNames === 'object') {
+      Object.entries(teamNames).forEach(([key, name]) => { if (name) labels.set(key, String(name)); });
+    }
+    const layout = parseMaybeJson(sess?.team_layout, []);
+    if (Array.isArray(layout)) {
+      layout.forEach((team) => {
+        if (team?.id) labels.set(String(team.id), team.name || team.title || labels.get(String(team.id)) || String(team.id));
+      });
+    }
+    return labels;
+  }
+  function collectSessionMembers(sess) {
+    const members = new Map();
+    if (!sess) return members;
+    const labels = getSessionTeamLabels(sess);
+    const addList = (teamKey, list) => {
+      const arr = Array.isArray(list) ? list : [];
+      arr.forEach((player) => {
+        const id = getSessionPlayerId(player);
+        if (!id) return;
+        const existing = members.get(id);
+        if (existing && existing.session_team !== 'waiting_list') return;
+        const combat = normalizeCombat(player?.combat_role || player?.combatRole || player?.role || player?.combat, '');
+        const weapon = normalizeWeapon(player?.weapon_role || player?.weaponRole || player?.sub_role || player?.subRole || player?.weapon || player?.sub);
+        members.set(id, {
+          ...player,
+          id,
+          combat_role: combat,
+          weapon_role: weapon,
+          session_team: teamKey,
+          session_label: labels.get(teamKey) || teamKey
+        });
+      });
+    };
     const teams = parseMaybeJson(sess.teams, null);
-    if (teams && typeof teams==='object') Object.values(teams).forEach(arr => (Array.isArray(arr)?arr:[]).forEach(p => { if(p?.id) ids.add(String(p.id)); }));
-    ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'].forEach(k => {
-      (Array.isArray(parseMaybeJson(sess[k],[])) ? parseMaybeJson(sess[k],[]) : []).forEach(p => { if(p?.id) ids.add(String(p.id)); });
+    if (teams && typeof teams === 'object') {
+      Object.entries(teams).forEach(([teamKey, list]) => addList(teamKey, Array.isArray(list) ? list : []));
+    }
+    ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'].forEach((teamKey) => {
+      addList(teamKey, parseMaybeJson(sess[teamKey], []));
     });
-    return ids;
+    return members;
+  }
+  function hydrateRowFromSession(row) {
+    const member = sessionMemberMap.get(String(row?.discord_id || ''));
+    if (!member) return row;
+    const combat = normalizeCombat(row.combat_role || member.combat_role || member.role, rowCombat(row));
+    const weapon = combat === 'DPS'
+      ? normalizeWeapon(row.weapon_role || row.sub_role || member.weapon_role || member.sub_role || member.sub)
+      : '';
+    return {
+      ...row,
+      game_username: row.game_username || member.gn || member.game_username || member.name || '',
+      discord_name: row.discord_name || member.discord_name || member.username || '',
+      game_uid: row.game_uid || member.game_uid || member.uid || '',
+      combat_role: combat || row.combat_role || null,
+      weapon_role: weapon || row.weapon_role || null,
+      sub_role: row.sub_role || weapon || null,
+      session_team: member.session_team,
+      session_label: member.session_label
+    };
   }
 
   function setLoggedOut() {
@@ -609,22 +676,19 @@
   }
 
   async function loadCurrentSession() {
-    currentSession = null; sessionMemberIds = new Set();
+    currentSession = null; sessionMemberIds = new Set(); sessionMemberMap = new Map();
     if (!SESSION_ID) return;
     const { data, error } = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID).eq('id', SESSION_ID).maybeSingle();
     if (error) throw error;
     currentSession = data || null;
-    sessionMemberIds = collectSessionIds(currentSession);
+    sessionMemberMap = collectSessionMembers(currentSession);
+    sessionMemberIds = new Set(sessionMemberMap.keys());
   }
   async function fetchActiveRows() {
-    const cols = 'discord_id,discord_name,game_username,game_uid,position,sub_role,guild_id,lang_gia_member,updated_at,combat_role,weapon_role,joined_at,left_at,added_by,source,revision,role_updated_at';
-    let { data, error } = await sb.from('bc_users').select(cols).eq('guild_id', GUILD_ID).is('left_at', null);
-    if (error && /schema cache|Could not find|column .* does not exist/i.test(error.message||'')) {
-      const fb = await sb.from('bc_users').select('discord_id,discord_name,game_username,game_uid,position,sub_role,guild_id,lang_gia_member,updated_at').eq('guild_id', GUILD_ID);
-      data = fb.data; error = fb.error;
-    }
+    const { data, error } = await sb.from('bc_users').select('*').eq('guild_id', GUILD_ID).range(0, 4999);
     if (error) throw error;
     return (data||[]).filter(r => r?.discord_id && !String(r.discord_id).startsWith('pending_') && !isLeftRow(r))
+      .map(hydrateRowFromSession)
       .sort((a,b) => positionSort(a) - positionSort(b) || String(a.game_username||a.discord_name||'').localeCompare(String(b.game_username||b.discord_name||''),'vi'));
   }
   async function fetchPendingRows() {
@@ -672,7 +736,7 @@
     if (st==='all'||st==='pending') pendingRows.forEach(r => rows.push({type:'pending',row:r}));
     return rows.filter(item => {
       const r = item.row;
-      const hay = normalizeText([r.discord_name,r.discord_id,r.game_username,r.game_uid,r.added_by_name,r.added_by].filter(Boolean).join(' '));
+      const hay = normalizeText([r.discord_name,r.discord_id,r.game_username,r.game_uid,r.added_by_name,r.added_by,rowCombat(r),rowWeapon(r),r.session_label].filter(Boolean).join(' '));
       if (q && !hay.includes(q)) return false;
       if (item.type==='pending') { if (cm!=='all'||wp!=='all'||pos!=='all') return false; return true; }
       if (cm!=='all' && rowCombat(r) !== cm) return false;
@@ -733,6 +797,10 @@
     const initial = String(row.game_username||row.discord_name||'?').trim().charAt(0).toUpperCase();
     const joined = row.joined_at ? new Date(row.joined_at).toLocaleDateString('vi-VN') : '—';
     const isSelf = String(row.discord_id) === String(currentDiscordId);
+    const sessionInfo = SESSION_ID ? sessionMemberMap.get(String(row.discord_id)) : null;
+    const sessionBadge = SESSION_ID
+      ? `<span class="pill ${sessionInfo ? 'session-in' : 'session-out'}">${esc(sessionInfo?.session_label || 'Chua trong session')}</span>`
+      : '';
     return `
       <div class="member-row" data-discord-id="${esc(row.discord_id)}">
         <div class="avatar ${isSelf?'you':''}">${esc(initial)}</div>
@@ -745,7 +813,7 @@
         </div>
         <div class="col-position"><span class="pill ${posClass}">${esc(POSITION_LABELS[pos]||'Thành viên')}</span></div>
         <div class="col-combat">${renderRoleControls(row)}</div>
-        <div class="col-joined"><span class="pill">${esc(joined)}</span></div>
+        <div class="col-joined"><div class="joined-stack"><span class="pill">${esc(joined)}</span>${sessionBadge}</div></div>
         <div class="row-actions">${renderActions(row,'active')}</div>
       </div>`;
   }
@@ -851,7 +919,9 @@
     const { data, error } = await sb.rpc('bc_manager_add_member_to_session', { p_session_id:SESSION_ID, p_discord_id:String(discordId) });
     if (error) throw error;
     currentSession = data || currentSession;
-    sessionMemberIds = collectSessionIds(currentSession);
+    sessionMemberMap = collectSessionMembers(currentSession);
+    sessionMemberIds = new Set(sessionMemberMap.keys());
+    activeRows = activeRows.map(hydrateRowFromSession);
     showStatus(sessionMemberIds.has(String(discordId)) ? 'Đã thêm vào đội hình.' : 'Đã đưa vào hàng chờ.', 'ok');
     window.parent?.postMessage({ type:'memberRosterSessionUpdated', sessionId:SESSION_ID }, '*');
     render();

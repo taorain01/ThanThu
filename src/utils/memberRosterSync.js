@@ -552,6 +552,8 @@ async function bootstrapRoster(guild) {
     } else if (remoteUsers !== null) {
         const pulled = await pullUsersFromSupabase(guild);
         console.log(`[memberRosterSync] Pulled ${pulled} users from Supabase`);
+        const pushed = await syncAllUsers(guild);
+        console.log(`[memberRosterSync] Reconciled ${pushed} users back to Supabase`);
     }
 
     const remotePending = await countRows('bc_pending_ids', guild.id);

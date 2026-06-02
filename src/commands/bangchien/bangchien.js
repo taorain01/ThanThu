@@ -1,4 +1,4 @@
-﻿const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const {
     bangchienNotifications,
     bangchienRegistrations,
@@ -351,9 +351,9 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
         embed.addFields({ name: '\u200b', value: '_Chưa có phiên Bang Chiến nào đang mở._', inline: false });
     }
     if (userId && joinedCount > 0) {
-        embed.setFooter({ text: `✅ Bạn đã đăng ký ${joinedCount}/${allSessions.length} trận` });
+        embed.setFooter({ text: `✅ Bạn đã đăng ký ${joinedCount}/${allSessions.length} trận  •  Truy cập langgiawar.vercel.app để đăng ký và xem team` });
     } else if (allSessions.length > 0) {
-        embed.setFooter({ text: `Tổng ${allSessions.length} trận đang mở  •  Bấm Đăng ký để tham gia` });
+        embed.setFooter({ text: `Tổng ${allSessions.length} trận đang mở  •  Truy cập langgiawar.vercel.app để đăng ký và xem team` });
     }
     embed.setTimestamp();
     return embed;

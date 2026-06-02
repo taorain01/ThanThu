@@ -732,10 +732,69 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   display:flex;align-items:center;justify-content:center;
   gap:4px;transition:all .2s;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  position:relative;
+  z-index:2;
 }
 .mp-list-btn:hover{color:var(--gold);text-shadow:0 0 5px rgba(255,215,0,.3)}
-.mp-list{max-height:0;overflow:hidden;transition:max-height .35s ease}
-.mp-list.open{max-height:185px;overflow-y:auto;touch-action:pan-y}
+.mp-wrap.mp-list-open{overflow:visible}
+.mp-wrap.mp-list-open .mp-body{overflow:visible}
+.mp-list{
+  position:absolute;
+  left:calc(100% + 10px);
+  right:auto;
+  bottom:0;
+  width:min(280px, calc(100vw - 32px));
+  max-height:0;
+  overflow:hidden;
+  padding:0;
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(-6px) scale(.98);
+  transform-origin:left bottom;
+  transition:max-height .24s ease, opacity .2s ease, transform .2s ease, padding .2s ease;
+  z-index:10000;
+  background:linear-gradient(135deg,rgba(8,22,14,.96),rgba(12,28,18,.98));
+  border:1px solid rgba(200,162,44,.26);
+  border-radius:14px;
+  box-shadow:0 16px 42px rgba(0,0,0,.62), 0 0 24px rgba(200,162,44,.08);
+  backdrop-filter:blur(20px) saturate(1.25);
+}
+.mp-list.open{
+  max-height:min(360px, calc(100vh - 32px));
+  overflow-y:auto;
+  touch-action:pan-y;
+  opacity:1;
+  pointer-events:auto;
+  transform:translateX(0) scale(1);
+  padding:4px 0;
+}
+.mp-wrap.mp-list-left .mp-list{
+  left:auto;
+  right:calc(100% + 10px);
+  transform:translateX(6px) scale(.98);
+  transform-origin:right bottom;
+}
+.mp-wrap.mp-list-left .mp-list.open{transform:translateX(0) scale(1)}
+.mp-wrap.mp-list-top .mp-list{
+  top:0;
+  bottom:auto;
+  transform-origin:left top;
+}
+.mp-wrap.mp-list-left.mp-list-top .mp-list{transform-origin:right top}
+.mp-wrap.mp-list-bottom .mp-list{
+  position:fixed;
+  left:8px;
+  right:8px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);
+  width:auto;
+  max-height:0;
+  transform:translateY(8px) scale(.98);
+  transform-origin:center bottom;
+}
+.mp-wrap.mp-list-bottom .mp-list.open{
+  max-height:min(360px, calc(100vh - 24px));
+  transform:translateY(0) scale(1);
+}
 .mp-list::-webkit-scrollbar{width:3px}
 .mp-list::-webkit-scrollbar-thumb{background:rgba(200,162,44,.3);border-radius:3px}
 .mp-li{
@@ -977,138 +1036,139 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 
 /* ═══ FEEDBACK MODAL ═══ */
 .feedback-modal-ov{
-  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.72);
-  display:none;align-items:center;justify-content:center;padding:16px;
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.78);
+  display:none;align-items:center;justify-content:center;padding:12px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
 }
 .feedback-modal-ov.active{display:flex}
 .feedback-modal{
-  width:min(1060px,96%);max-height:min(90vh,820px);display:flex;flex-direction:column;
+  width:min(1280px,98%);max-height:min(92vh,860px);display:flex;flex-direction:column;
   background:linear-gradient(155deg,rgba(8,18,12,1),rgba(4,10,7,1));
-  border:1px solid rgba(255,255,255,.08);border-radius:22px;overflow:hidden;
-  box-shadow:0 40px 100px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04),
-             0 0 80px rgba(34,197,94,.04) inset;
-  animation:feedbackSlideIn .3s cubic-bezier(.22,.68,0,1.2);
+  border:1px solid rgba(255,255,255,.09);border-radius:24px;overflow:hidden;
+  box-shadow:0 48px 120px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.05),
+             0 0 100px rgba(34,197,94,.05) inset;
+  animation:feedbackSlideIn .32s cubic-bezier(.22,.68,0,1.2);
 }
 @keyframes feedbackSlideIn{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
 
 /* ─── Header ─── */
 .feedback-head{
-  display:flex;align-items:center;justify-content:space-between;gap:14px;
-  padding:20px 24px 18px;
-  background:linear-gradient(90deg,rgba(34,197,94,.05),rgba(251,191,36,.05),transparent);
-  border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:22px 30px 20px;
+  background:linear-gradient(90deg,rgba(34,197,94,.06),rgba(251,191,36,.04),transparent);
+  border-bottom:1px solid rgba(255,255,255,.07);
   flex-shrink:0;
 }
-.feedback-head-left{display:flex;align-items:center;gap:14px}
+.feedback-head-left{display:flex;align-items:center;gap:16px}
 .feedback-head-icon{
-  width:42px;height:42px;border-radius:12px;flex-shrink:0;
-  background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(251,191,36,.1));
-  border:1px solid rgba(34,197,94,.2);
-  display:flex;align-items:center;justify-content:center;font-size:20px;
+  width:48px;height:48px;border-radius:14px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(251,191,36,.12));
+  border:1px solid rgba(34,197,94,.25);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:0 4px 16px rgba(34,197,94,.12);
 }
 .feedback-head-text{}
-.feedback-title{font-size:18px;font-weight:900;color:var(--text);letter-spacing:.1px;line-height:1.2}
-.feedback-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.feedback-title{font-size:20px;font-weight:900;color:var(--text);letter-spacing:.1px;line-height:1.2}
+.feedback-sub{font-size:12.5px;color:var(--text3);margin-top:3px}
 .feedback-head-stats{display:flex;gap:12px;margin-left:auto}
-.feedback-stat{display:flex;flex-direction:column;align-items:center;gap:1px;
-  padding:6px 14px;border-radius:10px;background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.06)}
-.feedback-stat-num{font-size:18px;font-weight:900;color:var(--gold);line-height:1}
+.feedback-stat{display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 18px;border-radius:12px;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.07)}
+.feedback-stat-num{font-size:20px;font-weight:900;color:var(--gold);line-height:1}
 .feedback-stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
 .feedback-close{
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-  color:var(--text2);border-radius:10px;padding:7px 11px;cursor:pointer;
-  font-size:13px;transition:all .2s;flex-shrink:0;
+  color:var(--text2);border-radius:11px;padding:8px 13px;cursor:pointer;
+  font-size:14px;transition:all .2s;flex-shrink:0;
 }
-.feedback-close:hover{background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.25);color:#fca5a5}
+.feedback-close:hover{background:rgba(255,80,80,.12);border-color:rgba(255,80,80,.3);color:#fca5a5}
 
 /* ─── Two-column layout ─── */
 .feedback-body{
-  display:grid;grid-template-columns:minmax(280px,310px) 1fr;
+  display:grid;grid-template-columns:minmax(320px,380px) 1fr;
   gap:0;overflow:hidden;flex:1;min-height:0;
 }
 
 /* ─── LEFT: Compose Panel ─── */
 .feedback-col-left{
-  padding:20px 18px;border-right:1px solid rgba(255,255,255,.05);overflow-y:auto;
-  display:flex;flex-direction:column;gap:16px;
-  background:linear-gradient(180deg,rgba(34,197,94,.025) 0%,transparent 40%);
+  padding:24px 24px;border-right:1px solid rgba(255,255,255,.06);overflow-y:auto;
+  display:flex;flex-direction:column;gap:20px;
+  background:linear-gradient(180deg,rgba(34,197,94,.03) 0%,transparent 50%);
 }
 .feedback-compose-label{
-  font-size:11px;font-weight:900;color:rgba(134,239,172,.7);
-  text-transform:uppercase;letter-spacing:.9px;
-  display:flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:900;color:rgba(134,239,172,.75);
+  text-transform:uppercase;letter-spacing:1px;
+  display:flex;align-items:center;gap:8px;
 }
-.feedback-compose-label::before{content:'';flex:1;height:1px;background:rgba(34,197,94,.12)}
-.feedback-compose-label::after{content:'';flex:1;height:1px;background:rgba(34,197,94,.12)}
+.feedback-compose-label::before{content:'';flex:1;height:1px;background:rgba(34,197,94,.14)}
+.feedback-compose-label::after{content:'';flex:1;height:1px;background:rgba(34,197,94,.14)}
 .feedback-form{
-  display:flex;flex-direction:column;gap:14px;
+  display:flex;flex-direction:column;gap:18px;
 }
 .feedback-category-grid{
-  display:flex;gap:7px;flex-wrap:wrap;
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
 }
 .feedback-cat-btn{
-  display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:10px;
-  font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:11px;
+  font-size:12.5px;font-weight:700;cursor:pointer;transition:all .18s;
   border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
-  color:var(--text3);font-family:'Inter',sans-serif;
+  color:var(--text3);font-family:'Inter',sans-serif;width:100%;
 }
-.feedback-cat-btn:hover{border-color:rgba(255,255,255,.18);color:var(--text)}
-.feedback-cat-btn.active-cat{color:#fff!important;transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.4)}
-.feedback-cat-btn.cat-feedback.active-cat{border-color:#4ade80;background:rgba(34,197,94,.2);box-shadow:0 4px 14px rgba(34,197,94,.2)}
-.feedback-cat-btn.cat-bug.active-cat{border-color:#f87171;background:rgba(239,68,68,.2);box-shadow:0 4px 14px rgba(239,68,68,.2)}
-.feedback-cat-btn.cat-suggestion.active-cat{border-color:#a78bfa;background:rgba(139,92,246,.2);box-shadow:0 4px 14px rgba(139,92,246,.2)}
-.feedback-cat-btn.cat-other.active-cat{border-color:#94a3b8;background:rgba(148,163,184,.15);box-shadow:0 4px 14px rgba(148,163,184,.1)}
+.feedback-cat-btn:hover{border-color:rgba(255,255,255,.2);color:var(--text);background:rgba(255,255,255,.05)}
+.feedback-cat-btn.active-cat{color:#fff!important;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.feedback-cat-btn.cat-feedback.active-cat{border-color:#4ade80;background:rgba(34,197,94,.2);box-shadow:0 4px 16px rgba(34,197,94,.22)}
+.feedback-cat-btn.cat-bug.active-cat{border-color:#f87171;background:rgba(239,68,68,.2);box-shadow:0 4px 16px rgba(239,68,68,.22)}
+.feedback-cat-btn.cat-suggestion.active-cat{border-color:#a78bfa;background:rgba(139,92,246,.2);box-shadow:0 4px 16px rgba(139,92,246,.22)}
+.feedback-cat-btn.cat-other.active-cat{border-color:#94a3b8;background:rgba(148,163,184,.15);box-shadow:0 4px 16px rgba(148,163,184,.12)}
 .feedback-cat-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
 .feedback-cat-btn.cat-feedback .feedback-cat-dot{color:#4ade80}
 .feedback-cat-btn.cat-bug .feedback-cat-dot{color:#f87171}
 .feedback-cat-btn.cat-suggestion .feedback-cat-dot{color:#a78bfa}
 .feedback-cat-btn.cat-other .feedback-cat-dot{color:#94a3b8}
-.feedback-field{display:flex;flex-direction:column;gap:8px}
-.feedback-label{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.7px}
+.feedback-field{display:flex;flex-direction:column;gap:9px}
+.feedback-label{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.8px}
 .feedback-textarea{
-  width:100%;border:1.5px solid rgba(255,255,255,.08);border-radius:12px;
-  background:rgba(0,0,0,.3);color:var(--text);font-family:'Inter',sans-serif;
-  font-size:13.5px;line-height:1.6;outline:none;transition:border-color .2s,box-shadow .2s;
-  min-height:140px;resize:vertical;padding:13px 14px;
+  width:100%;border:1.5px solid rgba(255,255,255,.09);border-radius:13px;
+  background:rgba(0,0,0,.28);color:var(--text);font-family:'Inter',sans-serif;
+  font-size:14px;line-height:1.65;outline:none;transition:border-color .2s,box-shadow .2s;
+  min-height:180px;resize:vertical;padding:15px 16px;box-sizing:border-box;
 }
 .feedback-textarea::placeholder{color:rgba(148,163,184,.35)}
-.feedback-textarea:focus{border-color:rgba(34,197,94,.4);box-shadow:0 0 0 3px rgba(34,197,94,.07)}
-.feedback-char-count{font-size:11px;color:var(--text3);text-align:right;margin-top:-4px}
+.feedback-textarea:focus{border-color:rgba(34,197,94,.45);box-shadow:0 0 0 3px rgba(34,197,94,.08)}
+.feedback-char-count{font-size:11px;color:var(--text3);text-align:right;margin-top:-5px}
 .feedback-char-count.near-limit{color:#fbbf24}
 .feedback-char-count.at-limit{color:#f87171}
-.feedback-form-actions{display:flex;align-items:center;gap:10px;margin-top:2px}
+.feedback-form-actions{display:flex;align-items:center;gap:12px;margin-top:4px}
 .feedback-status{font-size:12px;color:var(--text3);min-height:18px;flex:1;line-height:1.4}
 .feedback-status.success{color:#4ade80}
 .feedback-status.error{color:#fca5a5}
 .feedback-submit{
-  height:42px;padding:0 20px;border:none;border-radius:11px;cursor:pointer;
-  font-weight:900;color:#0a1a0f;font-size:13px;letter-spacing:.3px;
+  height:46px;padding:0 24px;border:none;border-radius:12px;cursor:pointer;
+  font-weight:900;color:#0a1a0f;font-size:13.5px;letter-spacing:.3px;
   background:linear-gradient(135deg,#4ade80,#22c55e);
-  box-shadow:0 6px 20px rgba(34,197,94,.3);
+  box-shadow:0 6px 24px rgba(34,197,94,.32);
   transition:all .2s;white-space:nowrap;font-family:'Inter',sans-serif;
 }
-.feedback-submit:hover{box-shadow:0 8px 28px rgba(34,197,94,.45);transform:translateY(-1px);background:linear-gradient(135deg,#6ee7a0,#34d36a)}
+.feedback-submit:hover{box-shadow:0 10px 32px rgba(34,197,94,.48);transform:translateY(-2px);background:linear-gradient(135deg,#6ee7a0,#34d36a)}
 .feedback-submit:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
 .feedback-select{display:none}
 
 /* ─── RIGHT: Comment Feed ─── */
 .feedback-col-right{
-  padding:20px;overflow:hidden;display:flex;flex-direction:column;
-  background:rgba(0,0,0,.12);
+  padding:24px 24px;overflow:hidden;display:flex;flex-direction:column;
+  background:rgba(0,0,0,.1);
 }
 .feedback-list-head{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  margin-bottom:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  margin-bottom:16px;flex-shrink:0;
 }
 .feedback-list-title{
-  font-size:15px;font-weight:900;color:var(--text);letter-spacing:.3px;
-  display:flex;align-items:center;gap:8px;
+  font-size:16px;font-weight:900;color:var(--text);letter-spacing:.3px;
+  display:flex;align-items:center;gap:10px;
 }
 .feedback-list-title-count{
-  font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
-  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);
+  font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;
+  background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.22);
   color:var(--green-300);
 }
 .feedback-filter-bar{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto}
@@ -1120,66 +1180,66 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .feedback-filter-tab:hover{border-color:rgba(255,255,255,.18);color:var(--text)}
 .feedback-filter-tab.active-filter{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:var(--text)}
 .feedback-refresh{
-  border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);
-  color:var(--text2);border-radius:9px;padding:6px 11px;font-size:11px;font-weight:800;
+  border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);
+  color:var(--text2);border-radius:10px;padding:7px 13px;font-size:11.5px;font-weight:800;
   cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'Inter',sans-serif;
-  display:flex;align-items:center;gap:5px;
+  display:flex;align-items:center;gap:6px;
 }
 .feedback-refresh:hover{color:var(--gold);border-color:rgba(251,191,36,.3)}
-.feedback-refresh svg{width:13px;height:13px;transition:transform .4s}
+.feedback-refresh svg{width:14px;height:14px;transition:transform .4s}
 .feedback-refresh:hover svg{transform:rotate(180deg)}
 
-.feedback-list{display:flex;flex-direction:column;gap:10px;flex:1;min-height:60px;overflow-y:auto;padding-right:6px}
-.feedback-list::-webkit-scrollbar{width:4px}
+.feedback-list{display:flex;flex-direction:column;gap:12px;flex:1;min-height:60px;overflow-y:auto;padding-right:8px}
+.feedback-list::-webkit-scrollbar{width:5px}
 .feedback-list::-webkit-scrollbar-track{background:rgba(255,255,255,.03);border-radius:4px}
-.feedback-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
+.feedback-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:4px}
 .feedback-list::-webkit-scrollbar-thumb:hover{background:rgba(251,191,36,.3)}
 
 .feedback-empty,.feedback-loading,.feedback-error{
-  padding:36px 24px;text-align:center;border:1px dashed rgba(255,255,255,.07);
-  border-radius:14px;color:var(--text3);font-size:13px;line-height:1.6;
+  padding:40px 28px;text-align:center;border:1px dashed rgba(255,255,255,.07);
+  border-radius:16px;color:var(--text3);font-size:13.5px;line-height:1.6;
 }
 .feedback-loading{animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
 .feedback-error{color:#fca5a5;border-color:rgba(248,113,113,.18)}
 
-/* ─── Comment Card (blog style) ─── */
+/* ─── Comment Card ─── */
 .fb-comment{
-  display:flex;gap:12px;padding:14px 16px;border-radius:14px;
-  background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.06);
-  transition:border-color .2s,background .2s,transform .2s;
+  display:flex;gap:14px;padding:16px 18px;border-radius:16px;
+  background:linear-gradient(135deg,rgba(255,255,255,.038),rgba(255,255,255,.018));
+  border:1px solid rgba(255,255,255,.07);
+  transition:border-color .2s,background .2s,transform .2s,box-shadow .2s;
   position:relative;animation:fbCommentIn .3s ease both;
 }
-@keyframes fbCommentIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.fb-comment:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.045);transform:translateY(-1px)}
+@keyframes fbCommentIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fb-comment:hover{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .fb-comment-avatar{
-  width:38px;height:38px;border-radius:50%;flex-shrink:0;margin-top:1px;
-  display:flex;align-items:center;justify-content:center;font-size:16px;
-  font-weight:900;background:linear-gradient(135deg,rgba(34,197,94,.25),rgba(251,191,36,.15));
-  border:1.5px solid rgba(34,197,94,.2);color:var(--green-300);
+  width:42px;height:42px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  font-weight:900;background:linear-gradient(135deg,rgba(34,197,94,.28),rgba(251,191,36,.16));
+  border:2px solid rgba(34,197,94,.22);color:var(--green-300);
   position:relative;overflow:hidden;
 }
 .fb-comment-body{flex:1;min-width:0}
-.fb-comment-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.fb-comment-name{font-size:13px;font-weight:800;color:var(--text)}
+.fb-comment-header{display:flex;align-items:center;gap:9px;margin-bottom:7px;flex-wrap:wrap}
+.fb-comment-name{font-size:13.5px;font-weight:800;color:var(--text)}
 .fb-comment-category{
-  font-size:10px;font-weight:800;border-radius:999px;padding:2px 9px;
+  font-size:10px;font-weight:800;border-radius:999px;padding:2px 10px;
   letter-spacing:.3px;text-transform:uppercase;
 }
 .fb-cat-feedback{color:#4ade80;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.25)}
 .fb-cat-bug{color:#f87171;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.25)}
 .fb-cat-suggestion{color:#c4b5fd;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.25)}
 .fb-cat-other{color:#94a3b8;background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2)}
-.fb-comment-time{font-size:10px;color:var(--text3);margin-left:auto;white-space:nowrap}
+.fb-comment-time{font-size:10.5px;color:var(--text3);margin-left:auto;white-space:nowrap}
 .fb-comment-text{
-  font-size:13.5px;line-height:1.65;color:rgba(226,232,240,.85);
+  font-size:14px;line-height:1.7;color:rgba(226,232,240,.88);
   white-space:pre-wrap;word-break:break-word;
 }
 .fb-comment-footer{
-  display:flex;align-items:center;gap:8px;margin-top:8px;
+  display:flex;align-items:center;gap:8px;margin-top:9px;
 }
-.fb-comment-no{font-size:10px;color:var(--text3);opacity:.6}
+.fb-comment-no{font-size:10.5px;color:var(--text3);opacity:.6}
 .feedback-delete{
   position:absolute;top:10px;right:10px;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
   border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;cursor:pointer;opacity:.72;transition:opacity .18s,background .18s;
@@ -1510,7 +1570,154 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 .day-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,.05);box-shadow:0 0 12px rgba(251,191,36,.1)}
 .day-add svg{width:16px;height:16px}
+.day-log-btn{
+  height:32px;
+  min-width:58px;
+  padding:0 13px;
+  border:1px solid rgba(251,191,36,.34);
+  border-radius:8px;
+  background:rgba(8,15,10,.72);
+  color:var(--gold);
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:all .2s ease;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+.day-log-btn:hover,
+.day-log-btn[aria-expanded="true"]{
+  border-color:var(--gold);
+  background:rgba(251,191,36,.08);
+  box-shadow:0 0 14px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.06);
+}
 .day-sep{width:1px;height:24px;background:rgba(255,255,255,.08);margin:0 4px;flex-shrink:0}
+
+.index-roster-log-panel {
+  position: fixed;
+  top: 124px;
+  right: 16px;
+  z-index: 960;
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(520px, calc(100vh - 150px));
+  display: none;
+  flex-direction: column;
+  border: 1px solid rgba(34,197,94,.22);
+  border-radius: 10px;
+  background: rgba(7,18,10,.98);
+  box-shadow: 0 22px 70px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.03);
+  overflow: hidden;
+}
+.index-roster-log-panel.show { display: flex; }
+.index-roster-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(34,197,94,.12);
+}
+.index-roster-log-title { color: var(--gold); font-size: 13px; font-weight: 900; }
+.index-roster-log-sub { margin-top: 1px; color: var(--text3); font-size: 10.5px; }
+.index-roster-log-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 7px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 800;
+}
+.index-roster-log-close:hover { border-color: rgba(251,191,36,.36); color: var(--gold); }
+.index-roster-log-filters {
+  display: flex;
+  gap: 5px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(34,197,94,.09);
+  overflow-x: auto;
+}
+.index-roster-log-filter {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(34,197,94,.14);
+  border-radius: 7px;
+  background: rgba(255,255,255,.035);
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.index-roster-log-filter.active {
+  border-color: rgba(251,191,36,.42);
+  color: var(--gold);
+  background: rgba(251,191,36,.1);
+}
+.index-roster-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 120px;
+  overflow: auto;
+  padding: 9px 10px 10px;
+}
+.index-roster-log-list::-webkit-scrollbar { width: 4px; }
+.index-roster-log-list::-webkit-scrollbar-track { background: transparent; }
+.index-roster-log-list::-webkit-scrollbar-thumb { background: rgba(34,197,94,.2); border-radius: 4px; }
+.index-roster-log-item {
+  border: 1px solid rgba(34,197,94,.12);
+  border-radius: 8px;
+  background: rgba(255,255,255,.026);
+  padding: 8px 9px;
+  min-width: 0;
+}
+.index-roster-log-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text3);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.index-roster-log-source {
+  color: var(--green-700);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.index-roster-log-source.bot { color: var(--gold); }
+.index-roster-log-summary {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.index-roster-log-meta,
+.index-roster-log-change {
+  margin-top: 3px;
+  color: var(--text3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.index-roster-log-change { color: #abcbb6; }
+.index-roster-log-empty {
+  padding: 24px 12px;
+  border: 1px dashed rgba(34,197,94,.14);
+  border-radius: 8px;
+  color: var(--text3);
+  text-align: center;
+  font-size: 12px;
+}
 
 /* ─── RIGHT SIDE WRAPPER: Đăng ký trên, Đội hình dưới ─── */
 .day-bar-right{
@@ -1866,6 +2073,23 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .mbtn-ok:hover{box-shadow:0 4px 15px rgba(34,197,94,.3)}
 .mbtn-cc{background:rgba(255,255,255,.04);color:var(--text2);border:1px solid rgba(255,255,255,.1)}
 .mbtn-cc:hover{background:rgba(255,255,255,.08)}
+.modal.pickrole{width:min(440px,calc(100vw - 28px));padding:20px}
+.pickrole-current{min-height:20px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--text2);font-size:12px;font-weight:700;margin-bottom:12px}
+.pickrole-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.pickrole-choice{min-height:52px;padding:9px 10px;border-radius:8px;border:1px solid rgba(34,197,94,.22);background:rgba(10,28,17,.78);color:var(--text);font-family:'Inter',sans-serif;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left;transition:all .2s}
+.pickrole-choice:hover:not(:disabled){border-color:var(--green-400);background:rgba(34,197,94,.14);transform:translateY(-1px)}
+.pickrole-choice.active{border-color:rgba(251,191,36,.72);background:linear-gradient(135deg,rgba(251,191,36,.16),rgba(34,197,94,.09));color:#fbbf24}
+.pickrole-choice:disabled{opacity:.62;cursor:wait;transform:none}
+.pickrole-icon{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);flex-shrink:0}
+.pickrole-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.pickrole-label{line-height:1.2;overflow-wrap:anywhere}
+.pickrole-type{font-size:10px;line-height:1;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.pickrole-status{min-height:18px;color:var(--text3);font-size:12px;font-weight:700;margin:2px 0 10px}
+.pickrole-status.ok{color:var(--green-300)}
+.pickrole-status.error{color:#fca5a5}
+@media (max-width: 380px) {
+  .pickrole-grid{grid-template-columns:1fr}
+}
 .day-tab .del-x{display:none;margin-left:4px;width:18px;height:18px;border-radius:50%;font-size:11px;line-height:18px;text-align:center;
   cursor:pointer;color:var(--text3);transition:all .2s;background:rgba(255,255,255,.06);flex-shrink:0}
 .day-tab:hover .del-x{display:inline-flex;align-items:center;justify-content:center}
@@ -2120,9 +2344,19 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   /* Day bar: scroll ngang */
   .day-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px }
   .day-tab { white-space: nowrap; font-size: 12px; padding: 6px 14px }
-  .day-sep, .day-add { flex-shrink: 0 }
+  .day-sep, .day-add, .day-log-btn { flex-shrink: 0 }
   .day-bar-right { display: none }
   .roster-toolbar { display: none }
+  .index-roster-log-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 70vh;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 12px 12px 0 0;
+  }
   
   /* Thay vì ẩn signup-bar, hiển thị dạng nút Nổi (FAB) trên Mobile */
   .bc-signup-bar {
@@ -3133,6 +3367,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
     <div class="day-add" id="addBcBtn" title="Tạo BC tùy chỉnh (Kỳ Cựu)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </div>
+    <button class="day-log-btn" id="btnIndexRosterLog" type="button" aria-expanded="false">Log</button>
     <!-- Right wrapper: Đăng Ký trên, Đội Hình dưới -->
     <div class="day-bar-right">
       <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
@@ -3310,9 +3545,45 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
   </div>
 </div>
 
+<div class="modal-ov" id="pickRoleModal" onclick="if(event.target===this)closePickRoleModal()">
+  <div class="modal pickrole" role="dialog" aria-modal="true" aria-labelledby="pickRoleTitle">
+    <h3 id="pickRoleTitle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg>
+      Chọn Vai Trò
+    </h3>
+    <div class="pickrole-current" id="pickRoleCurrent">Vai hiện tại: --</div>
+    <div class="pickrole-grid" id="pickRoleOptions"></div>
+    <div class="pickrole-status" id="pickRoleStatus" aria-live="polite"></div>
+    <div class="modal-btns">
+      <button class="mbtn-cc" type="button" onclick="closePickRoleModal()">Đóng</button>
+    </div>
+  </div>
+</div>
+
 <div class="member-roster-overlay" id="memberRosterOverlay" aria-hidden="true">
   <iframe class="member-roster-frame" id="memberRosterFrame" title="Danh sach thanh vien"></iframe>
 </div>
+
+<section class="index-roster-log-panel" id="indexRosterLogPanel" aria-hidden="true">
+  <div class="index-roster-log-head">
+    <div>
+      <div class="index-roster-log-title">Roster Log</div>
+      <div class="index-roster-log-sub" id="indexRosterLogSub">Lich su chinh sua gan day</div>
+    </div>
+    <button class="index-roster-log-close" id="btnIndexRosterLogClose" type="button" aria-label="Dong log">x</button>
+  </div>
+  <div class="index-roster-log-filters" id="indexRosterLogFilters">
+    <button class="index-roster-log-filter active" type="button" data-index-log-filter="all">Tat ca</button>
+    <button class="index-roster-log-filter" type="button" data-index-log-filter="web">Web</button>
+    <button class="index-roster-log-filter" type="button" data-index-log-filter="bot">Bot</button>
+    <button class="index-roster-log-filter" type="button" data-index-log-filter="member">Member</button>
+    <button class="index-roster-log-filter" type="button" data-index-log-filter="pending">Pending</button>
+    <button class="index-roster-log-filter" type="button" data-index-log-filter="session">Session</button>
+  </div>
+  <div class="index-roster-log-list" id="indexRosterLogList">
+    <div class="index-roster-log-empty">Dang tai log...</div>
+  </div>
+</section>
 
 <script>
 function removeDuplicateStaticScreens() {
@@ -5163,6 +5434,241 @@ window.addEventListener('message', async (event) => {
     }
 });
 
+const INDEX_PICKROLE_OPTIONS = [
+    { combat: 'DPS', weapon: 'QD', label: 'Quạt Dù', icon: '🪭' },
+    { combat: 'DPS', weapon: 'VD', label: 'Vô Danh', icon: '🗡️' },
+    { combat: 'DPS', weapon: 'SD', label: 'Song Đao', icon: '⚔️' },
+    { combat: 'DPS', weapon: '9K', label: 'Cửu Kiếm', icon: '🔱' },
+    { combat: 'DPS', weapon: 'DR', label: 'Dù Roi', icon: '🌂' },
+    { combat: 'DPS', weapon: 'HD', label: 'Hoành Đao/Mở', icon: '🔪' },
+    { combat: 'Healer', weapon: '', label: 'Healer', icon: '💚' },
+    { combat: 'Tanker', weapon: '', label: 'Tanker', icon: '🛡️' }
+];
+const INDEX_PICKROLE_WEAPON_LABELS = {
+    QD: 'Quạt Dù',
+    VD: 'Vô Danh',
+    SD: 'Song Đao',
+    '9K': 'Cửu Kiếm',
+    DR: 'Dù Roi',
+    HD: 'Hoành Đao/Mở'
+};
+let indexPickRoleCurrentRow = null;
+let indexPickRoleSaving = false;
+
+function normalizeIndexPickCombat(value, fallback = '') {
+    const key = normalizeAccessRole(value);
+    if (key === 'healer') return 'Healer';
+    if (key === 'tanker' || key === 'tank') return 'Tanker';
+    if (key === 'dps') return 'DPS';
+    return fallback;
+}
+
+function normalizeIndexPickWeapon(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const upper = raw.toUpperCase().replace(/[ĐÐ]/g, 'D');
+    if (INDEX_PICKROLE_WEAPON_LABELS[upper]) return upper;
+    const key = normalizeAccessRole(raw);
+    if (key.includes('quat')) return 'QD';
+    if (key.includes('vo danh')) return 'VD';
+    if (key.includes('song dao')) return 'SD';
+    if (key.includes('cuu kiem') || key === '9k') return '9K';
+    if (key.includes('du roi')) return 'DR';
+    if (key.includes('hoanh dao') || key.includes('hoang dao')) return 'HD';
+    return '';
+}
+
+function getIndexPickRoleFromRow(row = {}) {
+    const weapon = normalizeIndexPickWeapon(row?.weapon_role || row?.sub_role);
+    const combat = normalizeIndexPickCombat(row?.combat_role, weapon ? 'DPS' : '');
+    return {
+        combat,
+        weapon: combat === 'DPS' ? weapon : ''
+    };
+}
+
+function getIndexPickRoleKey(combat, weapon) {
+    return `${combat || ''}:${weapon || ''}`;
+}
+
+function formatIndexPickRole(combat, weapon) {
+    if (combat === 'DPS') return weapon ? `DPS - ${INDEX_PICKROLE_WEAPON_LABELS[weapon] || weapon}` : 'DPS';
+    if (combat === 'Healer' || combat === 'Tanker') return combat;
+    return 'Chưa chọn';
+}
+
+function setIndexPickRoleStatus(message, type = '') {
+    const status = document.getElementById('pickRoleStatus');
+    if (!status) return;
+    status.className = `pickrole-status${type ? ` ${type}` : ''}`;
+    status.textContent = message || '';
+}
+
+function setIndexPickRoleSaving(saving) {
+    indexPickRoleSaving = Boolean(saving);
+    document.querySelectorAll('#pickRoleOptions .pickrole-choice').forEach((button) => {
+        button.disabled = indexPickRoleSaving;
+    });
+}
+
+function renderIndexPickRoleOptions(row = indexPickRoleCurrentRow) {
+    const optionsEl = document.getElementById('pickRoleOptions');
+    const currentEl = document.getElementById('pickRoleCurrent');
+    if (!optionsEl) return;
+
+    const currentRole = getIndexPickRoleFromRow(row || {});
+    const activeKey = getIndexPickRoleKey(currentRole.combat, currentRole.weapon);
+    if (currentEl) currentEl.textContent = `Vai hiện tại: ${formatIndexPickRole(currentRole.combat, currentRole.weapon)}`;
+
+    optionsEl.innerHTML = INDEX_PICKROLE_OPTIONS.map((option) => {
+        const key = getIndexPickRoleKey(option.combat, option.weapon);
+        const active = key === activeKey ? ' active' : '';
+        const typeLabel = option.combat === 'DPS' ? 'DPS' : 'Vai chính';
+        return `<button class="pickrole-choice${active}" type="button" data-pick-combat="${option.combat}" data-pick-weapon="${option.weapon}" onclick="selectIndexPickRoleFromButton(this)">
+            <span class="pickrole-icon">${option.icon}</span>
+            <span class="pickrole-copy">
+                <span class="pickrole-label">${escapeIndexHtml(option.label)}</span>
+                <span class="pickrole-type">${typeLabel}</span>
+            </span>
+        </button>`;
+    }).join('');
+    setIndexPickRoleSaving(indexPickRoleSaving);
+}
+
+async function fetchIndexCurrentUserRole() {
+    if (!sb || !window.currentDiscordId) return null;
+    const { data, error } = await sb
+        .from('bc_users')
+        .select('discord_id,discord_name,game_username,game_uid,combat_role,weapon_role,sub_role')
+        .eq('discord_id', window.currentDiscordId)
+        .maybeSingle();
+    if (error) throw error;
+    return data || null;
+}
+
+function buildIndexPickRoleChange(field, label, before, after) {
+    const oldValue = normalizeIndexLogValue(before);
+    const newValue = normalizeIndexLogValue(after);
+    if (oldValue === newValue) return null;
+    return { field, label, before: oldValue || null, after: newValue || null };
+}
+
+async function recordIndexOwnRoleLog(beforeRow, combat, weapon) {
+    if (!sb || !window.currentDiscordId) return;
+    const beforeRole = getIndexPickRoleFromRow(beforeRow || {});
+    const changes = [
+        buildIndexPickRoleChange('combat_role', 'Vai', beforeRole.combat, combat),
+        buildIndexPickRoleChange('weapon_role', 'Vũ khí', beforeRole.weapon, weapon || '')
+    ].filter(Boolean);
+    if (!changes.length) return;
+
+    const targetName = beforeRow?.game_username || beforeRow?.discord_name || window.currentUserName || String(window.currentDiscordId);
+    const payload = {
+        category: 'member_roster',
+        summary: `Doi role ${targetName}`,
+        actor_id: window.currentDiscordId,
+        actor_name: window.currentUserName || 'Web',
+        target_type: 'member',
+        target_id: String(window.currentDiscordId),
+        target_name: targetName,
+        target_uid: beforeRow?.game_uid || null,
+        session_id: currentSessionData?.id || null,
+        day: currentDay || currentSessionData?.day || null,
+        changes,
+        edited_at: new Date().toISOString()
+    };
+
+    try {
+        const { error } = await sb.from('bc_logs').insert({
+            guild_id: GUILD_ID,
+            action: 'own_role_update',
+            details: payload,
+            performed_by: window.currentDiscordId,
+            source: 'web'
+        });
+        if (error) console.warn('[IndexPickRole] write log failed:', error);
+        else if (indexRosterLogOpen) scheduleIndexRosterLogReload();
+    } catch (error) {
+        console.warn('[IndexPickRole] write log exception:', error);
+    }
+}
+
+async function openPickRoleModal() {
+    const overlay = document.getElementById('pickRoleModal');
+    if (!overlay) return;
+    if (!sb) {
+        await customAlert('Hệ thống chưa sẵn sàng, vui lòng refresh trang.');
+        return;
+    }
+    if (!window.currentDiscordId) {
+        await customAlert('Bạn cần đăng nhập Discord trước khi chọn vai trò.');
+        return;
+    }
+
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+    setIndexPickRoleSaving(false);
+    setIndexPickRoleStatus('Đang tải vai hiện tại...');
+    renderIndexPickRoleOptions(indexPickRoleCurrentRow);
+
+    try {
+        indexPickRoleCurrentRow = await fetchIndexCurrentUserRole();
+        renderIndexPickRoleOptions(indexPickRoleCurrentRow);
+        setIndexPickRoleStatus('');
+    } catch (error) {
+        console.warn('[IndexPickRole] load current role failed:', error);
+        setIndexPickRoleStatus(error?.message || 'Không đọc được vai hiện tại.', 'error');
+    }
+}
+
+function closePickRoleModal() {
+    const overlay = document.getElementById('pickRoleModal');
+    if (!overlay) return;
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden', 'true');
+    setIndexPickRoleStatus('');
+    setIndexPickRoleSaving(false);
+}
+
+async function selectIndexPickRoleFromButton(button) {
+    if (indexPickRoleSaving || !button) return;
+    const combat = normalizeIndexPickCombat(button.dataset.pickCombat, '');
+    const weapon = combat === 'DPS' ? normalizeIndexPickWeapon(button.dataset.pickWeapon) : '';
+    if (!combat || (combat === 'DPS' && !weapon)) {
+        setIndexPickRoleStatus('Vai trò không hợp lệ.', 'error');
+        return;
+    }
+
+    setIndexPickRoleSaving(true);
+    setIndexPickRoleStatus('Đang cập nhật vai...');
+    const beforeRow = indexPickRoleCurrentRow || await fetchIndexCurrentUserRole().catch(() => null);
+
+    try {
+        const { error } = await sb.rpc('bc_update_own_pickrole', {
+            p_combat_role: combat,
+            p_weapon_role: combat === 'DPS' ? weapon : null
+        });
+        if (error) throw error;
+
+        await recordIndexOwnRoleLog(beforeRow, combat, combat === 'DPS' ? weapon : '');
+        indexPickRoleCurrentRow = {
+            ...(beforeRow || {}),
+            combat_role: combat,
+            weapon_role: combat === 'DPS' ? weapon : null
+        };
+        renderIndexPickRoleOptions(indexPickRoleCurrentRow);
+        closePickRoleModal();
+        showRoleToast('Đã cập nhật vai. Bot sẽ đồng bộ Discord role.', 'success');
+        loadAllSessions().catch((error) => console.warn('[IndexPickRole] refresh sessions failed:', error));
+    } catch (error) {
+        console.warn('[IndexPickRole] update failed:', error);
+        setIndexPickRoleStatus(error?.message ? `Lỗi cập nhật vai: ${error.message}` : 'Lỗi cập nhật vai.', 'error');
+        showRoleToast('Không cập nhật được vai trò.', 'warning');
+    } finally {
+        setIndexPickRoleSaving(false);
+    }
+}
+
 function updateSignupBar(data) {
     const bar = document.getElementById('bcSignupBar');
 
@@ -5191,9 +5697,14 @@ function updateSignupBar(data) {
     bar.style.display = 'flex';
     const isRegistered = getAllCachedSessions().some(sessionContainsCurrentUser);
     const label = isRegistered ? '✏️ Cập nhật đăng ký' : '⚔️ Đăng ký Bang Chiến';
-    bar.innerHTML = `<button class="bc-action-btn" onclick="openMemberRosterPopup('list')" title="Danh sách thành viên">
+    const rosterActionButton = hasElevatedRosterRole()
+        ? `<button class="bc-action-btn" onclick="openMemberRosterPopup('list')" title="Danh sách thành viên">
             👥 Danh sách thành viên
-        </button>
+        </button>`
+        : `<button class="bc-action-btn" onclick="openPickRoleModal()" title="Chọn Vai Trò">
+            ⚔️ Chọn Vai Trò
+        </button>`;
+    bar.innerHTML = `${rosterActionButton}
         <button class="bc-action-btn${isRegistered ? ' joined' : ''}" onclick="openSignupModal()">
             ${label}
         </button>`;
@@ -5956,6 +6467,222 @@ async function loadGlobalRosterStats() {
 
 // ═══ REALTIME (chỉ khởi tạo 1 lần sau khi auth thành công) ═══
 // Kèm POLLING FALLBACK nếu Realtime bị TIMED_OUT
+const INDEX_ROSTER_LOG_ACTIONS = new Set([
+    'member_update', 'pending_update', 'pending_delete', 'own_role_update', 'session_add_member',
+    'pending_add', 'member_add', 'member_rejoin', 'member_edit', 'member_delete',
+    'member_bulk_cleanup', 'roster_sync', 'quick_team'
+]);
+const INDEX_ROSTER_LOG_LABELS = {
+    member_update: 'Sua member',
+    pending_update: 'Sua pending',
+    pending_delete: 'Xoa pending',
+    own_role_update: 'Doi role ca nhan',
+    session_add_member: 'Them vao session',
+    pending_add: 'Them pending',
+    member_add: 'Addmem',
+    member_rejoin: 'Rejoin',
+    member_edit: 'Edit member',
+    member_delete: 'Xoa member',
+    member_bulk_cleanup: 'Don member',
+    roster_sync: 'Sua doi hinh',
+    quick_team: 'Lap team nhanh'
+};
+let indexRosterLogEntries = [];
+let indexRosterLogFilter = 'all';
+let indexRosterLogOpen = false;
+let indexRosterLogReloadTimer = null;
+
+function getIndexRosterLogEls() {
+    return {
+        button: document.getElementById('btnIndexRosterLog'),
+        panel: document.getElementById('indexRosterLogPanel'),
+        list: document.getElementById('indexRosterLogList'),
+        sub: document.getElementById('indexRosterLogSub'),
+        close: document.getElementById('btnIndexRosterLogClose'),
+        filters: document.getElementById('indexRosterLogFilters')
+    };
+}
+
+function normalizeIndexLogDetails(details) {
+    let value = details;
+    for (let i = 0; i < 2 && typeof value === 'string'; i += 1) {
+        try { value = JSON.parse(value); } catch (_) { break; }
+    }
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function normalizeIndexLogValue(value) {
+    if (value === undefined || value === null || value === '') return '';
+    return String(value);
+}
+
+function compactIndexLogValue(value) {
+    return normalizeIndexLogValue(value) || '-';
+}
+
+function formatIndexRosterLogTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '--:--';
+    return date.toLocaleString('vi-VN', {
+        timeZone: 'Asia/Bangkok',
+        hour12: false,
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function isIndexRosterLogEntry(entry) {
+    const details = entry?._details || normalizeIndexLogDetails(entry?.details);
+    return details.category === 'member_roster' || INDEX_ROSTER_LOG_ACTIONS.has(String(entry?.action || ''));
+}
+
+function getIndexRosterLogSummary(entry) {
+    const details = entry?._details || {};
+    return details.summary || INDEX_ROSTER_LOG_LABELS[entry.action] || entry.action || 'Log';
+}
+
+function getIndexRosterLogMeta(entry) {
+    const details = entry?._details || {};
+    const bits = [];
+    const target = details.target_name || details.target_id || details.target_uid;
+    if (target) bits.push(String(target));
+    if (details.target_uid) bits.push(`UID ${details.target_uid}`);
+    if (details.session_id) bits.push(`Session ${String(details.session_id).slice(0, 8)}`);
+    else if (details.day) bits.push(`Day ${details.day}`);
+    return bits.join(' | ');
+}
+
+function getIndexRosterLogChangeText(entry) {
+    const details = entry?._details || {};
+    const changes = Array.isArray(details.changes) ? details.changes.filter(Boolean) : [];
+    if (!changes.length) return '';
+    const rendered = changes.slice(0, 2).map(change =>
+        `${change.label || change.field || 'Field'}: ${compactIndexLogValue(change.before)} -> ${compactIndexLogValue(change.after)}`
+    );
+    if (changes.length > 2) rendered.push(`+${changes.length - 2}`);
+    return rendered.join(' | ');
+}
+
+function indexRosterLogMatchesFilter(entry, filter) {
+    if (filter === 'all') return true;
+    const details = entry?._details || {};
+    const source = String(entry.source || '').toLowerCase();
+    const action = String(entry.action || '').toLowerCase();
+    const targetType = String(details.target_type || '').toLowerCase();
+    if (filter === 'web' || filter === 'bot') return source === filter;
+    if (filter === 'pending') return action.includes('pending') || targetType === 'pending';
+    if (filter === 'session') return action.includes('session') || action === 'roster_sync' || action === 'quick_team' || Boolean(details.session_id);
+    if (filter === 'member') return action.includes('member') || targetType === 'member' || targetType === 'user';
+    return true;
+}
+
+function renderIndexRosterLogEntries() {
+    const els = getIndexRosterLogEls();
+    if (!els.list) return;
+    const entries = indexRosterLogEntries.filter(entry => indexRosterLogMatchesFilter(entry, indexRosterLogFilter));
+    if (els.sub) els.sub.textContent = `${entries.length}/${indexRosterLogEntries.length} log gan day`;
+    if (!entries.length) {
+        els.list.innerHTML = '<div class="index-roster-log-empty">Chua co log phu hop.</div>';
+        return;
+    }
+    els.list.innerHTML = entries.map((entry) => {
+        const details = entry._details || {};
+        const source = String(entry.source || 'web').toLowerCase();
+        const sourceClass = source.replace(/[^a-z0-9_-]+/g, '');
+        const actor = details.actor_name || details.editor_name || entry.performed_by || 'Web';
+        const meta = getIndexRosterLogMeta(entry);
+        const changeText = getIndexRosterLogChangeText(entry);
+        return `
+            <article class="index-roster-log-item">
+              <div class="index-roster-log-row-top">
+                <span>${escapeIndexHtml(formatIndexRosterLogTime(entry.created_at || details.edited_at))}</span>
+                <span><span class="index-roster-log-source ${escapeIndexHtml(sourceClass)}">${escapeIndexHtml(source || 'web')}</span> &middot; ${escapeIndexHtml(actor)}</span>
+              </div>
+              <div class="index-roster-log-summary">${escapeIndexHtml(getIndexRosterLogSummary(entry))}</div>
+              ${meta ? `<div class="index-roster-log-meta">${escapeIndexHtml(meta)}</div>` : ''}
+              ${changeText ? `<div class="index-roster-log-change">${escapeIndexHtml(changeText)}</div>` : ''}
+            </article>`;
+    }).join('');
+}
+
+async function loadIndexRosterLogEntries() {
+    const els = getIndexRosterLogEls();
+    if (!sb || !els.list) return;
+    els.list.innerHTML = '<div class="index-roster-log-empty">Dang tai log...</div>';
+    const { data, error } = await sb.from('bc_logs')
+        .select('id,action,details,performed_by,source,created_at')
+        .eq('guild_id', GUILD_ID)
+        .in('action', [...INDEX_ROSTER_LOG_ACTIONS])
+        .order('created_at', { ascending: false })
+        .limit(80);
+    if (error) throw error;
+    indexRosterLogEntries = (data || [])
+        .map(entry => ({ ...entry, _details: normalizeIndexLogDetails(entry.details) }))
+        .filter(isIndexRosterLogEntry);
+    renderIndexRosterLogEntries();
+}
+
+function scheduleIndexRosterLogReload() {
+    clearTimeout(indexRosterLogReloadTimer);
+    indexRosterLogReloadTimer = setTimeout(() => {
+        if (indexRosterLogOpen) loadIndexRosterLogEntries().catch(() => {
+            const els = getIndexRosterLogEls();
+            if (els.list) els.list.innerHTML = '<div class="index-roster-log-empty">Chua doc duoc log.</div>';
+        });
+    }, 220);
+}
+
+function openIndexRosterLogPanel() {
+    const els = getIndexRosterLogEls();
+    if (!els.panel) return;
+    indexRosterLogOpen = true;
+    els.panel.classList.add('show');
+    els.panel.setAttribute('aria-hidden', 'false');
+    els.button?.setAttribute('aria-expanded', 'true');
+    loadIndexRosterLogEntries().catch((error) => {
+        console.warn('[Index] load roster log failed:', error);
+        if (els.list) els.list.innerHTML = '<div class="index-roster-log-empty">Chua doc duoc log.</div>';
+    });
+}
+
+function closeIndexRosterLogPanel() {
+    const els = getIndexRosterLogEls();
+    indexRosterLogOpen = false;
+    els.panel?.classList.remove('show');
+    els.panel?.setAttribute('aria-hidden', 'true');
+    els.button?.setAttribute('aria-expanded', 'false');
+}
+
+function initIndexRosterLogControls() {
+    const els = getIndexRosterLogEls();
+    els.button?.addEventListener('click', () => {
+        if (indexRosterLogOpen) closeIndexRosterLogPanel();
+        else openIndexRosterLogPanel();
+    });
+    els.close?.addEventListener('click', closeIndexRosterLogPanel);
+    els.filters?.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-index-log-filter]');
+        if (!btn) return;
+        indexRosterLogFilter = btn.dataset.indexLogFilter || 'all';
+        els.filters.querySelectorAll('.index-roster-log-filter').forEach((item) => {
+            item.classList.toggle('active', item === btn);
+        });
+        renderIndexRosterLogEntries();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && indexRosterLogOpen) closeIndexRosterLogPanel();
+    });
+    document.addEventListener('click', (event) => {
+        if (!indexRosterLogOpen) return;
+        if (event.target.closest('#indexRosterLogPanel') || event.target.closest('#btnIndexRosterLog')) return;
+        closeIndexRosterLogPanel();
+    });
+}
+
+initIndexRosterLogControls();
+
 let _realtimeSetup = false;
 let _pollingInterval = null;
 let _renderDebounceTimer = null; // Debounce render khi nhiều UPDATE liên tiếp
@@ -6026,6 +6753,9 @@ function setupRealtimeSubscription() {
                   }, 300);
               }
           }
+      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bc_logs', filter: `guild_id=eq.${GUILD_ID}` },
+          () => scheduleIndexRosterLogReload()
       )
       .subscribe((status) => {
           console.log(`[LangGia] 📡 Realtime subscription: ${status}`);
@@ -9613,6 +10343,56 @@ document.addEventListener('keydown', (e) => {
     if(a) a.scrollIntoView({block:'nearest'});
   }
 
+  function viewportSize() {
+    const vv = window.visualViewport;
+    return {
+      width: Math.round(vv?.width || window.innerWidth),
+      height: Math.round(vv?.height || window.innerHeight)
+    };
+  }
+
+  function positionListFlyout() {
+    const wrap = $('mpWrap');
+    const list = $('mpList');
+    if (!wrap || !list || !listOpen) return;
+
+    wrap.classList.remove('mp-list-left', 'mp-list-bottom', 'mp-list-top');
+
+    const rect = wrap.getBoundingClientRect();
+    const vp = viewportSize();
+    const gap = 10;
+    const safe = 8;
+    const listWidth = Math.min(280, Math.max(0, vp.width - 32));
+    const listHeight = Math.min(360, Math.max(0, vp.height - 32));
+    const rightSpace = vp.width - rect.right - gap - safe;
+    const leftSpace = rect.left - gap - safe;
+    const shouldAlignTop = rect.bottom - listHeight < safe;
+
+    if (rightSpace >= listWidth) {
+      if (shouldAlignTop) wrap.classList.add('mp-list-top');
+      return;
+    }
+    if (leftSpace >= listWidth) {
+      wrap.classList.add('mp-list-left');
+      if (shouldAlignTop) wrap.classList.add('mp-list-top');
+      return;
+    }
+    wrap.classList.add('mp-list-bottom');
+  }
+
+  function setListOpen(open) {
+    listOpen = !!open;
+    const wrap = $('mpWrap');
+    const list = $('mpList');
+    if (wrap) {
+      wrap.classList.toggle('mp-list-open', listOpen);
+      if (!listOpen) wrap.classList.remove('mp-list-left', 'mp-list-bottom', 'mp-list-top');
+    }
+    if (list) list.classList.toggle('open', listOpen);
+    $('mpListArrow').innerHTML=listOpen?'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>':'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>';
+    if (listOpen) requestAnimationFrame(positionListFlyout);
+  }
+
   // Public functions
   window.mpSwitchPl=function(idx){
     if(idx===curPl) return;
@@ -9645,6 +10425,7 @@ document.addEventListener('keydown', (e) => {
     wrap.style.bottom = 'auto';
     wrap.style.right = 'auto';
     wrap.classList.toggle('collapsed');
+    if (wrap.classList.contains('collapsed')) setListOpen(false);
     requestAnimationFrame(clampPlayerPosition);
     setTimeout(clampPlayerPosition, 320);
   };
@@ -9652,6 +10433,7 @@ document.addEventListener('keydown', (e) => {
   // Đóng hẳn player (dừng nhạc, ẩn UI)
   window.mpClosePlayer = function() {
     pauseCurrent();
+    setListOpen(false);
     const wrap = $('mpWrap');
     if (wrap) wrap.classList.add('mp-closed');
   };
@@ -9698,6 +10480,7 @@ document.addEventListener('keydown', (e) => {
       wrap.style.top = pos.top + 'px';
       wrap.style.bottom = 'auto';
       wrap.style.right = 'auto';
+      if (listOpen) requestAnimationFrame(positionListFlyout);
     }
 
     clampPlayerPosition = function() {
@@ -9967,9 +10750,7 @@ document.addEventListener('keydown', (e) => {
     $('mpVolLbl').textContent=v<10?'🔇':v<50?'🔉':'🔊';
   };
   window.mpToggleList=function(){
-    listOpen=!listOpen;
-    $('mpList').classList.toggle('open',listOpen);
-    $('mpListArrow').innerHTML=listOpen?'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>':'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>';
+    setListOpen(!listOpen);
   };
 
   window.mpSetAutoplay=function(enabled){

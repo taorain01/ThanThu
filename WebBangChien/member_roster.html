@@ -97,6 +97,7 @@
       transition: .15s;
       flex-shrink: 0;
     }
+    body.embed-mode #btnClose { order: 20; }
     .icon-btn:hover { border-color: var(--line-strong); background: var(--green-glow); }
     .btn {
       border: 1px solid var(--line);
@@ -815,27 +816,6 @@
     </div>
   </form>
 </div>
-<button class="btn log-fab" id="btnRosterLog" style="display:none" type="button" aria-expanded="false">Log</button>
-<section class="log-panel" id="rosterLogPanel" aria-hidden="true">
-  <div class="log-head">
-    <div>
-      <div class="log-title">Roster Log</div>
-      <div class="log-sub" id="rosterLogSub">Lich su chinh sua gan day</div>
-    </div>
-    <button class="btn log-close" id="btnRosterLogClose" type="button" aria-label="Dong log">x</button>
-  </div>
-  <div class="log-filters" id="rosterLogFilters">
-    <button class="log-filter active" type="button" data-log-filter="all">Tat ca</button>
-    <button class="log-filter" type="button" data-log-filter="web">Web</button>
-    <button class="log-filter" type="button" data-log-filter="bot">Bot</button>
-    <button class="log-filter" type="button" data-log-filter="member">Member</button>
-    <button class="log-filter" type="button" data-log-filter="pending">Pending</button>
-    <button class="log-filter" type="button" data-log-filter="session">Session</button>
-  </div>
-  <div class="log-list" id="rosterLogList">
-    <div class="log-empty">Dang tai log...</div>
-  </div>
-</section>
 <script>
   const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
@@ -845,6 +825,7 @@
 
   const params = new URLSearchParams(window.location.search);
   const IS_EMBED = params.get('embed') === '1';
+  if (IS_EMBED) document.body.classList.add('embed-mode');
   const SESSION_ID = params.get('session') || '';
   const CURRENT_DAY = params.get('day') || '';
   const DEFAULT_MODE = params.get('mode') || (SESSION_ID ? 'add' : 'list');

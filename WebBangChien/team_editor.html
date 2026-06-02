@@ -256,14 +256,19 @@
     .right-col::-webkit-scrollbar-thumb{background:rgba(58,208,126,.18);border-radius:4px}
     .teams-grid{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      grid-auto-rows:auto;
+      grid-template-columns:repeat(var(--team-column-count,2),minmax(0,1fr));
       gap:10px;
       align-items:start;
       align-content:start;
       height:calc(100% - 2px);
       overflow-y:auto;
       padding-right:4px;
+    }
+    .teams-column{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
     .teams-grid::-webkit-scrollbar{width:5px}
     .teams-grid::-webkit-scrollbar-thumb{background:rgba(58,208,126,.18);border-radius:4px}
@@ -279,13 +284,16 @@
     }
     .team-card{
       align-self:start;
-      height:auto;
+      height:fit-content;
+      min-height:max-content;
       display:flex;
       flex-direction:column;
       overflow:hidden;
     }
     .team-card .panel-body{
       min-height:0;
+      flex:0 0 auto;
+      overflow-y:visible;
     }
     .waiting-card{
       min-height:0;
@@ -672,6 +680,10 @@
       padding:10px 12px;
       outline:none;
     }
+    .resize-icon option{
+      background:#07110b;
+      color:#f8fafc;
+    }
     .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
     .history-modal{width:min(620px,100%);max-height:min(78vh,720px);display:flex;flex-direction:column}
     .history-list{display:flex;flex-direction:column;gap:10px;overflow:auto;padding-right:4px;min-height:160px}
@@ -1037,6 +1049,18 @@
     const MAX_DYNAMIC_TEAMS = 8;
     const DEFAULT_ACTIVE_SLOT_TOTAL = 30;
     const MAX_TEAM_CAPACITY = 30;
+    const RESIZE_ICON_OPTIONS = [
+      { value: '⚔️', label: 'Công' },
+      { value: '🗡️', label: 'Đột kích' },
+      { value: '🛡️', label: 'Thủ' },
+      { value: '🌲', label: 'Rừng' },
+      { value: '🏹', label: 'Tầm xa' },
+      { value: '🔥', label: 'Sát thương' },
+      { value: '⚡', label: 'Nhanh' },
+      { value: '✨', label: 'Hỗ trợ' },
+      { value: '💠', label: 'Đặc biệt' },
+      { value: '👑', label: 'Chủ lực' }
+    ];
     const SORT_OPTIONS = [
       { value: 'default', label: 'Mặc định' },
       { value: 'role', label: 'Theo vai trò' },
@@ -1098,6 +1122,8 @@
     let selectedQuickTeamSource = null;
     let selectedQuickTeamPreview = null;
     let supportsRosterSnapshots = true;
+    let teamMasonryColumnCount = 0;
+    let teamLayoutResizeTimer = null;
     const ROSTER_DRAFT_VERSION = 1;
     const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
 
@@ -2701,6 +2727,37 @@
       document.documentElement.style.setProperty('--editor-sticky-top', `${Math.round(topbarHeight + 18)}px`);
     }
 
+    function getTeamMasonryColumnCount() {
+      return window.matchMedia?.('(max-width: 1100px)').matches ? 1 : 2;
+    }
+
+    function createTeamMasonryColumns(container) {
+      const count = getTeamMasonryColumnCount();
+      teamMasonryColumnCount = count;
+      container.innerHTML = '';
+      container.style.setProperty('--team-column-count', String(count));
+      return Array.from({ length: count }, (_, index) => {
+        const column = document.createElement('div');
+        column.className = 'teams-column';
+        column.dataset.teamColumn = String(index + 1);
+        container.appendChild(column);
+        return column;
+      });
+    }
+
+    function getTeamCardDisplayWeight(viewEntries) {
+      return 2 + Math.max(1, viewEntries?.length || 0);
+    }
+
+    function appendTeamCardToMasonry(columns, columnWeights, card, viewEntries) {
+      let targetIndex = 0;
+      for (let i = 1; i < columns.length; i += 1) {
+        if (columnWeights[i] < columnWeights[targetIndex]) targetIndex = i;
+      }
+      columns[targetIndex].appendChild(card);
+      columnWeights[targetIndex] += getTeamCardDisplayWeight(viewEntries);
+    }
+
     function getVisibleTeams() {
       if (!localState) return [];
       if (Array.isArray(localState.team_layout) && localState.team_layout.length) {
@@ -3510,7 +3567,8 @@
       updateStickyOffset();
       const teamsGrid = document.getElementById('teamsGrid');
       const waitingBody = document.getElementById('waitingBody');
-      teamsGrid.innerHTML = '';
+      const teamColumns = createTeamMasonryColumns(teamsGrid);
+      const teamColumnWeights = teamColumns.map(() => 0);
       waitingBody.innerHTML = '';
       currentRenderView = {};
 
@@ -3566,7 +3624,7 @@
           });
         });
         setupDropZone(card, team.key);
-        teamsGrid.appendChild(card);
+        appendTeamCardToMasonry(teamColumns, teamColumnWeights, card, viewEntries);
       });
 
       const waitingMembers = localState.waiting_list || [];
@@ -3589,6 +3647,22 @@
       }
       setupDropZone(document.querySelector('.waiting-card'), 'waiting_list');
       renderStatsPanel();
+    }
+
+    function handleEditorResize() {
+      updateStickyOffset();
+      const nextColumnCount = getTeamMasonryColumnCount();
+      if (localState && !isDragging && nextColumnCount !== teamMasonryColumnCount) {
+        renderEditor();
+      }
+    }
+
+    function scheduleEditorResizeLayout() {
+      if (teamLayoutResizeTimer) clearTimeout(teamLayoutResizeTimer);
+      teamLayoutResizeTimer = setTimeout(() => {
+        teamLayoutResizeTimer = null;
+        handleEditorResize();
+      }, 120);
     }
 
     async function moveMember(userId, fromTeam, toTeam) {
@@ -3855,10 +3929,27 @@
       { key: 'forest',  teamKey: 'team_forest',  emoji: '🌲', defaultName: 'TEAM RỪNG',  min: 0, max: 10 }
     ];
 
+    function normalizeResizeIcon(value) {
+      const icon = String(value || '').trim().slice(0, 8);
+      return icon || RESIZE_ICON_OPTIONS[0].value;
+    }
+
+    function renderResizeIconOptions(currentIcon) {
+      const current = normalizeResizeIcon(currentIcon);
+      const options = RESIZE_ICON_OPTIONS.some((item) => item.value === current)
+        ? RESIZE_ICON_OPTIONS
+        : [{ value: current, label: 'Hiện tại' }, ...RESIZE_ICON_OPTIONS];
+      return options.map((item) => `
+        <option value="${escapeHtmlAttr(item.value)}" ${item.value === current ? 'selected' : ''}>
+          ${escapeHtml(item.value)} ${escapeHtml(item.label)}
+        </option>
+      `).join('');
+    }
+
     function readResizeDraftLayoutFromDom() {
       return [...document.querySelectorAll('[data-resize-row]')].map((row, index) => {
         const id = normalizeTeamId(row.dataset.teamId, `team_custom_${index + 1}`);
-        const icon = (row.querySelector('.resize-icon')?.value || row.dataset.icon || '•').trim().slice(0, 8) || '•';
+        const icon = normalizeResizeIcon(row.querySelector('.resize-icon')?.value || row.dataset.icon);
         const name = (row.querySelector('.resize-name')?.value || `TEAM ${index + 1}`).trim().slice(0, 32) || `TEAM ${index + 1}`;
         const capacity = Math.max(1, Math.min(MAX_TEAM_CAPACITY, Number(row.querySelector('.resize-size')?.value || 1)));
         return { id, icon, name, capacity, order: index + 1 };
@@ -3874,12 +3965,14 @@
         const row = document.createElement('div');
         row.dataset.resizeRow = '1';
         row.dataset.teamId = team.id;
-        row.dataset.icon = team.icon || '•';
+        row.dataset.icon = normalizeResizeIcon(team.icon);
         row.style.cssText = 'background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px';
         row.innerHTML = `
-          <div style="display:grid;grid-template-columns:42px minmax(0,1fr) 34px;gap:8px;align-items:center">
-            <input class="resize-icon" type="text" maxlength="8" value="${escapeHtmlAttr(team.icon || '•')}" aria-label="Icon"
-              style="width:42px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px;color:#fff;text-align:center;outline:none">
+          <div style="display:grid;grid-template-columns:112px minmax(0,1fr) 34px;gap:8px;align-items:center">
+            <select class="resize-icon" aria-label="Icon đội"
+              style="width:112px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px 8px;color:#fff;outline:none">
+              ${renderResizeIconOptions(team.icon)}
+            </select>
             <input class="resize-name" type="text" maxlength="32" value="${escapeHtmlAttr(team.name || `TEAM ${index + 1}`)}"
               style="min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px 10px;color:#fff;font-size:.88rem;outline:none"
               placeholder="Tên đội">
@@ -3922,7 +4015,8 @@
         resizeDraftLayout = readResizeDraftLayoutFromDom();
         let id = normalizeTeamId(`team_custom_${Date.now().toString(36)}`, `team_custom_${resizeDraftLayout.length + 1}`);
         while (resizeDraftLayout.some((team) => team.id === id)) id = `${id}_${resizeDraftLayout.length + 1}`;
-        resizeDraftLayout.push({ id, name: `TEAM ${resizeDraftLayout.length + 1}`, icon: '•', capacity: 1, order: resizeDraftLayout.length + 1 });
+        const icon = RESIZE_ICON_OPTIONS[resizeDraftLayout.length % RESIZE_ICON_OPTIONS.length].value;
+        resizeDraftLayout.push({ id, name: `TEAM ${resizeDraftLayout.length + 1}`, icon, capacity: 1, order: resizeDraftLayout.length + 1 });
         renderResizeDraftRows();
         updateResizeTotal();
       });
@@ -3964,7 +4058,7 @@
       normalizeDynamicRosterState(localState);
       resizeDraftLayout = (localState.team_layout || []).map((team, index) => ({
         id: team.id,
-        icon: team.icon || '•',
+        icon: normalizeResizeIcon(team.icon || RESIZE_ICON_OPTIONS[index % RESIZE_ICON_OPTIONS.length].value),
         name: team.name || `TEAM ${index + 1}`,
         capacity: Number(team.capacity) || 1,
         order: index + 1
@@ -4429,7 +4523,7 @@
       activeSortMenu = null;
       renderEditor();
     });
-    window.addEventListener('resize', updateStickyOffset);
+    window.addEventListener('resize', scheduleEditorResizeLayout);
 
     // Flush pending sync trước khi rời trang (tránh mất data khi debounce chưa kịp chạy)
     window.addEventListener('beforeunload', (event) => {

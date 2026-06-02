@@ -256,19 +256,14 @@
     .right-col::-webkit-scrollbar-thumb{background:rgba(58,208,126,.18);border-radius:4px}
     .teams-grid{
       display:grid;
-      grid-template-columns:repeat(var(--team-column-count,2),minmax(0,1fr));
+      grid-template-columns:repeat(var(--team-grid-columns,2),minmax(0,1fr));
+      grid-auto-rows:minmax(0,1fr);
       gap:10px;
-      align-items:start;
-      align-content:start;
+      align-items:stretch;
+      align-content:stretch;
       height:calc(100% - 2px);
-      overflow-y:auto;
+      overflow:hidden;
       padding-right:4px;
-    }
-    .teams-column{
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
     }
     .teams-grid::-webkit-scrollbar{width:5px}
     .teams-grid::-webkit-scrollbar-thumb{background:rgba(58,208,126,.18);border-radius:4px}
@@ -285,17 +280,34 @@
     .team-card{
       align-self:stretch;
       width:100%;
-      height:fit-content;
-      min-height:max-content;
+      height:auto;
+      min-height:0;
       display:flex;
       flex-direction:column;
       overflow:hidden;
     }
     .team-card .panel-body{
       min-height:0;
-      flex:0 0 auto;
-      overflow-y:visible;
+      flex:1 1 auto;
+      overflow-y:auto;
     }
+    .teams-grid.compact .panel-head{padding:6px 8px}
+    .teams-grid.compact .panel-title{font-size:11px}
+    .teams-grid.compact .panel-meta{font-size:11px}
+    .teams-grid.compact .panel-actions{gap:6px}
+    .teams-grid.compact .sort-btn{padding:6px 10px;font-size:10px}
+    .teams-grid.compact .badge{padding:6px 9px;font-size:11px}
+    .teams-grid.compact .member-row{padding:4px 6px;gap:5px}
+    .teams-grid.compact .slot-badge{min-width:25px;height:23px;padding:0 6px}
+    .teams-grid.compact .avatar{width:23px;height:23px;font-size:11px}
+    .teams-grid.compact .member-name{font-size:11px}
+    .teams-grid.compact .member-sub{font-size:10px}
+    .teams-grid.compact .role-tag{padding:4px 7px;font-size:10px}
+    .teams-grid.compact .leader-btn,.teams-grid.compact .kick-btn{padding:6px 7px}
+    .teams-grid.dense{gap:8px}
+    .teams-grid.dense .panel-head{padding:5px 7px}
+    .teams-grid.dense .panel-body{padding:3px 5px}
+    .teams-grid.dense .member-row{padding:3px 5px}
     .waiting-card{
       min-height:0;
     }
@@ -718,7 +730,7 @@
     .quick-empty{height:100%;min-height:240px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;padding:18px;font-size:13px}
     @media (max-width: 1100px){
       .content{grid-template-columns:1fr}
-      .teams-grid{grid-template-columns:1fr}
+      .teams-grid{grid-template-columns:1fr;grid-auto-rows:auto;align-content:start;overflow-y:auto}
       .quick-team-grid{grid-template-columns:1fr;min-height:0}
       .quick-team-sources,.quick-team-preview{max-height:38vh}
     }
@@ -1123,7 +1135,7 @@
     let selectedQuickTeamSource = null;
     let selectedQuickTeamPreview = null;
     let supportsRosterSnapshots = true;
-    let teamMasonryColumnCount = 0;
+    let teamGridColumnCount = 0;
     let teamLayoutResizeTimer = null;
     const ROSTER_DRAFT_VERSION = 1;
     const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
@@ -2728,35 +2740,22 @@
       document.documentElement.style.setProperty('--editor-sticky-top', `${Math.round(topbarHeight + 18)}px`);
     }
 
-    function getTeamMasonryColumnCount() {
-      return window.matchMedia?.('(max-width: 1100px)').matches ? 1 : 2;
+    function getTeamGridColumnCount(teamCount = getVisibleTeams().length) {
+      if (window.matchMedia?.('(max-width: 1100px)').matches) return 1;
+      if (teamCount >= 7) return 4;
+      if (teamCount >= 5) return 3;
+      if (teamCount <= 1) return 1;
+      return 2;
     }
 
-    function createTeamMasonryColumns(container) {
-      const count = getTeamMasonryColumnCount();
-      teamMasonryColumnCount = count;
+    function configureTeamGrid(container, teamCount) {
+      const count = getTeamGridColumnCount(teamCount);
+      teamGridColumnCount = count;
       container.innerHTML = '';
-      container.style.setProperty('--team-column-count', String(count));
-      return Array.from({ length: count }, (_, index) => {
-        const column = document.createElement('div');
-        column.className = 'teams-column';
-        column.dataset.teamColumn = String(index + 1);
-        container.appendChild(column);
-        return column;
-      });
-    }
-
-    function getTeamCardDisplayWeight(viewEntries) {
-      return 2 + Math.max(1, viewEntries?.length || 0);
-    }
-
-    function appendTeamCardToMasonry(columns, columnWeights, card, viewEntries) {
-      let targetIndex = 0;
-      for (let i = 1; i < columns.length; i += 1) {
-        if (columnWeights[i] < columnWeights[targetIndex]) targetIndex = i;
-      }
-      columns[targetIndex].appendChild(card);
-      columnWeights[targetIndex] += getTeamCardDisplayWeight(viewEntries);
+      container.style.setProperty('--team-grid-columns', String(count));
+      container.classList.toggle('compact', teamCount >= 5);
+      container.classList.toggle('dense', teamCount >= 7);
+      container.dataset.teamCount = String(teamCount);
     }
 
     function getVisibleTeams() {
@@ -3568,12 +3567,12 @@
       updateStickyOffset();
       const teamsGrid = document.getElementById('teamsGrid');
       const waitingBody = document.getElementById('waitingBody');
-      const teamColumns = createTeamMasonryColumns(teamsGrid);
-      const teamColumnWeights = teamColumns.map(() => 0);
+      const visibleTeams = getVisibleTeams();
+      configureTeamGrid(teamsGrid, visibleTeams.length);
       waitingBody.innerHTML = '';
       currentRenderView = {};
 
-      getVisibleTeams().forEach((team) => {
+      visibleTeams.forEach((team) => {
         const members = localState[team.key] || [];
         const viewEntries = buildViewEntries(team.key);
         currentRenderView[team.key] = viewEntries;
@@ -3625,7 +3624,7 @@
           });
         });
         setupDropZone(card, team.key);
-        appendTeamCardToMasonry(teamColumns, teamColumnWeights, card, viewEntries);
+        teamsGrid.appendChild(card);
       });
 
       const waitingMembers = localState.waiting_list || [];
@@ -3652,8 +3651,8 @@
 
     function handleEditorResize() {
       updateStickyOffset();
-      const nextColumnCount = getTeamMasonryColumnCount();
-      if (localState && !isDragging && nextColumnCount !== teamMasonryColumnCount) {
+      const nextColumnCount = getTeamGridColumnCount();
+      if (localState && !isDragging && nextColumnCount !== teamGridColumnCount) {
         renderEditor();
       }
     }
@@ -3947,14 +3946,103 @@
       `).join('');
     }
 
+    function normalizeResizeCapacity(value) {
+      const numeric = Number(value);
+      const safe = Number.isFinite(numeric) ? Math.round(numeric) : 1;
+      return Math.max(1, Math.min(MAX_TEAM_CAPACITY, safe));
+    }
+
     function readResizeDraftLayoutFromDom() {
       return [...document.querySelectorAll('[data-resize-row]')].map((row, index) => {
         const id = normalizeTeamId(row.dataset.teamId, `team_custom_${index + 1}`);
         const icon = normalizeResizeIcon(row.querySelector('.resize-icon')?.value || row.dataset.icon);
         const name = (row.querySelector('.resize-name')?.value || `TEAM ${index + 1}`).trim().slice(0, 32) || `TEAM ${index + 1}`;
-        const capacity = Math.max(1, Math.min(MAX_TEAM_CAPACITY, Number(row.querySelector('.resize-size')?.value || 1)));
+        const capacity = normalizeResizeCapacity(row.querySelector('.resize-size')?.value || 1);
         return { id, icon, name, capacity, order: index + 1 };
       });
+    }
+
+    function getResizeDraftTotal(layout = resizeDraftLayout) {
+      return (layout || []).reduce((sum, team) => sum + (Number(team.capacity) || 0), 0);
+    }
+
+    function balanceResizeDraftLayout(layout, preferredIndex = -1) {
+      const cleaned = (layout || []).slice(0, MAX_DYNAMIC_TEAMS).map((team, index) => ({
+        id: normalizeTeamId(team?.id, `team_custom_${index + 1}`),
+        icon: normalizeResizeIcon(team?.icon),
+        name: String(team?.name || `TEAM ${index + 1}`).trim().slice(0, 32) || `TEAM ${index + 1}`,
+        capacity: normalizeResizeCapacity(team?.capacity),
+        order: index + 1
+      }));
+      if (!cleaned.length) return cleaned;
+
+      const maxForOneTeam = Math.max(1, DEFAULT_ACTIVE_SLOT_TOTAL - cleaned.length + 1);
+      cleaned.forEach((team) => {
+        team.capacity = Math.max(1, Math.min(maxForOneTeam, normalizeResizeCapacity(team.capacity)));
+      });
+
+      const makeOrder = () => cleaned
+        .map((team, index) => ({ index, capacity: Number(team.capacity) || 1, preferred: index === preferredIndex }))
+        .sort((left, right) => {
+          if (left.preferred !== right.preferred) return left.preferred ? 1 : -1;
+          if (right.capacity !== left.capacity) return right.capacity - left.capacity;
+          return left.index - right.index;
+        })
+        .map((item) => item.index);
+
+      let delta = getResizeDraftTotal(cleaned) - DEFAULT_ACTIVE_SLOT_TOTAL;
+      if (delta > 0) {
+        for (const index of makeOrder()) {
+          if (delta <= 0) break;
+          const amount = Math.min(Math.max(0, cleaned[index].capacity - 1), delta);
+          cleaned[index].capacity -= amount;
+          delta -= amount;
+        }
+      } else if (delta < 0) {
+        let remaining = Math.abs(delta);
+        for (const index of makeOrder()) {
+          if (remaining <= 0) break;
+          const amount = Math.min(Math.max(0, maxForOneTeam - cleaned[index].capacity), remaining);
+          cleaned[index].capacity += amount;
+          remaining -= amount;
+        }
+      }
+
+      return cleaned.map((team, index) => ({ ...team, order: index + 1 }));
+    }
+
+    function syncResizeDraftRowsToDom() {
+      const rows = [...document.querySelectorAll('[data-resize-row]')];
+      const maxForOneTeam = Math.max(1, DEFAULT_ACTIVE_SLOT_TOTAL - rows.length + 1);
+      rows.forEach((row, index) => {
+        const team = resizeDraftLayout[index];
+        if (!team) return;
+        row.dataset.teamId = team.id;
+        row.dataset.icon = normalizeResizeIcon(team.icon);
+        const numInput = row.querySelector('.resize-size');
+        const rangeInput = row.querySelector('.resize-range');
+        const slotLabel = row.querySelector('.resize-slot-label');
+        if (slotLabel) slotLabel.textContent = `Slot (1-${maxForOneTeam}):`;
+        if (numInput) {
+          numInput.min = '1';
+          numInput.max = String(maxForOneTeam);
+          numInput.value = String(team.capacity);
+        }
+        if (rangeInput) {
+          rangeInput.min = '1';
+          rangeInput.max = String(maxForOneTeam);
+          rangeInput.value = String(team.capacity);
+        }
+      });
+    }
+
+    function setResizeDraftCapacity(index, value) {
+      resizeDraftLayout = readResizeDraftLayoutFromDom();
+      if (!resizeDraftLayout[index]) return;
+      resizeDraftLayout[index].capacity = normalizeResizeCapacity(value);
+      resizeDraftLayout = balanceResizeDraftLayout(resizeDraftLayout, index);
+      syncResizeDraftRowsToDom();
+      updateResizeTotal();
     }
 
     function renderResizeDraftRows() {
@@ -3992,16 +4080,14 @@
         const numInput = row.querySelector('.resize-size');
         const rangeInput = row.querySelector('.resize-range');
         numInput.addEventListener('input', () => {
-          rangeInput.value = numInput.value;
-          updateResizeTotal();
+          setResizeDraftCapacity(index, numInput.value);
         });
         rangeInput.addEventListener('input', () => {
-          numInput.value = rangeInput.value;
-          updateResizeTotal();
+          setResizeDraftCapacity(index, rangeInput.value);
         });
         row.querySelector('.resize-delete').addEventListener('click', () => {
           if (resizeDraftLayout.length <= 1) return;
-          resizeDraftLayout = readResizeDraftLayoutFromDom().filter((item) => item.id !== team.id);
+          resizeDraftLayout = balanceResizeDraftLayout(readResizeDraftLayoutFromDom().filter((item) => item.id !== team.id));
           renderResizeDraftRows();
           updateResizeTotal();
         });
@@ -4018,16 +4104,20 @@
         while (resizeDraftLayout.some((team) => team.id === id)) id = `${id}_${resizeDraftLayout.length + 1}`;
         const icon = RESIZE_ICON_OPTIONS[resizeDraftLayout.length % RESIZE_ICON_OPTIONS.length].value;
         resizeDraftLayout.push({ id, name: `TEAM ${resizeDraftLayout.length + 1}`, icon, capacity: 1, order: resizeDraftLayout.length + 1 });
+        resizeDraftLayout = balanceResizeDraftLayout(resizeDraftLayout, resizeDraftLayout.length - 1);
         renderResizeDraftRows();
         updateResizeTotal();
       });
       container.appendChild(addWrap);
+      syncResizeDraftRowsToDom();
     }
 
     function updateResizeTotal() {
       const dynamicRows = document.querySelectorAll('[data-resize-row]');
       if (dynamicRows.length) {
-        const total = readResizeDraftLayoutFromDom().reduce((sum, team) => sum + team.capacity, 0);
+        resizeDraftLayout = balanceResizeDraftLayout(readResizeDraftLayoutFromDom());
+        syncResizeDraftRowsToDom();
+        const total = getResizeDraftTotal(resizeDraftLayout);
         const totalText = document.getElementById('resizeTotalText');
         const warning = document.getElementById('resizeWarning');
         const saveButton = document.getElementById('btnResizeSave');
@@ -4064,6 +4154,7 @@
         capacity: Number(team.capacity) || 1,
         order: index + 1
       }));
+      resizeDraftLayout = balanceResizeDraftLayout(resizeDraftLayout);
       const modal = document.getElementById('resizeModal');
       const title = modal?.querySelector('h3');
       const inner = modal?.querySelector('.modal');
@@ -4133,8 +4224,8 @@
 
     async function applyResize() {
       if (document.querySelectorAll('[data-resize-row]').length) {
-        const nextLayout = readResizeDraftLayoutFromDom();
-        const totalSize = nextLayout.reduce((sum, team) => sum + team.capacity, 0);
+        const nextLayout = balanceResizeDraftLayout(readResizeDraftLayoutFromDom());
+        const totalSize = getResizeDraftTotal(nextLayout);
         if (!nextLayout.length) {
           await customAlert('Phải còn ít nhất 1 đội.');
           return;
@@ -4163,36 +4254,27 @@
           ld: false
         });
         const nextTeams = {};
+        let activeCursor = 0;
+        const flatActive = oldLayout.flatMap((team) => (oldTeams[team.id] || []).map((member) => ({ ...member })));
         let waiting = (localState.waiting_list || []).map(toWaiting);
 
         nextLayout.forEach((team) => {
-          const existing = oldTeams[team.id] || [];
-          nextTeams[team.id] = existing.slice(0, team.capacity).map((member) => ({ ...member, team: team.id }));
-          waiting.push(...existing.slice(team.capacity).map(toWaiting));
+          const count = Number(team.capacity) || 0;
+          nextTeams[team.id] = flatActive.slice(activeCursor, activeCursor + count).map((member) => ({
+            ...member,
+            team: team.id
+          }));
+          activeCursor += count;
         });
+
+        waiting = [
+          ...flatActive.slice(activeCursor).map(toWaiting),
+          ...waiting
+        ];
 
         oldLayout.forEach((team) => {
-          if (!nextTeamIds.has(team.id)) {
-            waiting.push(...(oldTeams[team.id] || []).map(toWaiting));
-            delete localState[team.id];
-          }
+          if (!nextTeamIds.has(team.id)) delete localState[team.id];
         });
-
-        const remainingWaiting = [];
-        waiting.forEach((member) => {
-          const target = nextLayout.find((team) => (nextTeams[team.id] || []).length < team.capacity);
-          if (target) {
-            nextTeams[target.id].push({
-              ...member,
-              team: target.id,
-              isTeamLeader: false,
-              ld: false
-            });
-          } else {
-            remainingWaiting.push(member);
-          }
-        });
-        waiting = remainingWaiting;
 
         localState.team_layout = nextLayout;
         localState.teams = nextTeams;

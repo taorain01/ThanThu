@@ -2142,10 +2142,28 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-session-meta{font-size:11px;color:var(--text3);font-weight:700}
 .bc-league-badge{font-size:10px;letter-spacing:.08em;color:#111827;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:999px;padding:3px 8px}
 .bc-time-pill{font-size:11px;color:var(--green-300);border:1px solid rgba(34,197,94,.25);border-radius:999px;padding:3px 8px;background:rgba(34,197,94,.08)}
-.bc-session-body{padding:14px;flex:1;min-height:0;overflow:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));grid-auto-rows:minmax(0,1fr);gap:14px;align-items:stretch}
-.bc-session-body>.team-card{margin-bottom:0!important}
+.bc-session-body{padding:14px;flex:1;min-height:0;overflow:hidden;display:block}
+.bc-roster-layout{height:100%;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:14px}
+.left>.bc-roster-layout{flex:1}
+.bc-active-grid{min-height:0;display:grid;grid-template-columns:repeat(var(--bc-team-columns,2),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:14px;overflow:hidden}
+.bc-waiting-side{min-height:0;display:flex}
+.bc-waiting-side>.team-card{width:100%}
+.bc-session-body .team-card{margin-bottom:0!important;min-height:0}
+.bc-active-grid.compact{gap:10px}
+.bc-active-grid.compact .t-hdr{padding:8px 10px}
+.bc-active-grid.compact .t-title{font-size:12px}
+.bc-active-grid.compact .m-row{padding:4px 6px;gap:6px}
+.bc-active-grid.compact .m-av{width:24px;height:24px}
+.bc-active-grid.compact .m-num{width:20px;height:20px;font-size:10px}
+.bc-active-grid.compact .m-name{font-size:12px}
+.bc-active-grid.compact .m-gn{font-size:10px}
+.bc-active-grid.dense{gap:8px}
+.bc-active-grid.dense .t-hdr{padding:7px 9px}
+.bc-active-grid.dense .m-row{padding:3px 5px}
 @media (max-width: 1280px) and (min-width: 769px) {
-  .bc-session-body{grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;padding:12px}
+  .bc-session-body{padding:12px}
+  .bc-roster-layout{grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:12px}
+  .bc-active-grid{gap:12px}
   .left{padding:14px}
 }
 @media (max-height: 820px) and (min-width: 769px) {
@@ -2413,7 +2431,11 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .bc-session-stack { display: block; height: auto; min-height: 0 }
   .bc-session-section.featured { display: block }
   .bc-session-body { display: block; overflow: visible; padding: 12px }
+  .bc-roster-layout { display: block; height: auto }
+  .bc-active-grid { display: block; overflow: visible }
+  .bc-waiting-side { display: block }
   .bc-session-body > .team-card { margin-bottom: 12px !important }
+  .bc-session-body .team-card { margin-bottom: 12px !important }
   .t-list { overflow: visible }
 
   /* Active mobile tab views */
@@ -6208,6 +6230,13 @@ function formatSubLabel(code) {
     return code.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function getIndexRosterGridColumns(teamCount) {
+    if (teamCount >= 7) return 4;
+    if (teamCount >= 5) return 3;
+    if (teamCount <= 1) return 1;
+    return 2;
+}
+
 function buildTeamsHtml(data) {
     const SVG = {
         sword: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>',
@@ -6228,6 +6257,66 @@ function buildTeamsHtml(data) {
         team_forest: SVG.tree
     };
     const classCycle = ['a1', 'a2', 'df', 'fr'];
+    {
+        const activeTeams = rosterState.layout.map((team, index) => ({
+            key: team.id,
+            cls: classCycle[index % classCycle.length],
+            icon: iconByTeam[team.id] || escapeIndexHtml(team.icon || '*'),
+            title: escapeIndexHtml(team.name || `TEAM ${index + 1}`),
+            max: Number(team.capacity) || 0,
+            players: rosterState.teams[team.id] || []
+        }));
+        const waitingTeam = {
+            key: 'waiting_list',
+            cls: 'wt',
+            icon: SVG.clock,
+            title: 'DANH SÁCH CHỜ',
+            max: 0,
+            players: rosterState.waitingList || []
+        };
+        let html = '', num = 1;
+        const renderTeamCard = (t) => {
+            const players = t.players || [];
+            const stats = { d: 0, h: 0, t: 0 };
+            players.forEach(p => { if (p.role === 'DPS') stats.d++; else if (p.role === 'Healer') stats.h++; else stats.t++; });
+
+            let card = `<div class="team-card"><div class="t-hdr ${t.cls}"><div class="t-info"><div class="t-icon ${t.cls}">${t.icon}</div><div><div class="t-title"${t.key === 'waiting_list' ? ' style="color:var(--gold)"' : ''}>${t.title}</div><div class="t-cnt">${t.max ? players.length + '/' + t.max + ' thĂ nh viĂªn' : players.length + ' ngÆ°á»i chá»'}</div></div></div><div class="t-roles">`;
+            if (stats.d) card += `<div class="rb d"><div class="rd d"></div>${stats.d}</div>`;
+            if (stats.h) card += `<div class="rb h"><div class="rd h"></div>${stats.h}</div>`;
+            if (stats.t) card += `<div class="rb t"><div class="rd t"></div>${stats.t}</div>`;
+            card += `</div></div><div class="t-list">`;
+
+            if (!players.length) {
+                card += `<div class="slot-e">Chưa có thành viên</div>`;
+            }
+            players.forEach(p => {
+                const sub = p.sub ? ' [' + formatSubLabel(p.sub) + ']' : '';
+                const ld = (p.ld || p.isTeamLeader) ? ' ' + SVG.crown : '';
+                const rcls = p.role === 'Healer' ? 'h' : p.role === 'Tanker' ? 't' : 'd';
+                const roleImg = (p.role || 'DPS').toLowerCase();
+                const emo = `<img src="./anh/icons/${roleImg}.png" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+                const displayName = escapeIndexHtml(p.gn || p.game_username || p.name || p.username || 'Unknown');
+                const secondaryName = escapeIndexHtml((p.gn || p.game_username) ? (p.name || p.username || '') : '');
+                const isMe = p.id === window.currentDiscordId;
+                const isLeader = p.ld || p.isLeader || p.isTeamLeader;
+                const actionBtn = isMe && !isLeader ? `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>` : '';
+                card += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${escapeIndexHtml(sub)}</div></div>`;
+                num++;
+            });
+            card += `</div></div>`;
+            return card;
+        };
+
+        if (data.locked === true) {
+            html += `<div class="team-card" style="border-color:rgba(255,99,71,.4);background:linear-gradient(180deg,rgba(90,22,18,.22),rgba(18,28,17,.92));margin-bottom:12px;"><div class="t-hdr wt" style="background:linear-gradient(135deg,rgba(255,110,90,.18),rgba(120,30,24,.08));"><div class="t-info"><div class="t-icon wt">🔒</div><div><div class="t-title" style="color:#ffb4a8">ĐÃ CHỐT DANH SÁCH</div><div class="t-cnt">Người mới đăng ký sẽ vào hàng chờ cho tới khi mở khóa.</div></div></div></div></div>`;
+        }
+        const columns = getIndexRosterGridColumns(activeTeams.length);
+        const activeGridClass = `bc-active-grid${activeTeams.length >= 5 ? ' compact' : ''}${activeTeams.length >= 7 ? ' dense' : ''}`;
+        html += `<div class="bc-roster-layout" style="--bc-team-columns:${columns}"><div class="${activeGridClass}">`;
+        activeTeams.forEach((team) => { html += renderTeamCard(team); });
+        html += `</div><aside class="bc-waiting-side">${renderTeamCard(waitingTeam)}</aside></div>`;
+        return html;
+    }
     const teams = [
         ...rosterState.layout.map((team, index) => ({
             key: team.id,
@@ -6279,7 +6368,7 @@ function buildTeamsHtml(data) {
 
         if (t.max && players.length < t.max) {
             for (let i = players.length; i < t.max; i++) {
-                html += `<div class="slot-e"><div class="m-num">${num}</div>Trống...</div>`;
+                // Empty slots are hidden in compact roster view.
                 num++;
             }
         }
@@ -6360,7 +6449,7 @@ function buildTeamsHtml(data) {
 
         if (t.max && players.length < t.max) {
             for (let i = players.length; i < t.max; i++) {
-                html += `<div class="slot-e"><div class="m-num">${num}</div>Trống...</div>`;
+                // Empty slots are hidden in compact roster view.
                 num++;
             }
         }

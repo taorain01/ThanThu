@@ -16,6 +16,7 @@ let supabase = null;
 let supportsBcSessionsLockedColumn = true;
 let supportsBcSessionsTeamNamesColumn = true; // Flag auto-fallback cho cột team_names
 let supportsBcSessionsDynamicRosterColumns = true;
+let supportsBcSessionsTeamsJsonColumn = true;
 let supportsBcTacticsSessionIdColumn = true;
 let supportsBcTacticsHistorySessionIdColumn = true;
 let supportsBcRosterSnapshotsTable = true;
@@ -242,8 +243,9 @@ async function syncBCSession(guildId, day, sessionData) {
         if (supportsBcSessionsTeamNamesColumn) {
             payload.team_names = JSON.stringify(team_names);
         }
-        if (supportsBcSessionsDynamicRosterColumns) {
-            const roster = bangchienRoster.normalizeRoster({
+        let rosterForPayload = null;
+        if (supportsBcSessionsDynamicRosterColumns || supportsBcSessionsTeamsJsonColumn) {
+            rosterForPayload = bangchienRoster.normalizeRoster({
                 team_attack1,
                 team_attack2,
                 team_defense,
@@ -254,40 +256,54 @@ async function syncBCSession(guildId, day, sessionData) {
                 team_layout,
                 teams
             });
+        }
+        if (supportsBcSessionsDynamicRosterColumns && rosterForPayload) {
+            const roster = rosterForPayload;
             payload.team_layout = roster.layout;
             payload.teams = roster.teams;
         }
-
-        let { error } = await supabase
-            .from('bc_sessions')
-            .upsert(payload, { onConflict: 'guild_id,day,time' });
-
-        if (error && /locked/i.test(error.message || '')) {
-            supportsBcSessionsLockedColumn = false;
-            delete payload.locked;
-            const retry = await supabase
-                .from('bc_sessions')
-                .upsert(payload, { onConflict: 'guild_id,day,time' });
-            error = retry.error || null;
+        if (supportsBcSessionsTeamsJsonColumn && rosterForPayload) {
+            payload.teams_json = JSON.stringify(rosterForPayload.teams || {});
         }
 
-        // Fallback nếu cột team_names chưa tồn tại
-        if (error && /team_names/i.test(error.message || '')) {
-            supportsBcSessionsTeamNamesColumn = false;
-            delete payload.team_names;
-            const retry2 = await supabase
+        let error = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const result = await supabase
                 .from('bc_sessions')
                 .upsert(payload, { onConflict: 'guild_id,day,time' });
-            error = retry2.error || null;
-        }
-        if (error && /(team_layout|teams)/i.test(error.message || '')) {
-            supportsBcSessionsDynamicRosterColumns = false;
-            delete payload.team_layout;
-            delete payload.teams;
-            const retry3 = await supabase
-                .from('bc_sessions')
-                .upsert(payload, { onConflict: 'guild_id,day,time' });
-            error = retry3.error || null;
+            error = result.error || null;
+            if (!error) break;
+
+            const message = error.message || '';
+            let removedUnsupportedField = false;
+
+            if (/locked/i.test(message) && Object.prototype.hasOwnProperty.call(payload, 'locked')) {
+                supportsBcSessionsLockedColumn = false;
+                delete payload.locked;
+                removedUnsupportedField = true;
+            }
+
+            if (/team_names/i.test(message) && Object.prototype.hasOwnProperty.call(payload, 'team_names')) {
+                supportsBcSessionsTeamNamesColumn = false;
+                delete payload.team_names;
+                removedUnsupportedField = true;
+            }
+            if (/teams_json/i.test(message) && Object.prototype.hasOwnProperty.call(payload, 'teams_json')) {
+                supportsBcSessionsTeamsJsonColumn = false;
+                delete payload.teams_json;
+                removedUnsupportedField = true;
+            }
+
+            if (/(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(message) &&
+                (Object.prototype.hasOwnProperty.call(payload, 'team_layout') ||
+                 Object.prototype.hasOwnProperty.call(payload, 'teams'))) {
+                supportsBcSessionsDynamicRosterColumns = false;
+                delete payload.team_layout;
+                delete payload.teams;
+                removedUnsupportedField = true;
+            }
+
+            if (!removedUnsupportedField) break;
         }
 
         if (error) {

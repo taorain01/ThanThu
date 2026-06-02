@@ -3671,7 +3671,8 @@
         team_sizes: JSON.stringify(snapshot.team_sizes || {}),
         leader_ids: JSON.stringify(snapshot.leader_ids || {}),
         team_layout: snapshot.team_layout || [],
-        teams: snapshot.teams || {}
+        teams: snapshot.teams || {},
+        teams_json: JSON.stringify(snapshot.teams || {})
       };
       if (supportsSessionLocked) payload.locked = !!snapshot.locked;
       // team_names & team_sizes: auto-fallback nếu cột chưa tồn tại
@@ -3695,13 +3696,29 @@
         error = retry.error || null;
       }
 
-      if (error && /(team_layout|teams)/i.test(error.message || '')) {
+      if (error && /teams_json/i.test(error.message || '')) {
+        delete payload.teams_json;
+        query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
+        if (currentSessionId) query = query.eq('id', currentSessionId);
+        const retryTeamsJson = await query;
+        error = retryTeamsJson.error || null;
+      }
+
+      if (error && /(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(error.message || '')) {
         delete payload.team_layout;
         delete payload.teams;
         query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
         if (currentSessionId) query = query.eq('id', currentSessionId);
         const retryDynamic = await query;
         error = retryDynamic.error || null;
+      }
+
+      if (error && /teams_json/i.test(error.message || '')) {
+        delete payload.teams_json;
+        query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
+        if (currentSessionId) query = query.eq('id', currentSessionId);
+        const retryTeamsJson = await query;
+        error = retryTeamsJson.error || null;
       }
 
       // Fallback nếu cột team_names chưa tồn tại trên Supabase

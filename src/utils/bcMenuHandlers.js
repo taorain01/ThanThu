@@ -46,7 +46,7 @@ function isUserInAnyActiveSession(guildId, userId) {
 }
 
 function getSessionLabel(session) {
-    const dayLabel = DAY_CONFIG[session.day]?.name || session.day || '?';
+    const dayLabel = getDayNameWithDate(session.day) || DAY_CONFIG[session.day]?.name || session.day || '?';
     const time = normalizeBcTime(session.time || LEAGUE_TIME);
     const badge = isLeagueSession(session) ? ' LEAGUE' : '';
     const note = session.note && !/^league$/i.test(String(session.note)) ? ` - ${session.note}` : '';

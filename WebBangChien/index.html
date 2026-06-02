@@ -4127,27 +4127,51 @@ function attachSessionRosterPayload(payload, session, teamLayout, teams) {
     return payload;
 }
 
+function messageMentionsRosterField(message, field) {
+    return new RegExp(`(^|[^a-z0-9_])${field}([^a-z0-9_]|$)`, 'i').test(String(message || ''));
+}
+
 function removeUnavailableRosterPayloadFields(payload, error) {
     const message = String(error?.message || '');
+    const hasField = (field) => Object.prototype.hasOwnProperty.call(payload, field);
     let removed = false;
-    if (/team_layout/i.test(message)) {
+    if (messageMentionsRosterField(message, 'team_layout') && hasField('team_layout')) {
         delete payload.team_layout;
         removed = true;
     }
-    if (/(^|[^a-z0-9_])teams([^a-z0-9_]|$)|["']teams["']|field\s+"?teams"?|column\s+"?teams"?/i.test(message)) {
+    if (messageMentionsRosterField(message, 'teams') && hasField('teams')) {
         delete payload.teams;
-        delete payload.team_layout;
         removed = true;
     }
-    if (/teams_json/i.test(message)) {
+    if (messageMentionsRosterField(message, 'teams_json') && hasField('teams_json')) {
         delete payload.teams_json;
         removed = true;
     }
     if (!removed) {
-        delete payload.team_layout;
-        delete payload.teams;
-        delete payload.teams_json;
+        for (const field of ['team_layout', 'teams', 'teams_json']) {
+            if (hasField(field)) {
+                delete payload[field];
+                removed = true;
+            }
+        }
     }
+    return removed;
+}
+
+async function updateSessionRosterPayload(payload, session) {
+    const applyUpdate = async () => {
+        const query = sb.from('bc_sessions').update(payload);
+        return applySessionFilter(query, session);
+    };
+
+    let result = await applyUpdate();
+    for (let attempt = 0; result.error && attempt < 3; attempt++) {
+        const message = String(result.error.message || '');
+        if (!/(team_layout|teams|teams_json|schema cache|Could not find)/i.test(message)) break;
+        if (!removeUnavailableRosterPayloadFields(payload, result.error)) break;
+        result = await applyUpdate();
+    }
+    return result;
 }
 
 async function ensureWeekendDefaultSessionsWeb() {
@@ -4187,7 +4211,8 @@ async function ensureWeekendDefaultSessionsWeb() {
                         team_attack2: [],
                         team_defense: [],
                         team_forest: []
-                    }
+                    },
+                    teams_json: '{"team_attack1":[],"team_attack2":[],"team_defense":[],"team_forest":[]}'
                 });
             }
         }
@@ -4195,8 +4220,22 @@ async function ensureWeekendDefaultSessionsWeb() {
             let { error: insertError } = await sb
                 .from('bc_sessions')
                 .upsert(rows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
-            if (insertError && /(team_layout|teams)/i.test(insertError.message || '')) {
+            if (insertError && /teams_json/i.test(insertError.message || '')) {
+                const noTeamsJsonRows = rows.map(({ teams_json, ...row }) => row);
+                const retry = await sb
+                    .from('bc_sessions')
+                    .upsert(noTeamsJsonRows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
+                insertError = retry.error || null;
+            }
+            if (insertError && /(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(insertError.message || '')) {
                 const legacyRows = rows.map(({ team_layout, teams, ...row }) => row);
+                const retry = await sb
+                    .from('bc_sessions')
+                    .upsert(legacyRows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
+                insertError = retry.error || null;
+            }
+            if (insertError && /teams_json/i.test(insertError.message || '')) {
+                const legacyRows = rows.map(({ team_layout, teams, teams_json, ...row }) => row);
                 const retry = await sb
                     .from('bc_sessions')
                     .upsert(legacyRows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
@@ -5279,16 +5318,7 @@ async function joinSession(data) {
             })
         };
     attachSessionRosterPayload(joinPayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
-    let updateQuery = sb
-        .from('bc_sessions')
-        .update(joinPayload);
-    let { error: updateErr } = await applySessionFilter(updateQuery, data);
-    if (updateErr && /(team_layout|teams|teams_json)/i.test(updateErr.message || '')) {
-        removeUnavailableRosterPayloadFields(joinPayload, updateErr);
-        updateQuery = sb.from('bc_sessions').update(joinPayload);
-        const retry = await applySessionFilter(updateQuery, data);
-        updateErr = retry.error || null;
-    }
+    const { error: updateErr } = await updateSessionRosterPayload(joinPayload, data);
 
     if (updateErr) { await customAlert('Lỗi đăng ký: ' + updateErr.message); return false; }
 
@@ -5399,16 +5429,7 @@ async function leaveSession(data, options = {}) {
             })
         };
     attachSessionRosterPayload(leavePayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
-    let leaveUpdateQuery = sb
-        .from('bc_sessions')
-        .update(leavePayload);
-    let { error: updateErr } = await applySessionFilter(leaveUpdateQuery, data);
-    if (updateErr && /(team_layout|teams|teams_json)/i.test(updateErr.message || '')) {
-        removeUnavailableRosterPayloadFields(leavePayload, updateErr);
-        leaveUpdateQuery = sb.from('bc_sessions').update(leavePayload);
-        const retry = await applySessionFilter(leaveUpdateQuery, data);
-        updateErr = retry.error || null;
-    }
+    const { error: updateErr } = await updateSessionRosterPayload(leavePayload, data);
 
     if (updateErr) { await customAlert('Lỗi hủy đăng ký: ' + updateErr.message); return false; }
 
@@ -6188,16 +6209,33 @@ async function createCustomBc() {
             leader_ids: JSON.stringify({ creator_id: creatorId, creator_name: creatorName }),
             team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
             team_layout: createLayout,
-            teams: createTeams
+            teams: createTeams,
+            teams_json: JSON.stringify(createTeams)
         };
     let createResult = await sb
         .from('bc_sessions')
         .upsert(createPayload, { onConflict: 'guild_id,day,time' })
         .select('*')
         .single();
-    if (createResult.error && /(team_layout|teams)/i.test(createResult.error.message || '')) {
+    if (createResult.error && /teams_json/i.test(createResult.error.message || '')) {
+        delete createPayload.teams_json;
+        createResult = await sb
+            .from('bc_sessions')
+            .upsert(createPayload, { onConflict: 'guild_id,day,time' })
+            .select('*')
+            .single();
+    }
+    if (createResult.error && /(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(createResult.error.message || '')) {
         delete createPayload.team_layout;
         delete createPayload.teams;
+        createResult = await sb
+            .from('bc_sessions')
+            .upsert(createPayload, { onConflict: 'guild_id,day,time' })
+            .select('*')
+            .single();
+    }
+    if (createResult.error && /teams_json/i.test(createResult.error.message || '')) {
+        delete createPayload.teams_json;
         createResult = await sb
             .from('bc_sessions')
             .upsert(createPayload, { onConflict: 'guild_id,day,time' })

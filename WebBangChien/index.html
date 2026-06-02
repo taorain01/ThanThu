@@ -5019,12 +5019,13 @@ function updateSignupBar(data) {
     bar.style.display = 'flex';
     const isRegistered = getAllCachedSessions().some(sessionContainsCurrentUser);
     const label = isRegistered ? '✏️ Cập nhật đăng ký' : '⚔️ Đăng ký Bang Chiến';
-    bar.innerHTML = `<button class="bc-action-btn" onclick="openMemberRosterPopup('list')" title="Danh sach thanh vien">
-            Thanh vien
+    bar.innerHTML = `<button class="bc-action-btn" onclick="openMemberRosterPopup('list')" title="Danh sách thành viên">
+            👥 Danh sách thành viên
         </button>
         <button class="bc-action-btn${isRegistered ? ' joined' : ''}" onclick="openSignupModal()">
             ${label}
         </button>`;
+
 }
 
 async function joinBC() {

@@ -3,1061 +3,916 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Lang Gia - Danh sach thanh vien</title>
+  <title>Lang Gia - Danh sách thành viên</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
-      --bg:#06120a;
-      --panel:#0d1b12;
-      --panel-2:#122319;
-      --line:rgba(141,255,183,.16);
-      --line-strong:rgba(141,255,183,.34);
-      --text:#e8f6ec;
-      --muted:#9bb8a4;
-      --green:#46d982;
-      --gold:#f3c45a;
-      --danger:#ff7777;
-      --dps:#5ea9ff;
-      --healer:#61e89b;
-      --tanker:#ffad4d;
+      --bg: #06120a;
+      --panel: #0c1a11;
+      --panel-2: #112118;
+      --line: rgba(141,255,183,.13);
+      --line-strong: rgba(141,255,183,.32);
+      --text: #dff2e6;
+      --muted: #7aaa8a;
+      --green: #3ecf72;
+      --green-glow: rgba(62,207,114,.18);
+      --gold: #f5c842;
+      --gold-dim: rgba(245,200,66,.13);
+      --danger: #f07070;
+      --dps: #5ea9ff;
+      --healer: #4de89a;
+      --tanker: #ffad4d;
+      --radius: 10px;
+      --font: 'Inter', system-ui, sans-serif;
     }
-    * { box-sizing:border-box }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
     body {
-      margin:0;
-      min-height:100vh;
-      font-family:Inter, Segoe UI, Arial, sans-serif;
-      background:
-        radial-gradient(circle at 16% 0%, rgba(70,217,130,.12), transparent 30%),
-        linear-gradient(180deg, #07150b 0%, #030805 100%);
-      color:var(--text);
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.4;
     }
-    button, input, select {
-      font:inherit;
-    }
+    button, input, select { font: inherit; }
+
+    /* ── SHELL: 100vh, no scroll ── */
     .shell {
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      padding:14px;
-      gap:12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+      padding: 10px 12px 8px;
     }
+
+    /* ── TOPBAR ── */
     .topbar {
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-height:54px;
-      padding:10px 12px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:rgba(13,27,18,.92);
-      box-shadow:0 16px 40px rgba(0,0,0,.28);
-      position:sticky;
-      top:10px;
-      z-index:10;
-      backdrop-filter:blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      padding: 8px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: rgba(10,24,14,.95);
+      backdrop-filter: blur(14px);
+      margin-bottom: 8px;
     }
-    .title {
-      display:flex;
-      flex-direction:column;
-      min-width:0;
-      gap:3px;
-      flex:1;
+    .topbar-title { flex: 1; min-width: 0; }
+    .topbar-title h1 {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: .01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .title h1 {
-      margin:0;
-      font-size:18px;
-      line-height:1.1;
-      color:var(--gold);
-      letter-spacing:0;
-    }
-    .title .sub {
-      font-size:12px;
-      color:var(--muted);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .icon-btn, .btn {
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      border-radius:8px;
-      min-height:38px;
-      padding:8px 11px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      cursor:pointer;
-      transition:.16s ease;
-      text-decoration:none;
-      white-space:nowrap;
+    .topbar-title .sub {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
     }
     .icon-btn {
-      width:38px;
-      padding:0;
-      font-size:18px;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      transition: .15s;
+      flex-shrink: 0;
     }
-    .btn:hover, .icon-btn:hover {
-      border-color:var(--line-strong);
-      background:rgba(70,217,130,.10);
+    .icon-btn:hover { border-color: var(--line-strong); background: var(--green-glow); }
+    .btn {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      border-radius: 8px;
+      height: 34px;
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: .15s;
+      white-space: nowrap;
+      font-size: 12.5px;
+      font-weight: 700;
     }
+    .btn:hover { border-color: var(--line-strong); background: var(--green-glow); }
     .btn.primary {
-      color:#041007;
-      background:linear-gradient(135deg, #61e89b, #28b86a);
-      border-color:transparent;
-      font-weight:800;
+      color: #041007;
+      background: linear-gradient(135deg, #5ee895, #22c060);
+      border-color: transparent;
     }
-    .btn.danger {
-      color:#ffe8e8;
-      border-color:rgba(255,119,119,.35);
-      background:rgba(255,119,119,.10);
+    .btn.primary:hover { filter: brightness(1.07); }
+
+    /* ── FILTERS ROW ── */
+    .filters-row {
+      display: flex;
+      gap: 7px;
+      flex-shrink: 0;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
     }
-    .filters {
-      display:grid;
-      grid-template-columns:minmax(180px, 1.6fr) repeat(5, minmax(120px, 1fr));
-      gap:8px;
-      padding:12px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:rgba(13,27,18,.72);
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
     }
-    .field {
-      display:flex;
-      flex-direction:column;
-      gap:5px;
-      min-width:0;
+    .filter-group label {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: .07em;
+      text-transform: uppercase;
     }
-    .field label {
-      font-size:10px;
-      color:var(--muted);
-      text-transform:uppercase;
-      font-weight:800;
-      letter-spacing:.08em;
+    .filter-group.search-group { flex: 1; min-width: 140px; }
+    .filter-group.select-group { width: 118px; flex-shrink: 0; }
+    input[type="text"], select {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0,0,0,.28);
+      color: var(--text);
+      padding: 0 10px;
+      outline: none;
+      transition: .15s;
     }
-    input, select {
-      width:100%;
-      min-height:38px;
-      border:1px solid var(--line);
-      border-radius:8px;
-      background:rgba(0,0,0,.24);
-      color:var(--text);
-      padding:8px 10px;
-      outline:none;
+    input[type="text"]:focus, select:focus {
+      border-color: var(--line-strong);
+      box-shadow: 0 0 0 3px rgba(62,207,114,.08);
     }
-    select option {
-      background:#0d1b12;
-      color:var(--text);
+    input::placeholder { color: var(--muted); }
+    select option { background: #0d1b12; color: var(--text); }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: flex;
+      gap: 7px;
+      flex-shrink: 0;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
     }
-    input:focus, select:focus {
-      border-color:var(--line-strong);
-      box-shadow:0 0 0 3px rgba(70,217,130,.09);
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.025);
+      font-size: 12px;
     }
-    .stats {
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
+    .stat-chip .val {
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--green);
     }
-    .stat {
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.035);
-      border-radius:8px;
-      padding:8px 10px;
-      min-width:86px;
+    .stat-chip .lbl { color: var(--muted); font-size: 11px; }
+    .stat-chip.dps .val { color: var(--dps); }
+    .stat-chip.healer .val { color: var(--healer); }
+    .stat-chip.tanker .val { color: var(--tanker); }
+    .stat-chip.pending .val { color: var(--gold); }
+
+    /* ── STATUS MESSAGE ── */
+    .status-msg {
+      display: none;
+      flex-shrink: 0;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: rgba(255,255,255,.04);
+      margin-bottom: 8px;
     }
-    .stat strong {
-      display:block;
-      font-size:17px;
-      color:var(--green);
+    .status-msg.show { display: block; }
+    .status-msg.error { color: #ffdada; border-color: rgba(240,112,112,.35); background: rgba(240,112,112,.08); }
+    .status-msg.ok { color: #c8ffd8; border-color: rgba(62,207,114,.3); background: rgba(62,207,114,.07); }
+
+    /* ── TABLE HEADER ── */
+    .table-head {
+      display: grid;
+      grid-template-columns: 36px 1fr 100px 110px 110px 36px;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 10px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 4px;
     }
-    .stat span {
-      display:block;
-      margin-top:2px;
-      color:var(--muted);
-      font-size:11px;
+    .col-hd {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }
-    .status {
-      display:none;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.045);
-      border-radius:8px;
-      padding:9px 12px;
-      color:var(--muted);
-      font-size:13px;
+
+    /* ── LIST: scrollable ── */
+    .list-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 2px;
     }
-    .status.show { display:block }
-    .status.error {
-      color:#ffd0d0;
-      border-color:rgba(255,119,119,.35);
-      background:rgba(255,119,119,.09);
+    .list-wrap::-webkit-scrollbar { width: 4px; }
+    .list-wrap::-webkit-scrollbar-track { background: transparent; }
+    .list-wrap::-webkit-scrollbar-thumb { background: rgba(141,255,183,.18); border-radius: 4px; }
+    .list-wrap::-webkit-scrollbar-thumb:hover { background: rgba(141,255,183,.35); }
+
+    /* ── ROW ── */
+    .member-row {
+      display: grid;
+      grid-template-columns: 36px 1fr 100px 110px 110px auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(12,26,17,.76);
+      transition: border-color .15s, background .15s;
     }
-    .status.ok {
-      color:#c8f9d9;
-      border-color:rgba(97,232,155,.35);
-      background:rgba(97,232,155,.09);
-    }
-    .list {
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      min-height:0;
-    }
-    .row {
-      display:grid;
-      grid-template-columns:42px minmax(190px, 1.4fr) minmax(120px, .7fr) minmax(210px, .9fr) minmax(120px, .55fr) auto;
-      gap:10px;
-      align-items:center;
-      padding:10px;
-      border:1px solid var(--line);
-      border-radius:10px;
-      background:rgba(13,27,18,.76);
-    }
-    .row.pending {
-      border-color:rgba(243,196,90,.22);
-      background:rgba(243,196,90,.05);
-    }
+    .member-row:hover { border-color: rgba(141,255,183,.24); background: rgba(15,34,20,.9); }
+    .member-row.is-pending { border-color: rgba(245,200,66,.2); background: rgba(245,200,66,.04); }
+
+    /* avatar */
     .avatar {
-      width:36px;
-      height:36px;
-      border-radius:8px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:900;
-      background:rgba(97,232,155,.13);
-      color:var(--green);
-      border:1px solid rgba(97,232,155,.24);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 14px;
+      background: rgba(62,207,114,.11);
+      color: var(--green);
+      border: 1px solid rgba(62,207,114,.22);
+      flex-shrink: 0;
     }
-    .main {
-      min-width:0;
+    .avatar.you { background: rgba(245,200,66,.13); color: var(--gold); border-color: rgba(245,200,66,.3); }
+
+    /* info */
+    .info { min-width: 0; }
+    .info .name {
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
-    .name-line {
-      display:flex;
-      align-items:center;
-      gap:7px;
-      min-width:0;
+    .info .meta {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
     }
-    .name {
-      font-size:14px;
-      font-weight:850;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .meta {
-      margin-top:4px;
-      font-size:12px;
-      color:var(--muted);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+
+    /* pill */
     .pill {
-      display:inline-flex;
-      align-items:center;
-      min-height:24px;
-      padding:3px 7px;
-      border-radius:7px;
-      border:1px solid var(--line);
-      color:var(--muted);
-      font-size:11px;
-      font-weight:800;
-      white-space:nowrap;
-      background:rgba(255,255,255,.04);
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .pill.dps { color:var(--dps); border-color:rgba(94,169,255,.35); background:rgba(94,169,255,.08) }
-    .pill.healer { color:var(--healer); border-color:rgba(97,232,155,.35); background:rgba(97,232,155,.08) }
-    .pill.tanker { color:var(--tanker); border-color:rgba(255,173,77,.35); background:rgba(255,173,77,.08) }
-    .pill.pending { color:var(--gold); border-color:rgba(243,196,90,.35); background:rgba(243,196,90,.08) }
-    .role-edit {
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:6px;
-    }
+    .pill.dps    { color: var(--dps);    border-color: rgba(94,169,255,.32); background: rgba(94,169,255,.07); }
+    .pill.healer { color: var(--healer); border-color: rgba(77,232,154,.32); background: rgba(77,232,154,.07); }
+    .pill.tanker { color: var(--tanker); border-color: rgba(255,173,77,.32);  background: rgba(255,173,77,.07); }
+    .pill.pending{ color: var(--gold);   border-color: rgba(245,200,66,.32); background: rgba(245,200,66,.07); }
+    .pill.you    { color: var(--gold);   border-color: rgba(245,200,66,.4);  background: rgba(245,200,66,.1); font-size: 10px; padding: 1px 6px; }
+    .pill.bc     { color: #fff; border-color: rgba(255,120,120,.35); background: rgba(255,120,120,.1); }
+    .pill.pbc    { color: var(--gold); border-color: rgba(245,200,66,.3); background: rgba(245,200,66,.08); }
+    .pill.kc     { color: var(--green); border-color: rgba(62,207,114,.3); background: rgba(62,207,114,.07); }
+    .pill.ql     { color: #a5d8ff; border-color: rgba(165,216,255,.3); background: rgba(165,216,255,.06); }
+    .pill.mem    { color: var(--muted); }
+
+    /* role-edit for self */
+    .role-edit { display: flex; gap: 5px; }
     .role-edit select {
-      min-height:34px;
-      padding:6px 8px;
-      font-size:12px;
+      height: 28px;
+      font-size: 11px;
+      padding: 0 6px;
+      border-radius: 6px;
+      flex: 1;
+      min-width: 0;
     }
-    .actions {
-      display:flex;
-      gap:6px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
+
+    /* actions */
+    .row-actions { display: flex; gap: 5px; align-items: center; justify-content: flex-end; }
+    .act-btn {
+      height: 28px;
+      padding: 0 9px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .12s;
+      white-space: nowrap;
     }
-    .mini-btn {
-      min-width:34px;
-      height:34px;
-      padding:0 9px;
-      border:1px solid var(--line);
-      border-radius:8px;
-      color:var(--text);
-      background:rgba(255,255,255,.04);
-      cursor:pointer;
-      font-weight:900;
-    }
-    .mini-btn:hover { border-color:var(--line-strong); background:rgba(70,217,130,.10) }
-    .mini-btn.add { color:#041007; background:linear-gradient(135deg,#61e89b,#28b86a); border-color:transparent }
-    .mini-btn.danger { color:#ffd1d1; border-color:rgba(255,119,119,.35); background:rgba(255,119,119,.10) }
+    .act-btn:hover { border-color: var(--line-strong); background: var(--green-glow); }
+    .act-btn.add { color: #041007; background: linear-gradient(135deg,#5ee895,#22c060); border-color: transparent; width: 28px; padding: 0; font-size: 16px; }
+    .act-btn.add:disabled { opacity: .35; filter: none; cursor: not-allowed; background: rgba(255,255,255,.06); color: var(--muted); }
+    .act-btn.danger { color: #ffc9c9; border-color: rgba(240,112,112,.3); background: rgba(240,112,112,.07); }
+    .act-btn.danger:hover { background: rgba(240,112,112,.15); }
+
+    /* empty */
     .empty {
-      padding:36px 16px;
-      border:1px dashed var(--line);
-      border-radius:12px;
-      color:var(--muted);
-      text-align:center;
-      background:rgba(255,255,255,.02);
+      padding: 32px;
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      color: var(--muted);
+      background: rgba(255,255,255,.015);
     }
+
+    /* login */
     .login-panel {
-      max-width:420px;
-      margin:12vh auto;
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:24px;
-      background:rgba(13,27,18,.88);
-      text-align:center;
+      max-width: 380px;
+      margin: 8vh auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      padding: 28px;
+      background: rgba(12,26,17,.9);
+      text-align: center;
     }
-    .login-panel h2 {
-      margin:0 0 8px;
-      color:var(--gold);
+    .login-panel h2 { color: var(--gold); font-size: 17px; margin-bottom: 8px; }
+    .login-panel p { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+
+    /* scrollbar in list */
+    @media (max-width: 820px) {
+      .table-head { grid-template-columns: 34px 1fr 90px auto; }
+      .table-head .col-hd.c-combat,
+      .table-head .col-hd.c-joined { display: none; }
+      .member-row { grid-template-columns: 34px 1fr 90px auto; }
+      .member-row .col-combat,
+      .member-row .col-joined { display: none; }
+      .filter-group.select-group { width: 100px; }
     }
-    .login-panel p {
-      margin:0 0 18px;
-      color:var(--muted);
-    }
-    @media (max-width: 980px) {
-      .filters { grid-template-columns:1fr 1fr }
-      .row {
-        grid-template-columns:38px minmax(0, 1fr) auto;
-        align-items:start;
-      }
-      .row .position, .row .roles, .row .joined {
-        grid-column:2 / 4;
-      }
-      .actions {
-        grid-column:1 / 4;
-        justify-content:flex-start;
-      }
-    }
-    @media (max-width: 620px) {
-      .shell { padding:8px; gap:8px }
-      .topbar { top:6px; border-radius:10px }
-      .filters { grid-template-columns:1fr }
-      .stats { display:grid; grid-template-columns:repeat(2, 1fr) }
-      .stat { min-width:0 }
-      .title h1 { font-size:16px }
-      .title .sub { font-size:11px }
-      .topbar .btn { padding:8px; min-height:36px }
-      .role-edit { grid-template-columns:1fr }
+    @media (max-width: 600px) {
+      .shell { padding: 7px 8px 6px; gap: 0; }
+      .filters-row { gap: 5px; }
+      .filter-group.select-group { width: 90px; }
+      .table-head { display: none; }
+      .member-row { grid-template-columns: 32px 1fr auto; gap: 6px; }
+      .member-row .col-combat,
+      .member-row .col-joined,
+      .member-row .col-position { display: none; }
     }
   </style>
 </head>
 <body>
-  <div id="app" class="shell">
-    <div class="topbar">
-      <button class="icon-btn" id="btnClose" title="Dong">×</button>
-      <div class="title">
-        <h1>Danh sach thanh vien</h1>
-        <div class="sub" id="subtitle">Dang tai du lieu...</div>
-      </div>
-      <button class="btn" id="btnReload">Tai lai</button>
-      <button class="btn primary" id="btnLogin" style="display:none">Dang nhap Discord</button>
-    </div>
+<div class="shell">
 
-    <div class="filters" id="filters" style="display:none">
-      <div class="field">
-        <label>Tim kiem</label>
-        <input id="searchInput" placeholder="Discord, ten game, UID">
-      </div>
-      <div class="field">
-        <label>Trang thai</label>
-        <select id="statusFilter">
-          <option value="all">Tat ca</option>
-          <option value="active">Active</option>
-          <option value="pending">Pending</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Combat</label>
-        <select id="combatFilter">
-          <option value="all">Tat ca</option>
-          <option value="DPS">DPS</option>
-          <option value="Healer">Healer</option>
-          <option value="Tanker">Tanker</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Vu khi</label>
-        <select id="weaponFilter">
-          <option value="all">Tat ca</option>
-          <option value="QD">Quat Du</option>
-          <option value="VD">Vo Danh</option>
-          <option value="SD">Song Dao</option>
-          <option value="9K">Cuu Kiem</option>
-          <option value="DR">Du Roi</option>
-          <option value="HD">Hoanh Dao</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Chuc vu</label>
-        <select id="positionFilter">
-          <option value="all">Tat ca</option>
-          <option value="bc">Bang chu</option>
-          <option value="pbc">Pho bang chu</option>
-          <option value="kc">Ky cuu</option>
-          <option value="ql">Quan ly</option>
-          <option value="mem">Member</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Session</label>
-        <select id="sessionFilter">
-          <option value="all">Tat ca</option>
-          <option value="available">Chua trong session</option>
-        </select>
-      </div>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="icon-btn" id="btnClose" title="Đóng">×</button>
+    <div class="topbar-title">
+      <h1>⚔️ Danh sách thành viên</h1>
+      <div class="sub" id="subtitle">Đang tải...</div>
     </div>
-
-    <div class="stats" id="stats" style="display:none"></div>
-    <div class="status" id="status"></div>
-    <div class="list" id="list"></div>
+    <button class="btn" id="btnReload">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Làm mới
+    </button>
+    <button class="btn primary" id="btnLogin" style="display:none">Đăng nhập Discord</button>
   </div>
 
-  <script>
-    const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
-    const GUILD_ID = '450633680000385036';
-    const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
+  <!-- FILTERS ROW -->
+  <div class="filters-row" id="filtersRow" style="display:none">
+    <div class="filter-group search-group">
+      <label>🔍 Tìm kiếm</label>
+      <input type="text" id="searchInput" placeholder="Tên Discord, tên game, UID...">
+    </div>
+    <div class="filter-group select-group">
+      <label>Trạng thái</label>
+      <select id="statusFilter">
+        <option value="all">Tất cả</option>
+        <option value="active">Thành viên</option>
+        <option value="pending">Chờ duyệt</option>
+      </select>
+    </div>
+    <div class="filter-group select-group">
+      <label>Vai chiến đấu</label>
+      <select id="combatFilter">
+        <option value="all">Tất cả</option>
+        <option value="DPS">DPS</option>
+        <option value="Healer">Healer</option>
+        <option value="Tanker">Tanker</option>
+      </select>
+    </div>
+    <div class="filter-group select-group">
+      <label>Vũ khí</label>
+      <select id="weaponFilter">
+        <option value="all">Tất cả</option>
+        <option value="QD">Quạt Đủ</option>
+        <option value="VD">Vô Danh</option>
+        <option value="SD">Song Đao</option>
+        <option value="9K">Cửu Kiếm</option>
+        <option value="DR">Dù Rơi</option>
+        <option value="HD">Hoành Đao</option>
+      </select>
+    </div>
+    <div class="filter-group select-group">
+      <label>Chức vụ</label>
+      <select id="positionFilter">
+        <option value="all">Tất cả</option>
+        <option value="bc">Bang chủ</option>
+        <option value="pbc">Phó bang chủ</option>
+        <option value="kc">Kỳ cựu</option>
+        <option value="ql">Quản lý</option>
+        <option value="mem">Thành viên</option>
+      </select>
+    </div>
+    <div class="filter-group select-group" id="sessionFilterGroup" style="display:none">
+      <label>Thêm vào</label>
+      <select id="sessionFilter">
+        <option value="all">Tất cả</option>
+        <option value="available">Chưa trong session</option>
+      </select>
+    </div>
+  </div>
 
-    const params = new URLSearchParams(window.location.search);
-    const IS_EMBED = params.get('embed') === '1';
-    const SESSION_ID = params.get('session') || '';
-    const DEFAULT_MODE = params.get('mode') || (SESSION_ID ? 'add' : 'list');
+  <!-- STATS BAR -->
+  <div class="stats-bar" id="statsBar" style="display:none"></div>
 
-    const COMBAT_ROLES = ['DPS', 'Healer', 'Tanker'];
-    const WEAPON_ROLES = ['QD', 'VD', 'SD', '9K', 'DR', 'HD'];
-    const WEAPON_LABELS = {
-      QD:'Quat Du',
-      VD:'Vo Danh',
-      SD:'Song Dao',
-      '9K':'Cuu Kiem',
-      DR:'Du Roi',
-      HD:'Hoanh Dao'
-    };
-    const POSITION_LABELS = {
-      bc:'Bang chu',
-      pbc:'Pho bang chu',
-      kc:'Ky cuu',
-      ql:'Quan ly',
-      mem:'Member'
-    };
+  <!-- STATUS -->
+  <div class="status-msg" id="statusMsg"></div>
 
-    let sb = null;
-    let currentSession = null;
-    let currentDiscordId = '';
-    let currentUserName = 'User';
-    let currentUserRow = null;
-    let isManager = false;
-    let activeRows = [];
-    let pendingRows = [];
-    let sessionMemberIds = new Set();
-    let realtimeChannel = null;
-    let reloadTimer = null;
+  <!-- TABLE HEADER -->
+  <div class="table-head" id="tableHead" style="display:none">
+    <div class="col-hd"></div>
+    <div class="col-hd">Thành viên</div>
+    <div class="col-hd col-position">Chức vụ</div>
+    <div class="col-hd c-combat">Vai / Vũ khí</div>
+    <div class="col-hd c-joined">Ngày vào</div>
+    <div class="col-hd"></div>
+  </div>
 
+  <!-- LIST -->
+  <div class="list-wrap" id="listWrap"></div>
+
+</div>
+<script>
+  const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
+  const GUILD_ID = '450633680000385036';
+  const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
+
+  const params = new URLSearchParams(window.location.search);
+  const IS_EMBED = params.get('embed') === '1';
+  const SESSION_ID = params.get('session') || '';
+  const DEFAULT_MODE = params.get('mode') || (SESSION_ID ? 'add' : 'list');
+
+  const COMBAT_ROLES = ['DPS', 'Healer', 'Tanker'];
+  const WEAPON_ROLES = ['QD', 'VD', 'SD', '9K', 'DR', 'HD'];
+  const WEAPON_LABELS = { QD:'Quạt Đủ', VD:'Vô Danh', SD:'Song Đao', '9K':'Cửu Kiếm', DR:'Dù Rơi', HD:'Hoành Đao' };
+  const POSITION_LABELS = { bc:'Bang chủ', pbc:'Phó bang chủ', kc:'Kỳ cựu', ql:'Quản lý', mem:'Thành viên' };
+
+  let sb = null, currentSession = null, currentDiscordId = '', currentUserName = 'Người dùng';
+  let isManager = false, activeRows = [], pendingRows = [], sessionMemberIds = new Set();
+  let realtimeChannel = null, reloadTimer = null;
+
+  try {
+    const fn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
+    sb = fn ? fn(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { flowType:'implicit', autoRefreshToken:true, persistSession:true, detectSessionInUrl:true }
+    }) : null;
+  } catch(_) { sb = null; }
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    subtitle: $('subtitle'), status: $('statusMsg'), list: $('listWrap'), stats: $('statsBar'),
+    filters: $('filtersRow'), tableHead: $('tableHead'), login: $('btnLogin'), reload: $('btnReload'),
+    close: $('btnClose'), search: $('searchInput'), statusFilter: $('statusFilter'),
+    combatFilter: $('combatFilter'), weaponFilter: $('weaponFilter'),
+    positionFilter: $('positionFilter'), sessionFilter: $('sessionFilter'),
+    sessionFilterGroup: $('sessionFilterGroup')
+  };
+
+  function esc(v) { return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function cssEscape(v) { return window.CSS?.escape ? CSS.escape(String(v)) : String(v).replace(/["\\]/g, '\\$&'); }
+  function normalizeText(v = '') {
+    return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  }
+  function normalizePosition(v = 'mem') {
+    const k = normalizeText(v);
+    if (k==='bc'||k==='bang chu') return 'bc';
+    if (k==='pbc'||k==='pho bang chu'||k==='pho guild') return 'pbc';
+    if (k==='kc'||k==='ky cuu') return 'kc';
+    if (k==='ql'||k==='quan ly') return 'ql';
+    if (k==='khong co'||k==='left'||k==='out') return 'left';
+    return 'mem';
+  }
+  function isLeftRow(row) { return Boolean(row?.left_at) || normalizePosition(row?.position) === 'left'; }
+  function normalizeCombat(v, fallback='') {
+    const k = normalizeText(v);
+    if (k==='healer') return 'Healer'; if (k==='tanker'||k==='tank') return 'Tanker'; if (k==='dps') return 'DPS'; return fallback;
+  }
+  function normalizeWeapon(v) {
+    const raw = String(v||'').trim(); if (!raw) return '';
+    const u = raw.toUpperCase().replace('Ð','D');
+    if (WEAPON_ROLES.includes(u)) return u;
+    const k = normalizeText(raw);
+    if (k.includes('quat')) return 'QD'; if (k.includes('vo danh')) return 'VD'; if (k.includes('song dao')) return 'SD';
+    if (k.includes('cuu kiem')||k==='9k') return '9K'; if (k.includes('du roi')) return 'DR'; if (k.includes('hoanh dao')||k.includes('hoang dao')) return 'HD';
+    return '';
+  }
+  function rowCombat(r) { return normalizeCombat(r?.combat_role, normalizeWeapon(r?.weapon_role||r?.sub_role) ? 'DPS' : ''); }
+  function rowWeapon(r) { return normalizeWeapon(r?.weapon_role||r?.sub_role); }
+  function positionSort(r) { return ({bc:0,pbc:1,kc:2,ql:3,mem:4,left:5})[normalizePosition(r?.position)] ?? 9; }
+  function isManagerPosition(pos) { return ['bc','pbc','kc','ql'].includes(normalizePosition(pos)); }
+
+  function showStatus(msg, type='') {
+    if (!msg) { els.status.className = 'status-msg'; els.status.textContent = ''; return; }
+    els.status.className = `status-msg show ${type}`;
+    els.status.textContent = msg;
+    if (type === 'ok') setTimeout(() => { if (els.status.textContent === msg) showStatus(''); }, 2800);
+  }
+  function getDiscordIdFromSession(s) {
+    const m = s?.user?.user_metadata||{};
+    return String(m.provider_id||m.sub||m.user_id||'').trim();
+  }
+  function parseMaybeJson(v, fb) {
+    if (Array.isArray(v)||(v&&typeof v==='object')) return v;
+    if (!v) return fb;
+    try { return JSON.parse(v); } catch(_) { return fb; }
+  }
+  function collectSessionIds(sess) {
+    const ids = new Set();
+    if (!sess) return ids;
+    const teams = parseMaybeJson(sess.teams, null);
+    if (teams && typeof teams==='object') Object.values(teams).forEach(arr => (Array.isArray(arr)?arr:[]).forEach(p => { if(p?.id) ids.add(String(p.id)); }));
+    ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'].forEach(k => {
+      (Array.isArray(parseMaybeJson(sess[k],[])) ? parseMaybeJson(sess[k],[]) : []).forEach(p => { if(p?.id) ids.add(String(p.id)); });
+    });
+    return ids;
+  }
+
+  function setLoggedOut() {
+    els.subtitle.textContent = 'Đăng nhập để xem danh sách thành viên.';
+    els.login.style.display = '';
+    els.filters.style.display = 'none';
+    els.stats.style.display = 'none';
+    els.tableHead.style.display = 'none';
+    els.list.innerHTML = `
+      <div class="login-panel">
+        <h2>🔐 Cần đăng nhập</h2>
+        <p>Danh sách thành viên yêu cầu tài khoản Discord của Lang Gia.</p>
+        <button class="btn primary" id="btnLoginPanel" style="margin:0 auto;height:40px;padding:0 20px;font-size:14px">Đăng nhập Discord</button>
+      </div>`;
+  }
+  async function loginDiscord() {
+    if (!sb) return showStatus('Không khởi tạo được Supabase client.', 'error');
+    const redirectTo = window.location.origin + window.location.pathname + window.location.search;
+    const { error } = await sb.auth.signInWithOAuth({ provider:'discord', options:{ redirectTo } });
+    if (error) showStatus(`Lỗi đăng nhập: ${error.message}`, 'error');
+  }
+
+  async function loadCurrentSession() {
+    currentSession = null; sessionMemberIds = new Set();
+    if (!SESSION_ID) return;
+    const { data, error } = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID).eq('id', SESSION_ID).maybeSingle();
+    if (error) throw error;
+    currentSession = data || null;
+    sessionMemberIds = collectSessionIds(currentSession);
+  }
+  async function fetchActiveRows() {
+    const cols = 'discord_id,discord_name,game_username,game_uid,position,sub_role,guild_id,lang_gia_member,updated_at,combat_role,weapon_role,joined_at,left_at,added_by,source,revision,role_updated_at';
+    let { data, error } = await sb.from('bc_users').select(cols).eq('guild_id', GUILD_ID).is('left_at', null);
+    if (error && /schema cache|Could not find|column .* does not exist/i.test(error.message||'')) {
+      const fb = await sb.from('bc_users').select('discord_id,discord_name,game_username,game_uid,position,sub_role,guild_id,lang_gia_member,updated_at').eq('guild_id', GUILD_ID);
+      data = fb.data; error = fb.error;
+    }
+    if (error) throw error;
+    return (data||[]).filter(r => r?.discord_id && !String(r.discord_id).startsWith('pending_') && !isLeftRow(r))
+      .sort((a,b) => positionSort(a) - positionSort(b) || String(a.game_username||a.discord_name||'').localeCompare(String(b.game_username||b.discord_name||''),'vi'));
+  }
+  async function fetchPendingRows() {
+    const { data, error } = await sb.from('bc_pending_ids').select('id,guild_id,game_uid,game_username,joined_at,added_by,added_by_name,created_at,updated_at').eq('guild_id', GUILD_ID).order('created_at', { ascending:false });
+    if (error) { if (/schema cache|does not exist|Could not find|relation/i.test(error.message||'')) return []; throw error; }
+    return data || [];
+  }
+
+  async function loadRoster(showLoading=true) {
+    if (!sb) { showStatus('Không khởi tạo được Supabase client.', 'error'); return; }
+    if (showLoading) showStatus('Đang tải danh sách...', '');
+    const [{ data: authData }] = await Promise.all([
+      sb.auth.getSession(),
+      SESSION_ID ? loadCurrentSession().then(()=>true) : Promise.resolve(true)
+    ]);
+    const session = authData?.session;
+    if (!session) { setLoggedOut(); return; }
+    const meta = session.user.user_metadata || {};
+    currentDiscordId = getDiscordIdFromSession(session);
+    currentUserName = meta.full_name || meta.name || 'Người dùng';
+    if (!currentDiscordId) { showStatus('Không đọc được Discord ID từ phiên đăng nhập.', 'error'); return; }
+    const [active, pending] = await Promise.all([fetchActiveRows(), fetchPendingRows()]);
+    activeRows = active; pendingRows = pending;
+    const userRow = activeRows.find(r => String(r.discord_id) === String(currentDiscordId)) || null;
+    isManager = isManagerPosition(userRow?.position) || KC_WEB_ACCESS_DISCORD_IDS.has(String(currentDiscordId));
+    els.login.style.display = 'none';
+    els.filters.style.display = '';
+    els.stats.style.display = '';
+    els.tableHead.style.display = '';
+    if (SESSION_ID) {
+      els.sessionFilterGroup.style.display = '';
+      if (DEFAULT_MODE === 'add') els.sessionFilter.value = 'available';
+    }
+    render();
+    showStatus('', '');
+  }
+
+  function filteredRows() {
+    const q = normalizeText(els.search.value);
+    const st = els.statusFilter.value, cm = els.combatFilter.value;
+    const wp = els.weaponFilter.value, pos = els.positionFilter.value;
+    const sm = els.sessionFilter.value;
+    const rows = [];
+    if (st==='all'||st==='active') activeRows.forEach(r => rows.push({type:'active',row:r}));
+    if (st==='all'||st==='pending') pendingRows.forEach(r => rows.push({type:'pending',row:r}));
+    return rows.filter(item => {
+      const r = item.row;
+      const hay = normalizeText([r.discord_name,r.discord_id,r.game_username,r.game_uid,r.added_by_name,r.added_by].filter(Boolean).join(' '));
+      if (q && !hay.includes(q)) return false;
+      if (item.type==='pending') { if (cm!=='all'||wp!=='all'||pos!=='all') return false; return true; }
+      if (cm!=='all' && rowCombat(r) !== cm) return false;
+      if (wp!=='all' && rowWeapon(r) !== wp) return false;
+      if (pos!=='all' && normalizePosition(r.position) !== pos) return false;
+      if (sm==='available' && SESSION_ID && sessionMemberIds.has(String(r.discord_id))) return false;
+      return true;
+    });
+  }
+
+  function renderStats() {
+    const dps = activeRows.filter(r=>rowCombat(r)==='DPS').length;
+    const healer = activeRows.filter(r=>rowCombat(r)==='Healer').length;
+    const tanker = activeRows.filter(r=>rowCombat(r)==='Tanker').length;
+    els.stats.innerHTML = `
+      <div class="stat-chip"><span class="val">${activeRows.length}</span><span class="lbl">Thành viên</span></div>
+      ${pendingRows.length ? `<div class="stat-chip pending"><span class="val">${pendingRows.length}</span><span class="lbl">Chờ duyệt</span></div>` : ''}
+      <div class="stat-chip dps"><span class="val">${dps}</span><span class="lbl">DPS</span></div>
+      <div class="stat-chip healer"><span class="val">${healer}</span><span class="lbl">Healer</span></div>
+      <div class="stat-chip tanker"><span class="val">${tanker}</span><span class="lbl">Tanker</span></div>`;
+  }
+
+  function renderRoleControls(row) {
+    const combat = rowCombat(row), weapon = rowWeapon(row);
+    const isSelf = String(row.discord_id) === String(currentDiscordId);
+    if (isSelf) return `
+      <div class="role-edit">
+        <select data-action="own-combat" data-id="${esc(row.discord_id)}">
+          ${COMBAT_ROLES.map(r => `<option value="${r}" ${combat===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+        <select data-action="own-weapon" data-id="${esc(row.discord_id)}" ${combat!=='DPS'?'disabled':''}>
+          <option value="">—</option>
+          ${WEAPON_ROLES.map(r => `<option value="${r}" ${weapon===r?'selected':''}>${WEAPON_LABELS[r]}</option>`).join('')}
+        </select>
+      </div>`;
+    const combatClass = normalizeText(combat);
+    return `<div style="display:flex;gap:4px;flex-wrap:wrap;">
+      <span class="pill ${combatClass}">${esc(combat||'Chưa chọn')}</span>
+      ${weapon ? `<span class="pill">${esc(weapon)}</span>` : ''}
+    </div>`;
+  }
+
+  function renderActions(row, type) {
+    if (type === 'pending') {
+      if (!isManager) return '';
+      return `<button class="act-btn" data-action="edit-pending" data-id="${esc(row.id)}">Sửa</button>
+              <button class="act-btn danger" data-action="delete-pending" data-id="${esc(row.id)}">Xoá</button>`;
+    }
+    const inSession = sessionMemberIds.has(String(row.discord_id));
+    return `
+      ${isManager && SESSION_ID ? `<button class="act-btn add" data-action="add-session" data-id="${esc(row.discord_id)}" ${inSession?'disabled':''} title="Thêm vào session">+</button>` : ''}
+      ${isManager ? `<button class="act-btn" data-action="edit-member" data-id="${esc(row.discord_id)}">Sửa</button>` : ''}`;
+  }
+
+  function renderActiveRow(row) {
+    const pos = normalizePosition(row.position);
+    const posClass = pos === 'left' ? 'mem' : pos;
+    const initial = String(row.game_username||row.discord_name||'?').trim().charAt(0).toUpperCase();
+    const joined = row.joined_at ? new Date(row.joined_at).toLocaleDateString('vi-VN') : '—';
+    const isSelf = String(row.discord_id) === String(currentDiscordId);
+    return `
+      <div class="member-row" data-discord-id="${esc(row.discord_id)}">
+        <div class="avatar ${isSelf?'you':''}">${esc(initial)}</div>
+        <div class="info">
+          <div class="name">
+            ${esc(row.game_username||row.discord_name||row.discord_id)}
+            ${isSelf ? '<span class="pill you">Bạn</span>' : ''}
+          </div>
+          <div class="meta">${esc(row.discord_name||'Discord?')} • UID: ${esc(row.game_uid||'—')}</div>
+        </div>
+        <div class="col-position"><span class="pill ${posClass}">${esc(POSITION_LABELS[pos]||'Thành viên')}</span></div>
+        <div class="col-combat">${renderRoleControls(row)}</div>
+        <div class="col-joined"><span class="pill">${esc(joined)}</span></div>
+        <div class="row-actions">${renderActions(row,'active')}</div>
+      </div>`;
+  }
+
+  function renderPendingRow(row) {
+    const initial = String(row.game_username||row.game_uid||'?').trim().charAt(0).toUpperCase();
+    const joined = row.joined_at ? new Date(row.joined_at).toLocaleDateString('vi-VN') : '—';
+    return `
+      <div class="member-row is-pending" data-pending-id="${esc(row.id)}">
+        <div class="avatar"><span style="opacity:.6">${esc(initial)}</span></div>
+        <div class="info">
+          <div class="name">
+            ${esc(row.game_username||'Chờ duyệt')}
+            <span class="pill pending">Chờ duyệt</span>
+          </div>
+          <div class="meta">UID: ${esc(row.game_uid||'—')} • Thêm bởi: ${esc(row.added_by_name||row.added_by||'—')}</div>
+        </div>
+        <div class="col-position"><span class="pill pending">Chờ ?addmem</span></div>
+        <div class="col-combat"><span class="pill">Chưa liên kết Discord</span></div>
+        <div class="col-joined"><span class="pill">${esc(joined)}</span></div>
+        <div class="row-actions">${renderActions(row,'pending')}</div>
+      </div>`;
+  }
+
+  function render() {
+    renderStats();
+    const visible = filteredRows();
+    const sessionText = currentSession ? ` • Session ${currentSession.day||''}${currentSession.locked?' (đã chốt)':''}` : '';
+    els.subtitle.textContent = `${currentUserName} • ${isManager ? 'Quản lý' : 'Thành viên'}${sessionText}`;
+    if (!visible.length) {
+      els.list.innerHTML = '<div class="empty">Không có thành viên nào khớp bộ lọc.</div>'; return;
+    }
+    els.list.innerHTML = visible.map(item => item.type==='active' ? renderActiveRow(item.row) : renderPendingRow(item.row)).join('');
+  }
+
+  function getActiveById(id) { return activeRows.find(r => String(r.discord_id)===String(id))||null; }
+  function getPendingById(id) { return pendingRows.find(r => String(r.id)===String(id))||null; }
+
+  async function updateOwnRole(discordId) {
+    if (String(discordId) !== String(currentDiscordId)) return;
+    const rowEl = document.querySelector(`[data-discord-id="${cssEscape(discordId)}"]`);
+    const combat = rowEl?.querySelector('[data-action="own-combat"]')?.value || 'DPS';
+    const weaponSel = rowEl?.querySelector('[data-action="own-weapon"]');
+    const weapon = combat==='DPS' ? (weaponSel?.value||null) : null;
+    if (weaponSel) weaponSel.disabled = combat !== 'DPS';
+    showStatus('Đang cập nhật vai...', '');
+    const { error } = await sb.rpc('bc_update_own_pickrole', { p_combat_role:combat, p_weapon_role:weapon });
+    if (error) throw error;
+    showStatus('Đã cập nhật vai. Bot sẽ đồng bộ Discord role.', 'ok');
+    await loadRoster(false);
+  }
+
+  function promptValue(label, cur) { const v = window.prompt(label, cur ?? ''); if (v === null) return null; return v.trim(); }
+
+  async function editMember(discordId) {
+    const row = getActiveById(discordId);
+    if (!row || !isManager) return;
+    const gameUsername = promptValue('Tên game', row.game_username||''); if (gameUsername===null) return;
+    const gameUid = promptValue('UID game', row.game_uid||''); if (gameUid===null) return;
+    const position = promptValue('Chức vụ (bc/pbc/kc/ql/mem)', normalizePosition(row.position)); if (position===null) return;
+    const joinedDate = promptValue('Ngày vào (YYYY-MM-DD, để trống nếu không đổi)', row.joined_at ? row.joined_at.slice(0,10) : ''); if (joinedDate===null) return;
+    showStatus('Đang lưu...', '');
+    const { error } = await sb.rpc('bc_manager_update_member', {
+      p_guild_id:GUILD_ID, p_discord_id:String(discordId),
+      p_game_username:gameUsername||null, p_game_uid:gameUid||null,
+      p_position:position||'mem', p_joined_at:joinedDate ? new Date(`${joinedDate}T00:00:00+07:00`).toISOString() : null
+    });
+    if (error) throw error;
+    showStatus('Đã lưu thông tin thành viên.', 'ok');
+    await loadRoster(false);
+  }
+
+  async function editPending(id) {
+    const row = getPendingById(id);
+    if (!row || !isManager) return;
+    const gameUsername = promptValue('Tên game (đang chờ)', row.game_username||''); if (gameUsername===null) return;
+    const gameUid = promptValue('UID game', row.game_uid||''); if (gameUid===null) return;
+    const joinedDate = promptValue('Ngày xin vào (YYYY-MM-DD)', row.joined_at ? row.joined_at.slice(0,10) : ''); if (joinedDate===null) return;
+    showStatus('Đang lưu...', '');
+    const { error } = await sb.rpc('bc_manager_update_pending', {
+      p_guild_id:GUILD_ID, p_id:id, p_game_uid:gameUid||null,
+      p_game_username:gameUsername||null, p_joined_at:joinedDate ? new Date(`${joinedDate}T00:00:00+07:00`).toISOString() : null
+    });
+    if (error) throw error;
+    showStatus('Đã lưu.', 'ok');
+    await loadRoster(false);
+  }
+
+  async function deletePending(id) {
+    const row = getPendingById(id);
+    if (!row || !isManager) return;
+    if (!window.confirm(`Xoá thành viên đang chờ: ${row.game_username||row.game_uid||id}?`)) return;
+    showStatus('Đang xoá...', '');
+    const { error } = await sb.rpc('bc_manager_delete_pending', { p_guild_id:GUILD_ID, p_id:id });
+    if (error) throw error;
+    showStatus('Đã xoá.', 'ok');
+    await loadRoster(false);
+  }
+
+  async function addMemberToSession(discordId) {
+    if (!SESSION_ID || !isManager) return;
+    showStatus('Đang thêm vào session...', '');
+    const { data, error } = await sb.rpc('bc_manager_add_member_to_session', { p_session_id:SESSION_ID, p_discord_id:String(discordId) });
+    if (error) throw error;
+    currentSession = data || currentSession;
+    sessionMemberIds = collectSessionIds(currentSession);
+    showStatus(sessionMemberIds.has(String(discordId)) ? 'Đã thêm vào đội hình.' : 'Đã đưa vào hàng chờ.', 'ok');
+    window.parent?.postMessage({ type:'memberRosterSessionUpdated', sessionId:SESSION_ID }, '*');
+    render();
+  }
+
+  function scheduleReload() {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => loadRoster(false).catch(e => showStatus(e.message||String(e),'error')), 200);
+  }
+
+  function setupRealtime() {
+    if (!sb || realtimeChannel) return;
+    realtimeChannel = sb.channel(`member-roster-${GUILD_ID}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'bc_users', filter:`guild_id=eq.${GUILD_ID}` }, scheduleReload)
+      .on('postgres_changes', { event:'*', schema:'public', table:'bc_pending_ids', filter:`guild_id=eq.${GUILD_ID}` }, scheduleReload);
+    if (SESSION_ID) {
+      realtimeChannel.on('postgres_changes', { event:'*', schema:'public', table:'bc_sessions', filter:`guild_id=eq.${GUILD_ID}` }, payload => {
+        const id = payload.new?.id || payload.old?.id;
+        if (String(id) === String(SESSION_ID)) scheduleReload();
+      });
+    }
+    realtimeChannel.subscribe();
+  }
+
+  async function init() {
+    if (!sb) { showStatus('Không khởi tạo được Supabase client.', 'error'); return; }
+    if (!IS_EMBED) els.close.textContent = '←';
+    if (DEFAULT_MODE === 'add' && SESSION_ID) els.statusFilter.value = 'active';
+    await loadRoster(true);
+    setupRealtime();
+  }
+
+  els.login.addEventListener('click', loginDiscord);
+  els.reload.addEventListener('click', () => loadRoster(true).catch(e => showStatus(e.message||String(e),'error')));
+  els.close.addEventListener('click', () => {
+    if (IS_EMBED) window.parent?.postMessage({ type:'memberRosterClose' }, '*');
+    else history.length > 1 ? history.back() : window.close();
+  });
+  ['input','change'].forEach(ev => {
+    [els.search, els.statusFilter, els.combatFilter, els.weaponFilter, els.positionFilter, els.sessionFilter].forEach(el => el.addEventListener(ev, render));
+  });
+  document.addEventListener('click', async ev => {
+    if (ev.target.closest('#btnLoginPanel')) return loginDiscord();
+    const btn = ev.target.closest('[data-action]');
+    if (!btn || btn.tagName === 'SELECT') return;
     try {
-      const createFn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
-      sb = createFn ? createFn(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { flowType:'implicit', autoRefreshToken:true, persistSession:true, detectSessionInUrl:true }
-      }) : null;
-    } catch (error) {
-      sb = null;
-    }
+      const a = btn.dataset.action, id = btn.dataset.id;
+      if (a==='edit-member') await editMember(id);
+      if (a==='edit-pending') await editPending(id);
+      if (a==='delete-pending') await deletePending(id);
+      if (a==='add-session') await addMemberToSession(id);
+    } catch(e) { showStatus(e.message||String(e),'error'); }
+  });
+  document.addEventListener('change', async ev => {
+    const el = ev.target.closest('[data-action="own-combat"],[data-action="own-weapon"]');
+    if (!el) return;
+    try { await updateOwnRole(el.dataset.id); } catch(e) { showStatus(e.message||String(e),'error'); await loadRoster(false).catch(()=>null); }
+  });
+  window.addEventListener('beforeunload', () => { if (realtimeChannel && sb) sb.removeChannel(realtimeChannel); });
 
-    const els = {
-      subtitle: document.getElementById('subtitle'),
-      status: document.getElementById('status'),
-      list: document.getElementById('list'),
-      stats: document.getElementById('stats'),
-      filters: document.getElementById('filters'),
-      login: document.getElementById('btnLogin'),
-      reload: document.getElementById('btnReload'),
-      close: document.getElementById('btnClose'),
-      search: document.getElementById('searchInput'),
-      statusFilter: document.getElementById('statusFilter'),
-      combatFilter: document.getElementById('combatFilter'),
-      weaponFilter: document.getElementById('weaponFilter'),
-      positionFilter: document.getElementById('positionFilter'),
-      sessionFilter: document.getElementById('sessionFilter')
-    };
-
-    function esc(value) {
-      return String(value ?? '').replace(/[&<>"']/g, (m) => ({
-        '&':'&amp;',
-        '<':'&lt;',
-        '>':'&gt;',
-        '"':'&quot;',
-        "'":'&#39;'
-      }[m]));
-    }
-
-    function cssEscape(value) {
-      if (window.CSS?.escape) return CSS.escape(String(value));
-      return String(value).replace(/["\\]/g, '\\$&');
-    }
-
-    function normalizeText(value = '') {
-      return String(value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim();
-    }
-
-    function normalizePosition(value = 'mem') {
-      const key = normalizeText(value);
-      if (key === 'bc' || key === 'bang chu') return 'bc';
-      if (key === 'pbc' || key === 'pho guild' || key === 'pho bang chu') return 'pbc';
-      if (key === 'kc' || key === 'ky cuu') return 'kc';
-      if (key === 'ql' || key === 'quan ly') return 'ql';
-      if (key === 'khong co' || key === 'left' || key === 'out') return 'left';
-      return 'mem';
-    }
-
-    function isLeftRow(row) {
-      return Boolean(row?.left_at) || normalizePosition(row?.position) === 'left';
-    }
-
-    function normalizeCombat(value, fallback = '') {
-      const key = normalizeText(value);
-      if (key === 'healer') return 'Healer';
-      if (key === 'tanker' || key === 'tank') return 'Tanker';
-      if (key === 'dps') return 'DPS';
-      return fallback;
-    }
-
-    function normalizeWeapon(value) {
-      const raw = String(value || '').trim();
-      if (!raw) return '';
-      const upper = raw.toUpperCase().replace('Ð', 'D');
-      if (WEAPON_ROLES.includes(upper)) return upper;
-      const key = normalizeText(raw);
-      if (key.includes('quat')) return 'QD';
-      if (key.includes('vo danh')) return 'VD';
-      if (key.includes('song dao')) return 'SD';
-      if (key.includes('cuu kiem') || key === '9k') return '9K';
-      if (key.includes('du roi')) return 'DR';
-      if (key.includes('hoanh dao') || key.includes('hoang dao')) return 'HD';
-      return '';
-    }
-
-    function rowCombat(row) {
-      return normalizeCombat(row?.combat_role, normalizeWeapon(row?.weapon_role || row?.sub_role) ? 'DPS' : '');
-    }
-
-    function rowWeapon(row) {
-      return normalizeWeapon(row?.weapon_role || row?.sub_role);
-    }
-
-    function positionSort(row) {
-      const order = { bc:0, pbc:1, kc:2, ql:3, mem:4, left:5 };
-      return order[normalizePosition(row?.position)] ?? 9;
-    }
-
-    function isManagerPosition(position) {
-      return ['bc', 'pbc', 'kc', 'ql'].includes(normalizePosition(position));
-    }
-
-    function showStatus(message, type = '') {
-      if (!message) {
-        els.status.className = 'status';
-        els.status.textContent = '';
-        return;
-      }
-      els.status.className = `status show ${type}`;
-      els.status.textContent = message;
-      if (type === 'ok') {
-        setTimeout(() => {
-          if (els.status.textContent === message) showStatus('');
-        }, 2600);
-      }
-    }
-
-    function getDiscordIdFromSession(session) {
-      const meta = session?.user?.user_metadata || {};
-      return String(meta.provider_id || meta.sub || meta.user_id || '').trim();
-    }
-
-    function setLoggedOut() {
-      els.subtitle.textContent = 'Dang nhap de xem danh sach thanh vien.';
-      els.login.style.display = '';
-      els.filters.style.display = 'none';
-      els.stats.style.display = 'none';
-      els.list.innerHTML = `
-        <div class="login-panel">
-          <h2>Can dang nhap Discord</h2>
-          <p>Danh sach thanh vien dung quyen Supabase cua tai khoan Discord.</p>
-          <button class="btn primary" id="btnLoginPanel">Dang nhap Discord</button>
-        </div>`;
-    }
-
-    async function loginDiscord() {
-      if (!sb) return showStatus('Khong khoi tao duoc Supabase client.', 'error');
-      const redirectTo = window.location.origin + window.location.pathname + window.location.search;
-      const { error } = await sb.auth.signInWithOAuth({ provider:'discord', options:{ redirectTo } });
-      if (error) showStatus(`Dang nhap loi: ${error.message}`, 'error');
-    }
-
-    function parseMaybeJson(value, fallback) {
-      if (Array.isArray(value) || (value && typeof value === 'object')) return value;
-      if (!value) return fallback;
-      try { return JSON.parse(value); } catch (error) { return fallback; }
-    }
-
-    function collectSessionIds(session) {
-      const ids = new Set();
-      if (!session) return ids;
-      const teams = parseMaybeJson(session.teams, null);
-      if (teams && typeof teams === 'object') {
-        Object.values(teams).forEach((arr) => {
-          (Array.isArray(arr) ? arr : []).forEach((p) => { if (p?.id) ids.add(String(p.id)); });
-        });
-      }
-      ['team_attack1','team_attack2','team_defense','team_forest','waiting_list'].forEach((key) => {
-        const arr = parseMaybeJson(session[key], []);
-        (Array.isArray(arr) ? arr : []).forEach((p) => { if (p?.id) ids.add(String(p.id)); });
-      });
-      return ids;
-    }
-
-    async function loadCurrentSession() {
-      currentSession = null;
-      sessionMemberIds = new Set();
-      if (!SESSION_ID) return;
-      const { data, error } = await sb
-        .from('bc_sessions')
-        .select('*')
-        .eq('guild_id', GUILD_ID)
-        .eq('id', SESSION_ID)
-        .maybeSingle();
-      if (error) throw error;
-      currentSession = data || null;
-      sessionMemberIds = collectSessionIds(currentSession);
-    }
-
-    async function fetchActiveRows() {
-      const fullColumns = [
-        'discord_id','discord_name','game_username','game_uid','position','sub_role','guild_id','lang_gia_member',
-        'updated_at','combat_role','weapon_role','joined_at','left_at','added_by','source','revision','role_updated_at'
-      ].join(',');
-      let { data, error } = await sb
-        .from('bc_users')
-        .select(fullColumns)
-        .eq('guild_id', GUILD_ID)
-        .is('left_at', null);
-      if (error && /schema cache|Could not find|column .* does not exist/i.test(error.message || '')) {
-        const fallback = await sb
-          .from('bc_users')
-          .select('discord_id,discord_name,game_username,game_uid,position,sub_role,guild_id,lang_gia_member,updated_at')
-          .eq('guild_id', GUILD_ID);
-        data = fallback.data;
-        error = fallback.error;
-      }
-      if (error) throw error;
-      return (data || [])
-        .filter((row) => row?.discord_id && !String(row.discord_id).startsWith('pending_') && !isLeftRow(row))
-        .sort((a, b) => positionSort(a) - positionSort(b) || String(a.game_username || a.discord_name || '').localeCompare(String(b.game_username || b.discord_name || ''), 'vi'));
-    }
-
-    async function fetchPendingRows() {
-      const { data, error } = await sb
-        .from('bc_pending_ids')
-        .select('id,guild_id,game_uid,game_username,joined_at,added_by,added_by_name,created_at,updated_at')
-        .eq('guild_id', GUILD_ID)
-        .order('created_at', { ascending:false });
-      if (error) {
-        if (/schema cache|does not exist|Could not find|relation/i.test(error.message || '')) return [];
-        throw error;
-      }
-      return data || [];
-    }
-
-    async function loadRoster(showLoading = true) {
-      if (!sb) {
-        showStatus('Khong khoi tao duoc Supabase client.', 'error');
-        return;
-      }
-      if (showLoading) showStatus('Dang tai danh sach...', '');
-      const [{ data: authData }, sessionResult] = await Promise.all([
-        sb.auth.getSession(),
-        SESSION_ID ? loadCurrentSession().then(() => true) : Promise.resolve(true)
-      ]);
-      const session = authData?.session;
-      if (!session) {
-        setLoggedOut();
-        return;
-      }
-      const meta = session.user.user_metadata || {};
-      currentDiscordId = getDiscordIdFromSession(session);
-      currentUserName = meta.full_name || meta.name || 'User';
-      if (!currentDiscordId) {
-        showStatus('Khong doc duoc Discord ID tu phien dang nhap.', 'error');
-        return;
-      }
-
-      const [active, pending] = await Promise.all([fetchActiveRows(), fetchPendingRows()]);
-      activeRows = active;
-      pendingRows = pending;
-      currentUserRow = activeRows.find((row) => String(row.discord_id) === String(currentDiscordId)) || null;
-      isManager = isManagerPosition(currentUserRow?.position) || KC_WEB_ACCESS_DISCORD_IDS.has(String(currentDiscordId));
-
-      els.login.style.display = 'none';
-      els.filters.style.display = '';
-      els.stats.style.display = '';
-      if (SESSION_ID) els.sessionFilter.value = DEFAULT_MODE === 'add' ? 'available' : els.sessionFilter.value;
-      render();
-      showStatus('', '');
-    }
-
-    function filteredRows() {
-      const query = normalizeText(els.search.value);
-      const status = els.statusFilter.value;
-      const combat = els.combatFilter.value;
-      const weapon = els.weaponFilter.value;
-      const position = els.positionFilter.value;
-      const sessionMode = els.sessionFilter.value;
-      const rows = [];
-      if (status === 'all' || status === 'active') {
-        activeRows.forEach((row) => rows.push({ type:'active', row }));
-      }
-      if (status === 'all' || status === 'pending') {
-        pendingRows.forEach((row) => rows.push({ type:'pending', row }));
-      }
-      return rows.filter((item) => {
-        const row = item.row;
-        const haystack = normalizeText([
-          row.discord_name,
-          row.discord_id,
-          row.game_username,
-          row.game_uid,
-          row.added_by_name,
-          row.added_by
-        ].filter(Boolean).join(' '));
-        if (query && !haystack.includes(query)) return false;
-        if (item.type === 'pending') {
-          if (combat !== 'all' || weapon !== 'all' || position !== 'all') return false;
-          return true;
-        }
-        if (combat !== 'all' && rowCombat(row) !== combat) return false;
-        if (weapon !== 'all' && rowWeapon(row) !== weapon) return false;
-        if (position !== 'all' && normalizePosition(row.position) !== position) return false;
-        if (sessionMode === 'available' && SESSION_ID && sessionMemberIds.has(String(row.discord_id))) return false;
-        return true;
-      });
-    }
-
-    function renderStats() {
-      const dps = activeRows.filter((row) => rowCombat(row) === 'DPS').length;
-      const healer = activeRows.filter((row) => rowCombat(row) === 'Healer').length;
-      const tanker = activeRows.filter((row) => rowCombat(row) === 'Tanker').length;
-      els.stats.innerHTML = `
-        <div class="stat"><strong>${activeRows.length}</strong><span>Active</span></div>
-        <div class="stat"><strong>${pendingRows.length}</strong><span>Pending</span></div>
-        <div class="stat"><strong>${dps}</strong><span>DPS</span></div>
-        <div class="stat"><strong>${healer}</strong><span>Healer</span></div>
-        <div class="stat"><strong>${tanker}</strong><span>Tanker</span></div>`;
-    }
-
-    function renderRoleControls(row) {
-      const combat = rowCombat(row);
-      const weapon = rowWeapon(row);
-      const isSelf = String(row.discord_id) === String(currentDiscordId);
-      if (isSelf) {
-        return `
-          <div class="role-edit">
-            <select data-action="own-combat" data-id="${esc(row.discord_id)}">
-              ${COMBAT_ROLES.map((role) => `<option value="${role}" ${combat === role ? 'selected' : ''}>${role}</option>`).join('')}
-            </select>
-            <select data-action="own-weapon" data-id="${esc(row.discord_id)}" ${combat !== 'DPS' ? 'disabled' : ''}>
-              <option value="">-</option>
-              ${WEAPON_ROLES.map((role) => `<option value="${role}" ${weapon === role ? 'selected' : ''}>${WEAPON_LABELS[role]}</option>`).join('')}
-            </select>
-          </div>`;
-      }
-      return `
-        <div>
-          <span class="pill ${normalizeText(combat)}">${esc(combat || 'Chua chon')}</span>
-          ${weapon ? `<span class="pill">${esc(weapon)}</span>` : ''}
-        </div>`;
-    }
-
-    function renderActions(row, type) {
-      if (type === 'pending') {
-        if (!isManager) return '';
-        return `
-          <button class="mini-btn" data-action="edit-pending" data-id="${esc(row.id)}" title="Sua pending">Sua</button>
-          <button class="mini-btn danger" data-action="delete-pending" data-id="${esc(row.id)}" title="Xoa pending">Xoa</button>`;
-      }
-      const addDisabled = !SESSION_ID || sessionMemberIds.has(String(row.discord_id));
-      return `
-        ${isManager && SESSION_ID ? `<button class="mini-btn add" data-action="add-session" data-id="${esc(row.discord_id)}" ${addDisabled ? 'disabled' : ''} title="Them vao session">+</button>` : ''}
-        ${isManager ? `<button class="mini-btn" data-action="edit-member" data-id="${esc(row.discord_id)}" title="Sua member">Sua</button>` : ''}`;
-    }
-
-    function renderActiveRow(row) {
-      const pos = normalizePosition(row.position);
-      const initial = String(row.game_username || row.discord_name || '?').trim().charAt(0).toUpperCase() || '?';
-      const joined = row.joined_at ? new Date(row.joined_at).toLocaleDateString('vi-VN') : '';
-      return `
-        <div class="row active" data-discord-id="${esc(row.discord_id)}">
-          <div class="avatar">${esc(initial)}</div>
-          <div class="main">
-            <div class="name-line">
-              <div class="name">${esc(row.game_username || row.discord_name || row.discord_id)}</div>
-              ${String(row.discord_id) === String(currentDiscordId) ? '<span class="pill healer">Ban</span>' : ''}
-            </div>
-            <div class="meta">${esc(row.discord_name || 'Discord?')} • UID: ${esc(row.game_uid || '-')}</div>
-          </div>
-          <div class="position"><span class="pill">${esc(POSITION_LABELS[pos] || row.position || 'Member')}</span></div>
-          <div class="roles">${renderRoleControls(row)}</div>
-          <div class="joined"><span class="pill">${esc(joined || 'Chua co ngay')}</span></div>
-          <div class="actions">${renderActions(row, 'active')}</div>
-        </div>`;
-    }
-
-    function renderPendingRow(row) {
-      const initial = String(row.game_username || row.game_uid || '?').trim().charAt(0).toUpperCase() || '?';
-      const joined = row.joined_at ? new Date(row.joined_at).toLocaleDateString('vi-VN') : '';
-      return `
-        <div class="row pending" data-pending-id="${esc(row.id)}">
-          <div class="avatar">${esc(initial)}</div>
-          <div class="main">
-            <div class="name-line">
-              <div class="name">${esc(row.game_username || 'Pending')}</div>
-              <span class="pill pending">Pending</span>
-            </div>
-            <div class="meta">UID: ${esc(row.game_uid || '-')} • Them boi: ${esc(row.added_by_name || row.added_by || '-')}</div>
-          </div>
-          <div class="position"><span class="pill pending">Cho ?addmem</span></div>
-          <div class="roles"><span class="pill">Chua link Discord</span></div>
-          <div class="joined"><span class="pill">${esc(joined || 'Chua co ngay')}</span></div>
-          <div class="actions">${renderActions(row, 'pending')}</div>
-        </div>`;
-    }
-
-    function render() {
-      renderStats();
-      const visible = filteredRows();
-      const sessionText = currentSession
-        ? ` • Session ${currentSession.day || ''}${currentSession.locked ? ' da chot' : ''}`
-        : '';
-      els.subtitle.textContent = `${currentUserName} • ${isManager ? 'Quan ly' : 'Thanh vien'}${sessionText}`;
-      if (!visible.length) {
-        els.list.innerHTML = '<div class="empty">Khong co member nao khop bo loc.</div>';
-        return;
-      }
-      els.list.innerHTML = visible.map((item) => item.type === 'active'
-        ? renderActiveRow(item.row)
-        : renderPendingRow(item.row)
-      ).join('');
-    }
-
-    function getActiveById(discordId) {
-      return activeRows.find((row) => String(row.discord_id) === String(discordId)) || null;
-    }
-
-    function getPendingById(id) {
-      return pendingRows.find((row) => String(row.id) === String(id)) || null;
-    }
-
-    async function updateOwnRole(discordId) {
-      if (String(discordId) !== String(currentDiscordId)) return;
-      const rowEl = document.querySelector(`[data-discord-id="${cssEscape(discordId)}"]`);
-      const combat = rowEl?.querySelector('[data-action="own-combat"]')?.value || 'DPS';
-      const weaponSelect = rowEl?.querySelector('[data-action="own-weapon"]');
-      const weapon = combat === 'DPS' ? (weaponSelect?.value || null) : null;
-      if (weaponSelect) weaponSelect.disabled = combat !== 'DPS';
-      showStatus('Dang cap nhat role...', '');
-      const { error } = await sb.rpc('bc_update_own_pickrole', {
-        p_combat_role: combat,
-        p_weapon_role: weapon
-      });
-      if (error) throw error;
-      showStatus('Da cap nhat role. Bot se nhan realtime va doi Discord role.', 'ok');
-      await loadRoster(false);
-    }
-
-    function promptValue(label, currentValue) {
-      const next = window.prompt(label, currentValue ?? '');
-      if (next === null) return null;
-      return next.trim();
-    }
-
-    async function editMember(discordId) {
-      const row = getActiveById(discordId);
-      if (!row || !isManager) return;
-      const gameUsername = promptValue('Ten game', row.game_username || '');
-      if (gameUsername === null) return;
-      const gameUid = promptValue('UID game', row.game_uid || '');
-      if (gameUid === null) return;
-      const position = promptValue('Chuc vu (bc/pbc/kc/ql/mem)', normalizePosition(row.position));
-      if (position === null) return;
-      const joinedDate = promptValue('Ngay vao (YYYY-MM-DD, bo trong neu khong doi)', row.joined_at ? row.joined_at.slice(0, 10) : '');
-      if (joinedDate === null) return;
-      showStatus('Dang luu member...', '');
-      const { error } = await sb.rpc('bc_manager_update_member', {
-        p_guild_id: GUILD_ID,
-        p_discord_id: String(discordId),
-        p_game_username: gameUsername || null,
-        p_game_uid: gameUid || null,
-        p_position: position || 'mem',
-        p_joined_at: joinedDate ? new Date(`${joinedDate}T00:00:00+07:00`).toISOString() : null
-      });
-      if (error) throw error;
-      showStatus('Da luu member.', 'ok');
-      await loadRoster(false);
-    }
-
-    async function editPending(id) {
-      const row = getPendingById(id);
-      if (!row || !isManager) return;
-      const gameUsername = promptValue('Ten game pending', row.game_username || '');
-      if (gameUsername === null) return;
-      const gameUid = promptValue('UID pending', row.game_uid || '');
-      if (gameUid === null) return;
-      const joinedDate = promptValue('Ngay xin vao (YYYY-MM-DD)', row.joined_at ? row.joined_at.slice(0, 10) : '');
-      if (joinedDate === null) return;
-      showStatus('Dang luu pending...', '');
-      const { error } = await sb.rpc('bc_manager_update_pending', {
-        p_guild_id: GUILD_ID,
-        p_id: id,
-        p_game_uid: gameUid || null,
-        p_game_username: gameUsername || null,
-        p_joined_at: joinedDate ? new Date(`${joinedDate}T00:00:00+07:00`).toISOString() : null
-      });
-      if (error) throw error;
-      showStatus('Da luu pending.', 'ok');
-      await loadRoster(false);
-    }
-
-    async function deletePending(id) {
-      const row = getPendingById(id);
-      if (!row || !isManager) return;
-      if (!window.confirm(`Xoa pending ${row.game_username || row.game_uid || id}?`)) return;
-      showStatus('Dang xoa pending...', '');
-      const { error } = await sb.rpc('bc_manager_delete_pending', {
-        p_guild_id: GUILD_ID,
-        p_id: id
-      });
-      if (error) throw error;
-      showStatus('Da xoa pending.', 'ok');
-      await loadRoster(false);
-    }
-
-    async function addMemberToSession(discordId) {
-      if (!SESSION_ID || !isManager) return;
-      showStatus('Dang them vao session...', '');
-      const { data, error } = await sb.rpc('bc_manager_add_member_to_session', {
-        p_session_id: SESSION_ID,
-        p_discord_id: String(discordId)
-      });
-      if (error) throw error;
-      currentSession = data || currentSession;
-      sessionMemberIds = collectSessionIds(currentSession);
-      showStatus(sessionMemberIds.has(String(discordId)) ? 'Da them vao doi hinh.' : 'Da dua vao hang cho.', 'ok');
-      window.parent?.postMessage({ type:'memberRosterSessionUpdated', sessionId:SESSION_ID }, '*');
-      render();
-    }
-
-    function scheduleReload() {
-      clearTimeout(reloadTimer);
-      reloadTimer = setTimeout(() => loadRoster(false).catch((error) => showStatus(error.message || String(error), 'error')), 200);
-    }
-
-    function setupRealtime() {
-      if (!sb || realtimeChannel) return;
-      realtimeChannel = sb.channel(`member-roster-${GUILD_ID}`)
-        .on('postgres_changes', {
-          event:'*',
-          schema:'public',
-          table:'bc_users',
-          filter:`guild_id=eq.${GUILD_ID}`
-        }, scheduleReload)
-        .on('postgres_changes', {
-          event:'*',
-          schema:'public',
-          table:'bc_pending_ids',
-          filter:`guild_id=eq.${GUILD_ID}`
-        }, scheduleReload);
-      if (SESSION_ID) {
-        realtimeChannel.on('postgres_changes', {
-          event:'*',
-          schema:'public',
-          table:'bc_sessions',
-          filter:`guild_id=eq.${GUILD_ID}`
-        }, (payload) => {
-          const id = payload.new?.id || payload.old?.id;
-          if (String(id) === String(SESSION_ID)) scheduleReload();
-        });
-      }
-      realtimeChannel.subscribe();
-    }
-
-    async function init() {
-      els.btnLoginPanel?.addEventListener?.('click', loginDiscord);
-      if (!sb) {
-        showStatus('Khong khoi tao duoc Supabase client.', 'error');
-        return;
-      }
-      if (!IS_EMBED) els.close.textContent = '←';
-      if (DEFAULT_MODE === 'add' && SESSION_ID) els.statusFilter.value = 'active';
-      await loadRoster(true);
-      setupRealtime();
-    }
-
-    els.login.addEventListener('click', loginDiscord);
-    els.reload.addEventListener('click', () => loadRoster(true).catch((error) => showStatus(error.message || String(error), 'error')));
-    els.close.addEventListener('click', () => {
-      if (IS_EMBED) window.parent?.postMessage({ type:'memberRosterClose' }, '*');
-      else history.length > 1 ? history.back() : window.close();
-    });
-    ['input','change'].forEach((eventName) => {
-      [els.search, els.statusFilter, els.combatFilter, els.weaponFilter, els.positionFilter, els.sessionFilter].forEach((el) => {
-        el.addEventListener(eventName, render);
-      });
-    });
-    document.addEventListener('click', async (event) => {
-      const loginPanel = event.target.closest('#btnLoginPanel');
-      if (loginPanel) return loginDiscord();
-      const btn = event.target.closest('[data-action]');
-      if (!btn || btn.tagName === 'SELECT') return;
-      try {
-        const action = btn.dataset.action;
-        const id = btn.dataset.id;
-        if (action === 'edit-member') await editMember(id);
-        if (action === 'edit-pending') await editPending(id);
-        if (action === 'delete-pending') await deletePending(id);
-        if (action === 'add-session') await addMemberToSession(id);
-      } catch (error) {
-        showStatus(error.message || String(error), 'error');
-      }
-    });
-    document.addEventListener('change', async (event) => {
-      const el = event.target.closest('[data-action="own-combat"],[data-action="own-weapon"]');
-      if (!el) return;
-      try {
-        await updateOwnRole(el.dataset.id);
-      } catch (error) {
-        showStatus(error.message || String(error), 'error');
-        await loadRoster(false).catch(() => null);
-      }
-    });
-    window.addEventListener('beforeunload', () => {
-      if (realtimeChannel && sb) sb.removeChannel(realtimeChannel);
-    });
-
-    init().catch((error) => {
-      showStatus(error.message || String(error), 'error');
-    });
-  </script>
+  init().catch(e => showStatus(e.message||String(e),'error'));
+</script>
 </body>
 </html>

@@ -9,6 +9,7 @@ const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const memberRosterSync = require('../../utils/memberRosterSync');
 const supaSync = require('../../utils/supabaseSync');
+const { logMemberRosterAction } = require('../../utils/memberRosterLog');
 
 /**
  * Check if user has high-level role (BC, PBC, KC)
@@ -242,6 +243,19 @@ async function execute(message, args) {
         const remoteRow = remoteLookup.matches[0];
         try {
             const deleted = await deleteSupabaseUserEverywhere(remoteLookup.supabase, remoteRow);
+            void logMemberRosterAction(message.guild?.id || remoteRow.guild_id, 'member_delete', {
+                summary: `Xoa member ${remoteRow.game_username || remoteRow.discord_name || remoteRow.discord_id || searchTerm}`,
+                actor_id: message.author.id,
+                actor_name: message.author.username,
+                target_type: 'member',
+                target_id: remoteRow.discord_id || remoteRow.game_uid || searchTerm,
+                target_name: remoteRow.game_username || remoteRow.discord_name || '',
+                target_uid: remoteRow.game_uid || null,
+                changes: [
+                    { field: 'status', label: 'Trang thai', before: 'active', after: 'deleted' },
+                    { field: 'deleted_from', label: 'Xoa tu', before: null, after: `bc_users:${deleted.bcUsers},bc_regulars:${deleted.bcRegulars},pending:${deleted.pending}` }
+                ]
+            }, message.author.id);
             const embed = new EmbedBuilder()
                 .setColor(0xE74C3C)
                 .setTitle('🗑️ Đã xóa member Supabase-only!')
@@ -278,6 +292,19 @@ async function execute(message, args) {
             await memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id);
             deletedFrom.push('pending_ids');
         }
+        void logMemberRosterAction(message.guild?.id || existingUser?.guild_id || pendingEntry?.guild_id, 'member_delete', {
+            summary: `Xoa ${existingUser?.game_username || pendingEntry?.game_username || targetDiscordId || searchTerm}`,
+            actor_id: message.author.id,
+            actor_name: message.author.username,
+            target_type: existingUser ? 'member' : 'pending',
+            target_id: targetDiscordId || pendingEntry?.id || searchTerm,
+            target_name: existingUser?.game_username || pendingEntry?.game_username || '',
+            target_uid: existingUser?.game_uid || pendingEntry?.game_uid || null,
+            changes: [
+                { field: 'status', label: 'Trang thai', before: existingUser ? 'active' : 'pending', after: 'deleted' },
+                { field: 'deleted_from', label: 'Xoa tu', before: null, after: deletedFrom.join(', ') }
+            ]
+        }, message.author.id);
 
         const embed = new EmbedBuilder()
             .setColor(0xE74C3C)

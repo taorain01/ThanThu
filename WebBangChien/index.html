@@ -1078,12 +1078,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .feedback-char-count{font-size:11px;color:var(--text3);text-align:right;margin-top:-4px}
 .feedback-char-count.near-limit{color:#fbbf24}
 .feedback-char-count.at-limit{color:#f87171}
-.feedback-anon-note{
-  display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;
-  background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.1);
-  font-size:11.5px;color:rgba(134,239,172,.75);line-height:1.5;
-}
-.feedback-anon-icon{font-size:16px;flex-shrink:0;margin-top:0px}
 .feedback-form-actions{display:flex;align-items:center;gap:10px;margin-top:2px}
 .feedback-status{font-size:12px;color:var(--text3);min-height:18px;flex:1;line-height:1.4}
 .feedback-status.success{color:#4ade80}
@@ -1970,6 +1964,18 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   box-shadow:0 0 10px rgba(34,197,94,.3),inset 0 0 6px rgba(34,197,94,.1);
 }
 .bc-signup-row.league.joined-row .bc-signup-check-icon{
+  border-color:rgba(251,191,36,.9);
+  background:linear-gradient(135deg,rgba(251,191,36,.35),rgba(245,158,11,.25));
+  color:#fbbf24;
+  box-shadow:0 0 10px rgba(251,191,36,.3),inset 0 0 6px rgba(251,191,36,.1);
+}
+.bc-signup-row input[type="checkbox"]:checked + .bc-signup-check-icon{
+  border-color:rgba(34,197,94,.9);
+  background:linear-gradient(135deg,rgba(34,197,94,.35),rgba(22,163,74,.25));
+  color:#4ade80;
+  box-shadow:0 0 10px rgba(34,197,94,.3),inset 0 0 6px rgba(34,197,94,.1);
+}
+.bc-signup-row.league input[type="checkbox"]:checked + .bc-signup-check-icon{
   border-color:rgba(251,191,36,.9);
   background:linear-gradient(135deg,rgba(251,191,36,.35),rgba(245,158,11,.25));
   color:#fbbf24;
@@ -4112,6 +4118,38 @@ function applySessionFilter(query, session) {
         .eq('time', normalizeSessionTime(session.time || LEAGUE_TIME));
 }
 
+function attachSessionRosterPayload(payload, session, teamLayout, teams) {
+    payload.team_layout = teamLayout || [];
+    payload.teams = teams || {};
+    if (Object.prototype.hasOwnProperty.call(session || {}, 'teams_json')) {
+        payload.teams_json = JSON.stringify(teams || {});
+    }
+    return payload;
+}
+
+function removeUnavailableRosterPayloadFields(payload, error) {
+    const message = String(error?.message || '');
+    let removed = false;
+    if (/team_layout/i.test(message)) {
+        delete payload.team_layout;
+        removed = true;
+    }
+    if (/(^|[^a-z0-9_])teams([^a-z0-9_]|$)|["']teams["']|field\s+"?teams"?|column\s+"?teams"?/i.test(message)) {
+        delete payload.teams;
+        delete payload.team_layout;
+        removed = true;
+    }
+    if (/teams_json/i.test(message)) {
+        delete payload.teams_json;
+        removed = true;
+    }
+    if (!removed) {
+        delete payload.team_layout;
+        delete payload.teams;
+        delete payload.teams_json;
+    }
+}
+
 async function ensureWeekendDefaultSessionsWeb() {
     if (!sb || _weekendEnsureAttempted) return;
     _weekendEnsureAttempted = true;
@@ -5231,8 +5269,6 @@ async function joinSession(data) {
             team_defense: JSON.stringify(nextTeams.team_defense || []),
             team_forest: JSON.stringify(nextTeams.team_forest || []),
             waiting_list: JSON.stringify(nextTeams.waiting_list || []),
-            team_layout: nextTeams.team_layout || rosterState.layout || [],
-            teams: nextTeams.teams || {},
             // Ghi rõ editor là người dùng tự đăng ký (không phải leader)
             leader_ids: JSON.stringify({
                 ...currentLeaderIds,
@@ -5242,13 +5278,13 @@ async function joinSession(data) {
                 edited_at: Date.now()
             })
         };
+    attachSessionRosterPayload(joinPayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
     let updateQuery = sb
         .from('bc_sessions')
         .update(joinPayload);
     let { error: updateErr } = await applySessionFilter(updateQuery, data);
-    if (updateErr && /(team_layout|teams)/i.test(updateErr.message || '')) {
-        delete joinPayload.team_layout;
-        delete joinPayload.teams;
+    if (updateErr && /(team_layout|teams|teams_json)/i.test(updateErr.message || '')) {
+        removeUnavailableRosterPayloadFields(joinPayload, updateErr);
         updateQuery = sb.from('bc_sessions').update(joinPayload);
         const retry = await applySessionFilter(updateQuery, data);
         updateErr = retry.error || null;
@@ -5353,8 +5389,6 @@ async function leaveSession(data, options = {}) {
             team_defense: JSON.stringify(nextTeams.team_defense || []),
             team_forest: JSON.stringify(nextTeams.team_forest || []),
             waiting_list: JSON.stringify(nextTeams.waiting_list || []),
-            team_layout: nextTeams.team_layout || rosterState.layout || [],
-            teams: nextTeams.teams || {},
             // Ghi rõ editor là người dùng tự hủy (không phải leader)
             leader_ids: JSON.stringify({
                 ...currentLeaderIds2,
@@ -5364,13 +5398,13 @@ async function leaveSession(data, options = {}) {
                 edited_at: Date.now()
             })
         };
+    attachSessionRosterPayload(leavePayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
     let leaveUpdateQuery = sb
         .from('bc_sessions')
         .update(leavePayload);
     let { error: updateErr } = await applySessionFilter(leaveUpdateQuery, data);
-    if (updateErr && /(team_layout|teams)/i.test(updateErr.message || '')) {
-        delete leavePayload.team_layout;
-        delete leavePayload.teams;
+    if (updateErr && /(team_layout|teams|teams_json)/i.test(updateErr.message || '')) {
+        removeUnavailableRosterPayloadFields(leavePayload, updateErr);
         leaveUpdateQuery = sb.from('bc_sessions').update(leavePayload);
         const retry = await applySessionFilter(leaveUpdateQuery, data);
         updateErr = retry.error || null;
@@ -5410,6 +5444,35 @@ function closeSignupModal() {
     document.getElementById('signupModal').classList.remove('show');
 }
 
+function getSignupCheckSvg(checked) {
+    return checked
+        ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+        : `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+}
+
+function syncSignupRowVisual(row, input) {
+    if (!row || !input) return;
+    const checked = Boolean(input.checked);
+    const wasJoined = row.dataset.initialJoined === '1';
+    row.classList.toggle('joined-row', checked);
+
+    const icon = row.querySelector('.bc-signup-check-icon');
+    if (icon) icon.innerHTML = getSignupCheckSvg(checked);
+
+    const right = row.querySelector('.bc-signup-right');
+    let tag = row.querySelector('.bc-signup-joined-tag');
+    if (checked) {
+        if (!tag && right) {
+            tag = document.createElement('div');
+            tag.className = 'bc-signup-joined-tag';
+            right.appendChild(tag);
+        }
+        if (tag) tag.textContent = wasJoined ? '✓ Đã đăng ký' : '✓ Đã chọn';
+    } else if (tag) {
+        tag.remove();
+    }
+}
+
 function renderSignupModalList() {
     const list = document.getElementById('signupSessionList');
     const sessions = sortSessionsForSignup(getAllCachedSessions());
@@ -5444,6 +5507,7 @@ function renderSignupModalList() {
             const row = document.createElement('label');
             row.className = `bc-signup-row${league ? ' league' : ''}${joined ? ' joined-row' : ''}`;
             row.setAttribute('for', inputId);
+            row.dataset.initialJoined = joined ? '1' : '0';
 
             const checkboxWrap = document.createElement('div');
             checkboxWrap.className = 'bc-signup-checkbox-wrap';
@@ -5452,13 +5516,12 @@ function renderSignupModalList() {
             input.id = inputId;
             input.dataset.sessionKey = key;
             input.checked = joined;
+            input.addEventListener('change', () => syncSignupRowVisual(row, input));
             checkboxWrap.appendChild(input);
             // Custom visual checkbox icon (thay thế native checkbox)
             const checkIcon = document.createElement('div');
             checkIcon.className = 'bc-signup-check-icon';
-            checkIcon.innerHTML = joined
-                ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
-                : `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+            checkIcon.innerHTML = getSignupCheckSvg(joined);
             checkboxWrap.appendChild(checkIcon);
 
             const main = document.createElement('div');
@@ -7933,10 +7996,6 @@ function ensureFeedbackModal() {
                   placeholder="Chia sẻ góp ý, báo lỗi hoặc đề xuất của bạn..."
                   oninput="updateFeedbackCharCount(this)"></textarea>
                 <div class="feedback-char-count" id="feedbackCharCount">0 / 1500</div>
-              </div>
-              <div class="feedback-anon-note">
-                <span class="feedback-anon-icon">🔒</span>
-                <span>Tên của bạn sẽ được ẩn danh trên web. Quản trị viên nhận đầy đủ thông tin qua Discord.</span>
               </div>
               <div class="feedback-form-actions">
                 <div class="feedback-status" id="feedbackStatus"></div>

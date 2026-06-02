@@ -1,8 +1,11 @@
 // ═══ CUSTOM POPUP SYSTEM ═══
 // Thay thế browser alert() và confirm() bằng UI đẹp đồng nhất theme
 (function() {
-  // Tạo overlay container nếu chưa có
-  if (!document.getElementById('cpopupOverlay')) {
+  function _cpEnsureOverlay() {
+    const existing = document.getElementById('cpopupOverlay');
+    if (existing) return existing;
+    if (!document.body) return null;
+
     const ov = document.createElement('div');
     ov.id = 'cpopupOverlay';
     ov.className = 'cpopup-overlay';
@@ -14,6 +17,14 @@
         <div class="cpopup-btns" id="cpopupBtns"></div>
       </div>`;
     document.body.appendChild(ov);
+    return ov;
+  }
+
+  // Tạo overlay container khi body đã sẵn sàng. Script này được load trong <head>.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _cpEnsureOverlay, { once: true });
+  } else {
+    _cpEnsureOverlay();
   }
 
   // Đóng popup — ẩn overlay
@@ -26,7 +37,13 @@
   // options: { title, icon, type: 'info'|'error'|'warn'|'success' }
   window.customAlert = function(msg, options = {}) {
     return new Promise(resolve => {
-      const ov = document.getElementById('cpopupOverlay');
+      const ov = _cpEnsureOverlay();
+      if (!ov) {
+        document.addEventListener('DOMContentLoaded', () => {
+          window.customAlert(msg, options).then(resolve);
+        }, { once: true });
+        return;
+      }
       const card = document.getElementById('cpopupCard');
       const iconEl = document.getElementById('cpopupIcon');
       const titleEl = document.getElementById('cpopupTitle');
@@ -52,20 +69,27 @@
 
       // Nút OK
       btnsEl.innerHTML = '<button class="cpopup-btn cpopup-btn-ok" id="cpopupOk">OK</button>';
-      document.getElementById('cpopupOk').onclick = () => { _cpClose(); resolve(); };
 
       // Mở popup
       ov.classList.add('active');
 
       // Enter / Escape đều đóng
+      let resolved = false;
+      const doResolve = () => {
+        if (resolved) return;
+        resolved = true;
+        document.removeEventListener('keydown', handler, true);
+        _cpClose();
+        resolve();
+      };
       const handler = (e) => {
         if (e.key === 'Enter' || e.key === 'Escape') {
           e.preventDefault(); e.stopPropagation();
-          document.removeEventListener('keydown', handler, true);
-          _cpClose(); resolve();
+          doResolve();
         }
       };
       document.addEventListener('keydown', handler, true);
+      document.getElementById('cpopupOk').onclick = doResolve;
       document.getElementById('cpopupOk').focus();
     });
   };
@@ -74,7 +98,13 @@
   // options: { title, icon, type, okText, cancelText }
   window.customConfirm = function(msg, options = {}) {
     return new Promise(resolve => {
-      const ov = document.getElementById('cpopupOverlay');
+      const ov = _cpEnsureOverlay();
+      if (!ov) {
+        document.addEventListener('DOMContentLoaded', () => {
+          window.customConfirm(msg, options).then(resolve);
+        }, { once: true });
+        return;
+      }
       const card = document.getElementById('cpopupCard');
       const iconEl = document.getElementById('cpopupIcon');
       const titleEl = document.getElementById('cpopupTitle');

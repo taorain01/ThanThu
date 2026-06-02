@@ -513,6 +513,139 @@
       background: rgba(255,255,255,.015);
     }
 
+    /* roster log */
+    .log-fab {
+      position: fixed;
+      right: 16px;
+      bottom: 14px;
+      z-index: 900;
+      height: 36px;
+      min-width: 58px;
+      padding: 0 13px;
+      border: 1px solid rgba(245,200,66,.38);
+      border-radius: 8px;
+      background: rgba(16,32,20,.96);
+      color: var(--gold);
+      box-shadow: 0 12px 34px rgba(0,0,0,.42);
+      font-weight: 900;
+    }
+    .log-panel {
+      position: fixed;
+      right: 16px;
+      bottom: 58px;
+      z-index: 901;
+      width: min(420px, calc(100vw - 28px));
+      max-height: min(520px, calc(100vh - 92px));
+      display: none;
+      flex-direction: column;
+      border: 1px solid rgba(141,255,183,.2);
+      border-radius: 10px;
+      background: rgba(7,18,10,.98);
+      box-shadow: 0 22px 70px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.03);
+      overflow: hidden;
+    }
+    .log-panel.show { display: flex; }
+    .log-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(141,255,183,.12);
+    }
+    .log-title { color: var(--gold); font-size: 13px; font-weight: 900; }
+    .log-sub { margin-top: 1px; color: var(--muted); font-size: 10.5px; }
+    .log-close {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .log-filters {
+      display: flex;
+      gap: 5px;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(141,255,183,.09);
+      overflow-x: auto;
+    }
+    .log-filter {
+      height: 26px;
+      padding: 0 9px;
+      border: 1px solid rgba(141,255,183,.13);
+      border-radius: 7px;
+      background: rgba(255,255,255,.035);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .log-filter.active {
+      border-color: rgba(245,200,66,.42);
+      color: var(--gold);
+      background: rgba(245,200,66,.1);
+    }
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 120px;
+      overflow: auto;
+      padding: 9px 10px 10px;
+    }
+    .log-list::-webkit-scrollbar { width: 4px; }
+    .log-list::-webkit-scrollbar-track { background: transparent; }
+    .log-list::-webkit-scrollbar-thumb { background: rgba(141,255,183,.2); border-radius: 4px; }
+    .log-item {
+      border: 1px solid rgba(141,255,183,.12);
+      border-radius: 8px;
+      background: rgba(255,255,255,.026);
+      padding: 8px 9px;
+      min-width: 0;
+    }
+    .log-row-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 10.5px;
+      white-space: nowrap;
+    }
+    .log-source {
+      color: var(--green);
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .log-source.bot { color: var(--gold); }
+    .log-summary {
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 850;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log-meta,
+    .log-change {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .log-change { color: #abcbb6; }
+    .log-empty {
+      padding: 24px 12px;
+      border: 1px dashed rgba(141,255,183,.14);
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+    }
+
     /* login */
     .login-panel {
       max-width: 380px;
@@ -552,6 +685,16 @@
       .member-row .col-combat,
       .member-row .col-joined,
       .member-row .col-position { display: none; }
+      .log-fab { right: 10px; bottom: 10px; height: 34px; min-width: 54px; }
+      .log-panel {
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-height: 70vh;
+        border-radius: 12px 12px 0 0;
+        border-left: 0;
+        border-right: 0;
+      }
     }
   </style>
 </head>
@@ -672,6 +815,27 @@
     </div>
   </form>
 </div>
+<button class="btn log-fab" id="btnRosterLog" style="display:none" type="button" aria-expanded="false">Log</button>
+<section class="log-panel" id="rosterLogPanel" aria-hidden="true">
+  <div class="log-head">
+    <div>
+      <div class="log-title">Roster Log</div>
+      <div class="log-sub" id="rosterLogSub">Lich su chinh sua gan day</div>
+    </div>
+    <button class="btn log-close" id="btnRosterLogClose" type="button" aria-label="Dong log">x</button>
+  </div>
+  <div class="log-filters" id="rosterLogFilters">
+    <button class="log-filter active" type="button" data-log-filter="all">Tat ca</button>
+    <button class="log-filter" type="button" data-log-filter="web">Web</button>
+    <button class="log-filter" type="button" data-log-filter="bot">Bot</button>
+    <button class="log-filter" type="button" data-log-filter="member">Member</button>
+    <button class="log-filter" type="button" data-log-filter="pending">Pending</button>
+    <button class="log-filter" type="button" data-log-filter="session">Session</button>
+  </div>
+  <div class="log-list" id="rosterLogList">
+    <div class="log-empty">Dang tai log...</div>
+  </div>
+</section>
 <script>
   const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
@@ -682,6 +846,7 @@
   const params = new URLSearchParams(window.location.search);
   const IS_EMBED = params.get('embed') === '1';
   const SESSION_ID = params.get('session') || '';
+  const CURRENT_DAY = params.get('day') || '';
   const DEFAULT_MODE = params.get('mode') || (SESSION_ID ? 'add' : 'list');
 
   const COMBAT_ROLES = ['DPS', 'Healer', 'Tanker'];
@@ -693,6 +858,7 @@
   let isManager = false, activeRows = [], pendingRows = [], sessionMemberIds = new Set(), sessionMemberMap = new Map();
   let realtimeChannel = null, reloadTimer = null;
   let editModalResolve = null, editModalPreviousFocus = null;
+  let logPanelOpen = false, logEntries = [], logFilter = 'all', logReloadTimer = null;
 
   try {
     const fn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
@@ -713,7 +879,9 @@
     editSubtitle: $('editSubtitle'), editNameLabel: $('editNameLabel'),
     editJoinedLabel: $('editJoinedLabel'), editGameUsername: $('editGameUsername'),
     editGameUid: $('editGameUid'), editJoinedDate: $('editJoinedDate'),
-    editCancel: $('editCancel'), editSave: $('editSave')
+    editCancel: $('editCancel'), editSave: $('editSave'),
+    logFab: $('btnRosterLog'), logPanel: $('rosterLogPanel'), logList: $('rosterLogList'),
+    logSub: $('rosterLogSub'), logClose: $('btnRosterLogClose'), logFilters: $('rosterLogFilters')
   };
 
   function esc(v) { return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -771,6 +939,195 @@
     els.status.className = `status-msg show ${type}`;
     els.status.textContent = msg;
     if (type === 'ok') setTimeout(() => { if (els.status.textContent === msg) showStatus(''); }, 2800);
+  }
+
+  const MEMBER_ROSTER_LOG_ACTIONS = new Set([
+    'member_update', 'pending_update', 'pending_delete', 'own_role_update', 'session_add_member',
+    'pending_add', 'member_add', 'member_rejoin', 'member_edit', 'member_delete',
+    'member_bulk_cleanup', 'roster_sync', 'quick_team'
+  ]);
+  const LOG_ACTION_LABELS = {
+    member_update: 'Sua member',
+    pending_update: 'Sua pending',
+    pending_delete: 'Xoa pending',
+    own_role_update: 'Doi role ca nhan',
+    session_add_member: 'Them vao session',
+    pending_add: 'Them pending',
+    member_add: 'Addmem',
+    member_rejoin: 'Rejoin',
+    member_edit: 'Edit member',
+    member_delete: 'Xoa member',
+    member_bulk_cleanup: 'Don member',
+    roster_sync: 'Sua doi hinh',
+    quick_team: 'Lap team nhanh'
+  };
+
+  function normalizeLogDetails(details) {
+    let value = details;
+    for (let i = 0; i < 2 && typeof value === 'string'; i += 1) {
+      try { value = JSON.parse(value); } catch (_) { break; }
+    }
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+  function normalizeLogValue(value) {
+    if (value === undefined || value === null || value === '') return '';
+    return String(value);
+  }
+  function buildLogChange(field, label, before, after) {
+    const oldValue = normalizeLogValue(before);
+    const newValue = normalizeLogValue(after);
+    if (oldValue === newValue) return null;
+    return { field, label, before: oldValue || null, after: newValue || null };
+  }
+  function compactLogValue(value) {
+    const text = normalizeLogValue(value);
+    return text || '-';
+  }
+  function formatLogTime(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return '--:--';
+    return date.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Bangkok',
+      hour12: false,
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+  function isRosterLogEntry(entry) {
+    const details = entry?._details || normalizeLogDetails(entry?.details);
+    return details.category === 'member_roster' || MEMBER_ROSTER_LOG_ACTIONS.has(String(entry?.action || ''));
+  }
+  function getLogSummary(entry) {
+    const details = entry?._details || {};
+    return details.summary || LOG_ACTION_LABELS[entry.action] || entry.action || 'Log';
+  }
+  function getLogMeta(entry) {
+    const details = entry?._details || {};
+    const bits = [];
+    const target = details.target_name || details.target_id || details.target_uid;
+    if (target) bits.push(String(target));
+    if (details.target_uid) bits.push(`UID ${details.target_uid}`);
+    if (details.session_id) bits.push(`Session ${String(details.session_id).slice(0, 8)}`);
+    else if (details.day) bits.push(`Day ${details.day}`);
+    return bits.join(' · ');
+  }
+  function getLogChangeText(entry) {
+    const details = entry?._details || {};
+    const changes = Array.isArray(details.changes) ? details.changes.filter(Boolean) : [];
+    if (!changes.length) return '';
+    const rendered = changes.slice(0, 2).map(change =>
+      `${change.label || change.field || 'Field'}: ${compactLogValue(change.before)} -> ${compactLogValue(change.after)}`
+    );
+    if (changes.length > 2) rendered.push(`+${changes.length - 2}`);
+    return rendered.join(' | ');
+  }
+  function logMatchesFilter(entry, filter) {
+    if (filter === 'all') return true;
+    const details = entry?._details || {};
+    const source = String(entry.source || '').toLowerCase();
+    const action = String(entry.action || '').toLowerCase();
+    const targetType = String(details.target_type || '').toLowerCase();
+    if (filter === 'web' || filter === 'bot') return source === filter;
+    if (filter === 'pending') return action.includes('pending') || targetType === 'pending';
+    if (filter === 'session') return action.includes('session') || action === 'roster_sync' || action === 'quick_team' || Boolean(details.session_id);
+    if (filter === 'member') return action.includes('member') || targetType === 'member' || targetType === 'user';
+    return true;
+  }
+  function renderRosterLogEntries() {
+    if (!els.logList) return;
+    const entries = logEntries.filter(entry => logMatchesFilter(entry, logFilter));
+    if (els.logSub) els.logSub.textContent = `${entries.length}/${logEntries.length} log gan day`;
+    if (!entries.length) {
+      els.logList.innerHTML = '<div class="log-empty">Chua co log phu hop.</div>';
+      return;
+    }
+    els.logList.innerHTML = entries.map((entry) => {
+      const details = entry._details || {};
+      const source = String(entry.source || 'web').toLowerCase();
+      const actor = details.actor_name || details.editor_name || entry.performed_by || 'Web';
+      const meta = getLogMeta(entry);
+      const changeText = getLogChangeText(entry);
+      return `
+        <article class="log-item">
+          <div class="log-row-top">
+            <span>${esc(formatLogTime(entry.created_at || details.edited_at))}</span>
+            <span><span class="log-source ${esc(source)}">${esc(source || 'web')}</span> · ${esc(actor)}</span>
+          </div>
+          <div class="log-summary">${esc(getLogSummary(entry))}</div>
+          ${meta ? `<div class="log-meta">${esc(meta)}</div>` : ''}
+          ${changeText ? `<div class="log-change">${esc(changeText)}</div>` : ''}
+        </article>`;
+    }).join('');
+  }
+  async function loadRosterLogEntries() {
+    if (!sb || !els.logList) return;
+    els.logList.innerHTML = '<div class="log-empty">Dang tai log...</div>';
+    const { data, error } = await sb.from('bc_logs')
+      .select('id,action,details,performed_by,source,created_at')
+      .eq('guild_id', GUILD_ID)
+      .in('action', [...MEMBER_ROSTER_LOG_ACTIONS])
+      .order('created_at', { ascending: false })
+      .limit(80);
+    if (error) throw error;
+    logEntries = (data || [])
+      .map(entry => ({ ...entry, _details: normalizeLogDetails(entry.details) }))
+      .filter(isRosterLogEntry);
+    renderRosterLogEntries();
+  }
+  function scheduleLogReload() {
+    clearTimeout(logReloadTimer);
+    logReloadTimer = setTimeout(() => {
+      if (logPanelOpen) loadRosterLogEntries().catch(() => {
+        if (els.logList) els.logList.innerHTML = '<div class="log-empty">Chua doc duoc log.</div>';
+      });
+    }, 220);
+  }
+  function openRosterLogPanel() {
+    if (!els.logPanel) return;
+    logPanelOpen = true;
+    els.logPanel.classList.add('show');
+    els.logPanel.setAttribute('aria-hidden', 'false');
+    els.logFab?.setAttribute('aria-expanded', 'true');
+    loadRosterLogEntries().catch((error) => {
+      console.warn('[MemberRoster] load log failed:', error);
+      if (els.logList) els.logList.innerHTML = '<div class="log-empty">Chua doc duoc log.</div>';
+    });
+  }
+  function closeRosterLogPanel() {
+    logPanelOpen = false;
+    els.logPanel?.classList.remove('show');
+    els.logPanel?.setAttribute('aria-hidden', 'true');
+    els.logFab?.setAttribute('aria-expanded', 'false');
+  }
+  async function recordMemberRosterLog(action, details = {}) {
+    if (!sb || !currentDiscordId) return;
+    const changes = Array.isArray(details.changes) ? details.changes.filter(Boolean) : [];
+    const payload = {
+      ...details,
+      category: 'member_roster',
+      summary: details.summary || LOG_ACTION_LABELS[action] || action,
+      actor_id: currentDiscordId,
+      actor_name: currentUserName || 'Web',
+      session_id: details.session_id || SESSION_ID || null,
+      day: details.day || CURRENT_DAY || currentSession?.day || null,
+      changes,
+      edited_at: new Date().toISOString()
+    };
+    try {
+      const { error } = await sb.from('bc_logs').insert({
+        guild_id: GUILD_ID,
+        action,
+        details: payload,
+        performed_by: currentDiscordId,
+        source: 'web'
+      });
+      if (error) console.warn('[MemberRoster] write log failed:', error);
+      else if (logPanelOpen) scheduleLogReload();
+    } catch (error) {
+      console.warn('[MemberRoster] write log exception:', error);
+    }
   }
   function dateInputValue(value) {
     if (!value) return '';
@@ -1019,6 +1376,8 @@
   function setLoggedOut() {
     els.subtitle.textContent = 'Đăng nhập để xem danh sách thành viên.';
     els.login.style.display = '';
+    if (els.logFab) els.logFab.style.display = 'none';
+    closeRosterLogPanel();
     els.filters.style.display = 'none';
     els.stats.style.display = 'none';
     els.tableHead.style.display = 'none';
@@ -1076,6 +1435,7 @@
     const userRow = activeRows.find(r => String(r.discord_id) === String(currentDiscordId)) || null;
     isManager = isManagerPosition(userRow?.position) || KC_WEB_ACCESS_DISCORD_IDS.has(String(currentDiscordId));
     els.login.style.display = 'none';
+    if (els.logFab) els.logFab.style.display = '';
     els.filters.style.display = '';
     els.stats.style.display = '';
     els.tableHead.style.display = '';
@@ -1228,6 +1588,7 @@
 
   async function updateOwnRole(discordId) {
     if (String(discordId) !== String(currentDiscordId)) return;
+    const beforeRow = getActiveById(discordId);
     const rowEl = document.querySelector(`[data-discord-id="${cssEscape(discordId)}"]`);
     const combat = rowEl?.querySelector('[data-action="own-combat"]')?.value || 'DPS';
     const weaponSel = rowEl?.querySelector('[data-action="own-weapon"]');
@@ -1236,6 +1597,20 @@
     showStatus('Đang cập nhật vai...', '');
     const { error } = await sb.rpc('bc_update_own_pickrole', { p_combat_role:combat, p_weapon_role:weapon });
     if (error) throw error;
+    const changes = [
+      buildLogChange('combat_role', 'Vai', rowCombat(beforeRow), combat),
+      buildLogChange('weapon_role', 'Vu khi', rowWeapon(beforeRow), weapon || '')
+    ].filter(Boolean);
+    if (changes.length) {
+      void recordMemberRosterLog('own_role_update', {
+        summary: `Doi role ${beforeRow?.game_username || beforeRow?.discord_name || discordId}`,
+        target_type: 'member',
+        target_id: String(discordId),
+        target_name: beforeRow?.game_username || beforeRow?.discord_name || String(discordId),
+        target_uid: beforeRow?.game_uid || null,
+        changes
+      });
+    }
     showStatus('Đã cập nhật vai. Bot sẽ đồng bộ Discord role.', 'ok');
     await loadRoster(false);
   }
@@ -1254,12 +1629,27 @@
     });
     if (!values) return;
     showStatus('Đang lưu...', '');
+    const changes = [
+      buildLogChange('game_username', 'Ten game', row.game_username || '', values.gameUsername || ''),
+      buildLogChange('game_uid', 'UID', row.game_uid || '', values.gameUid || ''),
+      buildLogChange('joined_at', 'Ngay vao', dateInputValue(row.joined_at), values.joinedDate || '')
+    ].filter(Boolean);
     const { error } = await sb.rpc('bc_manager_update_member', {
       p_guild_id:GUILD_ID, p_discord_id:String(discordId),
       p_game_username:values.gameUsername||null, p_game_uid:values.gameUid||null,
       p_position:positionForUpdate(row)||'mem', p_joined_at:joinedDateToIso(values.joinedDate)
     });
     if (error) throw error;
+    if (changes.length) {
+      void recordMemberRosterLog('member_update', {
+        summary: `Sua member ${values.gameUsername || row.game_username || row.discord_name || discordId}`,
+        target_type: 'member',
+        target_id: String(discordId),
+        target_name: values.gameUsername || row.game_username || row.discord_name || String(discordId),
+        target_uid: values.gameUid || row.game_uid || null,
+        changes
+      });
+    }
     showStatus('Đã lưu thông tin thành viên.', 'ok');
     await loadRoster(false);
   }
@@ -1278,11 +1668,26 @@
     });
     if (!values) return;
     showStatus('Đang lưu...', '');
+    const changes = [
+      buildLogChange('game_username', 'Ten game', row.game_username || '', values.gameUsername || ''),
+      buildLogChange('game_uid', 'UID', row.game_uid || '', values.gameUid || ''),
+      buildLogChange('joined_at', 'Ngay vao', dateInputValue(row.joined_at), values.joinedDate || '')
+    ].filter(Boolean);
     const { error } = await sb.rpc('bc_manager_update_pending', {
       p_guild_id:GUILD_ID, p_id:id, p_game_uid:values.gameUid||null,
       p_game_username:values.gameUsername||null, p_joined_at:joinedDateToIso(values.joinedDate)
     });
     if (error) throw error;
+    if (changes.length) {
+      void recordMemberRosterLog('pending_update', {
+        summary: `Sua pending ${values.gameUsername || row.game_username || row.game_uid || id}`,
+        target_type: 'pending',
+        target_id: String(id),
+        target_name: values.gameUsername || row.game_username || '',
+        target_uid: values.gameUid || row.game_uid || null,
+        changes
+      });
+    }
     showStatus('Đã lưu.', 'ok');
     await loadRoster(false);
   }
@@ -1294,6 +1699,16 @@
     showStatus('Đang xoá...', '');
     const { error } = await sb.rpc('bc_manager_delete_pending', { p_guild_id:GUILD_ID, p_id:id });
     if (error) throw error;
+    void recordMemberRosterLog('pending_delete', {
+      summary: `Xoa pending ${row.game_username || row.game_uid || id}`,
+      target_type: 'pending',
+      target_id: String(id),
+      target_name: row.game_username || '',
+      target_uid: row.game_uid || null,
+      changes: [
+        { field: 'status', label: 'Trang thai', before: 'pending', after: 'deleted' }
+      ]
+    });
     showStatus('Đã xoá.', 'ok');
     await loadRoster(false);
   }
@@ -1384,6 +1799,7 @@
 
   async function addMemberToSession(discordId) {
     if (!SESSION_ID || !isManager) return;
+    const row = getActiveById(discordId);
     showStatus('Đang thêm vào session...', '');
     const { data, error } = await sb.rpc('bc_manager_add_member_to_session', { p_session_id:SESSION_ID, p_discord_id:String(discordId) });
     if (error && isMissingTeamsFieldError(error)) {
@@ -1396,6 +1812,19 @@
     sessionMemberMap = collectSessionMembers(currentSession);
     sessionMemberIds = new Set(sessionMemberMap.keys());
     activeRows = activeRows.map(hydrateRowFromSession);
+    const sessionInfo = sessionMemberMap.get(String(discordId));
+    void recordMemberRosterLog('session_add_member', {
+      summary: `Them ${row?.game_username || row?.discord_name || discordId} vao session`,
+      target_type: 'member',
+      target_id: String(discordId),
+      target_name: row?.game_username || row?.discord_name || String(discordId),
+      target_uid: row?.game_uid || null,
+      session_id: SESSION_ID,
+      day: CURRENT_DAY || currentSession?.day || null,
+      changes: [
+        { field: 'session_team', label: 'Session', before: 'none', after: sessionInfo?.session_label || sessionInfo?.session_team || 'waiting_list' }
+      ]
+    });
     showStatus(sessionMemberIds.has(String(discordId)) ? 'Đã thêm vào đội hình.' : 'Đã đưa vào hàng chờ.', 'ok');
     window.parent?.postMessage({ type:'memberRosterSessionUpdated', sessionId:SESSION_ID }, '*');
     render();
@@ -1410,7 +1839,10 @@
     if (!sb || realtimeChannel) return;
     realtimeChannel = sb.channel(`member-roster-${GUILD_ID}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'bc_users', filter:`guild_id=eq.${GUILD_ID}` }, scheduleReload)
-      .on('postgres_changes', { event:'*', schema:'public', table:'bc_pending_ids', filter:`guild_id=eq.${GUILD_ID}` }, scheduleReload);
+      .on('postgres_changes', { event:'*', schema:'public', table:'bc_pending_ids', filter:`guild_id=eq.${GUILD_ID}` }, scheduleReload)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'bc_logs', filter:`guild_id=eq.${GUILD_ID}` }, () => {
+        if (logPanelOpen) scheduleLogReload();
+      });
     if (SESSION_ID) {
       realtimeChannel.on('postgres_changes', { event:'*', schema:'public', table:'bc_sessions', filter:`guild_id=eq.${GUILD_ID}` }, payload => {
         const id = payload.new?.id || payload.old?.id;
@@ -1446,13 +1878,35 @@
   els.editModal.addEventListener('click', ev => {
     if (ev.target === els.editModal) closeEditModal(null);
   });
+  els.logFab?.addEventListener('click', () => {
+    if (logPanelOpen) closeRosterLogPanel();
+    else openRosterLogPanel();
+  });
+  els.logClose?.addEventListener('click', closeRosterLogPanel);
+  els.logFilters?.addEventListener('click', ev => {
+    const btn = ev.target.closest('[data-log-filter]');
+    if (!btn) return;
+    logFilter = btn.dataset.logFilter || 'all';
+    els.logFilters.querySelectorAll('.log-filter').forEach(item => item.classList.toggle('active', item === btn));
+    renderRosterLogEntries();
+  });
   document.addEventListener('keydown', ev => {
-    if (!editModalResolve || ev.key !== 'Escape') return;
-    ev.preventDefault();
-    closeEditModal(null);
+    if (ev.key !== 'Escape') return;
+    if (editModalResolve) {
+      ev.preventDefault();
+      closeEditModal(null);
+      return;
+    }
+    if (logPanelOpen) {
+      ev.preventDefault();
+      closeRosterLogPanel();
+    }
   });
   document.addEventListener('click', async ev => {
     if (ev.target.closest('#btnLoginPanel')) return loginDiscord();
+    if (logPanelOpen && !ev.target.closest('#rosterLogPanel') && !ev.target.closest('#btnRosterLog')) {
+      closeRosterLogPanel();
+    }
     const btn = ev.target.closest('[data-action]');
     if (!btn || btn.tagName === 'SELECT') return;
     try {
@@ -1468,7 +1922,10 @@
     if (!el) return;
     try { await updateOwnRole(el.dataset.id); } catch(e) { showStatus(e.message||String(e),'error'); await loadRoster(false).catch(()=>null); }
   });
-  window.addEventListener('beforeunload', () => { if (realtimeChannel && sb) sb.removeChannel(realtimeChannel); });
+  window.addEventListener('beforeunload', () => {
+    clearTimeout(logReloadTimer);
+    if (realtimeChannel && sb) sb.removeChannel(realtimeChannel);
+  });
 
   init().catch(e => showStatus(e.message||String(e),'error'));
 </script>

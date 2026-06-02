@@ -9,6 +9,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const memberRosterSync = require('../../utils/memberRosterSync');
+const { buildChange, logMemberRosterAction } = require('../../utils/memberRosterLog');
 
 /**
  * Check if user has high-level role (BC, PBC, KC)
@@ -371,6 +372,19 @@ async function execute(message, args) {
     try {
         insertPendingId(gameUid, gameName, message.author.id, message.author.username, joinDate.toISOString(), guildId);
         await memberRosterSync.syncPendingByUid(gameUid, guildId);
+        void logMemberRosterAction(guildId, 'pending_add', {
+            summary: `Them pending ${gameName}`,
+            actor_id: message.author.id,
+            actor_name: message.author.username,
+            target_type: 'pending',
+            target_id: gameUid,
+            target_name: gameName,
+            target_uid: gameUid,
+            changes: [
+                { field: 'status', label: 'Trang thai', before: null, after: 'pending' },
+                { field: 'joined_at', label: 'Ngay vao', before: null, after: joinDate.toISOString() }
+            ]
+        }, message.author.id);
 
         const embed = new EmbedBuilder()
             .setColor(0x00D166)
@@ -448,6 +462,19 @@ async function handleConfirmation(interaction) {
 
             insertPendingId(gameUid, data.gameName, authorId, interaction.user.username, keepJoinDate, guildId);
             await memberRosterSync.syncPendingByUid(gameUid, guildId);
+            void logMemberRosterAction(guildId, 'pending_add', {
+                summary: `Dua ${data.gameName} ve pending`,
+                actor_id: authorId,
+                actor_name: interaction.user.username,
+                target_type: 'pending',
+                target_id: gameUid,
+                target_name: data.gameName,
+                target_uid: gameUid,
+                changes: [
+                    { field: 'status', label: 'Trang thai', before: 'left', after: 'pending' },
+                    { field: 'joined_at', label: 'Ngay vao', before: data.leftUser?.joined_at || null, after: keepJoinDate }
+                ]
+            }, authorId);
 
             const joinDateObj = new Date(keepJoinDate);
             const embed = new EmbedBuilder()
@@ -503,6 +530,19 @@ async function handleConfirmation(interaction) {
 
             insertPendingId(gameUid, data.gameName, authorId, interaction.user.username, data.joinDate.toISOString(), guildId);
             await memberRosterSync.syncPendingByUid(gameUid, guildId);
+            void logMemberRosterAction(guildId, 'pending_add', {
+                summary: `Rejoin pending ${data.gameName}`,
+                actor_id: authorId,
+                actor_name: interaction.user.username,
+                target_type: 'pending',
+                target_id: gameUid,
+                target_name: data.gameName,
+                target_uid: gameUid,
+                changes: [
+                    { field: 'status', label: 'Trang thai', before: 'left', after: 'pending' },
+                    { field: 'joined_at', label: 'Ngay vao', before: data.leftUser?.joined_at || null, after: data.joinDate.toISOString() }
+                ]
+            }, authorId);
 
             const embed = new EmbedBuilder()
                 .setColor(0x3498DB)
@@ -558,6 +598,20 @@ async function handleConfirmation(interaction) {
         const guildId = data.guildId || interaction.guild?.id || null;
         updatePendingId(gameUid, data.gameName, authorId, interaction.user.username, data.joinDate.toISOString(), guildId);
         await memberRosterSync.syncPendingByUid(gameUid, guildId);
+        void logMemberRosterAction(guildId, 'pending_update', {
+            summary: `Cap nhat pending ${data.gameName}`,
+            actor_id: authorId,
+            actor_name: interaction.user.username,
+            target_type: 'pending',
+            target_id: gameUid,
+            target_name: data.gameName,
+            target_uid: gameUid,
+            changes: [
+                buildChange('game_username', 'Ten game', data.existingPending?.game_username || '', data.gameName || ''),
+                buildChange('game_uid', 'UID', data.existingPending?.game_uid || gameUid, gameUid),
+                buildChange('joined_at', 'Ngay vao', data.existingPending?.joined_at || '', data.joinDate.toISOString())
+            ]
+        }, authorId);
 
         const embed = new EmbedBuilder()
             .setColor(0xF59E0B)

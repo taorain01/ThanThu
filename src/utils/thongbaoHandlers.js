@@ -116,6 +116,7 @@ async function handleButton(interaction, client) {
         if (customId.startsWith('edit_confirm_')) {
             const db = require('../database/db');
             const memberRosterSync = require('./memberRosterSync');
+            const { buildChange, logMemberRosterAction } = require('./memberRosterLog');
             const parts = customId.split('_');
             const targetUserId = parts[2];
             const authorizedUserId = parts[3];
@@ -168,6 +169,21 @@ async function handleButton(interaction, client) {
                 // Update in database
                 db.upsertUser(updateData);
                 await memberRosterSync.syncUserByDiscordId(targetUserId, interaction.guild);
+                void logMemberRosterAction(interaction.guild?.id, 'member_edit', {
+                    summary: `Edit member ${updateData.gameUsername || existingUser.discord_name || targetUserId}`,
+                    actor_id: authorizedUserId,
+                    actor_name: interaction.user.username,
+                    target_type: 'member',
+                    target_id: targetUserId,
+                    target_name: updateData.gameUsername || existingUser.discord_name || targetUserId,
+                    target_uid: updateData.gameUid || null,
+                    changes: [
+                        buildChange('game_username', 'Ten game', existingUser.game_username || '', updateData.gameUsername || ''),
+                        buildChange('game_uid', 'UID', existingUser.game_uid || '', updateData.gameUid || ''),
+                        buildChange('joined_at', 'Ngay vao', existingUser.joined_at || '', updateData.joinedAt || ''),
+                        buildChange('position', 'Chuc vu', existingUser.position || '', updateData.position || '')
+                    ]
+                }, authorizedUserId);
 
                 // Remove pending edit
                 client.pendingEdits.delete(key);

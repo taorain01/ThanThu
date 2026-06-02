@@ -16,6 +16,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const memberRosterSync = require('../../utils/memberRosterSync');
+const { logMemberRosterAction } = require('../../utils/memberRosterLog');
 
 function getPendingByUid(gameUid, guildId) {
     try {
@@ -533,6 +534,20 @@ async function execute(message, args) {
         } catch (e) { /* ignore */ }
 
         await memberRosterSync.syncUserByDiscordId(targetUser.id, message.guild);
+        void logMemberRosterAction(guildId, isRejoin ? 'member_rejoin' : 'member_add', {
+            summary: `${isRejoin ? 'Rejoin' : 'Addmem'} ${gameName}`,
+            actor_id: message.author.id,
+            actor_name: message.author.username,
+            target_type: 'member',
+            target_id: targetUser.id,
+            target_name: gameName,
+            target_uid: gameUid,
+            changes: [
+                { field: 'status', label: 'Trang thai', before: isRejoin ? 'left' : null, after: 'active' },
+                { field: 'position', label: 'Chuc vu', before: existingUser?.position || null, after: normalizedPosition },
+                { field: 'joined_at', label: 'Ngay vao', before: existingUser?.joined_at || null, after: joinDate.toISOString() }
+            ]
+        }, message.author.id);
 
         return message.channel.send({ embeds: [embed] });
     } catch (error) {

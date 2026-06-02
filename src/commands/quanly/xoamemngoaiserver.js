@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
+const { logMemberRosterAction } = require('../../utils/memberRosterLog');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
 
 const OWNER_IDS = new Set(['395151484179841024', '1247475535317422111']);
@@ -298,6 +299,34 @@ async function execute(message, args) {
     try {
         const localResult = deleteLocalRows(localPlan.deleteUsers, localPlan.deletePending);
         const supabaseResult = await deleteSupabaseRows(supabasePlan.supabase, supabasePlan.deleteUsers);
+        void logMemberRosterAction(ALLOWED_GUILD_ID, 'member_bulk_cleanup', {
+            summary: `Don mem ngoai server: ${localResult.users + supabaseResult.bcUsers} users`,
+            actor_id: message.author.id,
+            actor_name: message.author.username,
+            target_type: 'bulk',
+            target_id: ALLOWED_GUILD_ID,
+            target_name: 'member cleanup',
+            changes: [
+                { field: 'local_users', label: 'SQLite users', before: null, after: localResult.users },
+                { field: 'local_pending', label: 'SQLite pending', before: null, after: localResult.pending },
+                { field: 'supabase_users', label: 'Supabase users', before: null, after: supabaseResult.bcUsers }
+            ],
+            counts: {
+                local_users: localResult.users,
+                local_pending: localResult.pending,
+                supabase_users: supabaseResult.bcUsers,
+                supabase_regulars: supabaseResult.bcRegularByUser + supabaseResult.bcRegularOtherGuild
+            },
+            targets: [
+                ...localPlan.deleteUsers.slice(0, 10),
+                ...supabasePlan.deleteUsers.slice(0, 10)
+            ].slice(0, 20).map(row => ({
+                discord_id: row.discord_id || null,
+                game_username: row.game_username || null,
+                game_uid: row.game_uid || null,
+                reasons: row.reasons || []
+            }))
+        }, message.author.id);
 
         return message.channel.send({
             embeds: [buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm: true, localResult, supabaseResult })]

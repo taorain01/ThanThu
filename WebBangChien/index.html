@@ -887,7 +887,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .feedback-select{height:40px;padding:0 11px}
 .feedback-textarea{min-height:130px;resize:vertical;padding:11px 12px;line-height:1.5}
 .feedback-select:focus,.feedback-textarea:focus{border-color:rgba(251,191,36,.45);box-shadow:0 0 0 3px rgba(251,191,36,.08)}
-.feedback-note{font-size:11px;color:var(--text3);line-height:1.45;margin-top:2px}
 .feedback-form-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
 .feedback-status{font-size:12px;color:var(--text3);min-height:18px;flex:1}
 .feedback-status.success{color:var(--green-400)}
@@ -1555,45 +1554,96 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .m-name{font-size:12px}
   .m-gn{font-size:10px}
 }
-.bc-signup-list{display:flex;flex-direction:column;gap:6px;max-height:min(60vh,540px);overflow-y:auto;overflow-x:hidden;margin:10px 0 16px;padding-right:2px}
+.bc-signup-list{display:flex;flex-direction:column;gap:8px;max-height:min(60vh,560px);overflow-y:auto;overflow-x:hidden;margin:12px 0 18px;padding-right:4px}
 .bc-signup-list::-webkit-scrollbar{width:4px}
 .bc-signup-list::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:4px}
 .bc-signup-list::-webkit-scrollbar-thumb{background:rgba(34,197,94,.35);border-radius:4px}
 
-.bc-signup-row{display:flex;align-items:center;gap:0;border:1.5px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);border-radius:12px;cursor:pointer;transition:all .2s;overflow:hidden;position:relative}
-.bc-signup-row:hover{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.07);transform:translateX(2px)}
-.bc-signup-row.joined-row{border-color:rgba(34,197,94,.55);background:linear-gradient(90deg,rgba(34,197,94,.12),rgba(34,197,94,.05))}
-.bc-signup-row.league{border-color:rgba(251,191,36,.38);background:rgba(251,191,36,.05)}
-.bc-signup-row.league:hover{border-color:rgba(251,191,36,.6);background:rgba(251,191,36,.1)}
-.bc-signup-row.league.joined-row{border-color:rgba(251,191,36,.7);background:linear-gradient(90deg,rgba(251,191,36,.15),rgba(251,191,36,.05))}
+/* ═══ SIGNUP ROW ═══ */
+.bc-signup-row{display:flex;align-items:stretch;gap:0;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);border-radius:14px;cursor:pointer;transition:all .22s cubic-bezier(.25,.46,.45,.94);overflow:hidden;position:relative;min-height:62px}
+.bc-signup-row:hover{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.07);transform:translateX(3px);box-shadow:0 4px 16px rgba(34,197,94,.08)}
+.bc-signup-row.joined-row{border-color:rgba(34,197,94,.6);background:linear-gradient(100deg,rgba(34,197,94,.13),rgba(34,197,94,.04));box-shadow:0 0 0 1px rgba(34,197,94,.08) inset}
+.bc-signup-row.joined-row:hover{border-color:rgba(34,197,94,.8);box-shadow:0 4px 20px rgba(34,197,94,.18),0 0 0 1px rgba(34,197,94,.12) inset}
+.bc-signup-row.league{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.04)}
+.bc-signup-row.league:hover{border-color:rgba(251,191,36,.65);background:rgba(251,191,36,.09);box-shadow:0 4px 16px rgba(251,191,36,.1)}
+.bc-signup-row.league.joined-row{border-color:rgba(251,191,36,.75);background:linear-gradient(100deg,rgba(251,191,36,.16),rgba(251,191,36,.04));box-shadow:0 0 0 1px rgba(251,191,36,.1) inset}
 
-/* Dải màu bên trái (trang trí) */
-.bc-signup-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:12px 0 0 12px;background:rgba(255,255,255,.06);transition:background .2s}
-.bc-signup-row.league::before{background:rgba(251,191,36,.5)}
-.bc-signup-row.joined-row::before{background:rgba(34,197,94,.7)}
-.bc-signup-row.league.joined-row::before{background:linear-gradient(180deg,#fbbf24,#22c55e)}
+/* Dải màu bên trái */
+.bc-signup-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:14px 0 0 14px;background:rgba(255,255,255,.07);transition:background .22s,box-shadow .22s}
+.bc-signup-row.league::before{background:linear-gradient(180deg,#fbbf24,#f59e0b);box-shadow:2px 0 8px rgba(251,191,36,.25)}
+.bc-signup-row.joined-row::before{background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:2px 0 8px rgba(34,197,94,.3)}
+.bc-signup-row.league.joined-row::before{background:linear-gradient(180deg,#fbbf24,#22c55e,#4ade80);box-shadow:2px 0 10px rgba(251,191,36,.3)}
 
-.bc-signup-checkbox-wrap{padding:14px 12px 14px 16px;display:flex;align-items:center;flex-shrink:0}
-.bc-signup-row input[type="checkbox"]{width:20px;height:20px;margin:0;accent-color:var(--green-500);flex:0 0 auto;cursor:pointer;border-radius:6px}
+/* ── Custom Checkbox ── */
+.bc-signup-checkbox-wrap{padding:0 12px 0 18px;display:flex;align-items:center;flex-shrink:0;z-index:2}
+/* Ẩn input gốc */
+.bc-signup-row input[type="checkbox"]{display:none}
+/* Custom checkbox: vòng tròn/ô */
+.bc-signup-check-icon{
+  width:26px;height:26px;border-radius:50%;flex:0 0 auto;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  border:2px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.04);
+  transition:all .22s cubic-bezier(.25,.46,.45,.94);
+  font-size:14px;color:transparent;
+  position:relative;overflow:hidden;
+}
+.bc-signup-row:hover .bc-signup-check-icon{
+  border-color:rgba(34,197,94,.6);
+  background:rgba(34,197,94,.08);
+  color:rgba(34,197,94,.4);
+}
+.bc-signup-row.league .bc-signup-check-icon{border-color:rgba(251,191,36,.35)}
+.bc-signup-row.league:hover .bc-signup-check-icon{border-color:rgba(251,191,36,.7);background:rgba(251,191,36,.08);color:rgba(251,191,36,.4)}
+/* Checked state */
+.bc-signup-row.joined-row .bc-signup-check-icon{
+  border-color:rgba(34,197,94,.9);
+  background:linear-gradient(135deg,rgba(34,197,94,.35),rgba(22,163,74,.25));
+  color:#4ade80;
+  box-shadow:0 0 10px rgba(34,197,94,.3),inset 0 0 6px rgba(34,197,94,.1);
+}
+.bc-signup-row.league.joined-row .bc-signup-check-icon{
+  border-color:rgba(251,191,36,.9);
+  background:linear-gradient(135deg,rgba(251,191,36,.35),rgba(245,158,11,.25));
+  color:#fbbf24;
+  box-shadow:0 0 10px rgba(251,191,36,.3),inset 0 0 6px rgba(251,191,36,.1);
+}
 
-.bc-signup-main{min-width:0;flex:1;padding:12px 4px;position:relative;z-index:1}
-.bc-signup-title-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.bc-signup-name{font-weight:800;font-size:13.5px;color:var(--text);line-height:1.3}
-.bc-signup-badge-league{font-size:10px;font-weight:900;letter-spacing:.1em;color:#111827;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:999px;padding:2px 8px;text-transform:uppercase;flex-shrink:0}
-.bc-signup-sub{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
-.bc-signup-day{font-size:11px;color:var(--text3)}
-.bc-signup-time{font-size:11.5px;font-weight:700;color:var(--green-300);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:6px;padding:1px 7px}
-.bc-signup-row.league .bc-signup-time{color:#fbbf24;background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.25)}
+/* ── Main Content ── */
+.bc-signup-main{min-width:0;flex:1;padding:11px 6px 11px 2px;position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center}
+.bc-signup-title-row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow:hidden}
+.bc-signup-name{font-weight:800;font-size:13.5px;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bc-signup-badge-league{font-size:9px;font-weight:900;letter-spacing:.12em;color:#111827;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:999px;padding:2px 7px;text-transform:uppercase;flex-shrink:0;white-space:nowrap}
+.bc-signup-sub{display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:nowrap;overflow:hidden}
+.bc-signup-day{font-size:11px;color:rgba(148,163,184,.65);white-space:nowrap;flex-shrink:0}
+.bc-signup-time{
+  font-size:11px;font-weight:700;color:rgba(134,239,172,.9);
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.22);border-radius:6px;padding:1px 7px;
+  white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:3px;
+}
+.bc-signup-row.league .bc-signup-time{color:#fcd34d;background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.28)}
+/* text trong joined-row sáng hơn */
+.bc-signup-row.joined-row .bc-signup-name{color:#d1fae5}
+.bc-signup-row.league.joined-row .bc-signup-name{color:#fef3c7}
 
-.bc-signup-right{padding:12px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;position:relative;z-index:1}
-.bc-signup-count{font-size:12px;font-weight:800;color:var(--green-300)}
-.bc-signup-joined-tag{font-size:10px;font-weight:700;color:var(--green-400);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:999px;padding:2px 8px;white-space:nowrap}
-.bc-signup-row.league .bc-signup-count{color:#fbbf24}
+/* ── Right ── */
+.bc-signup-right{padding:10px 14px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;flex-shrink:0;position:relative;z-index:1}
+.bc-signup-count{font-size:12px;font-weight:800;color:rgba(134,239,172,.85);white-space:nowrap}
+.bc-signup-joined-tag{
+  font-size:10px;font-weight:700;color:#4ade80;
+  background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.35);border-radius:999px;padding:2px 9px;
+  white-space:nowrap;letter-spacing:.2px;
+  box-shadow:0 0 6px rgba(34,197,94,.15);
+}
+.bc-signup-row.league .bc-signup-count{color:#fcd34d}
+.bc-signup-row.league .bc-signup-joined-tag{color:#fbbf24;background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.35);box-shadow:0 0 6px rgba(251,191,36,.15)}
 
 .modal.signup{
-  width:min(520px,calc(100vw - 24px));
-  background:linear-gradient(160deg,rgba(5,22,11,.98),rgba(3,15,8,.98));
-  border-color:rgba(34,197,94,.28);
+  width:min(480px,calc(100vw - 20px));
+  background:linear-gradient(160deg,rgba(4,18,9,.99),rgba(2,12,6,.99));
+  border-color:rgba(34,197,94,.3);
+  border-radius:18px;
+  box-shadow:0 24px 64px rgba(0,0,0,.7),0 0 0 1px rgba(34,197,94,.08);
   --signup-text:#e2e8f0;
   --signup-muted:#94a3b8;
   --signup-dim:#64748b;
@@ -1602,10 +1652,12 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 }
 .modal.signup .bc-signup-row{display:flex;color:var(--signup-text)}
 .modal.signup .bc-signup-name{color:var(--signup-text)}
-.modal.signup .bc-signup-day{color:var(--signup-dim)}
+.modal.signup .bc-signup-day{color:rgba(100,116,139,.75)}
 .modal.signup .bc-signup-time,.modal.signup .bc-signup-count{color:var(--signup-green)}
+.modal.signup .bc-signup-row.joined-row .bc-signup-name{color:#bbf7d0}
 .modal.signup .bc-signup-row.league .bc-signup-time,
 .modal.signup .bc-signup-row.league .bc-signup-count{color:var(--signup-gold)}
+.modal.signup .bc-signup-row.league.joined-row .bc-signup-name{color:#fef3c7}
 /* ═══ TAB NHIỆM VỤ ═══ */
 .tasks-tab-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .tasks-tab-header .tt-title{font-size:14px;font-weight:700;color:var(--gold)}
@@ -4787,6 +4839,13 @@ function renderSignupModalList() {
             input.dataset.sessionKey = key;
             input.checked = joined;
             checkboxWrap.appendChild(input);
+            // Custom visual checkbox icon (thay thế native checkbox)
+            const checkIcon = document.createElement('div');
+            checkIcon.className = 'bc-signup-check-icon';
+            checkIcon.innerHTML = joined
+                ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+                : `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+            checkboxWrap.appendChild(checkIcon);
 
             const main = document.createElement('div');
             main.className = 'bc-signup-main';
@@ -7107,7 +7166,8 @@ function getFeedbackCategoryLabel(category) {
 }
 
 function canCurrentUserDeleteFeedback() {
-    return String(window.currentDiscordId || '') === FEEDBACK_DELETE_OWNER_ID;
+    return String(window.currentDiscordId || '') === FEEDBACK_DELETE_OWNER_ID
+        || hasElevatedRosterRole();
 }
 
 function ensureFeedbackModal() {
@@ -7151,7 +7211,6 @@ function ensureFeedbackModal() {
                 <span class="feedback-label">Nội dung</span>
                 <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required placeholder="Nhập góp ý của bạn..."></textarea>
               </label>
-              <div class="feedback-note">Người xem chỉ thấy “Ẩn danh”. Admin nhận chi tiết qua Discord webhook.</div>
               <div class="feedback-form-actions">
                 <div class="feedback-status" id="feedbackStatus"></div>
                 <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">Gửi góp ý</button>

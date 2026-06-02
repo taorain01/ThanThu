@@ -614,6 +614,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   box-shadow:0 0 8px rgba(200,162,44,.6);
   border:1px solid rgba(255,215,0,.5);
 }
+.mp-autoplay{
+  display:flex;align-items:center;gap:8px;
+  padding:0 14px 10px;
+  color:rgba(255,245,210,.62);
+  font-size:10.5px;font-weight:700;
+  cursor:pointer;
+}
+.mp-autoplay input{
+  width:14px;height:14px;
+  flex-shrink:0;
+  accent-color:#c8a22c;
+  cursor:pointer;
+}
+.mp-autoplay span{
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mp-autoplay:hover{color:var(--gold)}
 /* Playlist list toggle */
 .mp-list-btn{
   width:100%;padding:6px 14px 10px;
@@ -837,93 +854,218 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 10px rgba(0,0,0,.55),0 0 15px rgba(251,191,36,.18);
 }
 .feedback-btn svg{width:17px;height:17px;flex-shrink:0}
+
+/* ═══ FEEDBACK MODAL ═══ */
 .feedback-modal-ov{
-  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.68);
-  display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(6px);
+  position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,.72);
+  display:none;align-items:center;justify-content:center;padding:16px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
 }
 .feedback-modal-ov.active{display:flex}
 .feedback-modal{
-  width:min(980px,96%);max-height:min(88vh,760px);display:flex;flex-direction:column;
-  background:linear-gradient(160deg,rgba(10,22,14,.98),rgba(6,14,9,.99));
-  border:1px solid rgba(251,191,36,.18);border-radius:18px;overflow:hidden;
-  box-shadow:0 32px 80px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.03);
-  animation:pmSlideIn .25s cubic-bezier(.25,.46,.45,.94);
+  width:min(1060px,96%);max-height:min(90vh,820px);display:flex;flex-direction:column;
+  background:linear-gradient(155deg,rgba(8,18,12,1),rgba(4,10,7,1));
+  border:1px solid rgba(255,255,255,.08);border-radius:22px;overflow:hidden;
+  box-shadow:0 40px 100px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04),
+             0 0 80px rgba(34,197,94,.04) inset;
+  animation:feedbackSlideIn .3s cubic-bezier(.22,.68,0,1.2);
 }
+@keyframes feedbackSlideIn{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ─── Header ─── */
 .feedback-head{
-  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px 14px;
-  background:linear-gradient(135deg,rgba(251,191,36,.1),rgba(34,197,94,.045));
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:20px 24px 18px;
+  background:linear-gradient(90deg,rgba(34,197,94,.05),rgba(251,191,36,.05),transparent);
   border-bottom:1px solid rgba(255,255,255,.06);
+  flex-shrink:0;
 }
-.feedback-title{font-size:17px;font-weight:900;color:var(--text);letter-spacing:.2px}
-.feedback-sub{font-size:11px;color:var(--text2);margin-top:2px;line-height:1.4}
+.feedback-head-left{display:flex;align-items:center;gap:14px}
+.feedback-head-icon{
+  width:42px;height:42px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(251,191,36,.1));
+  border:1px solid rgba(34,197,94,.2);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.feedback-head-text{}
+.feedback-title{font-size:18px;font-weight:900;color:var(--text);letter-spacing:.1px;line-height:1.2}
+.feedback-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.feedback-head-stats{display:flex;gap:12px;margin-left:auto}
+.feedback-stat{display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:6px 14px;border-radius:10px;background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.06)}
+.feedback-stat-num{font-size:18px;font-weight:900;color:var(--gold);line-height:1}
+.feedback-stat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
 .feedback-close{
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-  color:var(--text2);border-radius:10px;padding:7px 11px;cursor:pointer;font-size:13px;transition:all .2s;flex-shrink:0;
+  color:var(--text2);border-radius:10px;padding:7px 11px;cursor:pointer;
+  font-size:13px;transition:all .2s;flex-shrink:0;
 }
 .feedback-close:hover{background:rgba(255,80,80,.1);border-color:rgba(255,80,80,.25);color:#fca5a5}
-/* Two-column body: form left, list right */
+
+/* ─── Two-column layout ─── */
 .feedback-body{
-  display:grid;grid-template-columns:minmax(300px,340px) minmax(420px,1fr);gap:0;overflow:hidden;flex:1;min-height:0;
+  display:grid;grid-template-columns:minmax(280px,310px) 1fr;
+  gap:0;overflow:hidden;flex:1;min-height:0;
 }
+
+/* ─── LEFT: Compose Panel ─── */
 .feedback-col-left{
-  padding:18px;border-right:1px solid rgba(255,255,255,.06);overflow-y:auto;
-  display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(251,191,36,.035),rgba(255,255,255,.012));
+  padding:20px 18px;border-right:1px solid rgba(255,255,255,.05);overflow-y:auto;
+  display:flex;flex-direction:column;gap:16px;
+  background:linear-gradient(180deg,rgba(34,197,94,.025) 0%,transparent 40%);
 }
-.feedback-col-right{
-  padding:18px;overflow:hidden;display:flex;flex-direction:column;background:rgba(0,0,0,.08);
+.feedback-compose-label{
+  font-size:11px;font-weight:900;color:rgba(134,239,172,.7);
+  text-transform:uppercase;letter-spacing:.9px;
+  display:flex;align-items:center;gap:6px;
 }
+.feedback-compose-label::before{content:'';flex:1;height:1px;background:rgba(34,197,94,.12)}
+.feedback-compose-label::after{content:'';flex:1;height:1px;background:rgba(34,197,94,.12)}
 .feedback-form{
-  display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.035);
-  border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+  display:flex;flex-direction:column;gap:14px;
 }
-.feedback-field{display:flex;flex-direction:column;gap:6px}
-.feedback-field.full{grid-column:1 / -1}
+.feedback-category-grid{
+  display:flex;gap:7px;flex-wrap:wrap;
+}
+.feedback-cat-btn{
+  display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:10px;
+  font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;
+  border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:var(--text3);font-family:'Inter',sans-serif;
+}
+.feedback-cat-btn:hover{border-color:rgba(255,255,255,.18);color:var(--text)}
+.feedback-cat-btn.active-cat{color:#fff!important;transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.feedback-cat-btn.cat-feedback.active-cat{border-color:#4ade80;background:rgba(34,197,94,.2);box-shadow:0 4px 14px rgba(34,197,94,.2)}
+.feedback-cat-btn.cat-bug.active-cat{border-color:#f87171;background:rgba(239,68,68,.2);box-shadow:0 4px 14px rgba(239,68,68,.2)}
+.feedback-cat-btn.cat-suggestion.active-cat{border-color:#a78bfa;background:rgba(139,92,246,.2);box-shadow:0 4px 14px rgba(139,92,246,.2)}
+.feedback-cat-btn.cat-other.active-cat{border-color:#94a3b8;background:rgba(148,163,184,.15);box-shadow:0 4px 14px rgba(148,163,184,.1)}
+.feedback-cat-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.feedback-cat-btn.cat-feedback .feedback-cat-dot{color:#4ade80}
+.feedback-cat-btn.cat-bug .feedback-cat-dot{color:#f87171}
+.feedback-cat-btn.cat-suggestion .feedback-cat-dot{color:#a78bfa}
+.feedback-cat-btn.cat-other .feedback-cat-dot{color:#94a3b8}
+.feedback-field{display:flex;flex-direction:column;gap:8px}
 .feedback-label{font-size:11px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.7px}
-.feedback-select,.feedback-textarea{
-  width:100%;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(0,0,0,.24);
-  color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;
+.feedback-textarea{
+  width:100%;border:1.5px solid rgba(255,255,255,.08);border-radius:12px;
+  background:rgba(0,0,0,.3);color:var(--text);font-family:'Inter',sans-serif;
+  font-size:13.5px;line-height:1.6;outline:none;transition:border-color .2s,box-shadow .2s;
+  min-height:140px;resize:vertical;padding:13px 14px;
 }
-.feedback-select{height:40px;padding:0 11px}
-.feedback-textarea{min-height:130px;resize:vertical;padding:11px 12px;line-height:1.5}
-.feedback-select:focus,.feedback-textarea:focus{border-color:rgba(251,191,36,.45);box-shadow:0 0 0 3px rgba(251,191,36,.08)}
-.feedback-form-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
-.feedback-status{font-size:12px;color:var(--text3);min-height:18px;flex:1}
-.feedback-status.success{color:var(--green-400)}
+.feedback-textarea::placeholder{color:rgba(148,163,184,.35)}
+.feedback-textarea:focus{border-color:rgba(34,197,94,.4);box-shadow:0 0 0 3px rgba(34,197,94,.07)}
+.feedback-char-count{font-size:11px;color:var(--text3);text-align:right;margin-top:-4px}
+.feedback-char-count.near-limit{color:#fbbf24}
+.feedback-char-count.at-limit{color:#f87171}
+.feedback-anon-note{
+  display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;
+  background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.1);
+  font-size:11.5px;color:rgba(134,239,172,.75);line-height:1.5;
+}
+.feedback-anon-icon{font-size:16px;flex-shrink:0;margin-top:0px}
+.feedback-form-actions{display:flex;align-items:center;gap:10px;margin-top:2px}
+.feedback-status{font-size:12px;color:var(--text3);min-height:18px;flex:1;line-height:1.4}
+.feedback-status.success{color:#4ade80}
 .feedback-status.error{color:#fca5a5}
 .feedback-submit{
-  height:38px;padding:0 18px;border:none;border-radius:10px;cursor:pointer;font-weight:900;color:#102015;
-  background:linear-gradient(135deg,var(--gold),var(--gold-deep));box-shadow:0 6px 18px rgba(251,191,36,.14);
-  font-size:13px;transition:all .18s;
+  height:42px;padding:0 20px;border:none;border-radius:11px;cursor:pointer;
+  font-weight:900;color:#0a1a0f;font-size:13px;letter-spacing:.3px;
+  background:linear-gradient(135deg,#4ade80,#22c55e);
+  box-shadow:0 6px 20px rgba(34,197,94,.3);
+  transition:all .2s;white-space:nowrap;font-family:'Inter',sans-serif;
 }
-.feedback-submit:hover{box-shadow:0 8px 24px rgba(251,191,36,.22);transform:translateY(-1px)}
-.feedback-submit:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;transform:none}
-.feedback-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-shrink:0}
-.feedback-list-title{font-size:13px;font-weight:900;color:var(--text);text-transform:uppercase;letter-spacing:.6px}
-.feedback-refresh{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--text2);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer;transition:all .18s}
-.feedback-refresh:hover{color:var(--gold);border-color:rgba(251,191,36,.25)}
-.feedback-list{display:flex;flex-direction:column;gap:8px;flex:1;min-height:60px;overflow-y:auto;padding-right:2px}
+.feedback-submit:hover{box-shadow:0 8px 28px rgba(34,197,94,.45);transform:translateY(-1px);background:linear-gradient(135deg,#6ee7a0,#34d36a)}
+.feedback-submit:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+.feedback-select{display:none}
+
+/* ─── RIGHT: Comment Feed ─── */
+.feedback-col-right{
+  padding:20px;overflow:hidden;display:flex;flex-direction:column;
+  background:rgba(0,0,0,.12);
+}
+.feedback-list-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:14px;flex-shrink:0;
+}
+.feedback-list-title{
+  font-size:15px;font-weight:900;color:var(--text);letter-spacing:.3px;
+  display:flex;align-items:center;gap:8px;
+}
+.feedback-list-title-count{
+  font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);
+  color:var(--green-300);
+}
+.feedback-filter-bar{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto}
+.feedback-filter-tab{
+  padding:5px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;
+  border:1px solid rgba(255,255,255,.08);background:transparent;color:var(--text3);
+  white-space:nowrap;transition:all .16s;font-family:'Inter',sans-serif;
+}
+.feedback-filter-tab:hover{border-color:rgba(255,255,255,.18);color:var(--text)}
+.feedback-filter-tab.active-filter{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);color:var(--text)}
+.feedback-refresh{
+  border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);
+  color:var(--text2);border-radius:9px;padding:6px 11px;font-size:11px;font-weight:800;
+  cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'Inter',sans-serif;
+  display:flex;align-items:center;gap:5px;
+}
+.feedback-refresh:hover{color:var(--gold);border-color:rgba(251,191,36,.3)}
+.feedback-refresh svg{width:13px;height:13px;transition:transform .4s}
+.feedback-refresh:hover svg{transform:rotate(180deg)}
+
+.feedback-list{display:flex;flex-direction:column;gap:10px;flex:1;min-height:60px;overflow-y:auto;padding-right:6px}
 .feedback-list::-webkit-scrollbar{width:4px}
-.feedback-list::-webkit-scrollbar-track{background:rgba(255,255,255,.035);border-radius:4px}
-.feedback-list::-webkit-scrollbar-thumb{background:rgba(251,191,36,.24);border-radius:4px}
+.feedback-list::-webkit-scrollbar-track{background:rgba(255,255,255,.03);border-radius:4px}
+.feedback-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
+.feedback-list::-webkit-scrollbar-thumb:hover{background:rgba(251,191,36,.3)}
+
 .feedback-empty,.feedback-loading,.feedback-error{
-  padding:22px;text-align:center;border:1px dashed rgba(255,255,255,.08);border-radius:12px;color:var(--text3);font-size:13px;
+  padding:36px 24px;text-align:center;border:1px dashed rgba(255,255,255,.07);
+  border-radius:14px;color:var(--text3);font-size:13px;line-height:1.6;
 }
-.feedback-error{color:#fca5a5;border-color:rgba(248,113,113,.22)}
-.feedback-item{
-  padding:12px 13px;border-radius:12px;position:relative;
-  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.024));
-  border:1px solid rgba(255,255,255,.065);transition:border-color .18s,background .18s;
+.feedback-loading{animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+.feedback-error{color:#fca5a5;border-color:rgba(248,113,113,.18)}
+
+/* ─── Comment Card (blog style) ─── */
+.fb-comment{
+  display:flex;gap:12px;padding:14px 16px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(255,255,255,.035),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.06);
+  transition:border-color .2s,background .2s,transform .2s;
+  position:relative;animation:fbCommentIn .3s ease both;
 }
-.feedback-item:hover{border-color:rgba(251,191,36,.2);background:rgba(255,255,255,.045)}
-.feedback-item-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
-.feedback-anon{font-size:12px;font-weight:800;color:var(--text2)}
-.feedback-chip{
-  font-size:10px;font-weight:800;color:var(--gold);border:1px solid rgba(251,191,36,.22);
-  background:rgba(251,191,36,.08);border-radius:999px;padding:2px 7px;
+@keyframes fbCommentIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fb-comment:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.045);transform:translateY(-1px)}
+.fb-comment-avatar{
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  font-weight:900;background:linear-gradient(135deg,rgba(34,197,94,.25),rgba(251,191,36,.15));
+  border:1.5px solid rgba(34,197,94,.2);color:var(--green-300);
+  position:relative;overflow:hidden;
 }
-.feedback-time{font-size:10px;color:var(--text3);margin-left:auto}
-.feedback-content{font-size:13px;line-height:1.5;color:var(--text2);white-space:pre-wrap;word-break:break-word}
+.fb-comment-body{flex:1;min-width:0}
+.fb-comment-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.fb-comment-name{font-size:13px;font-weight:800;color:var(--text)}
+.fb-comment-category{
+  font-size:10px;font-weight:800;border-radius:999px;padding:2px 9px;
+  letter-spacing:.3px;text-transform:uppercase;
+}
+.fb-cat-feedback{color:#4ade80;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.25)}
+.fb-cat-bug{color:#f87171;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.25)}
+.fb-cat-suggestion{color:#c4b5fd;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.25)}
+.fb-cat-other{color:#94a3b8;background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2)}
+.fb-comment-time{font-size:10px;color:var(--text3);margin-left:auto;white-space:nowrap}
+.fb-comment-text{
+  font-size:13.5px;line-height:1.65;color:rgba(226,232,240,.85);
+  white-space:pre-wrap;word-break:break-word;
+}
+.fb-comment-footer{
+  display:flex;align-items:center;gap:8px;margin-top:8px;
+}
+.fb-comment-no{font-size:10px;color:var(--text3);opacity:.6}
 .feedback-delete{
   position:absolute;top:10px;right:10px;border:1px solid rgba(248,113,113,.22);background:rgba(248,113,113,.08);color:#fca5a5;
   border-radius:8px;padding:4px 8px;font-size:11px;font-weight:800;cursor:pointer;opacity:.72;transition:opacity .18s,background .18s;
@@ -7170,6 +7312,27 @@ function canCurrentUserDeleteFeedback() {
         || hasElevatedRosterRole();
 }
 
+function selectFeedbackCat(btn) {
+    // Update visual buttons
+    document.querySelectorAll('#feedbackCatGrid .feedback-cat-btn').forEach(b => b.classList.remove('active-cat'));
+    btn.classList.add('active-cat');
+    // Sync hidden select
+    const cat = btn.dataset.cat;
+    const sel = document.getElementById('feedbackCategory');
+    if (sel) sel.value = cat;
+}
+
+function updateFeedbackCharCount(textarea) {
+    const el = document.getElementById('feedbackCharCount');
+    if (!el) return;
+    const len = textarea.value.length;
+    const max = 1500;
+    el.textContent = `${len} / ${max}`;
+    el.className = 'feedback-char-count';
+    if (len > max * 0.9) el.classList.add('near-limit');
+    if (len >= max) el.classList.add('at-limit');
+}
+
 function ensureFeedbackModal() {
     if (document.getElementById('feedbackModalOv')) return;
 
@@ -7189,38 +7352,74 @@ function ensureFeedbackModal() {
     ov.innerHTML = `
       <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
         <div class="feedback-head">
-          <div>
-            <div class="feedback-title" id="feedbackModalTitle">Góp ý ẩn danh</div>
-            <div class="feedback-sub">Ẩn danh trên web, quản trị nhận đầy đủ qua Discord.</div>
+          <div class="feedback-head-left">
+            <div class="feedback-head-icon">💬</div>
+            <div class="feedback-head-text">
+              <div class="feedback-title" id="feedbackModalTitle">Góp ý &amp; Bình luận</div>
+              <div class="feedback-sub">Ẩn danh trên web • Quản trị nhận đầy đủ qua Discord</div>
+            </div>
+          </div>
+          <div class="feedback-head-stats">
+            <div class="feedback-stat"><div class="feedback-stat-num" id="feedbackTotalCount">–</div><div class="feedback-stat-lbl">Góp ý</div></div>
           </div>
           <button class="feedback-close" type="button" onclick="closeFeedbackModal()">✕</button>
         </div>
         <div class="feedback-body">
           <div class="feedback-col-left">
+            <div class="feedback-compose-label">Viết bình luận</div>
             <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
-              <label class="feedback-field">
+              <!-- Hidden real select for form submission -->
+              <select class="feedback-select" id="feedbackCategory" style="display:none">
+                <option value="feedback">Góp ý</option>
+                <option value="bug">Báo lỗi</option>
+                <option value="suggestion">Đề xuất</option>
+                <option value="other">Khác</option>
+              </select>
+              <!-- Visual category buttons -->
+              <div class="feedback-field">
                 <span class="feedback-label">Loại</span>
-                <select class="feedback-select" id="feedbackCategory">
-                  <option value="feedback">Góp ý</option>
-                  <option value="bug">Báo lỗi</option>
-                  <option value="suggestion">Đề xuất</option>
-                  <option value="other">Khác</option>
-                </select>
-              </label>
-              <label class="feedback-field">
+                <div class="feedback-category-grid" id="feedbackCatGrid">
+                  <button type="button" class="feedback-cat-btn cat-feedback active-cat" data-cat="feedback" onclick="selectFeedbackCat(this)">
+                    <span class="feedback-cat-dot"></span> Góp ý
+                  </button>
+                  <button type="button" class="feedback-cat-btn cat-bug" data-cat="bug" onclick="selectFeedbackCat(this)">
+                    <span class="feedback-cat-dot"></span> Báo lỗi
+                  </button>
+                  <button type="button" class="feedback-cat-btn cat-suggestion" data-cat="suggestion" onclick="selectFeedbackCat(this)">
+                    <span class="feedback-cat-dot"></span> Đề xuất
+                  </button>
+                  <button type="button" class="feedback-cat-btn cat-other" data-cat="other" onclick="selectFeedbackCat(this)">
+                    <span class="feedback-cat-dot"></span> Khác
+                  </button>
+                </div>
+              </div>
+              <div class="feedback-field">
                 <span class="feedback-label">Nội dung</span>
-                <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required placeholder="Nhập góp ý của bạn..."></textarea>
-              </label>
+                <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required
+                  placeholder="Chia sẻ góp ý, báo lỗi hoặc đề xuất của bạn..."
+                  oninput="updateFeedbackCharCount(this)"></textarea>
+                <div class="feedback-char-count" id="feedbackCharCount">0 / 1500</div>
+              </div>
+              <div class="feedback-anon-note">
+                <span class="feedback-anon-icon">🔒</span>
+                <span>Tên của bạn sẽ được ẩn danh trên web. Quản trị viên nhận đầy đủ thông tin qua Discord.</span>
+              </div>
               <div class="feedback-form-actions">
                 <div class="feedback-status" id="feedbackStatus"></div>
-                <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">Gửi góp ý</button>
+                <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">✦ Gửi góp ý</button>
               </div>
             </form>
           </div>
           <div class="feedback-col-right">
             <div class="feedback-list-head">
-              <div class="feedback-list-title">Tất cả góp ý</div>
-              <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">Tải lại</button>
+              <div class="feedback-list-title">
+                Cộng đồng nói
+                <span class="feedback-list-title-count" id="feedbackCountBadge">0</span>
+              </div>
+              <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Tải lại
+              </button>
             </div>
             <div class="feedback-list" id="feedbackList"></div>
           </div>
@@ -7302,28 +7501,49 @@ async function loadFeedbackList(showLoading = false) {
 function renderFeedbackList(items) {
     const list = document.getElementById('feedbackList');
     if (!list) return;
+
+    // Update counters
+    const countBadge = document.getElementById('feedbackCountBadge');
+    const totalCount = document.getElementById('feedbackTotalCount');
+    if (countBadge) countBadge.textContent = items.length;
+    if (totalCount) totalCount.textContent = items.length;
+
     if (!items.length) {
-        list.innerHTML = '<div class="feedback-empty">Chưa có góp ý nào.</div>';
+        list.innerHTML = `<div class="feedback-empty">💬 Chưa có góp ý nào.<br><span style="font-size:11px;opacity:.6">Hãy là người đầu tiên chia sẻ!</span></div>`;
         return;
     }
 
+    // Category class maps
+    const catClass = { feedback: 'fb-cat-feedback', bug: 'fb-cat-bug', suggestion: 'fb-cat-suggestion', other: 'fb-cat-other' };
+    const catLabel = { feedback: 'Góp ý', bug: 'Báo lỗi', suggestion: 'Đề xuất', other: 'Khác' };
+    // Avatar emojis cycle
+    const avatars = ['👤','🦊','🦁','🐺','🦅','🐉','🌙','⚔️','🛡️','🎯'];
+
     const canDelete = canCurrentUserDeleteFeedback();
-    list.innerHTML = items.map((item) => {
-        const deleteButton = canDelete
-            ? `<button class="feedback-delete" type="button" onclick="deleteFeedback('${escHtml(item.id)}')">Xóa</button>`
+    list.innerHTML = items.map((item, idx) => {
+        const cat = item.category || 'feedback';
+        const catCls = catClass[cat] || catClass.feedback;
+        const catLbl = catLabel[cat] || catLabel.feedback;
+        const avatar = avatars[idx % avatars.length];
+        const timeStr = escHtml(formatFeedbackTime(item.created_at));
+        const deleteBtn = canDelete
+            ? `<button class="feedback-delete" type="button" onclick="deleteFeedback('${escHtml(item.id)}')">🗑 Xóa</button>`
             : '';
-        return `
-          <div class="feedback-item" data-feedback-id="${escHtml(item.id)}">
-            <div>
-              <div class="feedback-item-top">
-                <span class="feedback-anon">Ẩn danh</span>
-                <span class="feedback-chip">${escHtml(getFeedbackCategoryLabel(item.category))}</span>
-                <span class="feedback-time">${escHtml(formatFeedbackTime(item.created_at))}</span>
-              </div>
-              <div class="feedback-content">${escHtml(item.content)}</div>
+        return `<div class="fb-comment" data-feedback-id="${escHtml(item.id)}" style="animation-delay:${idx * 40}ms">
+          <div class="fb-comment-avatar">${avatar}</div>
+          <div class="fb-comment-body">
+            <div class="fb-comment-header">
+              <span class="fb-comment-name">Ẩn danh</span>
+              <span class="fb-comment-category ${catCls}">${escHtml(catLbl)}</span>
+              <span class="fb-comment-time">${timeStr}</span>
             </div>
-            ${deleteButton}
-          </div>`;
+            <div class="fb-comment-text">${escHtml(item.content)}</div>
+            <div class="fb-comment-footer">
+              <span class="fb-comment-no">#${items.length - idx}</span>
+              ${deleteBtn}
+            </div>
+          </div>
+        </div>`;
     }).join('');
 }
 
@@ -8299,6 +8519,10 @@ document.addEventListener('keydown', (e) => {
       <input type="range" class="mp-vol-sl" id="mpVolSl" min="0" max="100" value="65"
         oninput="mpSetVol(this.value)">
     </div>
+    <label class="mp-autoplay" for="mpAutoplay" title="Bật/tắt tự phát nhạc khi mở web">
+      <input type="checkbox" id="mpAutoplay" checked onchange="mpSetAutoplay(this.checked)">
+      <span>Tự động phát nhạc</span>
+    </label>
     <!-- Playlist dropdown -->
     <button class="mp-list-btn" onclick="mpToggleList()">
       <span id="mpListArrow"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg></span> Danh sách (<span id="mpListCnt">0</span> bài)
@@ -8521,12 +8745,30 @@ document.addEventListener('keydown', (e) => {
   ];
 
   const audio = document.getElementById('mpAudio');
+  const MP_AUTOPLAY_KEY = 'mp-autoplay-enabled';
   let curPl=0, curIdx=-1, shuffle=true, repeat=false;
+  let autoplayEnabled = readAutoplayEnabled();
   let panelOpen=false, listOpen=false;
   let shufOrder=[];
   let clampPlayerPosition = function() {};
 
   const $=id=>document.getElementById(id);
+
+  function readAutoplayEnabled() {
+    try { return localStorage.getItem(MP_AUTOPLAY_KEY) !== '0'; }
+    catch (_) { return true; }
+  }
+
+  function saveAutoplayEnabled(enabled) {
+    autoplayEnabled = !!enabled;
+    try { localStorage.setItem(MP_AUTOPLAY_KEY, autoplayEnabled ? '1' : '0'); }
+    catch (_) {}
+  }
+
+  function syncAutoplayUI() {
+    const checkbox = $('mpAutoplay');
+    if (checkbox) checkbox.checked = autoplayEnabled;
+  }
 
   // Build EQ bars
   const eq=$('mpEq');
@@ -8674,7 +8916,7 @@ document.addEventListener('keydown', (e) => {
     let suppressTimer = null;
     const POINTER_DRAG_THRESHOLD = 6;
     const SAFE_MARGIN = 8;
-    const POINTER_IGNORE_SELECTORS = 'button, input, .mp-prog-track, .mp-list, .mp-tab, .mp-close-btn';
+    const POINTER_IGNORE_SELECTORS = 'button, input, label, .mp-autoplay, .mp-prog-track, .mp-list, .mp-tab, .mp-close-btn';
 
     function viewportSize() {
       const vv = window.visualViewport;
@@ -8813,7 +9055,7 @@ document.addEventListener('keydown', (e) => {
     let hasMoved = false;
     const DRAG_THRESHOLD = 5;
     const EDGE_SNAP = 30; // px gần cạnh thì snap
-    const IGNORE_SELECTORS = 'button, input, .mp-prog-track, .mp-list, .mp-tab, .mp-close-btn';
+    const IGNORE_SELECTORS = 'button, input, label, .mp-autoplay, .mp-prog-track, .mp-list, .mp-tab, .mp-close-btn';
 
     function getWrapPos() {
       const rect = wrap.getBoundingClientRect();
@@ -8975,6 +9217,15 @@ document.addEventListener('keydown', (e) => {
     $('mpListArrow').innerHTML=listOpen?'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>':'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>';
   };
 
+  window.mpSetAutoplay=function(enabled){
+    saveAutoplayEnabled(enabled);
+    syncAutoplayUI();
+    if (!autoplayEnabled) {
+      _mpRemoveAutoListeners();
+      _mpAutoStarted = false;
+    }
+  };
+
   // Auto next
   audio.addEventListener('ended',()=>{ if(!repeat) mpNext(); });
 
@@ -9002,35 +9253,47 @@ document.addEventListener('keydown', (e) => {
   // Shuffle ON mặc định, Repeat OFF
   $('mpShuf').classList.add('on');
   $('mpRep').style.opacity='.4';
+  syncAutoplayUI();
 
   // ── Autoplay: tự phát khi user tương tác lần đầu (bypass browser policy) ──
   let _mpAutoStarted = false;
   // CHỈ dùng gesture events thật (bỏ scroll vì không phải trusted gesture)
   const _mpAutoEvents = ['click','keydown','touchstart','pointerdown'];
 
+  function _mpRemoveAutoListeners() {
+    _mpAutoEvents.forEach(ev =>
+      document.removeEventListener(ev, _mpTryAutoStart, {capture:true})
+    );
+  }
+
   function _mpDoPlay() {
+    if (!autoplayEnabled) return Promise.resolve();
     playCurrent().then(() => {
       console.log('[MusicPlayer] Autoplay thành công!');
     }).catch(err => {
       console.warn('[MusicPlayer] Autoplay thất bại:', err.message);
       // Reset flag để thử lại ở lần tương tác tiếp theo
       _mpAutoStarted = false;
-      _mpAutoEvents.forEach(ev =>
-        document.addEventListener(ev, _mpTryAutoStart, {once:false, capture:true})
-      );
+      if (autoplayEnabled) {
+        _mpAutoEvents.forEach(ev =>
+          document.addEventListener(ev, _mpTryAutoStart, {once:false, capture:true})
+        );
+      }
     });
   }
 
   function _mpTryAutoStart(e) {
+    if (!autoplayEnabled) {
+      _mpRemoveAutoListeners();
+      return;
+    }
     // Bỏ qua sự kiện không phải từ user thật (synthetic events)
     if (e && !e.isTrusted) return;
     if (e?.target?.closest?.('#mpWrap')) return;
     if (_mpAutoStarted) return;
     _mpAutoStarted = true;
     // Gỡ tất cả listener ngay lập tức
-    _mpAutoEvents.forEach(ev =>
-      document.removeEventListener(ev, _mpTryAutoStart, {capture:true})
-    );
+    _mpRemoveAutoListeners();
     console.log('[MusicPlayer] User tương tác → thử autoplay, readyState:', audio.readyState);
     if (audio.paused && curIdx >= 0) {
       // Nếu audio đã sẵn sàng → play ngay
@@ -9060,21 +9323,25 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // Thử autoplay ngay (hoạt động nếu browser cho phép)
-  playCurrent().then(() => {
-    _mpAutoStarted = true;
-    console.log('[MusicPlayer] Autoplay trực tiếp thành công!');
-  }).catch(() => {
-    console.log('[MusicPlayer] Browser chặn autoplay → chờ tương tác...');
-    // Browser block → chờ tương tác đầu tiên (đăng ký sau 500ms để tránh event giả khi load)
-    setTimeout(() => {
-      if (!_mpAutoStarted) {
-        _mpAutoEvents.forEach(ev =>
-          document.addEventListener(ev, _mpTryAutoStart, {once:false, capture:true})
-        );
-      }
-    }, 500);
-  });
+  if (autoplayEnabled) {
+    // Thử autoplay ngay (hoạt động nếu browser cho phép)
+    playCurrent().then(() => {
+      _mpAutoStarted = true;
+      console.log('[MusicPlayer] Autoplay trực tiếp thành công!');
+    }).catch(() => {
+      console.log('[MusicPlayer] Browser chặn autoplay → chờ tương tác...');
+      // Browser block → chờ tương tác đầu tiên (đăng ký sau 500ms để tránh event giả khi load)
+      setTimeout(() => {
+        if (!_mpAutoStarted && autoplayEnabled) {
+          _mpAutoEvents.forEach(ev =>
+            document.addEventListener(ev, _mpTryAutoStart, {once:false, capture:true})
+          );
+        }
+      }, 500);
+    });
+  } else {
+    syncPlayerUI(false);
+  }
 
   // ── Chuột phải vào ô ảnh đĩa → tắt nhạc (pause) ──
   const artRow = document.querySelector('.mp-art-row');

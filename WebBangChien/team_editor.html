@@ -3877,6 +3877,9 @@
       };
       const beforeFingerprint = lastSyncedFingerprint || lastRemoteFingerprint;
       const snapshotFingerprint = getSessionFingerprint(snapshot);
+      const requiresDynamicRoster = actionsToSync.has('resize')
+        || (snapshot.team_layout || []).length > 4
+        || Object.keys(snapshot.teams || {}).some((key) => !['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].includes(key));
 
       isSyncing = true;
       updateSyncBadge(actionsToSync.size > 1 ? 'Đang đồng bộ một gói thay đổi...' : 'Đang đồng bộ thay đổi...', true);
@@ -3889,7 +3892,6 @@
         team_sizes: JSON.stringify(snapshot.team_sizes || {}),
         leader_ids: JSON.stringify(snapshot.leader_ids || {}),
         team_layout: snapshot.team_layout || [],
-        teams: snapshot.teams || {},
         teams_json: JSON.stringify(snapshot.teams || {})
       };
       if (supportsSessionLocked) payload.locked = !!snapshot.locked;
@@ -3915,6 +3917,14 @@
       }
 
       if (error && /teams_json/i.test(error.message || '')) {
+        if (requiresDynamicRoster) {
+          actionsToSync.forEach((item) => pendingSyncActions.add(item));
+          pendingEditorAction = getRepresentativePendingAction();
+          isSyncing = false;
+          updateSyncBadge('Loi dong bo teams_json');
+          await customAlert('Supabase dang thieu cot teams_json nen khong the luu member cua doi hinh dynamic. Hay them cot teams_json JSONB/JSON vao bc_sessions.');
+          return;
+        }
         delete payload.teams_json;
         query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
         if (currentSessionId) query = query.eq('id', currentSessionId);
@@ -3922,16 +3932,24 @@
         error = retryTeamsJson.error || null;
       }
 
-      if (error && /(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(error.message || '')) {
-        delete payload.team_layout;
-        delete payload.teams;
-        query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
-        if (currentSessionId) query = query.eq('id', currentSessionId);
-        const retryDynamic = await query;
-        error = retryDynamic.error || null;
+      if (error && /team_layout/i.test(error.message || '')) {
+        actionsToSync.forEach((item) => pendingSyncActions.add(item));
+        pendingEditorAction = getRepresentativePendingAction();
+        isSyncing = false;
+        updateSyncBadge('Loi dong bo team_layout');
+        await customAlert('Supabase dang thieu cot team_layout nen khong the luu doi hinh dynamic. Hay them cot team_layout JSONB/JSON vao bc_sessions.');
+        return;
       }
 
       if (error && /teams_json/i.test(error.message || '')) {
+        if (requiresDynamicRoster) {
+          actionsToSync.forEach((item) => pendingSyncActions.add(item));
+          pendingEditorAction = getRepresentativePendingAction();
+          isSyncing = false;
+          updateSyncBadge('Loi dong bo teams_json');
+          await customAlert('Supabase dang thieu cot teams_json nen khong the luu member cua doi hinh dynamic. Hay them cot teams_json JSONB/JSON vao bc_sessions.');
+          return;
+        }
         delete payload.teams_json;
         query = sb.from('bc_sessions').update(payload).eq('guild_id', GUILD_ID).eq('day', currentDay);
         if (currentSessionId) query = query.eq('id', currentSessionId);
@@ -4411,6 +4429,8 @@
         closeResizeModal();
         renderEditor();
         scheduleSync('resize', 'Đã cập nhật đội hình trên web, đang gom thay đổi để đồng bộ...');
+        if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+        await syncSessionState(true);
         return;
       }
       const nextSizes = {};
@@ -4441,6 +4461,8 @@
       renderEditor();
 
       scheduleSync('resize', 'Đã resize trên web, đang gom thay đổi để đồng bộ...');
+      if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+      await syncSessionState(true);
     }
 
     async function toggleLocked() {

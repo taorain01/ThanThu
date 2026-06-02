@@ -261,7 +261,6 @@ async function syncBCSession(guildId, day, sessionData) {
         if (supportsBcSessionsDynamicRosterColumns && rosterForPayload) {
             const roster = rosterForPayload;
             payload.team_layout = roster.layout;
-            payload.teams = roster.teams;
         }
         if (supportsBcSessionsTeamsJsonColumn && rosterForPayload) {
             payload.teams_json = JSON.stringify(rosterForPayload.teams || {});
@@ -295,12 +294,16 @@ async function syncBCSession(guildId, day, sessionData) {
                 removedUnsupportedField = true;
             }
 
-            if (/(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(message) &&
-                (Object.prototype.hasOwnProperty.call(payload, 'team_layout') ||
-                 Object.prototype.hasOwnProperty.call(payload, 'teams'))) {
+            if (/(^|[^a-z0-9_])teams([^a-z0-9_]|$)/i.test(message) &&
+                Object.prototype.hasOwnProperty.call(payload, 'teams')) {
+                delete payload.teams;
+                removedUnsupportedField = true;
+            }
+
+            if (/team_layout/i.test(message) &&
+                Object.prototype.hasOwnProperty.call(payload, 'team_layout')) {
                 supportsBcSessionsDynamicRosterColumns = false;
                 delete payload.team_layout;
-                delete payload.teams;
                 removedUnsupportedField = true;
             }
 

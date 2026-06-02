@@ -4459,7 +4459,6 @@ function applySessionFilter(query, session) {
 
 function attachSessionRosterPayload(payload, session, teamLayout, teams) {
     payload.team_layout = teamLayout || [];
-    payload.teams = teams || {};
     if (Object.prototype.hasOwnProperty.call(session || {}, 'teams_json')) {
         payload.teams_json = JSON.stringify(teams || {});
     }
@@ -4545,12 +4544,6 @@ async function ensureWeekendDefaultSessionsWeb() {
                     leader_ids: '{}',
                     team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
                     team_layout: INDEX_DEFAULT_TEAM_LAYOUT,
-                    teams: {
-                        team_attack1: [],
-                        team_attack2: [],
-                        team_defense: [],
-                        team_forest: []
-                    },
                     teams_json: '{"team_attack1":[],"team_attack2":[],"team_defense":[],"team_forest":[]}'
                 });
             }
@@ -4567,14 +4560,14 @@ async function ensureWeekendDefaultSessionsWeb() {
                 insertError = retry.error || null;
             }
             if (insertError && /(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(insertError.message || '')) {
-                const legacyRows = rows.map(({ team_layout, teams, ...row }) => row);
+                const legacyRows = rows.map(({ team_layout, ...row }) => row);
                 const retry = await sb
                     .from('bc_sessions')
                     .upsert(legacyRows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
                 insertError = retry.error || null;
             }
             if (insertError && /teams_json/i.test(insertError.message || '')) {
-                const legacyRows = rows.map(({ team_layout, teams, teams_json, ...row }) => row);
+                const legacyRows = rows.map(({ team_layout, teams_json, ...row }) => row);
                 const retry = await sb
                     .from('bc_sessions')
                     .upsert(legacyRows, { onConflict: 'guild_id,day,time', ignoreDuplicates: true });
@@ -7215,7 +7208,6 @@ async function createCustomBc() {
             leader_ids: JSON.stringify({ creator_id: creatorId, creator_name: creatorName }),
             team_sizes: '{"attack1":10,"attack2":10,"defense":5,"forest":5}',
             team_layout: createLayout,
-            teams: createTeams,
             teams_json: JSON.stringify(createTeams)
         };
     let createResult = await sb
@@ -7233,7 +7225,6 @@ async function createCustomBc() {
     }
     if (createResult.error && /(team_layout|(^|[^a-z0-9_])teams([^a-z0-9_]|$))/i.test(createResult.error.message || '')) {
         delete createPayload.team_layout;
-        delete createPayload.teams;
         createResult = await sb
             .from('bc_sessions')
             .upsert(createPayload, { onConflict: 'guild_id,day,time' })

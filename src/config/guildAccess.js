@@ -1,7 +1,12 @@
-const ALLOWED_GUILD_ID = '450633680000385036';
+const ALLOWED_GUILD_IDS = [
+  '450633680000385036',
+  '1239836342456942643'
+];
+const ALLOWED_GUILD_ID = ALLOWED_GUILD_IDS[0];
+const ALLOWED_GUILD_ID_SET = new Set(ALLOWED_GUILD_IDS);
 
 function isAllowedGuildId(guildId) {
-  return guildId === ALLOWED_GUILD_ID;
+  return ALLOWED_GUILD_ID_SET.has(String(guildId || ''));
 }
 
 function getObjectGuildId(value) {
@@ -49,6 +54,7 @@ async function leaveUnauthorizedGuilds(client) {
 
 module.exports = {
   ALLOWED_GUILD_ID,
+  ALLOWED_GUILD_IDS,
   isAllowedGuildId,
   getEventGuildId,
   leaveUnauthorizedGuilds

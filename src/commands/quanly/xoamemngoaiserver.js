@@ -269,7 +269,7 @@ function buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm, localRes
 }
 
 async function execute(message, args) {
-    if (!isAllowedGuildId(message.guild?.id)) return;
+    if (message.guild?.id !== ALLOWED_GUILD_ID) return;
 
     if (!hasCleanupPermission(message.member)) {
         return message.reply('Ban khong co quyen dung lenh nay. Yeu cau owner hoac role Quan Ly.');

@@ -2,7 +2,7 @@ require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-const { ALLOWED_GUILD_ID, isAllowedGuildId, leaveUnauthorizedGuilds } = require("./config/guildAccess");
+const { ALLOWED_GUILD_IDS, isAllowedGuildId, leaveUnauthorizedGuilds } = require("./config/guildAccess");
 
 const token = process.env.token;
 
@@ -72,9 +72,9 @@ client.once("ready", async () => {
       const savedNotifications = storage.loadNotifications();
 
       if (savedNotifications.length > 0) {
-        const validGuildIds = client.guilds.cache.has(ALLOWED_GUILD_ID)
-          ? new Set([ALLOWED_GUILD_ID])
-          : new Set();
+        const validGuildIds = new Set(
+          ALLOWED_GUILD_IDS.filter((guildId) => client.guilds.cache.has(guildId))
+        );
 
         // Safety check: Nếu cache trống, không xóa gì cả
         if (validGuildIds.size === 0) {

@@ -1,7 +1,7 @@
 const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v9");
 const fs = require("fs");
-const { ALLOWED_GUILD_ID } = require("../../config/guildAccess");
+const { ALLOWED_GUILD_IDS } = require("../../config/guildAccess");
 
 module.exports = (client) => {
   client.handleCommands = async () => {
@@ -27,7 +27,6 @@ module.exports = (client) => {
     }
 
     const clientId = process.env.clientId;
-    const guildId = ALLOWED_GUILD_ID;
     const rest = new REST({ version: "10" }).setToken(process.env.token);
 
     try {
@@ -43,7 +42,7 @@ module.exports = (client) => {
       console.log(`Bắt đầu đăng ký ${client.commandArray.length} lệnh slash...`);
 
       // Đăng ký Guild commands (hiển thị ngay lập tức)
-      if (guildId) {
+      for (const guildId of ALLOWED_GUILD_IDS) {
         await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
           body: client.commandArray,
         });

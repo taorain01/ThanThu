@@ -15,6 +15,8 @@ const http = require('http');
 // Config
 const ROLE_MAPPINGS_KEY = 'sub_role_mappings';
 const ROLE_ICONS_DIR = path.join(__dirname, '../../../assets/images/role_icons');
+const DEPRECATED_ROLE_CODES = new Set(['moon']);
+let deprecatedCleanupRan = false;
 const DISPLAY_ROLE_NAME = '✦'; // Tên role hiển thị (star symbol)
 const OLD_DISPLAY_ROLE_NAMES = [' ', '.', '']; // Các tên cũ để migration
 const EMOJI_SERVER_ID = '1239836342456942643'; // Server để upload emoji
@@ -27,14 +29,45 @@ if (!fs.existsSync(ROLE_ICONS_DIR)) {
 
 function getRoleMappings() {
     const data = db.getConfig(ROLE_MAPPINGS_KEY);
+    let mappings = {};
     if (data) {
-        try { return JSON.parse(data); } catch (e) { return {}; }
+        try { mappings = JSON.parse(data); } catch (e) { mappings = {}; }
     }
-    return {};
+    return cleanupDeprecatedRoleMappings(mappings);
 }
 
 function saveRoleMappings(mappings) {
     db.setConfig(ROLE_MAPPINGS_KEY, JSON.stringify(mappings));
+}
+
+function cleanupDeprecatedRoleMappings(mappings) {
+    if (!mappings || typeof mappings !== 'object') return {};
+
+    let changed = false;
+    const shouldCleanDb = !deprecatedCleanupRan;
+    for (const code of DEPRECATED_ROLE_CODES) {
+        if (Object.prototype.hasOwnProperty.call(mappings, code)) {
+            const entry = mappings[code];
+            const iconPath = entry && typeof entry === 'object' ? entry.icon : null;
+            if (iconPath && fs.existsSync(iconPath)) {
+                try { fs.unlinkSync(iconPath); } catch (e) { }
+            }
+            delete mappings[code];
+            changed = true;
+        }
+        if (shouldCleanDb || changed) {
+            try { db.clearDisplayCodeForAll(code); } catch (e) { }
+            try { db.db.prepare('UPDATE users SET sub_role = NULL, updated_at = CURRENT_TIMESTAMP WHERE sub_role = ?').run(code); } catch (e) { }
+            try { db.db.prepare('DELETE FROM display_roles WHERE sub_role_code = ?').run(code); } catch (e) { }
+        }
+    }
+    deprecatedCleanupRan = true;
+
+    if (changed) {
+        saveRoleMappings(mappings);
+        console.log('[subrole] Removed deprecated role mapping(s): moon');
+    }
+    return mappings;
 }
 
 function getSubRoleName(code) {
@@ -158,6 +191,10 @@ async function execute(message, args) {
     const code = args[argIndex].toLowerCase();
     const roleName = args.slice(argIndex + 1).join(' ');
     const mappings = getRoleMappings();
+
+    if (DEPRECATED_ROLE_CODES.has(code)) {
+        return message.channel.send(`Code \`${code}\` da bi xoa va khong con duoc dung.`);
+    }
 
     // Reserved codes
     if (['bc', 'pbc', 'mem', 'kc', 'all'].includes(code)) {

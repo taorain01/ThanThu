@@ -289,6 +289,34 @@
       align-items: center;
       gap: 5px;
     }
+    .name-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .info .name .pill { flex-shrink: 0; }
+    .name-edit-btn {
+      width: 24px;
+      height: 24px;
+      border: 1px solid rgba(141,255,183,.18);
+      border-radius: 7px;
+      background: rgba(255,255,255,.035);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: .15s;
+      flex-shrink: 0;
+    }
+    .name-edit-btn:hover {
+      color: var(--gold);
+      border-color: rgba(245,200,66,.42);
+      background: rgba(245,200,66,.1);
+      box-shadow: 0 0 0 3px rgba(245,200,66,.06);
+    }
+    .name-edit-btn svg { width: 13px; height: 13px; }
     .info .meta {
       font-size: 11px;
       color: var(--muted);
@@ -366,6 +394,114 @@
     .act-btn.add:disabled { opacity: .35; filter: none; cursor: not-allowed; background: rgba(255,255,255,.06); color: var(--muted); }
     .act-btn.danger { color: #ffc9c9; border-color: rgba(240,112,112,.3); background: rgba(240,112,112,.07); }
     .act-btn.danger:hover { background: rgba(240,112,112,.15); }
+
+    /* edit modal */
+    body.modal-open { overflow: hidden; }
+    .roster-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .roster-modal.show { display: flex; }
+    .roster-modal-card {
+      width: min(430px, 100%);
+      border: 1px solid rgba(141,255,183,.22);
+      border-radius: 12px;
+      background: linear-gradient(160deg, rgba(13,30,18,.98), rgba(5,13,8,.99));
+      box-shadow:
+        0 24px 70px rgba(0,0,0,.72),
+        0 0 0 1px rgba(255,255,255,.04),
+        0 0 40px rgba(62,207,114,.08);
+      overflow: hidden;
+      transform: translateY(8px) scale(.98);
+      opacity: 0;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    .roster-modal.show .roster-modal-card {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    .roster-modal-card::before {
+      content: '';
+      display: block;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(245,200,66,.64), rgba(62,207,114,.48), transparent);
+    }
+    .roster-modal-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid rgba(141,255,183,.1);
+    }
+    .roster-modal-title {
+      color: var(--gold);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: .01em;
+    }
+    .roster-modal-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 17px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .roster-modal-body {
+      display: grid;
+      gap: 12px;
+      padding: 16px 18px 18px;
+    }
+    .modal-field {
+      display: grid;
+      gap: 6px;
+    }
+    .modal-field label {
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .modal-field input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid rgba(141,255,183,.17);
+      border-radius: 8px;
+      background: rgba(0,0,0,.3);
+      color: var(--text);
+      padding: 0 11px;
+      outline: none;
+      transition: .15s;
+    }
+    .modal-field input:focus {
+      border-color: rgba(245,200,66,.52);
+      box-shadow: 0 0 0 3px rgba(245,200,66,.09);
+      background: rgba(0,0,0,.38);
+    }
+    .modal-field input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(82%) sepia(60%) saturate(597%) hue-rotate(5deg) brightness(102%) contrast(92%);
+      opacity: .85;
+      cursor: pointer;
+    }
+    .roster-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 18px 18px;
+      border-top: 1px solid rgba(141,255,183,.1);
+    }
+    @media (max-width: 520px) {
+      .roster-modal { padding: 10px; align-items: flex-end; }
+      .roster-modal-card { width: 100%; }
+      .roster-modal-actions .btn { flex: 1; justify-content: center; }
+    }
 
     /* empty */
     .empty {
@@ -510,6 +646,32 @@
   <div class="list-wrap" id="listWrap"></div>
 
 </div>
+<div class="roster-modal" id="editModal" aria-hidden="true">
+  <form class="roster-modal-card" id="editForm" autocomplete="off">
+    <div class="roster-modal-head">
+      <div class="roster-modal-title" id="editTitle">Sửa thành viên</div>
+      <div class="roster-modal-sub" id="editSubtitle"></div>
+    </div>
+    <div class="roster-modal-body">
+      <div class="modal-field">
+        <label for="editGameUsername" id="editNameLabel">Tên game</label>
+        <input type="text" id="editGameUsername" maxlength="80">
+      </div>
+      <div class="modal-field">
+        <label for="editGameUid">UID</label>
+        <input type="text" id="editGameUid" inputmode="numeric" maxlength="32">
+      </div>
+      <div class="modal-field">
+        <label for="editJoinedDate" id="editJoinedLabel">Ngày vào guild</label>
+        <input type="date" id="editJoinedDate">
+      </div>
+    </div>
+    <div class="roster-modal-actions">
+      <button type="button" class="btn" id="editCancel">Hủy</button>
+      <button type="submit" class="btn primary" id="editSave">Lưu</button>
+    </div>
+  </form>
+</div>
 <script>
   const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
@@ -530,6 +692,7 @@
   let sb = null, currentSession = null, currentDiscordId = '', currentUserName = 'Người dùng';
   let isManager = false, activeRows = [], pendingRows = [], sessionMemberIds = new Set(), sessionMemberMap = new Map();
   let realtimeChannel = null, reloadTimer = null;
+  let editModalResolve = null, editModalPreviousFocus = null;
 
   try {
     const fn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
@@ -545,7 +708,12 @@
     close: $('btnClose'), search: $('searchInput'), statusFilter: $('statusFilter'),
     combatFilter: $('combatFilter'), weaponFilter: $('weaponFilter'),
     positionFilter: $('positionFilter'), sessionFilter: $('sessionFilter'),
-    sessionFilterGroup: $('sessionFilterGroup')
+    sessionFilterGroup: $('sessionFilterGroup'),
+    editModal: $('editModal'), editForm: $('editForm'), editTitle: $('editTitle'),
+    editSubtitle: $('editSubtitle'), editNameLabel: $('editNameLabel'),
+    editJoinedLabel: $('editJoinedLabel'), editGameUsername: $('editGameUsername'),
+    editGameUid: $('editGameUid'), editJoinedDate: $('editJoinedDate'),
+    editCancel: $('editCancel'), editSave: $('editSave')
   };
 
   function esc(v) { return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -568,6 +736,11 @@
     const pos = normalizePosition(row?.position);
     if (pos === 'pbc' || pos === 'kc') return pos;
     return 'mem';
+  }
+  function positionForUpdate(row = {}) {
+    const raw = String(row?.position || '').trim();
+    if (raw) return raw;
+    return String(row?.discord_id || '') === GUILD_OWNER_DISCORD_ID ? 'bc' : displayPosition(row);
   }
   function isActiveRosterRow(row) {
     if (!row?.discord_id || String(row.discord_id).startsWith('pending_')) return false;
@@ -599,6 +772,59 @@
     els.status.textContent = msg;
     if (type === 'ok') setTimeout(() => { if (els.status.textContent === msg) showStatus(''); }, 2800);
   }
+  function dateInputValue(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(date).reduce((acc, part) => {
+      if (part.type !== 'literal') acc[part.type] = part.value;
+      return acc;
+    }, {});
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+  function joinedDateToIso(value) {
+    return value ? new Date(`${value}T00:00:00+07:00`).toISOString() : null;
+  }
+  function openEditModal(options = {}) {
+    if (editModalResolve) closeEditModal(null);
+    return new Promise(resolve => {
+      editModalResolve = resolve;
+      editModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      els.editTitle.textContent = options.title || 'Sửa thành viên';
+      els.editSubtitle.textContent = options.subtitle || '';
+      els.editNameLabel.textContent = options.nameLabel || 'Tên game';
+      els.editJoinedLabel.textContent = options.joinedLabel || 'Ngày vào guild';
+      els.editGameUsername.value = options.gameUsername || '';
+      els.editGameUid.value = options.gameUid || '';
+      els.editJoinedDate.value = dateInputValue(options.joinedAt);
+      els.editModal.classList.add('show');
+      els.editModal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      setTimeout(() => els.editGameUsername.focus(), 0);
+    });
+  }
+  function closeEditModal(result = null) {
+    const resolve = editModalResolve;
+    editModalResolve = null;
+    els.editModal.classList.remove('show');
+    els.editModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    if (resolve) resolve(result);
+    if (editModalPreviousFocus) setTimeout(() => editModalPreviousFocus?.focus?.(), 0);
+    editModalPreviousFocus = null;
+  }
+  function readEditModalValues() {
+    return {
+      gameUsername: els.editGameUsername.value.trim(),
+      gameUid: els.editGameUid.value.trim(),
+      joinedDate: els.editJoinedDate.value
+    };
+  }
   function getDiscordIdFromSession(s) {
     const m = s?.user?.user_metadata||{};
     return String(m.provider_id||m.sub||m.user_id||'').trim();
@@ -607,6 +833,113 @@
     if (Array.isArray(v)||(v&&typeof v==='object')) return v;
     if (!v) return fb;
     try { return JSON.parse(v); } catch(_) { return fb; }
+  }
+  const LEGACY_TEAM_IDS = ['team_attack1','team_attack2','team_defense','team_forest'];
+  const LEGACY_SIZE_KEYS = { team_attack1:'attack1', team_attack2:'attack2', team_defense:'defense', team_forest:'forest' };
+  const DEFAULT_SESSION_LAYOUT = [
+    { id:'team_attack1', name:'Cong 1', icon:'ATK', capacity:10, order:1 },
+    { id:'team_attack2', name:'Cong 2', icon:'ATK', capacity:10, order:2 },
+    { id:'team_defense', name:'Thu nha', icon:'DEF', capacity:5, order:3 },
+    { id:'team_forest', name:'Rung', icon:'JNG', capacity:5, order:4 }
+  ];
+  function hasOwn(obj, key) { return Object.prototype.hasOwnProperty.call(obj || {}, key); }
+  function cloneList(list) { return (Array.isArray(list) ? list : []).map(item => item && typeof item === 'object' ? { ...item } : item); }
+  function normalizeSessionLayout(sess = {}) {
+    const raw = parseMaybeJson(sess?.team_layout, null);
+    if (Array.isArray(raw) && raw.length) {
+      return raw.map((team, index) => ({
+        id: String(team?.id || LEGACY_TEAM_IDS[index] || `team_${index + 1}`),
+        name: String(team?.name || team?.title || DEFAULT_SESSION_LAYOUT[index]?.name || `Team ${index + 1}`),
+        icon: String(team?.icon || DEFAULT_SESSION_LAYOUT[index]?.icon || ''),
+        capacity: Math.max(0, Number(team?.capacity ?? DEFAULT_SESSION_LAYOUT[index]?.capacity ?? 0) || 0),
+        order: Number(team?.order ?? index + 1) || index + 1
+      })).filter(team => team.id && team.capacity > 0).sort((a,b) => a.order - b.order);
+    }
+    const sizes = parseMaybeJson(sess?.team_sizes, {});
+    const names = parseMaybeJson(sess?.team_names, {});
+    return DEFAULT_SESSION_LAYOUT.map(team => {
+      const sizeKey = LEGACY_SIZE_KEYS[team.id];
+      return {
+        ...team,
+        name: names?.[sizeKey] || team.name,
+        capacity: Math.max(0, Number(sizes?.[sizeKey] ?? team.capacity) || 0)
+      };
+    }).filter(team => team.capacity > 0);
+  }
+  function getSessionRosterState(sess = {}) {
+    const layout = normalizeSessionLayout(sess);
+    const rawTeams = parseMaybeJson(sess?.teams || sess?.teams_json, null);
+    const teams = {};
+    layout.forEach(team => {
+      teams[team.id] = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams) && Array.isArray(rawTeams[team.id])
+        ? cloneList(rawTeams[team.id])
+        : cloneList(parseMaybeJson(sess?.[team.id], []));
+    });
+    return {
+      layout,
+      teams,
+      waitingList: cloneList(parseMaybeJson(sess?.waiting_list, []))
+    };
+  }
+  function buildLegacyMirrorFromRoster(roster) {
+    const mirror = {};
+    LEGACY_TEAM_IDS.forEach((legacyId, index) => {
+      const sourceTeam = roster.layout[index];
+      mirror[legacyId] = sourceTeam
+        ? cloneList(roster.teams[sourceTeam.id]).map(item => item && typeof item === 'object' ? { ...item, team: legacyId } : item)
+        : [];
+    });
+    return mirror;
+  }
+  function buildTeamSizesFromLayout(layout) {
+    const sizes = {};
+    layout.slice(0, LEGACY_TEAM_IDS.length).forEach((team, index) => {
+      const sizeKey = LEGACY_SIZE_KEYS[LEGACY_TEAM_IDS[index]];
+      if (sizeKey) sizes[sizeKey] = Number(team.capacity) || 0;
+    });
+    return sizes;
+  }
+  function buildTeamsPayloadFromRoster(roster) {
+    const teams = {};
+    roster.layout.forEach(team => {
+      teams[team.id] = cloneList(roster.teams[team.id]).map(item => item && typeof item === 'object' ? { ...item, team: team.id } : item);
+    });
+    return teams;
+  }
+  function encodeExistingJsonField(sess, key, value) {
+    return typeof sess?.[key] === 'string' || key === 'teams_json' ? JSON.stringify(value) : value;
+  }
+  function parseLeaderIds(sess = {}) {
+    const parsed = parseMaybeJson(sess.leader_ids, {});
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }
+  function buildSessionParticipant(row, teamKey) {
+    const combat = rowCombat(row) || 'DPS';
+    const weapon = combat === 'DPS' ? rowWeapon(row) : '';
+    const id = String(row.discord_id || '');
+    const gameName = row.game_username || row.discord_name || id;
+    return {
+      id,
+      discord_id: id,
+      name: gameName,
+      gn: row.game_username || gameName,
+      game_username: row.game_username || '',
+      uid: row.game_uid || '',
+      game_uid: row.game_uid || '',
+      username: row.discord_name || '',
+      discord_name: row.discord_name || '',
+      role: combat,
+      combat_role: combat,
+      sub: weapon || null,
+      sub_role: weapon || null,
+      weapon_role: weapon || null,
+      team: teamKey,
+      joinedAt: Date.now()
+    };
+  }
+  function isMissingTeamsFieldError(error) {
+    const msg = String(error?.message || error || '');
+    return /record\s+"?s"?\s+has no field\s+"?teams"?|field\s+"?teams"?|Could not find.*teams|schema cache.*teams/i.test(msg);
   }
   function getSessionPlayerId(player) {
     return String(player?.id || player?.discord_id || player?.discordId || player?.user_id || '').trim();
@@ -654,7 +987,7 @@
         });
       });
     };
-    const teams = parseMaybeJson(sess.teams, null);
+    const teams = parseMaybeJson(sess.teams || sess.teams_json, null);
     if (teams && typeof teams === 'object') {
       Object.entries(teams).forEach(([teamKey, list]) => addList(teamKey, Array.isArray(list) ? list : []));
     }
@@ -809,16 +1142,24 @@
     </div>`;
   }
 
+  function renderNameEditButton(action, id) {
+    if (!isManager) return '';
+    return `<button class="name-edit-btn" data-action="${action}" data-id="${esc(id)}" title="Sửa thông tin" aria-label="Sửa thông tin">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+      </svg>
+    </button>`;
+  }
+
   function renderActions(row, type) {
     if (type === 'pending') {
       if (!isManager) return '';
-      return `<button class="act-btn" data-action="edit-pending" data-id="${esc(row.id)}">Sửa</button>
-              <button class="act-btn danger" data-action="delete-pending" data-id="${esc(row.id)}">Xoá</button>`;
+      return `<button class="act-btn danger" data-action="delete-pending" data-id="${esc(row.id)}">Xoá</button>`;
     }
     const inSession = sessionMemberIds.has(String(row.discord_id));
     return `
-      ${isManager && SESSION_ID ? `<button class="act-btn add" data-action="add-session" data-id="${esc(row.discord_id)}" ${inSession?'disabled':''} title="Thêm vào session">+</button>` : ''}
-      ${isManager ? `<button class="act-btn" data-action="edit-member" data-id="${esc(row.discord_id)}">Sửa</button>` : ''}`;
+      ${isManager && SESSION_ID ? `<button class="act-btn add" data-action="add-session" data-id="${esc(row.discord_id)}" ${inSession?'disabled':''} title="Thêm vào session">+</button>` : ''}`;
   }
 
   function renderActiveRow(row) {
@@ -836,7 +1177,8 @@
         <div class="avatar ${isSelf?'you':''}">${esc(initial)}</div>
         <div class="info">
           <div class="name">
-            ${esc(row.game_username||row.discord_name||row.discord_id)}
+            <span class="name-text">${esc(row.game_username||row.discord_name||row.discord_id)}</span>
+            ${renderNameEditButton('edit-member', row.discord_id)}
             ${isSelf ? '<span class="pill you">Bạn</span>' : ''}
           </div>
           <div class="meta">${esc(row.discord_name||'Discord?')} • UID: ${esc(row.game_uid||'—')}</div>
@@ -856,7 +1198,8 @@
         <div class="avatar"><span style="opacity:.6">${esc(initial)}</span></div>
         <div class="info">
           <div class="name">
-            ${esc(row.game_username||'Chờ duyệt')}
+            <span class="name-text">${esc(row.game_username||'Chờ duyệt')}</span>
+            ${renderNameEditButton('edit-pending', row.id)}
             <span class="pill pending">Chờ duyệt</span>
           </div>
           <div class="meta">UID: ${esc(row.game_uid||'—')} • Thêm bởi: ${esc(row.added_by_name||row.added_by||'—')}</div>
@@ -897,20 +1240,24 @@
     await loadRoster(false);
   }
 
-  function promptValue(label, cur) { const v = window.prompt(label, cur ?? ''); if (v === null) return null; return v.trim(); }
-
   async function editMember(discordId) {
     const row = getActiveById(discordId);
     if (!row || !isManager) return;
-    const gameUsername = promptValue('Tên game', row.game_username||''); if (gameUsername===null) return;
-    const gameUid = promptValue('UID game', row.game_uid||''); if (gameUid===null) return;
-    const position = promptValue('Chức vụ (pbc/kc/mem)', displayPosition(row) === 'owner' ? 'mem' : displayPosition(row)); if (position===null) return;
-    const joinedDate = promptValue('Ngày vào (YYYY-MM-DD, để trống nếu không đổi)', row.joined_at ? row.joined_at.slice(0,10) : ''); if (joinedDate===null) return;
+    const values = await openEditModal({
+      title: 'Sửa thành viên',
+      subtitle: row.discord_name || row.discord_id || '',
+      nameLabel: 'Tên game',
+      joinedLabel: 'Ngày vào guild',
+      gameUsername: row.game_username || '',
+      gameUid: row.game_uid || '',
+      joinedAt: row.joined_at
+    });
+    if (!values) return;
     showStatus('Đang lưu...', '');
     const { error } = await sb.rpc('bc_manager_update_member', {
       p_guild_id:GUILD_ID, p_discord_id:String(discordId),
-      p_game_username:gameUsername||null, p_game_uid:gameUid||null,
-      p_position:position||'mem', p_joined_at:joinedDate ? new Date(`${joinedDate}T00:00:00+07:00`).toISOString() : null
+      p_game_username:values.gameUsername||null, p_game_uid:values.gameUid||null,
+      p_position:positionForUpdate(row)||'mem', p_joined_at:joinedDateToIso(values.joinedDate)
     });
     if (error) throw error;
     showStatus('Đã lưu thông tin thành viên.', 'ok');
@@ -920,13 +1267,20 @@
   async function editPending(id) {
     const row = getPendingById(id);
     if (!row || !isManager) return;
-    const gameUsername = promptValue('Tên game (đang chờ)', row.game_username||''); if (gameUsername===null) return;
-    const gameUid = promptValue('UID game', row.game_uid||''); if (gameUid===null) return;
-    const joinedDate = promptValue('Ngày xin vào (YYYY-MM-DD)', row.joined_at ? row.joined_at.slice(0,10) : ''); if (joinedDate===null) return;
+    const values = await openEditModal({
+      title: 'Sửa thành viên chờ',
+      subtitle: row.added_by_name ? `Thêm bởi ${row.added_by_name}` : '',
+      nameLabel: 'Tên game',
+      joinedLabel: 'Ngày xin vào',
+      gameUsername: row.game_username || '',
+      gameUid: row.game_uid || '',
+      joinedAt: row.joined_at
+    });
+    if (!values) return;
     showStatus('Đang lưu...', '');
     const { error } = await sb.rpc('bc_manager_update_pending', {
-      p_guild_id:GUILD_ID, p_id:id, p_game_uid:gameUid||null,
-      p_game_username:gameUsername||null, p_joined_at:joinedDate ? new Date(`${joinedDate}T00:00:00+07:00`).toISOString() : null
+      p_guild_id:GUILD_ID, p_id:id, p_game_uid:values.gameUid||null,
+      p_game_username:values.gameUsername||null, p_joined_at:joinedDateToIso(values.joinedDate)
     });
     if (error) throw error;
     showStatus('Đã lưu.', 'ok');
@@ -944,12 +1298,101 @@
     await loadRoster(false);
   }
 
+  async function updateSessionWithPayload(payload) {
+    const applyUpdate = async (nextPayload) => {
+      const query = sb.from('bc_sessions').update(nextPayload).eq('guild_id', GUILD_ID).eq('id', SESSION_ID);
+      return query.select('*').maybeSingle();
+    };
+
+    let { data, error } = await applyUpdate(payload);
+    if (error && /(team_layout|teams|teams_json)/i.test(error.message || '')) {
+      const retryPayload = { ...payload };
+      delete retryPayload.team_layout;
+      delete retryPayload.teams;
+      delete retryPayload.teams_json;
+      const retry = await applyUpdate(retryPayload);
+      data = retry.data;
+      error = retry.error || null;
+      payload = retryPayload;
+    }
+    if (error && /team_sizes/i.test(error.message || '')) {
+      const retryPayload = { ...payload };
+      delete retryPayload.team_sizes;
+      const retry = await applyUpdate(retryPayload);
+      data = retry.data;
+      error = retry.error || null;
+      payload = retryPayload;
+    }
+    if (error && /leader_ids/i.test(error.message || '')) {
+      const retryPayload = { ...payload };
+      delete retryPayload.leader_ids;
+      const retry = await applyUpdate(retryPayload);
+      data = retry.data;
+      error = retry.error || null;
+      payload = retryPayload;
+    }
+    if (error) throw error;
+    return data || { ...currentSession, ...payload };
+  }
+
+  async function addMemberToSessionDirect(discordId) {
+    if (!currentSession) await loadCurrentSession();
+    if (!currentSession) throw new Error('Khong tim thay session.');
+    const row = getActiveById(discordId);
+    if (!row) throw new Error('Khong tim thay thanh vien trong roster.');
+    if (collectSessionMembers(currentSession).has(String(discordId))) return currentSession;
+
+    const roster = getSessionRosterState(currentSession);
+    let targetTeamId = 'waiting_list';
+    if (currentSession.locked !== true) {
+      const targetTeam = roster.layout.find(team => cloneList(roster.teams[team.id]).length < (Number(team.capacity) || 0));
+      if (targetTeam) targetTeamId = targetTeam.id;
+    }
+
+    const participant = buildSessionParticipant(row, targetTeamId);
+    if (targetTeamId === 'waiting_list') {
+      roster.waitingList.push(participant);
+    } else {
+      roster.teams[targetTeamId] = roster.teams[targetTeamId] || [];
+      roster.teams[targetTeamId].push(participant);
+    }
+
+    const teamsPayload = buildTeamsPayloadFromRoster(roster);
+    const mirror = buildLegacyMirrorFromRoster(roster);
+    const leaderIds = parseLeaderIds(currentSession);
+    const payload = {
+      team_attack1: JSON.stringify(mirror.team_attack1 || []),
+      team_attack2: JSON.stringify(mirror.team_attack2 || []),
+      team_defense: JSON.stringify(mirror.team_defense || []),
+      team_forest: JSON.stringify(mirror.team_forest || []),
+      waiting_list: JSON.stringify(roster.waitingList || []),
+      leader_ids: JSON.stringify({
+        ...leaderIds,
+        editor_id: currentDiscordId,
+        editor_name: currentUserName || 'Manager',
+        editor_action: 'manager_add_member',
+        edited_at: Date.now()
+      })
+    };
+    if (hasOwn(currentSession, 'team_layout')) payload.team_layout = encodeExistingJsonField(currentSession, 'team_layout', roster.layout);
+    if (hasOwn(currentSession, 'teams')) payload.teams = encodeExistingJsonField(currentSession, 'teams', teamsPayload);
+    if (hasOwn(currentSession, 'teams_json')) payload.teams_json = encodeExistingJsonField(currentSession, 'teams_json', teamsPayload);
+    if (hasOwn(currentSession, 'team_sizes')) payload.team_sizes = JSON.stringify(buildTeamSizesFromLayout(roster.layout));
+
+    return updateSessionWithPayload(payload);
+  }
+
   async function addMemberToSession(discordId) {
     if (!SESSION_ID || !isManager) return;
     showStatus('Đang thêm vào session...', '');
     const { data, error } = await sb.rpc('bc_manager_add_member_to_session', { p_session_id:SESSION_ID, p_discord_id:String(discordId) });
-    if (error) throw error;
-    currentSession = data || currentSession;
+    if (error && isMissingTeamsFieldError(error)) {
+      currentSession = await addMemberToSessionDirect(discordId);
+    } else if (error) {
+      throw error;
+    } else {
+      currentSession = data || currentSession;
+    }
     sessionMemberMap = collectSessionMembers(currentSession);
     sessionMemberIds = new Set(sessionMemberMap.keys());
     activeRows = activeRows.map(hydrateRowFromSession);
@@ -993,6 +1436,20 @@
   });
   ['input','change'].forEach(ev => {
     [els.search, els.statusFilter, els.combatFilter, els.weaponFilter, els.positionFilter, els.sessionFilter].forEach(el => el.addEventListener(ev, render));
+  });
+  els.editCancel.addEventListener('click', () => closeEditModal(null));
+  els.editForm.addEventListener('submit', ev => {
+    ev.preventDefault();
+    if (!editModalResolve) return;
+    closeEditModal(readEditModalValues());
+  });
+  els.editModal.addEventListener('click', ev => {
+    if (ev.target === els.editModal) closeEditModal(null);
+  });
+  document.addEventListener('keydown', ev => {
+    if (!editModalResolve || ev.key !== 'Escape') return;
+    ev.preventDefault();
+    closeEditModal(null);
   });
   document.addEventListener('click', async ev => {
     if (ev.target.closest('#btnLoginPanel')) return loginDiscord();

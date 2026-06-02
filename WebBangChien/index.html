@@ -3132,10 +3132,13 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
       <div class="roster-toolbar" id="rosterToolbar">
       <div class="header-info roster-stats">
-        <div class="h-stat"><div class="val" id="statTotal">--</div><div class="lbl">Thành viên</div></div>
+        <div class="h-stat" title="Thành viên đã xếp đội hình"><div class="val" id="statTotal">--</div><div class="lbl">Thành viên</div></div>
         <div class="h-stat"><div class="val" id="statDPS" style="color:var(--dps)">--</div><div class="lbl">DPS</div></div>
         <div class="h-stat"><div class="val" id="statHealer" style="color:var(--healer)">--</div><div class="lbl">Healer</div></div>
         <div class="h-stat"><div class="val" id="statTanker" style="color:var(--tanker)">--</div><div class="lbl">Tanker</div></div>
+        <div style="width:1px;height:24px;background:rgba(255,255,255,0.15);margin:0 4px;flex-shrink:0;"></div>
+        <div class="h-stat" title="Số lượng thành viên chưa vào Discord"><div class="val" id="statRosterPending" style="color:#ffa000">--</div><div class="lbl">Chưa vào Discord</div></div>
+        <div class="h-stat" title="Tổng số lượng thành viên trong bang"><div class="val" id="statRosterTotal" style="color:var(--gold)">--</div><div class="lbl">Tổng Roster</div></div>
       </div>
       <div class="split-btn disabled" id="splitActionBtn">
         <div class="split-side left" id="btnTeamEditor" data-day="" onclick="openTeamEditor()" title="Chỉnh sửa đội hình"><span>✏️ Đội Hình</span></div>
@@ -4883,11 +4886,11 @@ function findReservedSlotIndexFromPayload(payload, playerId) {
 // Tải tất cả sessions từ Supabase và tạo tabs động
 async function loadAllSessions() {
     await ensureWeekendDefaultSessionsWeb();
-    const { data, error } = await sb
-        .from('bc_sessions')
-        .select('*')
-        .eq('guild_id', GUILD_ID)
-        .eq('status', 'active');
+    const [sessionsResult] = await Promise.all([
+        sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID).eq('status', 'active'),
+        loadGlobalRosterStats()
+    ]);
+    const { data, error } = sessionsResult;
 
     if (error) { console.error('[LangGia] Lỗi load sessions:', error); }
     const sessions = data || [];
@@ -5824,6 +5827,47 @@ function updateStats(data) {
     document.getElementById('statDPS').textContent = dps;
     document.getElementById('statHealer').textContent = healer;
     document.getElementById('statTanker').textContent = tanker;
+}
+
+async function loadGlobalRosterStats() {
+    try {
+        if (!sb) return;
+        const { data: activeData, error: activeError } = await sb
+            .from('bc_users')
+            .select('*')
+            .eq('guild_id', GUILD_ID);
+        if (activeError) throw activeError;
+        
+        const activeCount = (activeData || []).filter(row => {
+            if (!row.discord_id || String(row.discord_id).startsWith('pending_')) return false;
+            const isLeft = Boolean(row.left_at) || String(row.position || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[đð]/g,'d').trim() === 'left';
+            if (isLeft) return false;
+            if (Object.prototype.hasOwnProperty.call(row, 'lang_gia_member')) return row.lang_gia_member === true;
+            return true;
+        }).length;
+        
+        let pendingCount = 0;
+        try {
+            const { data: pendingData, error: pendingError } = await sb
+                .from('bc_pending_ids')
+                .select('id')
+                .eq('guild_id', GUILD_ID);
+            if (!pendingError && pendingData) {
+                pendingCount = pendingData.length;
+            }
+        } catch (e) {
+            console.warn('[LangGia] Lỗi load pending stats:', e);
+        }
+        
+        const totalRoster = activeCount + pendingCount;
+        
+        const pendingEl = document.getElementById('statRosterPending');
+        const totalEl = document.getElementById('statRosterTotal');
+        if (pendingEl) pendingEl.textContent = pendingCount;
+        if (totalEl) totalEl.textContent = totalRoster;
+    } catch (e) {
+        console.error('[LangGia] Lỗi tải global roster stats:', e);
+    }
 }
 
 // ═══ REALTIME (chỉ khởi tạo 1 lần sau khi auth thành công) ═══

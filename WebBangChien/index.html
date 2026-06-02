@@ -854,6 +854,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 10px rgba(0,0,0,.55),0 0 15px rgba(251,191,36,.18);
 }
 .feedback-btn svg{width:17px;height:17px;flex-shrink:0}
+.release-modal{width:min(620px,96%)}
+.release-body{
+  padding:22px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;
+  background:linear-gradient(180deg,rgba(34,197,94,.025) 0%,rgba(0,0,0,.14) 100%);
+}
+.release-badge{
+  align-self:flex-start;padding:4px 10px;border-radius:999px;
+  color:var(--gold);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.24);
+  font-size:11px;font-weight:900;letter-spacing:.7px;text-transform:uppercase;
+}
+.release-list{display:flex;flex-direction:column;gap:10px}
+.release-item{
+  display:flex;gap:12px;padding:14px 15px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.07);
+}
+.release-item-icon{
+  width:34px;height:34px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;color:var(--gold);
+  background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.18);
+}
+.release-item-icon svg{width:18px;height:18px}
+.release-item-title{font-size:14px;font-weight:900;color:var(--text);line-height:1.25}
+.release-item-text{font-size:12.5px;line-height:1.55;color:rgba(226,232,240,.78);margin-top:4px}
+.release-note{
+  padding:11px 13px;border-radius:12px;background:rgba(34,197,94,.055);
+  border:1px solid rgba(34,197,94,.12);color:rgba(134,239,172,.78);
+  font-size:12px;line-height:1.55;
+}
 
 /* ═══ FEEDBACK MODAL ═══ */
 .feedback-modal-ov{
@@ -1260,54 +1289,159 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .app{display:none;flex-direction:column;height:100vh}
 .app.active{display:flex}
 
-.day-bar{display:flex;align-items:center;padding:12px 20px;gap:12px;border-bottom:1px solid rgba(251,191,36,.1);flex-shrink:0;
-  background:linear-gradient(180deg,rgba(10,12,10,0.8),rgba(15,20,15,0.9));flex-wrap:wrap;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.6); position: relative; z-index:10}
-.day-tab{padding:8px 24px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;transition:all .3s ease;
-  border:1px solid rgba(255,255,255,0.06);background:linear-gradient(135deg,rgba(40,45,40,.6),rgba(20,25,20,.8));
-  color:rgba(255,255,255,0.6);display:inline-flex;align-items:center;gap:8px;white-space:nowrap;position:relative;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 4px rgba(0,0,0,0.4); text-transform:uppercase; letter-spacing:0.5px}
-.day-tab-main{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
-.day-tab.has-time-select.active{flex-direction:column;align-items:stretch;gap:7px;padding:8px 14px}
+/* ═══ DAY BAR ═══ */
+.day-bar{
+  display:flex;align-items:center;padding:10px 16px;gap:8px;
+  border-bottom:1px solid rgba(251,191,36,.08);flex-shrink:0;
+  background:linear-gradient(180deg,rgba(8,12,8,.88),rgba(12,18,12,.95));
+  box-shadow:0 4px 20px rgba(0,0,0,.55);position:relative;z-index:10;
+  flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;
+}
+.day-bar::-webkit-scrollbar{height:3px}
+.day-bar::-webkit-scrollbar-thumb{background:rgba(251,191,36,.2);border-radius:2px}
+
+/* ─── Tab: COMPACT (inactive) ─── */
+.day-tab{
+  position:relative;cursor:pointer;flex-shrink:0;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.5);
+  font-weight:700;font-size:12px;white-space:nowrap;
+  transition:all .22s cubic-bezier(.25,.46,.45,.94);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  letter-spacing:.3px;text-transform:uppercase;
+  min-width:0;
+}
+/* Ẩn detail khi không active */
+.day-tab:not(.active) .day-session-kind,
+.day-tab:not(.active) .day-date,
+.day-tab:not(.active) .session-time-select
+{ display:none!important }
+
+/* Hiệu ứng hover (không expand, chỉ sáng hơn) */
+.day-tab:hover{
+  border-color:rgba(251,191,36,.3);
+  color:rgba(251,191,36,.85);
+  background:rgba(251,191,36,.07);
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(0,0,0,.35),inset 0 1px 0 rgba(251,191,36,.08);
+}
+
+/* ─── Tab: ACTIVE (wide, expanded) ─── */
+.day-tab.active{
+  padding:8px 18px;
+  background:linear-gradient(135deg,rgba(50,38,10,1),rgba(25,18,4,1));
+  color:var(--gold);
+  border:1px solid rgba(251,191,36,.55);
+  box-shadow:0 0 22px rgba(251,191,36,.2),inset 0 0 14px rgba(251,191,36,.08),0 2px 8px rgba(0,0,0,.5);
+  font-size:13px;
+  transform:none;
+}
+.day-tab.active::after{
+  content:'';position:absolute;bottom:-1px;left:20%;right:20%;height:2px;
+  background:var(--gold);box-shadow:0 -2px 8px var(--gold);
+  border-radius:2px;
+}
+
+/* Active + has-time-select: column layout */
+.day-tab.has-time-select.active{
+  flex-direction:column;align-items:stretch;gap:6px;padding:8px 14px
+}
 .day-tab.has-time-select.active .day-tab-main{justify-content:center}
-.day-tab svg{width:16px;height:16px;flex-shrink:0}
-.day-tab .day-date{font-size:11px;color:rgba(255,255,255,0.4);font-weight:500;text-transform:none;letter-spacing:0}
-.day-tab:hover{border-color:rgba(251,191,36,.4);color:var(--gold);background:linear-gradient(135deg,rgba(60,50,30,.8),rgba(30,25,15,.9));
-  box-shadow:0 0 15px rgba(251,191,36,.15), inset 0 0 10px rgba(251,191,36,.05)}
-.day-tab.active{background:linear-gradient(135deg,rgba(50,40,15,1),rgba(25,20,5,1));color:var(--gold);
-  border:1px solid rgba(251,191,36,.6);box-shadow:0 0 20px rgba(251,191,36,.25),inset 0 0 15px rgba(251,191,36,.1)}
-.day-tab.active::after{content:'';position:absolute;bottom:-1px;left:15%;right:15%;height:2px;background:var(--gold);
-  box-shadow:0 -2px 10px var(--gold)}
-.day-tab.active .day-date{color:rgba(251,191,36,.7)}
-.day-tab.highlight{border-color:rgba(234,88,12,.3)}
-.day-tab.highlight.active{border-color:rgba(234,88,12,.8);box-shadow:0 0 20px rgba(234,88,12,.3),inset 0 0 15px rgba(234,88,12,.15);
-  background:linear-gradient(135deg,rgba(60,25,10,1),rgba(30,10,5,1));color:#fdba74}
-.day-tab.highlight.active::after{background:#ea580c;box-shadow:0 -2px 10px #ea580c}
-.day-tab .time-badge{font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);font-weight:800}
-.day-tab.active .time-badge{background:rgba(251,191,36,0.15);border-color:rgba(251,191,36,0.3);color:var(--gold)}
-.day-tab.highlight.active .time-badge{background:rgba(234,88,12,0.15);border-color:rgba(234,88,12,0.3);color:#fdba74}
-.day-session-kind{font-size:10px;opacity:.75}
-.session-time-select{display:none;width:100%;min-width:180px;height:30px;border-radius:6px;border:1px solid rgba(251,191,36,.28);
-  background:rgba(5,10,7,.92);color:var(--gold);font:800 12px 'Inter',sans-serif;padding:0 28px 0 10px;outline:none;text-transform:none;letter-spacing:0}
+
+/* Tab components */
+.day-tab-main{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.day-tab svg{width:14px;height:14px;flex-shrink:0;opacity:.7}
+.day-tab.active svg{opacity:1}
+.day-tab .day-date{
+  font-size:10px;color:rgba(251,191,36,.6);
+  font-weight:500;text-transform:none;letter-spacing:0;
+}
+.day-tab .time-badge{
+  font-size:11px;padding:2px 7px;border-radius:4px;
+  background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.09);
+  color:rgba(255,255,255,.65);font-weight:800;
+}
+.day-tab.active .time-badge{
+  background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.28);color:var(--gold)
+}
+.day-session-kind{font-size:10px;opacity:.8;font-weight:600}
+
+/* time-select (multi-session) */
+.session-time-select{
+  width:100%;min-width:180px;height:30px;border-radius:6px;
+  border:1px solid rgba(251,191,36,.28);background:rgba(5,10,7,.92);
+  color:var(--gold);font:800 12px 'Inter',sans-serif;
+  padding:0 28px 0 10px;outline:none;text-transform:none;letter-spacing:0
+}
 .day-tab.active .session-time-select{display:block}
 .session-time-select:focus{border-color:rgba(251,191,36,.65);box-shadow:0 0 0 2px rgba(251,191,36,.12)}
 .session-time-select option{background:#07110b;color:#f8fafc}
-.day-tab .joined-check{font-size:12px;margin-left:2px;color:var(--green-400);display:flex;align-items:center; filter:drop-shadow(0 0 4px var(--green-400))}
-.day-tab .joined-check svg{width:14px;height:14px}
-.day-tab.joined{border-color:var(--green-500)}
-.day-tab.joined::before{content:'';position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--green-400);border:2px solid #111;box-shadow:0 0 8px var(--green-400)}
-.day-add{padding:8px 24px;border-radius:6px;font-weight:800;font-size:16px;cursor:pointer;transition:all .3s ease;
-  border:1px dashed rgba(255,255,255,.2);background:rgba(0,0,0,0.2);color:rgba(255,255,255,0.5);display:flex;align-items:center;gap:6px}
-.day-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,.05);box-shadow:0 0 15px rgba(251,191,36,.1)}
-.day-add svg{width:18px;height:18px}
-.day-sep{width:1px;height:26px;background:rgba(255,255,255,.1);margin:0 6px}
-.progress-chip{display:flex;align-items:center;gap:6px;margin-left:auto;padding:4px 10px;border-radius:16px;
-  background:rgba(255,255,255,.04);border:1px solid rgba(34,197,94,.1)}
-.progress-chip .bar{width:60px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
-.progress-chip .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green-600),var(--gold));transition:width 1s}
-.progress-chip .num{font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap}
 
-.roster-toolbar{margin-left:auto;display:flex;align-items:center;gap:12px;min-width:0;flex-shrink:0}
+/* Joined state */
+.day-tab .joined-check{
+  font-size:12px;margin-left:2px;color:var(--green-400);
+  display:flex;align-items:center;filter:drop-shadow(0 0 4px var(--green-400))
+}
+.day-tab .joined-check svg{width:13px;height:13px}
+.day-tab.joined{border-color:var(--green-500)}
+.day-tab.joined::before{
+  content:'';position:absolute;top:-4px;right:-4px;
+  width:10px;height:10px;border-radius:50%;
+  background:var(--green-400);border:2px solid #111;
+  box-shadow:0 0 8px var(--green-400)
+}
+
+/* Highlight (League day) */
+.day-tab.highlight{border-color:rgba(234,88,12,.25)}
+.day-tab.highlight.active{
+  border-color:rgba(234,88,12,.75);
+  box-shadow:0 0 22px rgba(234,88,12,.25),inset 0 0 14px rgba(234,88,12,.12);
+  background:linear-gradient(135deg,rgba(58,22,8,1),rgba(28,10,4,1));color:#fdba74
+}
+.day-tab.highlight.active::after{background:#ea580c;box-shadow:0 -2px 10px #ea580c}
+.day-tab.highlight.active .time-badge{
+  background:rgba(234,88,12,.15);border-color:rgba(234,88,12,.28);color:#fdba74
+}
+
+/* Delete X button on tab */
+.day-tab .del-x{
+  display:none;width:18px;height:18px;border-radius:4px;font-size:10px;
+  align-items:center;justify-content:center;margin-left:3px;
+  cursor:pointer;color:var(--text3);transition:all .2s;
+  background:rgba(255,255,255,.06);flex-shrink:0
+}
+.day-tab:hover .del-x{display:inline-flex;align-items:center;justify-content:center}
+.day-tab .del-x:hover{color:#fca5a5;background:rgba(239,68,68,.2)}
+
+/* Add / Sep */
+.day-add{
+  padding:6px 16px;border-radius:8px;font-weight:800;font-size:15px;
+  cursor:pointer;transition:all .3s ease;flex-shrink:0;
+  border:1px dashed rgba(255,255,255,.15);background:rgba(0,0,0,.15);
+  color:rgba(255,255,255,.4);display:flex;align-items:center;gap:5px
+}
+.day-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,.05);box-shadow:0 0 12px rgba(251,191,36,.1)}
+.day-add svg{width:16px;height:16px}
+.day-sep{width:1px;height:24px;background:rgba(255,255,255,.08);margin:0 4px;flex-shrink:0}
+
+/* ─── RIGHT SIDE WRAPPER: Đăng ký trên, Đội hình dưới ─── */
+.day-bar-right{
+  margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;
+  gap:7px;flex-shrink:0;
+}
+
+/* bc-signup-bar inside wrapper */
+.day-bar-right .bc-signup-bar{
+  margin-left:0;flex-shrink:0;
+}
+
+/* roster-toolbar inside wrapper */
+.roster-toolbar{
+  display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0
+}
 .roster-toolbar .header-info{margin-left:0;gap:10px;flex-shrink:0}
 .roster-toolbar .h-stat{padding:0 12px}
 .roster-toolbar .h-stat .val{font-size:16px}
@@ -1890,6 +2024,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .day-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px }
   .day-tab { white-space: nowrap; font-size: 12px; padding: 6px 14px }
   .day-sep, .day-add { flex-shrink: 0 }
+  .day-bar-right { display: none }
   .roster-toolbar { display: none }
   
   /* Thay vì ẩn signup-bar, hiển thị dạng nút Nổi (FAB) trên Mobile */
@@ -2572,7 +2707,158 @@ body.theme-dark .theme-toggle-btn .moon-icon { display: none; }
 body:not(.theme-dark) .theme-toggle-btn .sun-icon { display: none; }
 body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 
+.member-roster-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, .72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.member-roster-overlay.show { display: flex }
+.member-roster-frame {
+  width: min(1180px, 100%);
+  height: min(860px, 94vh);
+  border: 1px solid rgba(141,255,183,.24);
+  border-radius: 14px;
+  background: #06120a;
+  box-shadow: 0 28px 80px rgba(0,0,0,.55);
+}
+@media (max-width: 768px) {
+  .member-roster-overlay { padding: 0 }
+  .member-roster-frame { width: 100%; height: 100vh; border: 0; border-radius: 0 }
+}
+
 </style>
+</head>
+<body class="theme-dark" oncontextmenu="return false;">
+
+<!-- Hiệu ứng lửa bay toàn trang -->
+<div class="fire-container" id="fireContainer"></div>
+
+<!-- ═══ LANDING PAGE (chưa đăng nhập) ═══ -->
+<div class="landing" id="landingPage">
+  <div class="landing-bg">
+    <div class="landing-map"></div>
+    <div class="fog"></div>
+    <div class="fog fog2"></div>
+    <div class="particles" id="particles"></div>
+  </div>
+  <div class="landing-content">
+    <!-- Layer 1: Icon (parallax chậm nhất) -->
+    <div id="plxIcon">
+      <div class="coin-scene" id="coinScene">
+        <div class="coin-3d idle" id="coin3d">
+          <div class="coin-face coin-face-front">
+            <img src="./anh/langgia_icon.png" alt="Lang Gia">
+          </div>
+          <div class="coin-face coin-face-back">
+            <img src="./anh/langgia_icon.png" alt="Lang Gia">
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Layer 2: Chữ (parallax vừa) -->
+    <div id="plxText">
+      <div class="landing-sub">Where Winds Meet</div>
+      <div class="landing-divider"></div>
+      <div class="landing-welcome">Chào mừng bạn đến với Lang Gia</div>
+      <div class="landing-flavor">「 Vui lòng xuất trình giấy tờ nhà họ Lang 」</div>
+    </div>
+    <!-- Nút đăng nhập: ĐỨNG IM, không có parallax -->
+    <button class="login-btn" id="loginBtn" onclick="loginDiscord()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+      Đăng nhập Discord
+    </button>
+    <div style="margin-top: 16px;">
+      <a href="https://discord.gg/TpdjPF2" target="_blank" class="discord-join-btn">
+        <svg viewBox="0 0 127.14 96.36"><path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.41,41.74-9.43,74.75,7.74,96.14A105.81,105.81,0,0,0,39.3,77.4a71.82,71.82,0,0,0,8.23-13.4,70.08,70.08,0,0,1-13-6.19c1.09-.79,2.15-1.62,3.16-2.48a75.76,75.76,0,0,0,82,0c1,1,2.06,1.69,3.16,2.48a70.08,70.08,0,0,1-13,6.19,71.82,71.82,0,0,0,8.23,13.4A105.81,105.81,0,0,0,119.1,96.14C136.6,74.75,130.3,41.74,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z"/></svg>
+        Tham gia Discord Lang Gia
+      </a>
+    </div>
+  </div>
+  <div class="landing-footer">
+    <span>⚔️ Lang Gia</span> • Guild War Strategy • Where Winds Meet
+  </div>
+</div>
+
+<!-- ═══ LOADING ═══ -->
+<div class="loading-screen hidden" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">Đang xác minh giấy tờ nhà họ Lang...</div>
+</div>
+
+<!-- ═══ NOT MEMBER ═══ -->
+<div class="not-member" id="notMemberScreen">
+  <div class="nm-icon">🏯</div>
+  <div class="nm-title">Bạn chưa phải thành viên nhà họ Lang</div>
+  <div class="nm-text">Hãy gia nhập guild Lang Gia trên Discord trước, sau đó quay lại đây để xem chiến thuật bang chiến.</div>
+  <button class="nm-btn" onclick="logout()">← Quay lại</button>
+  <div style="margin-top: 16px;">
+    <a href="https://discord.gg/TpdjPF2" target="_blank" class="discord-join-btn">
+      <svg viewBox="0 0 127.14 96.36"><path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.41,41.74-9.43,74.75,7.74,96.14A105.81,105.81,0,0,0,39.3,77.4a71.82,71.82,0,0,0,8.23-13.4,70.08,70.08,0,0,1-13-6.19c1.09-.79,2.15-1.62,3.16-2.48a75.76,75.76,0,0,0,82,0c1,1,2.06,1.69,3.16,2.48a70.08,70.08,0,0,1-13,6.19,71.82,71.82,0,0,0,8.23,13.4A105.81,105.81,0,0,0,119.1,96.14C136.6,74.75,130.3,41.74,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z"/></svg>
+      Tham gia Discord Lang Gia
+    </a>
+  </div>
+</div>
+
+<!-- ═══ GUEST SCREEN (đăng nhập nhưng không có role LangGia) ═══ -->
+<div class="guest-screen" id="guestScreen">
+  <div class="gs-bg" id="gsBg"></div>
+  <!-- Body -->
+  <div class="gs-body">
+    <!-- UI Game (Bên Trái / Mobile: Dưới) -->
+    <div class="gs-left">
+      <!-- Tiêu đề -->
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 5px;">
+        <div class="guild-name-wrapper" style="transform: scale(1.4); margin-bottom: 5px;">
+          <div class="guild-name" data-text="LANG GIA" style="font-size: 26px;">LANG GIA</div>
+        </div>
+        <div class="gs-sub-title" style="margin-top: 5px; font-weight: 700; color: var(--gold); background: rgba(251,191,36,0.1); padding: 5px 14px; border-radius: 20px; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; user-select: none;">MINIGAME</div>
+      </div>
+      <!-- Stats -->
+      <div class="gs-stats-row">
+        <div class="gs-stat-box"><div class="gsv" id="gsXu">100</div><div class="gsl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:2px"><circle cx="12" cy="12" r="8"/><path d="M12 8v8"/><path d="M10 10h4"/></svg> Xu</div></div>
+        <div class="gs-stat-box"><div class="gsv" id="gsWins" style="color:var(--green-400)">0</div><div class="gsl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:2px"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg> Thắng</div></div>
+        <div class="gs-stat-box"><div class="gsv" id="gsLoses" style="color:#f87171">0</div><div class="gsl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:2px"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="m3 3 18 18"/></svg> Thua</div></div>
+        <div class="gs-stat-box"><div class="gsv" id="gsStreak">-</div><div class="gsl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:2px"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg> Streak</div></div>
+      </div>
+      <!-- Minigame -->
+      <div class="gs-game-card">
+        <div class="gs-game-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>ĐỒNG XU TIÊN TRI</div>
+        <div class="gs-game-hint">Đoán hướng mặt sói (Ngửa = Trái • Sấp = Phải).<br>Thắng streak ×3 nhận thêm 50% bonus.</div>
+        <div class="gs-choices">
+          <button class="gs-cbtn h" id="gsBtnH" onclick="gsFlipCoin('h')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg></span><span class="ct">Ngửa (Trái)</span></button>
+          <button class="gs-cbtn t" id="gsBtnT" onclick="gsFlipCoin('t')"><span class="ci"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg></span><span class="ct">Sấp (Phải)</span></button>
+        </div>
+        <div class="gs-rbox" id="gsRbox"><div class="gs-rtxt" style="color:var(--text3)">Chọn mặt đồng xu để bắt đầu ✨</div></div>
+      </div>
+      <!-- Footer -->
+      <div class="gs-footer-msg">
+        <p>Để tham gia Bang Chiến, bạn cần có trong danh sách <strong style="color:var(--gold)">Bang Lang Gia</strong>.<br>Liên hệ <strong style="color:var(--gold)">Leader</strong> hoặc <strong style="color:var(--gold)">Admin</strong> trên Discord để được cấp quyền.</p>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+          <button class="gs-logout-btn" onclick="logout()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:4px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg> Đăng xuất</button>
+          <a href="https://discord.gg/TpdjPF2" target="_blank" class="discord-join-btn" style="margin-top: 0;">
+            <svg viewBox="0 0 127.14 96.36"><path d="M107.7,8.07A105.15,105.15,0,0,0,77.26,0a77.19,77.19,0,0,0-3.3,6.83A96.67,96.67,0,0,0,52.88,6.83,77.19,77.19,0,0,0,49.58,0,105.15,105.15,0,0,0,19.14,8.07C-3.41,41.74-9.43,74.75,7.74,96.14A105.81,105.81,0,0,0,39.3,77.4a71.82,71.82,0,0,0,8.23-13.4,70.08,70.08,0,0,1-13-6.19c1.09-.79,2.15-1.62,3.16-2.48a75.76,75.76,0,0,0,82,0c1,1,2.06,1.69,3.16,2.48a70.08,70.08,0,0,1-13,6.19,71.82,71.82,0,0,0,8.23,13.4A105.81,105.81,0,0,0,119.1,96.14C136.6,74.75,130.3,41.74,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53S36.18,40.36,42.45,40.36,53.83,46,53.83,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.24,60,73.24,53S78.41,40.36,84.69,40.36,96.07,46,96.07,53,91,65.69,84.69,65.69Z"/></svg>
+            Tham gia Discord Lang Gia
+          </a>
+        </div>
+      </div>
+    </div>
+    <!-- Đồng xu (Bên Phải / Mobile: Trên) -->
+    <div class="gs-right">
+      <div class="gs-coin-wrap">
+        <div class="coin-3d idle" id="gsCoin3d">
+          <div class="coin-face coin-face-front"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;transform:scaleX(-1);"></div>
+          <div class="coin-face coin-face-back"><img src="./anh/langgia_icon.png" alt="Lang Gia" draggable="false" style="user-select:none;-webkit-user-drag:none;-moz-user-select:none;transform:scaleX(-1);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </head>
 <body class="theme-dark" oncontextmenu="return false;">
 
@@ -2719,14 +3005,16 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
         </svg>
         <span class="feedback-btn-label">Góp ý</span>
       </button>
+      <button class="feedback-btn" type="button" onclick="openReleaseModal(event)" title="Cập nhật LangGiaWar V1.2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          <path d="M9 7h7"></path><path d="M9 11h5"></path>
+        </svg>
+        <span class="feedback-btn-label">Cập nhật</span>
+      </button>
 
       <!-- User Badge ở góc phải: click để mở dropdown -->
-      <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
-        <img id="userAvatar" src="" alt="">
-        <span class="uname" id="userName"></span>
-        <span class="ub-arrow">▼</span>
-        <div class="user-dropdown" id="userDropdown">
-          <button class="ud-item" onclick="openProfileModal(event)">👤 Thông tin</button>
           <div class="ud-sep"></div>
           <button class="ud-item danger" onclick="logout(event)">🚪 Đăng xuất</button>
         </div>
@@ -2740,8 +3028,10 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
     <div class="day-add" id="addBcBtn" title="Tạo BC tùy chỉnh (Kỳ Cựu)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </div>
-    <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
-    <div class="roster-toolbar" id="rosterToolbar">
+    <!-- Right wrapper: Đăng Ký trên, Đội Hình dưới -->
+    <div class="day-bar-right">
+      <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
+      <div class="roster-toolbar" id="rosterToolbar">
       <div class="header-info roster-stats">
         <div class="h-stat"><div class="val" id="statTotal">--</div><div class="lbl">Thành viên</div></div>
         <div class="h-stat"><div class="val" id="statDPS" style="color:var(--dps)">--</div><div class="lbl">DPS</div></div>
@@ -2753,6 +3043,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
         <div class="split-divider"></div>
         <div class="split-side right" id="btnTactics" data-day="" onclick="openTactics()" title="Lập chiến thuật"><span>⚔️ Chiến Thuật</span></div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -2909,6 +3200,10 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       <button class="mbtn-ok" onclick="applySignupSelection()">Xác nhận</button>
     </div>
   </div>
+</div>
+
+<div class="member-roster-overlay" id="memberRosterOverlay" aria-hidden="true">
+  <iframe class="member-roster-frame" id="memberRosterFrame" title="Danh sach thanh vien"></iframe>
 </div>
 
 <script>
@@ -4632,6 +4927,46 @@ async function loadBCData(day, sessionKey = null) {
     loadTacticsForViewer();
 }
 
+function openMemberRosterPopup(mode = 'list') {
+    const overlay = document.getElementById('memberRosterOverlay');
+    const frame = document.getElementById('memberRosterFrame');
+    if (!overlay || !frame) return;
+    const query = new URLSearchParams({
+        embed: '1',
+        mode,
+        ts: String(Date.now())
+    });
+    if (currentSessionData?.id) query.set('session', String(currentSessionData.id));
+    if (currentDay) query.set('day', String(currentDay));
+    frame.src = `./member_roster.html?${query.toString()}`;
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeMemberRosterPopup() {
+    const overlay = document.getElementById('memberRosterOverlay');
+    const frame = document.getElementById('memberRosterFrame');
+    if (!overlay || !frame) return;
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden', 'true');
+    frame.src = 'about:blank';
+}
+
+window.addEventListener('message', async (event) => {
+    const data = event.data || {};
+    if (data.type === 'memberRosterClose') {
+        closeMemberRosterPopup();
+        return;
+    }
+    if (data.type === 'memberRosterSessionUpdated') {
+        try {
+            await loadAllSessions();
+        } catch (error) {
+            console.warn('[Index] Reload sau member roster failed:', error);
+        }
+    }
+});
+
 function updateSignupBar(data) {
     const bar = document.getElementById('bcSignupBar');
 
@@ -4660,7 +4995,10 @@ function updateSignupBar(data) {
     bar.style.display = 'flex';
     const isRegistered = getAllCachedSessions().some(sessionContainsCurrentUser);
     const label = isRegistered ? '✏️ Cập nhật đăng ký' : '⚔️ Đăng ký Bang Chiến';
-    bar.innerHTML = `<button class="bc-action-btn${isRegistered ? ' joined' : ''}" onclick="openSignupModal()">
+    bar.innerHTML = `<button class="bc-action-btn" onclick="openMemberRosterPopup('list')" title="Danh sach thanh vien">
+            Thanh vien
+        </button>
+        <button class="bc-action-btn${isRegistered ? ' joined' : ''}" onclick="openSignupModal()">
             ${label}
         </button>`;
 }
@@ -4683,18 +5021,32 @@ async function joinSession(data) {
     if (allPlayers.some(p => p.id === window.currentDiscordId)) { return true; }
 
     // Lookup bc_users để lấy game_username, sub_role
-    let gameName = '', subRole = '';
+    let gameName = '', subRole = '', combatRole = 'DPS';
     try {
         const { data: userInfo } = await sb
             .from('bc_users')
-            .select('game_username, sub_role, position')
+            .select('game_username, sub_role, position, combat_role, weapon_role')
             .eq('discord_id', window.currentDiscordId)
             .single();
         if (userInfo) {
             gameName = userInfo.game_username || '';
-            subRole = userInfo.sub_role || '';
+            subRole = userInfo.weapon_role || userInfo.sub_role || '';
+            combatRole = userInfo.combat_role || (subRole ? 'DPS' : 'DPS');
         }
-    } catch(e) {}
+    } catch(e) {
+        try {
+            const { data: legacyInfo } = await sb
+                .from('bc_users')
+                .select('game_username, sub_role, position')
+                .eq('discord_id', window.currentDiscordId)
+                .single();
+            if (legacyInfo) {
+                gameName = legacyInfo.game_username || '';
+                subRole = legacyInfo.sub_role || '';
+                combatRole = subRole ? 'DPS' : 'DPS';
+            }
+        } catch(e2) {}
+    }
 
     const newPlayer = {
         id: window.currentDiscordId,
@@ -4702,7 +5054,7 @@ async function joinSession(data) {
         username: window.currentUserName,
         gn: gameName,
         sub: subRole,
-        role: 'DPS',
+        role: combatRole,
         joinedAt: Date.now()
     };
 
@@ -5551,18 +5903,32 @@ async function createCustomBc() {
     const creatorId = window.currentDiscordId || 'unknown';
 
     // Lookup game_username từ bc_users
-    let gameName = '', subRole = '';
+    let gameName = '', subRole = '', combatRole = 'DPS';
     try {
         const { data: userInfo } = await sb
             .from('bc_users')
-            .select('game_username, sub_role')
+            .select('game_username, sub_role, combat_role, weapon_role')
             .eq('discord_id', creatorId)
             .single();
         if (userInfo) {
             gameName = userInfo.game_username || '';
-            subRole = userInfo.sub_role || '';
+            subRole = userInfo.weapon_role || userInfo.sub_role || '';
+            combatRole = userInfo.combat_role || (subRole ? 'DPS' : 'DPS');
         }
-    } catch(e) {}
+    } catch(e) {
+        try {
+            const { data: legacyInfo } = await sb
+                .from('bc_users')
+                .select('game_username, sub_role')
+                .eq('discord_id', creatorId)
+                .single();
+            if (legacyInfo) {
+                gameName = legacyInfo.game_username || '';
+                subRole = legacyInfo.sub_role || '';
+                combatRole = subRole ? 'DPS' : 'DPS';
+            }
+        } catch(e2) {}
+    }
 
     // Tạo player object cho người tạo
     const creatorPlayer = {
@@ -5571,7 +5937,7 @@ async function createCustomBc() {
         username: creatorName,
         gn: gameName,
         sub: subRole,
-        role: 'DPS',
+        role: combatRole,
         isLeader: true, // Leader không được phép hủy đăng ký
         joinedAt: Date.now()
     };
@@ -7450,6 +7816,108 @@ async function openFeedbackModal(e) {
 
 function closeFeedbackModal() {
     document.getElementById('feedbackModalOv')?.classList.remove('active');
+}
+
+let _releaseBackdropPointerDown = false;
+function ensureReleaseModal() {
+    if (document.getElementById('releaseModalOv')) return;
+
+    const ov = document.createElement('div');
+    ov.id = 'releaseModalOv';
+    ov.className = 'feedback-modal-ov';
+    ov.addEventListener('pointerdown', (ev) => {
+        _releaseBackdropPointerDown = ev.target === ov;
+    });
+    ov.addEventListener('pointerup', (ev) => {
+        if (_releaseBackdropPointerDown && ev.target === ov) closeReleaseModal();
+        _releaseBackdropPointerDown = false;
+    });
+    ov.addEventListener('pointercancel', () => {
+        _releaseBackdropPointerDown = false;
+    });
+    ov.innerHTML = `
+      <div class="feedback-modal release-modal" role="dialog" aria-modal="true" aria-labelledby="releaseModalTitle">
+        <div class="feedback-head">
+          <div class="feedback-head-left">
+            <div class="feedback-head-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                <path d="M9 7h7"></path><path d="M9 11h5"></path>
+              </svg>
+            </div>
+            <div class="feedback-head-text">
+              <div class="feedback-title" id="releaseModalTitle">LangGiaWar V1.2</div>
+              <div class="feedback-sub">Tóm tắt các cập nhật mới</div>
+            </div>
+          </div>
+          <div class="feedback-head-stats">
+            <div class="feedback-stat"><div class="feedback-stat-num">3</div><div class="feedback-stat-lbl">Cập nhật</div></div>
+          </div>
+          <button class="feedback-close" type="button" onclick="closeReleaseModal()">✕</button>
+        </div>
+        <div class="release-body">
+          <div class="release-badge">LangGiaWar V1.2</div>
+          <div class="release-list">
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
+                  <path d="M10 21h4"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Nút Cập nhật</div>
+                <div class="release-item-text">Thêm nút Cập nhật cạnh nút Góp ý, đồng bộ thiết kế nền tối, viền vàng và icon rõ ràng.</div>
+              </div>
+            </div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M19 8v6"></path><path d="M22 11h-6"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Addmem trên web</div>
+                <div class="release-item-text">Quản lý có thể thêm thành viên trực tiếp trên web để cập nhật danh sách nhanh hơn.</div>
+              </div>
+            </div>
+            <div class="release-item">
+              <div class="release-item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 7h-9"></path><path d="M14 17H5"></path>
+                  <circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
+                </svg>
+              </div>
+              <div>
+                <div class="release-item-title">Pick Role trên web</div>
+                <div class="release-item-text">Thành viên có thể tự chọn vai trò trực tiếp trên web.</div>
+              </div>
+            </div>
+          </div>
+          <div class="release-note">Bản cập nhật tập trung vào thao tác quản lý thành viên và trải nghiệm sử dụng ngay trên web.</div>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && document.getElementById('releaseModalOv')?.classList.contains('active')) {
+            closeReleaseModal();
+        }
+    });
+}
+
+function openReleaseModal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('userBadge')?.classList.remove('open');
+    ensureReleaseModal();
+    document.getElementById('releaseModalOv')?.classList.add('active');
+}
+
+function closeReleaseModal() {
+    document.getElementById('releaseModalOv')?.classList.remove('active');
 }
 
 function setFeedbackStatus(message, type = '') {

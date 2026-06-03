@@ -1,5 +1,5 @@
 /**
- * ?bcsize - ĐÃ KHÓA — Thay bằng UI Resize trong ?listbc hoặc Web Team Editor
+ * ?bcsize - ĐÃ KHÓA — Thay bằng UI Resize trong ?bcql hoặc Web Team Editor
  */
 
 const { EmbedBuilder } = require('discord.js');
@@ -7,7 +7,7 @@ const { EmbedBuilder } = require('discord.js');
 module.exports = {
     name: 'bcsize',
     aliases: ['teamsize', 'bcsoluong'],
-    description: '[KHÓA] Dùng nút 📏 Resize trong ?listbc t7/cn hoặc Web Team Editor',
+    description: '[KHÓA] Dùng nút 📏 Resize trong ?bcql hoặc Web Team Editor',
 
     async execute(message, args, client) {
         const embed = new EmbedBuilder()
@@ -16,7 +16,7 @@ module.exports = {
             .setDescription(
                 '📏 **Resize đội hình** và **đổi tên team** đã được tích hợp vào UI thông minh hơn:\n\n' +
                 '**Trên Discord:**\n' +
-                '> Dùng `?listbc t7` hoặc `?listbc cn` → bấm nút **📏 Resize**\n\n' +
+                '> Dùng `?bcql` → bấm nút **📏 Resize**\n\n' +
                 '**Trên Web:**\n' +
                 '> Mở **Team Editor** → bấm nút **Resize** ở góc trên phải'
             )

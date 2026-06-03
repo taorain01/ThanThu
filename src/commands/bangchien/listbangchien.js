@@ -26,9 +26,14 @@ function getTeamConfig(db) {
 module.exports = {
     name: 'listbangchien',
     aliases: ['listbc'],
-    description: 'Xem bang chiến. ?listbc (tổng quan), ?listbc t7/cn (chi tiết, Kỳ Cựu)',
+    description: '[ĐÓNG] Dùng ?bc để xem/đăng ký hoặc ?bcql để quản lý',
 
     async execute(message, args, client) {
+        return message.reply({
+            content: '❌ Lệnh `?listbc` đã đóng. Dùng `?bc` để xem/đăng ký hoặc `?bcql` để quản lý Bang Chiến.',
+            allowedMentions: { repliedUser: false }
+        });
+
         const db = require('../../database/db');
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const guildId = message.guild.id;

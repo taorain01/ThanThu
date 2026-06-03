@@ -149,7 +149,7 @@ module.exports = {
 
         embed.setDescription(description);
 
-        embed.setFooter({ text: 'Dùng ?listbc để xem | ?bcend để kết thúc' })
+        embed.setFooter({ text: 'Dùng ?bc để xem | ?bcend để kết thúc' })
             .setTimestamp();
 
         await message.reply({ embeds: [embed] });

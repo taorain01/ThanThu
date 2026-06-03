@@ -77,7 +77,6 @@ module.exports = {
                             `\`${prefix}lenhbc\` - **XEM TẤT CẢ LỆNH BC**`,
                             `\`${prefix}bc\` - Tạo thông báo BC`,
                             `\`${prefix}bcql\` - Panel quản lý`,
-                            `\`${prefix}listbc\` - Xem chi tiết`,
                             `\`${prefix}chotbc\` - Thêm role @bc`,
                             `\`${prefix}bcdoi\` \`${prefix}bcadd\` \`${prefix}bcchihuy\` \`${prefix}bcleader\``,
                             `\`${prefix}bcend\` - Kết thúc BC (xóa role + dọn dữ liệu)`

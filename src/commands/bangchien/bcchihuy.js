@@ -118,7 +118,7 @@ module.exports = {
             .setColor(0xFFD700)
             .setTitle('🎖️ ĐÃ ĐẶT CHỈ HUY!')
             .setDescription(`**${commanderName}** (<@${commanderId}>) là Chỉ Huy BC.${voicePermResult}`)
-            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?listbc để xem' });
+            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
         return message.reply({ embeds: [embed] });
     }

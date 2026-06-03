@@ -12,12 +12,11 @@ const {
 } = require('discord.js');
 const {
     DAY_CONFIG,
-    PRIMARY_DAYS,
     LEAGUE_TIME,
     normalizeBcTime,
     isLeagueSession,
     getDayNameWithDate,
-    getNextDayDate
+    compareSessionsBySchedule
 } = require('./bangchienState');
 const bangchienRoster = require('./bangchienRoster');
 
@@ -54,17 +53,7 @@ function getSessionLabel(session) {
 }
 
 function sortSessionsForMenu(sessions) {
-    return [...sessions].sort((a, b) => {
-        const aWeekend = PRIMARY_DAYS.includes(a.day);
-        const bWeekend = PRIMARY_DAYS.includes(b.day);
-        const aBucket = aWeekend ? (isLeagueSession(a) ? 0 : 1) : 2;
-        const bBucket = bWeekend ? (isLeagueSession(b) ? 0 : 1) : 2;
-        if (aBucket !== bBucket) return aBucket - bBucket;
-
-        const dayDiff = getNextDayDate(a.day).getTime() - getNextDayDate(b.day).getTime();
-        if (dayDiff !== 0) return dayDiff;
-        return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
-    });
+    return [...sessions].sort(compareSessionsBySchedule);
 }
 
 function buildInitialSelection(guildId, userId, sessions) {
@@ -78,9 +67,11 @@ function createBcMenu(guildId, userId) {
     const sessions = sortSessionsForMenu(db.getActiveBangchienByGuild(guildId));
     const selected = buildInitialSelection(guildId, userId, sessions);
     const joinedCount = sessions.filter(s => isUserInSession(s, userId)).length;
+    const selectedCount = sessions.filter(s => selected.has(s.party_key)).length;
+    const selectionChanged = sessions.some(s => selected.has(s.party_key) !== isUserInSession(s, userId));
 
     const embed = new EmbedBuilder()
-        .setColor(joinedCount > 0 ? 0x22C55E : 0xFFD700)
+        .setColor((selectedCount > 0 || joinedCount > 0) ? 0x22C55E : 0xFFD700)
         .setTitle('⚔️  Đăng Ký Bang Chiến')
         .setDescription(
             sessions.length > 0
@@ -102,13 +93,20 @@ function createBcMenu(guildId, userId) {
             const lines = byDay[day].map(s => {
                 const total   = getSessionTotal(s);
                 const joined  = isUserInSession(s, userId);
+                const picked  = selected.has(s.party_key);
                 const league  = isLeagueSession(s);
                 const timeStr = normalizeBcTime(s.time || LEAGUE_TIME);
                 const noteRaw = s.note && !/^league$/i.test(String(s.note)) ? String(s.note) : '';
                 const typeBadge = league ? ' · `LEAGUE`' : (noteRaw ? ` · \`${noteRaw}\`` : '');
 
-                if (joined) {
+                if (joined && picked) {
                     return `✅ **${timeStr}**${typeBadge}  \`${total}/30\`  ← _Đã đăng ký_`;
+                }
+                if (picked) {
+                    return `☑️ **${timeStr}**${typeBadge}  \`${total}/30\`  ← _Đã chọn, chờ xác nhận_`;
+                }
+                if (joined) {
+                    return `🚫 **${timeStr}**${typeBadge}  \`${total}/30\`  ← _Sẽ hủy khi xác nhận_`;
                 }
                 return `▫️ **${timeStr}**${typeBadge}  \`${total}/30\``;
             });
@@ -121,7 +119,9 @@ function createBcMenu(guildId, userId) {
         }
 
         embed.setFooter({
-            text: joinedCount > 0
+            text: selectionChanged
+                ? `☑️ Đang chọn ${selectedCount}/${sessions.length} trận  •  Bấm Xác nhận để lưu thay đổi`
+                : joinedCount > 0
                 ? `✅ Đã đăng ký ${joinedCount}/${sessions.length} trận  •  Bỏ tích trận nào để hủy đăng ký`
                 : `Chưa đăng ký trận nào  •  Tổng ${sessions.length} trận đang mở`
         });

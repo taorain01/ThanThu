@@ -514,137 +514,399 @@
       background: rgba(255,255,255,.015);
     }
 
-    /* roster log */
+    /* ═══ ROSTER LOG — REDESIGN ═══ */
     .log-fab {
       position: fixed;
       right: 16px;
       bottom: 14px;
       z-index: 900;
-      height: 36px;
-      min-width: 58px;
-      padding: 0 13px;
-      border: 1px solid rgba(245,200,66,.38);
-      border-radius: 8px;
-      background: rgba(16,32,20,.96);
+      height: 38px;
+      min-width: 66px;
+      padding: 0 14px;
+      border: 1px solid rgba(245,200,66,.45);
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(18,40,24,.97), rgba(10,22,14,.99));
       color: var(--gold);
-      box-shadow: 0 12px 34px rgba(0,0,0,.42);
+      box-shadow: 0 8px 28px rgba(0,0,0,.55), 0 0 16px rgba(245,200,66,.12), inset 0 1px 0 rgba(255,255,255,.06);
       font-weight: 900;
+      font-size: 12.5px;
+      letter-spacing: .03em;
+      cursor: pointer;
+      transition: border-color .18s, box-shadow .18s, transform .14s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
+    .log-fab::before {
+      content: '';
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(62,207,114,.8);
+      animation: logPulse 2.2s infinite;
+    }
+    @keyframes logPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .45; transform: scale(.7); }
+    }
+    .log-fab:hover {
+      border-color: rgba(245,200,66,.72);
+      box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 22px rgba(245,200,66,.2), inset 0 1px 0 rgba(255,255,255,.08);
+      transform: translateY(-1px);
+    }
+    .log-fab[aria-expanded="true"] {
+      border-color: rgba(245,200,66,.7);
+      background: linear-gradient(135deg, rgba(30,54,26,.98), rgba(14,30,18,.99));
+      box-shadow: 0 0 0 3px rgba(245,200,66,.1), 0 8px 28px rgba(0,0,0,.5);
+    }
+
     .log-panel {
       position: fixed;
       right: 16px;
-      bottom: 58px;
+      bottom: 62px;
       z-index: 901;
-      width: min(420px, calc(100vw - 28px));
-      max-height: min(520px, calc(100vh - 92px));
+      width: min(430px, calc(100vw - 24px));
+      max-height: min(560px, calc(100vh - 96px));
       display: none;
       flex-direction: column;
-      border: 1px solid rgba(141,255,183,.2);
-      border-radius: 10px;
-      background: rgba(7,18,10,.98);
-      box-shadow: 0 22px 70px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.03);
+      border: 1px solid rgba(62,207,114,.22);
+      border-radius: 14px;
+      background: rgba(5,14,8,.97);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow:
+        0 28px 80px rgba(0,0,0,.72),
+        0 0 0 1px rgba(255,255,255,.04),
+        0 0 60px rgba(62,207,114,.06);
       overflow: hidden;
+      transform-origin: bottom right;
+      animation: logPanelIn .18s ease;
+    }
+    @keyframes logPanelIn {
+      from { opacity: 0; transform: scale(.95) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
     }
     .log-panel.show { display: flex; }
+
+    /* header gradient */
     .log-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(141,255,183,.12);
+      padding: 14px 14px 12px;
+      background: linear-gradient(135deg, rgba(16,38,22,.95) 0%, rgba(8,20,12,.92) 100%);
+      border-bottom: 1px solid rgba(62,207,114,.14);
+      position: relative;
+      flex-shrink: 0;
     }
-    .log-title { color: var(--gold); font-size: 13px; font-weight: 900; }
-    .log-sub { margin-top: 1px; color: var(--muted); font-size: 10.5px; }
-    .log-close {
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      justify-content: center;
+    .log-head::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(62,207,114,.32) 40%, rgba(245,200,66,.2) 70%, transparent);
+    }
+    .log-head-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .log-head-icon {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, rgba(62,207,114,.18), rgba(34,192,96,.08));
+      border: 1px solid rgba(62,207,114,.22);
+      display: flex; align-items: center; justify-content: center;
       font-size: 16px;
+      flex-shrink: 0;
     }
+    .log-head-text { min-width: 0; }
+    .log-title {
+      color: var(--gold);
+      font-size: 13.5px;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+    .log-sub {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 10.5px;
+      opacity: .85;
+    }
+    .log-close {
+      width: 30px; height: 30px;
+      border: 1px solid rgba(141,255,183,.14);
+      border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      font-weight: 400;
+      flex-shrink: 0;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .log-close:hover {
+      border-color: rgba(240,100,100,.4);
+      color: #ffa0a0;
+      background: rgba(240,100,100,.08);
+    }
+
+    /* filters scrollable chip bar */
     .log-filters {
       display: flex;
-      gap: 5px;
-      padding: 8px 10px;
-      border-bottom: 1px solid rgba(141,255,183,.09);
+      gap: 6px;
+      padding: 10px 12px 9px;
+      border-bottom: 1px solid rgba(62,207,114,.08);
       overflow-x: auto;
+      flex-shrink: 0;
+      scrollbar-width: none;
     }
+    .log-filters::-webkit-scrollbar { display: none; }
     .log-filter {
       height: 26px;
-      padding: 0 9px;
-      border: 1px solid rgba(141,255,183,.13);
-      border-radius: 7px;
-      background: rgba(255,255,255,.035);
+      padding: 0 11px;
+      border: 1px solid rgba(141,255,183,.12);
+      border-radius: 20px;
+      background: rgba(255,255,255,.028);
       color: var(--muted);
       font-size: 11px;
       font-weight: 800;
       white-space: nowrap;
       cursor: pointer;
+      transition: border-color .15s, color .15s, background .15s, box-shadow .15s;
+      letter-spacing: .02em;
+    }
+    .log-filter:hover {
+      border-color: rgba(141,255,183,.28);
+      color: var(--text);
+      background: rgba(141,255,183,.06);
     }
     .log-filter.active {
-      border-color: rgba(245,200,66,.42);
+      border-color: rgba(245,200,66,.5);
       color: var(--gold);
       background: rgba(245,200,66,.1);
+      box-shadow: 0 0 10px rgba(245,200,66,.1);
     }
+
+    /* scrollable log list */
     .log-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      min-height: 120px;
-      overflow: auto;
-      padding: 9px 10px 10px;
+      gap: 5px;
+      overflow-y: auto;
+      padding: 10px 10px 12px;
+      flex: 1;
+      min-height: 140px;
     }
-    .log-list::-webkit-scrollbar { width: 4px; }
+    .log-list::-webkit-scrollbar { width: 3px; }
     .log-list::-webkit-scrollbar-track { background: transparent; }
-    .log-list::-webkit-scrollbar-thumb { background: rgba(141,255,183,.2); border-radius: 4px; }
-    .log-item {
-      border: 1px solid rgba(141,255,183,.12);
-      border-radius: 8px;
-      background: rgba(255,255,255,.026);
-      padding: 8px 9px;
-      min-width: 0;
+    .log-list::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(62,207,114,.35), rgba(245,200,66,.2));
+      border-radius: 3px;
     }
+
+    /* individual log card — timeline style */
+    .log-item {
+      position: relative;
+      border: 1px solid rgba(141,255,183,.1);
+      border-radius: 10px;
+      background: rgba(255,255,255,.022);
+      padding: 9px 10px 9px 14px;
+      min-width: 0;
+      overflow: hidden;
+      transition: border-color .15s, background .15s, box-shadow .15s;
+      cursor: default;
+    }
+    .log-item::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, rgba(62,207,114,.7), rgba(62,207,114,.2));
+      border-radius: 3px 0 0 3px;
+    }
+    .log-item.src-bot::before {
+      background: linear-gradient(180deg, rgba(245,200,66,.8), rgba(245,200,66,.2));
+    }
+    .log-item:hover {
+      border-color: rgba(141,255,183,.22);
+      background: rgba(255,255,255,.04);
+      box-shadow: 0 2px 12px rgba(0,0,0,.28);
+    }
+
+    /* top row: time + badges */
     .log-row-top {
       display: flex;
       justify-content: space-between;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 10.5px;
-      white-space: nowrap;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
     }
+    .log-time {
+      color: rgba(122,170,138,.7);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .log-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
     .log-source {
-      color: var(--green);
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 7px;
+      border-radius: 5px;
+      font-size: 9.5px;
       font-weight: 900;
+      letter-spacing: .06em;
       text-transform: uppercase;
     }
-    .log-source.bot { color: var(--gold); }
+    .log-source.web {
+      background: rgba(62,207,114,.14);
+      color: #5ee895;
+      border: 1px solid rgba(62,207,114,.24);
+    }
+    .log-source.bot {
+      background: rgba(245,200,66,.13);
+      color: var(--gold);
+      border: 1px solid rgba(245,200,66,.28);
+    }
+    .log-actor {
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 7px;
+      border-radius: 5px;
+      font-size: 9.5px;
+      font-weight: 700;
+      background: rgba(255,255,255,.05);
+      color: rgba(200,230,210,.75);
+      border: 1px solid rgba(255,255,255,.07);
+      max-width: 96px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* summary text */
     .log-summary {
-      margin-top: 4px;
       color: var(--text);
       font-size: 12.5px;
-      font-weight: 850;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: .01em;
+    }
+    /* meta row */
+    .log-meta {
+      margin-top: 4px;
+      color: rgba(122,170,138,.65);
+      font-size: 10.5px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .log-meta,
+    /* change diff row */
     .log-change {
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 11px;
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .log-change-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(62,207,114,.07);
+      border: 1px solid rgba(62,207,114,.14);
+      color: #8de8b2;
+      white-space: nowrap;
+      max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
     }
-    .log-change { color: #abcbb6; }
-    .log-empty {
-      padding: 24px 12px;
-      border: 1px dashed rgba(141,255,183,.14);
-      border-radius: 8px;
+    .log-change-chip .arrow {
+      color: rgba(245,200,66,.65);
+      font-size: 9px;
+    }
+    .log-change-more {
+      font-size: 9.5px;
       color: var(--muted);
-      text-align: center;
+      padding: 2px 6px;
+      border-radius: 5px;
+      border: 1px solid rgba(141,255,183,.1);
+      background: transparent;
+    }
+
+    /* empty state */
+    .log-empty {
+      padding: 32px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
       font-size: 12px;
+      text-align: center;
+    }
+    .log-empty-icon {
+      font-size: 28px;
+      opacity: .5;
+    }
+
+    /* mobile bottom sheet */
+    @media (max-width: 520px) {
+      .shell { padding: 7px 8px 6px; gap: 0; }
+      .filters-row { gap: 5px; }
+      .filter-group.select-group { width: 90px; }
+      .table-head { display: none; }
+      .member-row { grid-template-columns: 32px minmax(0,1fr) 76px; gap: 6px; }
+      .member-row .col-combat,
+      .member-row .col-joined,
+      .member-row .col-position { display: none; }
+      .log-fab { right: 10px; bottom: 10px; height: 34px; min-width: 58px; }
+      .log-panel {
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-height: 75vh;
+        border-radius: 16px 16px 0 0;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+      }
+      .log-panel::before {
+        content: '';
+        display: block;
+        width: 36px;
+        height: 4px;
+        background: rgba(141,255,183,.18);
+        border-radius: 2px;
+        margin: 10px auto 0;
+        flex-shrink: 0;
+      }
+    }
+    @media (min-width: 521px) and (max-width: 900px) {
+      .table-head { grid-template-columns: 34px minmax(0,1fr) 90px 120px 76px; }
+      .table-head .col-hd.c-joined { display: none; }
+      .member-row { grid-template-columns: 34px minmax(0,1fr) 90px 120px 76px; }
+      .member-row .col-joined { display: none; }
+      .filter-group.select-group { width: 100px; }
+    }
+    @media (min-width: 521px) and (max-width: 680px) {
+      .table-head { grid-template-columns: 34px minmax(0,1fr) 90px 76px; }
+      .table-head .col-hd.c-combat,
+      .table-head .col-hd.c-joined { display: none; }
+      .member-row { grid-template-columns: 34px minmax(0,1fr) 90px 76px; }
+      .member-row .col-combat,
+      .member-row .col-joined { display: none; }
+      .filter-group.select-group { width: 100px; }
     }
 
     /* login */
@@ -1021,24 +1283,35 @@
     const entries = logEntries.filter(entry => logMatchesFilter(entry, logFilter));
     if (els.logSub) els.logSub.textContent = `${entries.length}/${logEntries.length} log gan day`;
     if (!entries.length) {
-      els.logList.innerHTML = '<div class="log-empty">Chua co log phu hop.</div>';
+      els.logList.innerHTML = '<div class="log-empty"><div class="log-empty-icon">📋</div><div>Chưa có log phù hợp.</div></div>';
       return;
     }
     els.logList.innerHTML = entries.map((entry) => {
       const details = entry._details || {};
       const source = String(entry.source || 'web').toLowerCase();
+      const srcClass = source.replace(/[^a-z0-9_-]+/g, '') || 'web';
       const actor = details.actor_name || details.editor_name || entry.performed_by || 'Web';
       const meta = getLogMeta(entry);
-      const changeText = getLogChangeText(entry);
+      const changes = Array.isArray(details.changes) ? details.changes.filter(Boolean) : [];
+      const changeChips = changes.slice(0, 2).map(c => {
+        const lbl = esc(c.label || c.field || 'Field');
+        const before = esc(compactLogValue(c.before));
+        const after = esc(compactLogValue(c.after));
+        return `<span class="log-change-chip">${lbl}: <span class="arrow">▸</span> ${after}</span>`;
+      }).join('');
+      const moreChip = changes.length > 2 ? `<span class="log-change-more">+${changes.length - 2}</span>` : '';
       return `
-        <article class="log-item">
+        <article class="log-item src-${srcClass}">
           <div class="log-row-top">
-            <span>${esc(formatLogTime(entry.created_at || details.edited_at))}</span>
-            <span><span class="log-source ${esc(source)}">${esc(source || 'web')}</span> · ${esc(actor)}</span>
+            <span class="log-time">${esc(formatLogTime(entry.created_at || details.edited_at))}</span>
+            <div class="log-badges">
+              <span class="log-source ${srcClass}">${esc(source || 'web')}</span>
+              <span class="log-actor" title="${esc(actor)}">${esc(actor)}</span>
+            </div>
           </div>
           <div class="log-summary">${esc(getLogSummary(entry))}</div>
           ${meta ? `<div class="log-meta">${esc(meta)}</div>` : ''}
-          ${changeText ? `<div class="log-change">${esc(changeText)}</div>` : ''}
+          ${changeChips ? `<div class="log-change">${changeChips}${moreChip}</div>` : ''}
         </article>`;
     }).join('');
   }

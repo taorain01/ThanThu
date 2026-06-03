@@ -102,7 +102,7 @@ module.exports = {
                 { name: '🌲 Rừng', value: `${teamForest.length}/${forestSize}`, inline: true },
                 { name: '⏳ Chờ', value: `${waitingList.length}`, inline: true }
             )
-            .setFooter({ text: 'Dùng ?listbc để xem chi tiết | ?lenhbc để xem lệnh' })
+            .setFooter({ text: 'Dùng ?bc để xem tổng quan | ?lenhbc để xem lệnh' })
             .setTimestamp();
 
         // Tạo buttons quản lý (2 rows) — truyền day vào customId giống ?listbc

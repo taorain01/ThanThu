@@ -20,6 +20,7 @@ const {
     getDayNameWithDate,
     normalizeBcTime,
     isLeagueSession,
+    compareSessionsBySchedule,
     LEAGUE_TIME,
     refreshOverviewEmbed,
     // Auto-cleanup
@@ -309,15 +310,7 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
     const db = require('../../database/db');
     const allSessions = db.getActiveBangchienByGuild(guildId)
         .filter(s => s?.day && DAY_CONFIG[s.day])
-        .sort((a, b) => {
-            const aPrimary = PRIMARY_DAYS.includes(a.day) ? 0 : 1;
-            const bPrimary = PRIMARY_DAYS.includes(b.day) ? 0 : 1;
-            if (aPrimary !== bPrimary) return aPrimary - bPrimary;
-            const aDayIndex = Object.keys(DAY_CONFIG).indexOf(a.day);
-            const bDayIndex = Object.keys(DAY_CONFIG).indexOf(b.day);
-            if (aDayIndex !== bDayIndex) return aDayIndex - bDayIndex;
-            return normalizeBcTime(a.time || LEAGUE_TIME).localeCompare(normalizeBcTime(b.time || LEAGUE_TIME));
-        });
+        .sort(compareSessionsBySchedule);
 
     const byDay = {}, dayOrder = [];
     for (const s of allSessions) {
@@ -325,15 +318,18 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
         byDay[s.day].push(s);
     }
     const joinedCount = allSessions.filter(s => isUserInSession(s, userId)).length;
+    const nextDay = dayOrder[0] || null;
+    const embedColor = joinedCount > 0 ? 0x22C55E : (DAY_CONFIG[nextDay]?.color || 0xFFD700);
 
     const embed = new EmbedBuilder()
-        .setColor(joinedCount > 0 ? 0x22C55E : 0xFFD700)
+        .setColor(embedColor)
         .setTitle('⚔️  Bang Chiến Lang Gia')
         .setDescription(allSessions.length > 0
             ? '> Bấm **Đăng ký** bên dưới để chọn trận tham gia.'
             : '> Chưa có phiên Bang Chiến nào đang mở.');
 
     for (const day of dayOrder) {
+        const isNextDay = day === nextDay;
         const lines = byDay[day].map(session => {
             const timeStr = normalizeBcTime(session.time || LEAGUE_TIME);
             const counts  = bangchienRoster.getRosterCounts(session);
@@ -344,7 +340,9 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
                 ? `✅ **${timeStr}**${league}  \`${total}/30\`${waitStr}  ← _Đã đăng ký_`
                 : `▫️ **${timeStr}**${league}  \`${total}/30\`${waitStr}`;
         });
-        embed.addFields({ name: `\ud83d\udcc5 ${getDayNameWithDate(day)}`, value: lines.join('\n'), inline: false });
+        const name = `${isNextDay ? '⭐ ' : '\ud83d\udcc5 '}${getDayNameWithDate(day)}${isNextDay ? '  · SẮP TỚI' : ''}`;
+        const value = isNextDay ? lines.map(line => `> ${line}`).join('\n') : lines.join('\n');
+        embed.addFields({ name, value, inline: false });
     }
 
     if (dayOrder.length === 0) {

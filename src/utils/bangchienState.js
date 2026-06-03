@@ -145,6 +145,24 @@ function isLeagueSession(sessionOrTime) {
     return normalizeBcTime(time) === LEAGUE_TIME;
 }
 
+function getSessionScheduleDate(sessionOrDay, time = LEAGUE_TIME) {
+    const isSession = sessionOrDay && typeof sessionOrDay === 'object';
+    const day = isSession ? sessionOrDay.day : sessionOrDay;
+    const targetDate = getNextDayDate(day);
+    const normalizedTime = normalizeBcTime(isSession ? sessionOrDay.time : time);
+    const [hour, minute] = normalizedTime.split(':').map(Number);
+    targetDate.setHours(hour, minute, 0, 0);
+    return targetDate;
+}
+
+function compareSessionsBySchedule(a, b) {
+    const scheduleDiff = getSessionScheduleDate(a).getTime() - getSessionScheduleDate(b).getTime();
+    if (scheduleDiff !== 0) return scheduleDiff;
+    const createdDiff = String(a?.created_at || '').localeCompare(String(b?.created_at || ''));
+    if (createdDiff !== 0) return createdDiff;
+    return String(a?.party_key || '').localeCompare(String(b?.party_key || ''));
+}
+
 function getDayFromPartyKey(partyKey) {
     const parts = String(partyKey || '').split('_');
     if (parts.length >= 3) {
@@ -544,6 +562,8 @@ module.exports = {
     parseDayArg,
     normalizeBcTime,
     isLeagueSession,
+    getSessionScheduleDate,
+    compareSessionsBySchedule,
     getDayFromPartyKey,
     getTimeFromPartyKey,
     getSessionIdentityKey,

@@ -345,7 +345,7 @@ module.exports = {
             .setColor(teamConfig.color)
             .setTitle(`🎯 ĐÃ ĐẶT LEADER ${teamConfig.emoji} ${teamConfig.name}!`)
             .setDescription(`**${leaderName}** (<@${leaderId}>) là Leader của ${teamConfig.emoji} ${teamConfig.name}.\nĐã di chuyển lên vị trí đầu team.${voicePermResult}`)
-            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?listbc để xem' });
+            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
         console.log(`[bcleader] ${message.author.username} set leader team ${teamNum}: ${leaderName}`);
         return message.reply({ embeds: [embed] });

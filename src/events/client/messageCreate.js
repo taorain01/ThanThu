@@ -1558,10 +1558,12 @@ module.exports = {
             return;
         }
 
-        // ?listbangchien, ?listbc - Xem chi tiết lần bang chiến gần nhất
+        // ?listbangchien, ?listbc - Đã đóng, giữ renderer nội bộ cho các message cũ
         if (['listbangchien', 'listbc'].includes(commandName)) {
-            const listbangchienCommand = require('../../commands/bangchien/listbangchien');
-            return listbangchienCommand.execute(message, args, client);
+            return message.reply({
+                content: '❌ Lệnh `?listbc` đã đóng. Dùng `?bc` để xem/đăng ký hoặc `?bcql` để quản lý Bang Chiến.',
+                allowedMentions: { repliedUser: false }
+            });
         }
 
         // ?bcend, ?ketthucbc - Kết thúc BC (thay thế bcwin/bcthua)

@@ -369,7 +369,7 @@ module.exports = {
                 { name: '🌲 Rừng', value: `${teams.forest.length}/${TEAM_SIZES.forest}`, inline: true },
                 { name: '⏳ Chờ', value: `${teams.waiting.length}`, inline: true }
             )
-            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?listbc để xem' });
+            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
         console.log(`[bcadd] ${message.author.username} thêm ${mention.username} vào ${addedToTeam}`);
         return message.reply({ embeds: [embed] });

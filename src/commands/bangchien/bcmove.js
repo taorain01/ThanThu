@@ -316,7 +316,7 @@ module.exports = {
                 { name: '🛡️ Thủ', value: `${teams.defense.length}/${TEAM_CONFIG['thu'].maxSize}`, inline: true },
                 { name: '🌲 Rừng', value: `${teams.forest.length}/${TEAM_CONFIG['rung'].maxSize}`, inline: true }
             )
-            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?listbc để xem' });
+            .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
         console.log(`[bcmove] ${message.author.username} di chuyển ${person.username} từ ${foundIn} → ${targetConfig.field}${presetSaved ? ' (preset saved)' : ''}`);
         return message.reply({ embeds: [embed] });

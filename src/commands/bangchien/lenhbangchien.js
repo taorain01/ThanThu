@@ -9,7 +9,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
             .setTitle('⚔️ LỆNH BANG CHIẾN')
-            .setDescription('🔧 **Dùng `?bcql` để quản lý dễ dàng hơn!**\n💡 Thêm `t7` hoặc `cn` để chỉ định ngày (VD: `?bc t7`, `?listbc cn`)')
+            .setDescription('🔧 **Dùng `?bcql` để quản lý dễ dàng hơn!**\n💡 Thêm `t7` hoặc `cn` để chỉ định ngày (VD: `?bc t7`)')
             .addFields(
                 {
                     name: '📝 TẠO & CHỐT',
@@ -18,7 +18,7 @@ module.exports = {
                 },
                 {
                     name: '📋 XEM',
-                    value: '`?listbc t7/cn` DS chi tiết\n`?bcql` **Panel quản lý**',
+                    value: '`?bc` Tổng quan đăng ký\n`?bcql` **Panel quản lý**',
                     inline: true
                 },
                 {

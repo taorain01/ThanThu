@@ -255,7 +255,7 @@ module.exports = {
                         { name: '🌲 Rừng', value: `${teams.forest.length}/${SIZE_FOREST}`, inline: true },
                         { name: '⏳ Chờ', value: `${teams.waiting.length}`, inline: true }
                     )
-                    .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?listbc để xem' });
+                    .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
                 console.log(`[bcswap] ${message.author.username} đổi ${num1} ↔ ${num2}${presetUpdates.length > 0 ? ' (auto-preset)' : ''}`);
                 return message.reply({ embeds: [resultEmbed] });
@@ -348,14 +348,14 @@ module.exports = {
                         { name: '🌲 Rừng', value: `${teams.forest.length}/${SIZE_FOREST}`, inline: true },
                         { name: '⏳ Chờ', value: `${teams.waiting.length}`, inline: true }
                     )
-                    .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?listbc để xem' });
+                    .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
                 console.log(`[bcswap] ${message.author.username} move ${movedPerson.username} → ${slot2.team}${presetUpdates.length > 0 ? ' (auto-preset)' : ''}`);
                 return message.reply({ embeds: [resultEmbed] });
             }
 
             // Case 3: Cả 2 slot đều trống
-            return message.reply('❌ Cả hai slot đều trống! Dùng `?listbc` để xem số thứ tự.');
+            return message.reply('❌ Cả hai slot đều trống! Dùng `?bcql` để xem/quản lý đội hình.');
         }
 
         // Hiển thị hướng dẫn nếu không có args
@@ -371,7 +371,7 @@ module.exports = {
                 (waitLen > 0 ? `⏳ Chờ: ${SLOT_WAITING_START}-${SLOT_WAITING_START - 1 + waitLen}\n\n` : '\n') +
                 `**Cách dùng:**\n\`?bcdoi 1 ${SLOT_DEFENSE_START}\` - Đổi người #1 (Công1) với #${SLOT_DEFENSE_START} (Thủ)`
             )
-            .setFooter({ text: `Số slot đồng bộ với ?bcsize • Dùng ?listbc để xem` });
+            .setFooter({ text: `Số slot đồng bộ với ?bcsize • Dùng ?bcql để quản lý` });
 
         await message.reply({ embeds: [embed] });
     }

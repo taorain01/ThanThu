@@ -8,6 +8,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const db = require('../../database/db');
+const supaSync = require('../../utils/supabaseSync');
 
 // Position display config - Wuxia warm gold tones
 const POSITION_CONFIG = {
@@ -29,6 +30,66 @@ function getPositionDisplay(position) {
     }
     // Custom kc variant - use kc style with custom name
     return { name: pos?.toUpperCase() || 'Không rõ', emoji: '🏆', color: 0x9B59B6 };
+}
+
+function normalizeJoinedAt(value) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
+}
+
+async function fetchSupabaseJoinedAt(discordId, guildId) {
+    try {
+        if (!supaSync.isReady()) supaSync.initSupabase();
+        const supabase = supaSync.getSupabaseClient();
+        if (!supabase || !discordId) return null;
+
+        let query = supabase
+            .from('bc_users')
+            .select('joined_at')
+            .eq('discord_id', String(discordId))
+            .limit(1);
+        if (guildId) query = query.eq('guild_id', guildId);
+
+        let { data, error } = await query;
+        if ((!data || data.length === 0) && guildId) {
+            const fallback = await supabase
+                .from('bc_users')
+                .select('joined_at')
+                .eq('discord_id', String(discordId))
+                .limit(1);
+            data = fallback.data;
+            error = fallback.error;
+        }
+
+        if (error) {
+            console.error('[mem] Supabase joined_at fetch failed:', error.message);
+            return null;
+        }
+
+        return normalizeJoinedAt(data?.[0]?.joined_at);
+    } catch (error) {
+        console.error('[mem] Supabase joined_at fetch exception:', error.message);
+        return null;
+    }
+}
+
+async function refreshJoinedAtFromSupabase(userData, guildId) {
+    if (!userData?.discord_id) return userData;
+    const joinedAt = await fetchSupabaseJoinedAt(userData.discord_id, guildId);
+    if (!joinedAt) return userData;
+
+    const currentJoinedAt = normalizeJoinedAt(userData.joined_at);
+    if (currentJoinedAt === joinedAt) return userData;
+
+    try {
+        db.db.prepare('UPDATE users SET joined_at = ?, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?').run(joinedAt, userData.discord_id);
+    } catch (error) {
+        console.error('[mem] Local joined_at update failed:', error.message);
+    }
+
+    return { ...userData, joined_at: joinedAt };
 }
 
 /**
@@ -250,6 +311,8 @@ async function execute(message, args) {
     } catch (e) {
         // Member might not be fetchable, skip sync
     }
+
+    userData = await refreshJoinedAtFromSupabase(userData, message.guild?.id);
 
     // Get position display
     const posDisplay = getPositionDisplay(userData.position);

@@ -3,6 +3,7 @@ const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const memberRosterSync = require('../../utils/memberRosterSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
+const { cleanupAlbumForUser } = require('../../utils/albumCleanup');
 
 // Channel ID to send leave notifications
 const LEAVE_NOTIFICATION_CHANNEL = '1465959064575152263';
@@ -13,14 +14,21 @@ module.exports = {
         try {
             // Check if user exists in database
             const userData = db.getUserByDiscordId(member.id);
+            const albumCleanup = await cleanupAlbumForUser(member.id, 'guild_member_remove', { client });
 
             if (!userData) {
+                if (albumCleanup.deleted > 0) {
+                    console.log(`[guildMemberRemove] Deleted album for non-roster user ${member.id}: ${albumCleanup.deleted} images`);
+                }
                 // User not in database, ignore
                 return;
             }
 
             // Check if already marked as left
             if (userData.left_at) {
+                if (albumCleanup.deleted > 0) {
+                    console.log(`[guildMemberRemove] Deleted album for already-left user ${member.id}: ${albumCleanup.deleted} images`);
+                }
                 // Already marked as left, ignore
                 return;
             }

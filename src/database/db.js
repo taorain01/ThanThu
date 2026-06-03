@@ -2051,7 +2051,7 @@ function getUserAvatar(discordId) {
  * @returns {Object} Result object
  */
 function clearUserAvatar(discordId) {
-    const stmt = db.prepare('UPDATE users SET custom_avatar = NULL, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?');
+    const stmt = db.prepare('UPDATE users SET custom_avatar = NULL, backup_avatar = NULL, updated_at = CURRENT_TIMESTAMP WHERE discord_id = ?');
     const result = stmt.run(discordId);
     return { success: result.changes > 0, changes: result.changes };
 }
@@ -2152,6 +2152,14 @@ function getAlbumImages(userId, page = 1, limit = 5) {
 }
 
 /**
+ * Get all album images for a user.
+ */
+function getAllAlbumImagesByUser(userId) {
+    const stmt = db.prepare('SELECT id, image_url, image_number, message_id, created_at FROM album WHERE user_id = ? ORDER BY image_number ASC');
+    return stmt.all(userId);
+}
+
+/**
  * Get total image count for a user
  */
 function getAlbumImageCount(userId) {
@@ -2202,6 +2210,14 @@ function deleteAlbumImageByMessageId(messageId) {
         userImages.forEach((img, i) => updateStmt.run(i + 1, img.id));
     }
     return { success: true, changes: images.length };
+}
+
+/**
+ * Delete all album images for one user.
+ */
+function deleteAllAlbumImagesByUser(userId) {
+    const result = db.prepare('DELETE FROM album WHERE user_id = ?').run(userId);
+    return { success: result.changes > 0, changes: result.changes };
 }
 
 // ============== DISPLAY ROLE FUNCTIONS ==============
@@ -2395,10 +2411,12 @@ module.exports = {
     setAlbumChannelId,
     addAlbumImage,
     getAlbumImages,
+    getAllAlbumImagesByUser,
     getAlbumImageCount,
     getAlbumImageByNumber,
     deleteAlbumImage,
     deleteAlbumImageByMessageId,
+    deleteAllAlbumImagesByUser,
     // Display Role System
     getDisplayRole,
     setDisplayRole,

@@ -17,6 +17,7 @@ const supaSync = require('../../utils/supabaseSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 const memberRosterSync = require('../../utils/memberRosterSync');
 const { findLangGiaRole } = require('../../utils/langGiaRole');
+const { cleanupAlbumForUser } = require('../../utils/albumCleanup');
 
 /**
  * Check if user has Ky Cu role
@@ -233,6 +234,7 @@ async function execute(message, args) {
 
     // Mark user as left
     const result = db.markUserAsLeft(targetDiscordId, leftDate.toISOString());
+    const albumCleanup = await cleanupAlbumForUser(targetDiscordId, 'roiguild', { client: message.client });
 
     // === XÓA KHỎI HỆ THỐNG BANG CHIẾN ===
     // 1. Xóa "Luôn tham gia" cho cả 2 ngày
@@ -293,7 +295,8 @@ async function execute(message, args) {
                 { name: 'Tên Game', value: userData.game_username || 'N/A', inline: true },
                 { name: 'UID', value: userData.game_uid || 'N/A', inline: true },
                 { name: 'Ngày rời', value: `<t:${Math.floor(leftDate.getTime() / 1000)}:D>`, inline: true },
-                { name: 'Role LangGia', value: roleRemoved ? '🔴 Đã xóa' : '⚪ Không có/Không thể xóa', inline: true }
+                { name: 'Role LangGia', value: roleRemoved ? '🔴 Đã xóa' : '⚪ Không có/Không thể xóa', inline: true },
+                { name: 'Album phòng ảnh', value: `Đã xóa ${albumCleanup.deleted} ảnh / ${albumCleanup.discordMessagesDeleted} message`, inline: true }
             )
             .setFooter({ text: `Đánh dấu bởi ${message.author.username}` })
             .setTimestamp();

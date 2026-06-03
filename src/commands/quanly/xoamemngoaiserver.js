@@ -3,6 +3,7 @@ const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const { logMemberRosterAction } = require('../../utils/memberRosterLog');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
+const { cleanupAlbumForUser } = require('../../utils/albumCleanup');
 
 const OWNER_IDS = new Set(['395151484179841024', '1247475535317422111']);
 const CHUNK_SIZE = 400;
@@ -168,6 +169,42 @@ function deleteLocalRows(deleteUsers, deletePending) {
     return result;
 }
 
+function getAlbumCleanupIds(localPlan, supabasePlan) {
+    return new Set([
+        ...localPlan.deleteUsers.map(row => String(row.discord_id || '')).filter(Boolean),
+        ...Array.from(localPlan.leftLocalIds || []).map(id => String(id || '')).filter(Boolean),
+        ...supabasePlan.deleteUsers.map(row => String(row.discord_id || '')).filter(Boolean)
+    ]);
+}
+
+function countAlbumImagesForIds(userIds) {
+    const ids = Array.from(userIds || []).filter(Boolean);
+    let count = 0;
+    for (const batch of chunk(ids)) {
+        if (batch.length === 0) continue;
+        const ph = placeholders(batch.length);
+        const row = db.db.prepare(`SELECT COUNT(*) as count FROM album WHERE user_id IN (${ph})`).get(...batch);
+        count += row?.count || 0;
+    }
+    return count;
+}
+
+async function cleanupAlbumsForIds(userIds, reason, client = null) {
+    const result = { users: 0, images: 0, cloudinaryDeleted: 0, cloudinaryFailed: 0, discordMessagesDeleted: 0, discordMessagesFailed: 0 };
+    for (const userId of userIds) {
+        const cleanup = await cleanupAlbumForUser(userId, reason, { client });
+        if (cleanup.deleted > 0 || cleanup.cloudinaryDeleted > 0 || cleanup.cloudinaryFailed > 0 || cleanup.discordMessagesDeleted > 0 || cleanup.discordMessagesFailed > 0) {
+            result.users++;
+        }
+        result.images += cleanup.deleted;
+        result.cloudinaryDeleted += cleanup.cloudinaryDeleted;
+        result.cloudinaryFailed += cleanup.cloudinaryFailed;
+        result.discordMessagesDeleted += cleanup.discordMessagesDeleted;
+        result.discordMessagesFailed += cleanup.discordMessagesFailed;
+    }
+    return result;
+}
+
 async function deleteSupabaseRows(supabase, deleteUsers) {
     const userIds = [...new Set(deleteUsers.map(row => String(row.discord_id)).filter(Boolean))];
     const result = {
@@ -206,7 +243,7 @@ async function deleteSupabaseRows(supabase, deleteUsers) {
     return result;
 }
 
-function buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm, localResult = null, supabaseResult = null }) {
+function buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm, localResult = null, supabaseResult = null, albumCleanupImageCount = 0, albumCleanupResult = null }) {
     const sample = [
         ...localPlan.deleteUsers.slice(0, 8).map(row => `- SQLite: ${formatUser(row)} [${row.reasons.join(', ')}]`),
         ...supabasePlan.deleteUsers.slice(0, 8).map(row => `- Supabase: ${formatUser(row)} [${row.reasons.join(', ')}]`),
@@ -223,7 +260,8 @@ function buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm, localRes
             `SQLite users se xoa: **${localPlan.deleteUsers.length}**`,
             `SQLite pending_ids server khac se xoa: **${localPlan.deletePending.length}**`,
             `SQLite roiguild/left_at giu lai: **${localPlan.leftLocalIds.size}**`,
-            `Supabase bc_users se xoa: **${supabasePlan.deleteUsers.length}**`
+            `Supabase bc_users se xoa: **${supabasePlan.deleteUsers.length}**`,
+            `Album phong anh se xoa: **${albumCleanupImageCount}** anh`
         ].join('\n'))
         .setTimestamp();
 
@@ -262,6 +300,18 @@ function buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm, localRes
                 `bc_regulars server khac: ${supabaseResult.bcRegularOtherGuild}`
             ].join('\n'),
             inline: true
+        },
+        {
+            name: 'Album da xoa',
+            value: [
+                `users co album: ${albumCleanupResult?.users || 0}`,
+                `anh DB: ${albumCleanupResult?.images || 0}`,
+                `Cloudinary: ${albumCleanupResult?.cloudinaryDeleted || 0}`,
+                `Cloudinary loi: ${albumCleanupResult?.cloudinaryFailed || 0}`,
+                `Discord msg: ${albumCleanupResult?.discordMessagesDeleted || 0}`,
+                `Discord msg loi: ${albumCleanupResult?.discordMessagesFailed || 0}`
+            ].join('\n'),
+            inline: true
         }
     );
 
@@ -289,14 +339,17 @@ async function execute(message, args) {
     } catch (error) {
         return message.reply(`Khong lap duoc plan Supabase: ${error.message}`);
     }
+    const albumCleanupIds = getAlbumCleanupIds(localPlan, supabasePlan);
+    const albumCleanupImageCount = countAlbumImagesForIds(albumCleanupIds);
 
     if (!isConfirm) {
         return message.channel.send({
-            embeds: [buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm: false })]
+            embeds: [buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm: false, albumCleanupImageCount })]
         });
     }
 
     try {
+        const albumCleanupResult = await cleanupAlbumsForIds(albumCleanupIds, 'xoamemngoaiserver', message.client);
         const localResult = deleteLocalRows(localPlan.deleteUsers, localPlan.deletePending);
         const supabaseResult = await deleteSupabaseRows(supabasePlan.supabase, supabasePlan.deleteUsers);
         void logMemberRosterAction(ALLOWED_GUILD_ID, 'member_bulk_cleanup', {
@@ -309,13 +362,19 @@ async function execute(message, args) {
             changes: [
                 { field: 'local_users', label: 'SQLite users', before: null, after: localResult.users },
                 { field: 'local_pending', label: 'SQLite pending', before: null, after: localResult.pending },
-                { field: 'supabase_users', label: 'Supabase users', before: null, after: supabaseResult.bcUsers }
+                { field: 'supabase_users', label: 'Supabase users', before: null, after: supabaseResult.bcUsers },
+                { field: 'album_images', label: 'Album images', before: albumCleanupImageCount, after: albumCleanupResult.images }
             ],
             counts: {
                 local_users: localResult.users,
                 local_pending: localResult.pending,
                 supabase_users: supabaseResult.bcUsers,
-                supabase_regulars: supabaseResult.bcRegularByUser + supabaseResult.bcRegularOtherGuild
+                supabase_regulars: supabaseResult.bcRegularByUser + supabaseResult.bcRegularOtherGuild,
+                album_images: albumCleanupResult.images,
+                album_cloudinary_deleted: albumCleanupResult.cloudinaryDeleted,
+                album_cloudinary_failed: albumCleanupResult.cloudinaryFailed,
+                album_discord_messages_deleted: albumCleanupResult.discordMessagesDeleted,
+                album_discord_messages_failed: albumCleanupResult.discordMessagesFailed
             },
             targets: [
                 ...localPlan.deleteUsers.slice(0, 10),
@@ -329,7 +388,7 @@ async function execute(message, args) {
         }, message.author.id);
 
         return message.channel.send({
-            embeds: [buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm: true, localResult, supabaseResult })]
+            embeds: [buildPreviewEmbed({ guild, localPlan, supabasePlan, isConfirm: true, localResult, supabaseResult, albumCleanupImageCount, albumCleanupResult })]
         });
     } catch (error) {
         console.error('[xoamemngoaiserver] Cleanup failed:', error);

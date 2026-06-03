@@ -381,7 +381,7 @@ async function syncAllUsers(guild) {
 function applySupabaseUserToLocal(record) {
     if (!record?.discord_id) return null;
     const existing = db.getUserByDiscordId(record.discord_id, record.guild_id);
-    const joinedAt = existing?.joined_at || record.joined_at || null;
+    const joinedAt = record.joined_at || existing?.joined_at || null;
     const payload = {
         discordId: record.discord_id,
         discordName: record.discord_name || existing?.discord_name || record.discord_id,
@@ -435,7 +435,7 @@ function applySupabasePendingToLocal(record) {
                 record.game_username,
                 existing.added_by || record.added_by || 'web',
                 existing.added_by_name || record.added_by_name || record.added_by || 'web',
-                existing.joined_at || record.joined_at || null,
+                record.joined_at || existing.joined_at || null,
                 record.guild_id,
                 record.source || 'supabase',
                 record.id || existing.supabase_id || null,

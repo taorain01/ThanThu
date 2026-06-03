@@ -6,6 +6,20 @@ const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess
 
 const OWNER_IDS = new Set(['395151484179841024', '1247475535317422111']);
 const PAGE_LIMIT = 5000;
+const ROSTER_LOG_ACTIONS = new Set([
+    'member_add',
+    'member_rejoin',
+    'member_update',
+    'member_edit',
+    'pending_add',
+    'pending_update'
+]);
+
+const SOURCE_LABELS = {
+    sqlite: 'SQLite bot hien tai',
+    discord: 'Discord server joined_at',
+    logs: 'bc_logs latest joined_at'
+};
 
 function normalizeText(value) {
     return String(value || '')
@@ -33,7 +47,8 @@ function normalizeJoinedAt(value) {
     if (!raw) return null;
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        return `${raw}T00:00:00.000Z`;
+        const parsedVietnamDate = new Date(`${raw}T00:00:00+07:00`);
+        if (!Number.isNaN(parsedVietnamDate.getTime())) return parsedVietnamDate.toISOString();
     }
 
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
@@ -44,6 +59,16 @@ function normalizeJoinedAt(value) {
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) return null;
     return parsed.toISOString();
+}
+
+function parseJsonDetails(value) {
+    if (!value) return {};
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(value);
+    } catch (error) {
+        return {};
+    }
 }
 
 function sameJoinedAt(a, b) {
@@ -152,7 +177,85 @@ async function fetchRemotePending(supabase, guildId) {
     return data || [];
 }
 
-function buildLocalIndexes(localUsers, localPending) {
+async function fetchRosterLogs(supabase, guildId) {
+    let query = supabase
+        .from('bc_logs')
+        .select('action,details,created_at')
+        .order('created_at', { ascending: false })
+        .range(0, PAGE_LIMIT - 1);
+    if (guildId) query = query.eq('guild_id', guildId);
+    const { data, error } = await query;
+    if (error) {
+        if (/schema cache|find the table|does not exist|relation/i.test(error.message || '')) return [];
+        throw new Error(`Khong doc duoc bc_logs: ${error.message}`);
+    }
+    return (data || []).filter(row => ROSTER_LOG_ACTIONS.has(row.action));
+}
+
+function buildLogDateSources(logRows) {
+    const byDiscord = new Map();
+    const byUid = new Map();
+    let dateChanges = 0;
+
+    const sorted = [...(logRows || [])].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    for (const row of sorted) {
+        const details = parseJsonDetails(row.details);
+        if (details.category && details.category !== 'member_roster') continue;
+        const changes = Array.isArray(details.changes) ? details.changes : [];
+        const joinedChange = changes.find(change => change?.field === 'joined_at' && change.after);
+        const joinedAt = normalizeJoinedAt(joinedChange?.after || details.joined_at || details.joinedAt);
+        if (!joinedAt) continue;
+
+        const source = {
+            joined_at: joinedAt,
+            game_username: details.target_name || null,
+            changed_at: row.created_at || null
+        };
+        const targetType = String(details.target_type || '').toLowerCase();
+        const targetId = String(details.target_id || '').trim();
+        const targetUid = String(details.target_uid || '').trim();
+        let mapped = false;
+
+        if (targetId && targetType !== 'pending' && /^\d{17,20}$/.test(targetId)) {
+            byDiscord.set(targetId, source);
+            mapped = true;
+        }
+        if (targetUid) {
+            byUid.set(targetUid, source);
+            mapped = true;
+        } else if (targetType === 'pending' && targetId) {
+            byUid.set(targetId, source);
+            mapped = true;
+        }
+        if (mapped) dateChanges++;
+    }
+
+    return { byDiscord, byUid, dateChanges };
+}
+
+async function buildDiscordDateSources(guild, remoteRows) {
+    const byDiscord = new Map();
+    if (!guild) return byDiscord;
+
+    await guild.members.fetch().catch(() => null);
+    const ids = [...new Set((remoteRows || [])
+        .map(row => String(row?.discord_id || '').trim())
+        .filter(id => id && !id.startsWith('pending_')))];
+
+    for (const id of ids) {
+        let member = guild.members.cache.get(id);
+        if (!member) member = await guild.members.fetch(id).catch(() => null);
+        if (!member?.joinedAt) continue;
+        byDiscord.set(id, {
+            joined_at: member.joinedAt.toISOString(),
+            discord_name: member.user?.username || id
+        });
+    }
+
+    return byDiscord;
+}
+
+function buildLocalIndexes(localUsers, localPending, extras = {}) {
     const usersByDiscord = new Map();
     const usersByUid = new Map();
     const pendingByUid = new Map();
@@ -166,20 +269,48 @@ function buildLocalIndexes(localUsers, localPending) {
         if (row.game_uid) pendingByUid.set(String(row.game_uid), row);
     }
 
-    return { usersByDiscord, usersByUid, pendingByUid };
+    return {
+        usersByDiscord,
+        usersByUid,
+        pendingByUid,
+        sourceMode: extras.sourceMode || 'sqlite',
+        logByDiscord: extras.logByDiscord || new Map(),
+        logByUid: extras.logByUid || new Map(),
+        discordByDiscord: extras.discordByDiscord || new Map()
+    };
 }
 
-function findLocalDateSource(row, indexes) {
+function findSqliteDateSource(row, indexes) {
     const byDiscord = row?.discord_id ? indexes.usersByDiscord.get(String(row.discord_id)) : null;
-    if (byDiscord?.joined_at) return { source: byDiscord, sourceType: 'discord_id' };
+    if (byDiscord?.joined_at) return { source: byDiscord, sourceType: 'sqlite_discord_id' };
 
     const byUid = row?.game_uid ? indexes.usersByUid.get(String(row.game_uid)) : null;
-    if (byUid?.joined_at) return { source: byUid, sourceType: 'game_uid' };
+    if (byUid?.joined_at) return { source: byUid, sourceType: 'sqlite_game_uid' };
 
     const byPendingUid = row?.game_uid ? indexes.pendingByUid.get(String(row.game_uid)) : null;
-    if (byPendingUid?.joined_at) return { source: byPendingUid, sourceType: 'pending_uid' };
+    if (byPendingUid?.joined_at) return { source: byPendingUid, sourceType: 'sqlite_pending_uid' };
 
     return null;
+}
+
+function findDateSource(row, indexes) {
+    const discordId = row?.discord_id ? String(row.discord_id) : null;
+    const gameUid = row?.game_uid ? String(row.game_uid) : null;
+
+    if (indexes.sourceMode === 'discord' && discordId) {
+        const discordSource = indexes.discordByDiscord.get(discordId);
+        if (discordSource?.joined_at) return { source: discordSource, sourceType: 'discord_joined_at' };
+    }
+
+    if (indexes.sourceMode === 'logs') {
+        const byDiscord = discordId ? indexes.logByDiscord.get(discordId) : null;
+        if (byDiscord?.joined_at) return { source: byDiscord, sourceType: 'log_discord_id' };
+
+        const byUid = gameUid ? indexes.logByUid.get(gameUid) : null;
+        if (byUid?.joined_at) return { source: byUid, sourceType: 'log_game_uid' };
+    }
+
+    return findSqliteDateSource(row, indexes);
 }
 
 function buildUserPlan(remoteRows, indexes) {
@@ -189,7 +320,7 @@ function buildUserPlan(remoteRows, indexes) {
     let invalidLocalDate = 0;
 
     for (const remote of remoteRows) {
-        const localDateSource = findLocalDateSource(remote, indexes);
+        const localDateSource = findDateSource(remote, indexes);
         if (!localDateSource) {
             missingLocalDate++;
             continue;
@@ -227,7 +358,7 @@ function buildPendingPlan(remoteRows, indexes) {
     let invalidLocalDate = 0;
 
     for (const remote of remoteRows) {
-        const localDateSource = findLocalDateSource(remote, indexes);
+        const localDateSource = findDateSource(remote, indexes);
         if (!localDateSource) {
             missingLocalDate++;
             continue;
@@ -367,18 +498,26 @@ function pushDetailFields(embeds, title, lines, color) {
     }
 }
 
-function buildPreviewEmbeds({ guildId, userStats, pendingStats, rosterStats, applyResult = null }) {
+function buildPreviewEmbeds({ guildId, sourceMode, sourceStats = {}, userStats, pendingStats, rosterStats, applyResult = null }) {
     const userPlan = userStats.plan;
     const pendingPlan = pendingStats.plan;
     const totalPlan = userPlan.length + pendingPlan.length;
     const isApply = !!applyResult;
+    const sourceLabel = SOURCE_LABELS[sourceMode] || sourceMode || SOURCE_LABELS.sqlite;
+    const sourceLines = [];
+    if (sourceMode === 'discord') {
+        sourceLines.push(`Discord ngay vao doc duoc: ${sourceStats.discordUsers || 0}`);
+    } else if (sourceMode === 'logs') {
+        sourceLines.push(`Log ngay vao doc duoc: ${sourceStats.logDateChanges || 0}`);
+    }
     const embed = new EmbedBuilder()
         .setColor(isApply ? 0x2ECC71 : 0xF59E0B)
         .setTitle(isApply ? 'Da sync ngay vao len Supabase' : 'Preview sync ngay vao len Supabase')
         .setDescription([
             `Guild: \`${guildId || 'all'}\``,
             `Roster chuan: Supabase active`,
-            `Nguon ngay: SQLite bot hien tai`,
+            `Nguon ngay: ${sourceLabel}`,
+            ...sourceLines,
             '',
             `bc_users se update: **${userPlan.length}**`,
             `bc_pending_ids se update: **${pendingPlan.length}**`,
@@ -406,10 +545,19 @@ function buildPreviewEmbeds({ guildId, userStats, pendingStats, rosterStats, app
                 `failed: ${applyResult.failed}`
             ].join('\n')
         });
+        if (totalPlan === 0 && sourceMode === 'sqlite') {
+            embed.addFields({
+                name: 'Luu y',
+                value: 'SQLite va Supabase dang trung ngay. Neu ngay van sai, can dung nguon khac: `?syncngayvao discord confirm` hoac `?syncngayvao logs confirm`.'
+            });
+        }
     } else {
-        embed.addFields({
+        embed.addFields(totalPlan === 0 && sourceMode === 'sqlite' ? {
+            name: 'Khong co row lech',
+            value: 'SQLite va Supabase dang trung ngay. Neu ngay van sai, preview thu `?syncngayvao discord` hoac `?syncngayvao logs`.'
+        } : {
             name: 'Chua ghi',
-            value: 'Chay `?syncngayvao confirm` de ghi de rieng cot ngay vao tren Supabase.'
+            value: `Chay \`?syncngayvao ${sourceMode === 'sqlite' ? '' : `${sourceMode} `}confirm\` de ghi de rieng cot ngay vao tren Supabase.`
         });
     }
 
@@ -423,7 +571,7 @@ function buildPreviewEmbeds({ guildId, userStats, pendingStats, rosterStats, app
 }
 
 function getRemoteJoinedAtForLocal(remote, indexes) {
-    const localDateSource = findLocalDateSource(remote, indexes);
+    const localDateSource = findDateSource(remote, indexes);
     return normalizeJoinedAt(localDateSource?.source?.joined_at) || normalizeJoinedAt(remote.joined_at);
 }
 
@@ -544,6 +692,12 @@ async function applyPlan(supabase, userPlan, pendingPlan, guildId, remoteActiveU
     return result;
 }
 
+function getSourceMode(flags) {
+    if (flags.has('discord') || flags.has('server') || flags.has('guild')) return 'discord';
+    if (flags.has('logs') || flags.has('log') || flags.has('weblog')) return 'logs';
+    return 'sqlite';
+}
+
 async function execute(message, args) {
     if (!isAllowedGuildId(message.guild?.id)) return;
 
@@ -553,6 +707,7 @@ async function execute(message, args) {
 
     const flags = new Set(args.map(arg => String(arg || '').toLowerCase()));
     const isConfirm = flags.has('confirm') || flags.has('xacnhan') || flags.has('run');
+    const sourceMode = getSourceMode(flags);
     const guildId = message.guild?.id || ALLOWED_GUILD_ID;
 
     let supabase;
@@ -571,13 +726,27 @@ async function execute(message, args) {
         const remoteActiveUsers = remoteUsers.filter(isRemoteActiveUser);
         const localPending = getLocalPending(guildId);
         const localUsers = getLocalUsers(guildId);
-        const indexes = buildLocalIndexes(localUsers, localPending);
+        const sourceStats = {};
+        const indexExtras = { sourceMode };
+
+        if (sourceMode === 'logs') {
+            const logSources = buildLogDateSources(await fetchRosterLogs(supabase, guildId));
+            indexExtras.logByDiscord = logSources.byDiscord;
+            indexExtras.logByUid = logSources.byUid;
+            sourceStats.logDateChanges = logSources.dateChanges;
+        } else if (sourceMode === 'discord') {
+            const discordByDiscord = await buildDiscordDateSources(message.guild, remoteActiveUsers);
+            indexExtras.discordByDiscord = discordByDiscord;
+            sourceStats.discordUsers = discordByDiscord.size;
+        }
+
+        const indexes = buildLocalIndexes(localUsers, localPending, indexExtras);
         const userStats = buildUserPlan(remoteActiveUsers, indexes);
         const pendingStats = buildPendingPlan(remotePending, indexes);
         const rosterStats = buildLocalRosterPlan(localUsers, remoteActiveUsers);
 
         if (!isConfirm) {
-            await sendEmbedsAsMessages(message.channel, buildPreviewEmbeds({ guildId, userStats, pendingStats, rosterStats }));
+            await sendEmbedsAsMessages(message.channel, buildPreviewEmbeds({ guildId, sourceMode, sourceStats, userStats, pendingStats, rosterStats }));
             return;
         }
 
@@ -589,14 +758,14 @@ async function execute(message, args) {
             actor_name: message.author.username,
             target_type: 'bulk',
             target_id: guildId,
-            target_name: 'sync joined_at',
+            target_name: `sync joined_at (${sourceMode})`,
             changes: [
                 { field: 'bc_users.joined_at', label: 'bc_users ngay vao', before: null, after: applyResult.usersUpdated },
                 { field: 'bc_pending_ids.joined_at', label: 'pending ngay vao', before: null, after: applyResult.pendingUpdated },
                 { field: 'local_upserted', label: 'SQLite sync Supabase users', before: null, after: applyResult.localUpserted },
                 { field: 'local_marked_left', label: 'SQLite old users marked left', before: null, after: applyResult.localMarkedLeft }
             ],
-            counts: applyResult,
+            counts: { ...applyResult, sourceMode },
             sample: [...userStats.plan, ...pendingStats.plan].slice(0, 20).map(item => ({
                 type: item.type,
                 id: item.id,
@@ -606,7 +775,7 @@ async function execute(message, args) {
             }))
         }, message.author.id);
 
-        await sendEmbedsAsMessages(message.channel, buildPreviewEmbeds({ guildId, userStats, pendingStats, rosterStats, applyResult }));
+        await sendEmbedsAsMessages(message.channel, buildPreviewEmbeds({ guildId, sourceMode, sourceStats, userStats, pendingStats, rosterStats, applyResult }));
         return;
     } catch (error) {
         console.error('[syncngayvao] failed:', error);

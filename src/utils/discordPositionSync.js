@@ -108,7 +108,7 @@ async function ensureTrackedMemberFromDiscord(member, position = 'mem', guildId 
         position: normalizeStoredPosition(position),
         serverName: member.guild?.name || existingUser?.server_name || null,
         notes: existingUser?.notes || null,
-        joinedAt: nowIso
+        joinedAt: existingUser?.joined_at || nowIso
     };
 
     if (existingUser?.left_at) {

@@ -259,6 +259,7 @@ async function syncUserRecord(user, guildId, guild = null) {
     const supabase = getSupabase();
     if (!supabase || !user) return false;
     const record = buildUserRecord(user, guildId, guild);
+    if (!record.joined_at) delete record.joined_at;
     let { error } = await supabase
         .from('bc_users')
         .upsert(record, { onConflict: 'discord_id' });
@@ -375,8 +376,8 @@ async function syncAllUsers(guild) {
 
 function applySupabaseUserToLocal(record) {
     if (!record?.discord_id) return null;
-    const joinedAt = record.joined_at || new Date().toISOString();
     const existing = db.getUserByDiscordId(record.discord_id, record.guild_id);
+    const joinedAt = record.joined_at || existing?.joined_at || null;
     const payload = {
         discordId: record.discord_id,
         discordName: record.discord_name || existing?.discord_name || record.discord_id,

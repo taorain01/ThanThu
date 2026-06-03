@@ -728,12 +728,11 @@ function upsertUser(userData) {
         roleUpdatedAt
     } = userData;
 
-    // Use provided joinedAt or current timestamp
-    const joinDate = joinedAt || new Date().toISOString();
+    const joinDate = joinedAt || null;
 
     const stmt = db.prepare(`
         INSERT INTO users (discord_id, discord_name, game_username, game_uid, position, guild_id, added_by, server_name, notes, joined_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
         ON CONFLICT(discord_id) DO UPDATE SET
             discord_name = excluded.discord_name,
             game_username = excluded.game_username,
@@ -743,11 +742,11 @@ function upsertUser(userData) {
             added_by = COALESCE(users.added_by, excluded.added_by),
             server_name = excluded.server_name,
             notes = excluded.notes,
-            joined_at = excluded.joined_at,
+            joined_at = COALESCE(?, users.joined_at),
             updated_at = CURRENT_TIMESTAMP
     `);
 
-    const result = stmt.run(discordId, discordName, gameUsername, gameUid, position || 'mem', guildId || null, addedBy || null, serverName, notes, joinDate);
+    const result = stmt.run(discordId, discordName, gameUsername, gameUid, position || 'mem', guildId || null, addedBy || null, serverName, notes, joinDate, joinDate);
     try {
         db.prepare(`
             UPDATE users SET
@@ -1023,6 +1022,7 @@ function markUserAsLeft(discordId, leftAt) {
  */
 function rejoinUser(discordId, newData) {
     const { discordName, gameUsername, gameUid, position, guildId, addedBy, joinedAt, combatRole, weaponRole, source, revision, roleUpdatedAt } = newData;
+    const joinDate = joinedAt || null;
 
     const stmt = db.prepare(`
         UPDATE users SET 
@@ -1032,14 +1032,14 @@ function rejoinUser(discordId, newData) {
             position = ?,
             guild_id = COALESCE(?, guild_id),
             added_by = COALESCE(added_by, ?),
-            joined_at = ?,
+            joined_at = COALESCE(?, joined_at, CURRENT_TIMESTAMP),
             left_at = NULL,
             rejoin_count = rejoin_count + 1,
             updated_at = CURRENT_TIMESTAMP
         WHERE discord_id = ?
     `);
 
-    const result = stmt.run(discordName, gameUsername, gameUid, position, guildId || null, addedBy || null, joinedAt, discordId);
+    const result = stmt.run(discordName, gameUsername, gameUid, position, guildId || null, addedBy || null, joinDate, discordId);
     try {
         db.prepare(`
             UPDATE users SET

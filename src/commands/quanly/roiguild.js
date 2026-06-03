@@ -166,14 +166,26 @@ async function execute(message, args) {
             // Insert into users table as left member
             const joinedAt = pendingEntry.joined_at || leftDate.toISOString();
             db.db.prepare(`
-                INSERT OR REPLACE INTO users (discord_id, discord_name, game_username, game_uid, position, joined_at, left_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO users (discord_id, discord_name, game_username, game_uid, position, guild_id, added_by, joined_at, left_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(discord_id) DO UPDATE SET
+                    discord_name = excluded.discord_name,
+                    game_username = excluded.game_username,
+                    game_uid = excluded.game_uid,
+                    position = excluded.position,
+                    guild_id = COALESCE(excluded.guild_id, users.guild_id),
+                    added_by = COALESCE(users.added_by, excluded.added_by),
+                    joined_at = COALESCE(excluded.joined_at, users.joined_at),
+                    left_at = excluded.left_at,
+                    updated_at = CURRENT_TIMESTAMP
             `).run(
                 'pending_' + pendingEntry.game_uid, // Fake discord_id since they don't have Discord
                 pendingEntry.game_username,
                 pendingEntry.game_username,
                 pendingEntry.game_uid,
                 'mem',
+                message.guild?.id || pendingEntry.guild_id || null,
+                pendingEntry.added_by || null,
                 joinedAt,
                 leftDate.toISOString()
             );

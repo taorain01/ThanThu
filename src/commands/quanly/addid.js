@@ -224,6 +224,7 @@ async function execute(message, args) {
             nonDateArgs.push(arg);
         }
     }
+    const joinDateWasProvided = !!joinDateArg;
 
     // Parse UID and name from non-date args
     if (/^\d+$/.test(nonDateArgs[0])) {
@@ -355,6 +356,7 @@ async function execute(message, args) {
             gameUid,
             gameName,
             joinDate,
+            joinDateWasProvided,
             existingPending,
             confirmMsg,
             guildId
@@ -596,7 +598,15 @@ async function handleConfirmation(interaction) {
     // Confirm - update the entry
     try {
         const guildId = data.guildId || interaction.guild?.id || null;
-        updatePendingId(gameUid, data.gameName, authorId, interaction.user.username, data.joinDate.toISOString(), guildId);
+        const nextJoinedAt = data.joinDateWasProvided
+            ? data.joinDate.toISOString()
+            : (data.existingPending?.joined_at || data.joinDate.toISOString());
+        const nextJoinDate = new Date(nextJoinedAt);
+        data.joinDate = nextJoinDate;
+        const originalAddedBy = data.existingPending?.added_by || authorId;
+        const originalAddedByName = data.existingPending?.added_by_name || data.existingPending?.added_by || interaction.user.username;
+
+        updatePendingId(gameUid, data.gameName, originalAddedBy, originalAddedByName, nextJoinedAt, guildId);
         await memberRosterSync.syncPendingByUid(gameUid, guildId);
         void logMemberRosterAction(guildId, 'pending_update', {
             summary: `Cap nhat pending ${data.gameName}`,
@@ -609,7 +619,8 @@ async function handleConfirmation(interaction) {
             changes: [
                 buildChange('game_username', 'Ten game', data.existingPending?.game_username || '', data.gameName || ''),
                 buildChange('game_uid', 'UID', data.existingPending?.game_uid || gameUid, gameUid),
-                buildChange('joined_at', 'Ngay vao', data.existingPending?.joined_at || '', data.joinDate.toISOString())
+                buildChange('joined_at', 'Ngay vao', data.existingPending?.joined_at || '', nextJoinedAt),
+                buildChange('added_by', 'Nguoi them', data.existingPending?.added_by || '', originalAddedBy || '')
             ]
         }, authorId);
 

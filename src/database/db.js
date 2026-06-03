@@ -732,7 +732,7 @@ function upsertUser(userData) {
 
     const stmt = db.prepare(`
         INSERT INTO users (discord_id, discord_name, game_username, game_uid, position, guild_id, added_by, server_name, notes, joined_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(discord_id) DO UPDATE SET
             discord_name = excluded.discord_name,
             game_username = excluded.game_username,
@@ -1032,7 +1032,7 @@ function rejoinUser(discordId, newData) {
             position = ?,
             guild_id = COALESCE(?, guild_id),
             added_by = COALESCE(added_by, ?),
-            joined_at = COALESCE(?, joined_at, CURRENT_TIMESTAMP),
+            joined_at = COALESCE(?, joined_at),
             left_at = NULL,
             rejoin_count = rejoin_count + 1,
             updated_at = CURRENT_TIMESTAMP

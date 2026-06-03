@@ -260,6 +260,7 @@ async function syncUserRecord(user, guildId, guild = null) {
     if (!supabase || !user) return false;
     const record = buildUserRecord(user, guildId, guild);
     if (!record.joined_at) delete record.joined_at;
+    if (!record.added_by) delete record.added_by;
     let { error } = await supabase
         .from('bc_users')
         .upsert(record, { onConflict: 'discord_id' });
@@ -320,6 +321,9 @@ async function syncPendingByUid(gameUid, guildOrGuildId = null) {
     const row = getLocalPendingByUid(gameUid, guildId);
     if (!row) return false;
     const record = buildPendingRecord(row, guildId);
+    if (!record.joined_at) delete record.joined_at;
+    if (!record.added_by) delete record.added_by;
+    if (!record.added_by_name) delete record.added_by_name;
     const { error } = await supabase
         .from('bc_pending_ids')
         .upsert(record, { onConflict: 'guild_id,game_uid' });
@@ -377,7 +381,7 @@ async function syncAllUsers(guild) {
 function applySupabaseUserToLocal(record) {
     if (!record?.discord_id) return null;
     const existing = db.getUserByDiscordId(record.discord_id, record.guild_id);
-    const joinedAt = record.joined_at || existing?.joined_at || null;
+    const joinedAt = existing?.joined_at || record.joined_at || null;
     const payload = {
         discordId: record.discord_id,
         discordName: record.discord_name || existing?.discord_name || record.discord_id,
@@ -385,7 +389,7 @@ function applySupabaseUserToLocal(record) {
         gameUid: record.game_uid || existing?.game_uid || null,
         position: record.left_at ? 'Khong co' : (record.position || existing?.position || 'mem'),
         guildId: record.guild_id || existing?.guild_id || null,
-        addedBy: record.added_by || existing?.added_by || null,
+        addedBy: existing?.added_by || record.added_by || null,
         joinedAt,
         combatRole: normalizeCombatRole(record.combat_role, null),
         weaponRole: normalizeWeaponRole(record.weapon_role || record.sub_role),
@@ -429,9 +433,9 @@ function applySupabasePendingToLocal(record) {
             `).run(
                 record.game_uid,
                 record.game_username,
-                record.added_by || existing.added_by || 'web',
-                record.added_by_name || existing.added_by_name || record.added_by || 'web',
-                record.joined_at || existing.joined_at || null,
+                existing.added_by || record.added_by || 'web',
+                existing.added_by_name || record.added_by_name || record.added_by || 'web',
+                existing.joined_at || record.joined_at || null,
                 record.guild_id,
                 record.source || 'supabase',
                 record.id || existing.supabase_id || null,
@@ -552,8 +556,7 @@ async function bootstrapRoster(guild) {
     } else if (remoteUsers !== null) {
         const pulled = await pullUsersFromSupabase(guild);
         console.log(`[memberRosterSync] Pulled ${pulled} users from Supabase`);
-        const pushed = await syncAllUsers(guild);
-        console.log(`[memberRosterSync] Reconciled ${pushed} users back to Supabase`);
+        console.log('[memberRosterSync] Skipped full local user push because Supabase already has roster data.');
     }
 
     const remotePending = await countRows('bc_pending_ids', guild.id);

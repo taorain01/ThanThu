@@ -1160,6 +1160,7 @@ async function syncUsers(users, guildId, guild = null) {
                 position: isLeft ? 'Khong co' : (u.position || 'mem'),
                 sub_role: u.sub_role || null,
                 joined_at: u.joined_at || undefined,
+                added_by: u.added_by || undefined,
                 guild_id: guildId,
                 lang_gia_member: isLeft ? false : hasLangGia
             });
@@ -1248,6 +1249,7 @@ async function syncOneUser(user, guildId, guild = null) {
                 position: isLeft ? 'Khong co' : (user.position || 'mem'),
                 sub_role: user.sub_role || null,
                 joined_at: user.joined_at || undefined,
+                added_by: user.added_by || undefined,
                 guild_id: guildId,
                 lang_gia_member: isLeft ? false : hasLangGia
             }, { onConflict: 'discord_id' });

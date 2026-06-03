@@ -481,7 +481,7 @@ async function execute(message, args) {
         gameUid: gameUid,
         position: normalizedPosition,
         guildId,
-        addedBy: message.author.id,
+        addedBy: pendingData?.added_by || message.author.id,
         joinedAt: joinDate.toISOString()
     };
 

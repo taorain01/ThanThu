@@ -16,6 +16,7 @@ const roiguildCommand = require('../../commands/quanly/roiguild');
 const rsrejoinCommand = require('../../commands/quanly/rsrejoin');
 const xoamemCommand = require('../../commands/quanly/xoamem');
 const xoamemNgoaiServerCommand = require('../../commands/quanly/xoamemngoaiserver');
+const syncNgayVaoCommand = require('../../commands/quanly/syncngayvao');
 const addidCommand = require('../../commands/quanly/addid');
 const locmemCommand = require('../../commands/quanly/locmem');
 
@@ -1065,6 +1066,10 @@ module.exports = {
         }
 
         // ?locmem - Lọc thành viên có role LangGia nhưng không trong database
+        if (['syncngayvao', 'dongbongayvao', 'ghidengayvao', 'fixngayvao'].includes(commandName)) {
+            return syncNgayVaoCommand.execute(message, args);
+        }
+
         if (commandName === 'locmem') {
             return locmemCommand.execute(message, args);
         }

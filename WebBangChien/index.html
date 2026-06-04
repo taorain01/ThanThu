@@ -4444,27 +4444,36 @@ async function updateOwnSessionRegistrationViaApi(session, join) {
 
     let response;
     let body = null;
+    const endpoints = ['/api/bc-self-registration', '/api/bc-self-registration.js'];
+    let lastStatus = 0;
+    let lastMessage = '';
     try {
-        response = await fetch('/api/bc-self-registration', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify({
-                guild_id: GUILD_ID,
-                session_id: String(session.id),
-                join: !!join
-            })
-        });
-        const text = await response.text();
-        try { body = text ? JSON.parse(text) : null; } catch (error) { body = null; }
+        for (const endpoint of endpoints) {
+            response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({
+                    guild_id: GUILD_ID,
+                    session_id: String(session.id),
+                    join: !!join
+                })
+            });
+            const text = await response.text();
+            try { body = text ? JSON.parse(text) : null; } catch (error) { body = null; }
+            lastStatus = response.status;
+            lastMessage = body?.error || '';
+            if (response.ok && body?.ok) break;
+            if (response.status !== 404) break;
+        }
     } catch (error) {
         return { handled: true, success: false, error: { message: error.message || 'Không gọi được backend đăng ký.' } };
     }
 
     if (!response.ok || !body?.ok) {
-        const message = body?.error || `Backend đăng ký chưa sẵn sàng (${response.status}).`;
+        const message = lastMessage || `Backend đăng ký chưa sẵn sàng (${lastStatus || response.status}).`;
         return { handled: true, success: false, error: { message } };
     }
     const updatedSession = body.session || null;

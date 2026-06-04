@@ -7,11 +7,7 @@
     },
     {
       "source": "/",
-      "destination": "/WebBangChien/index.html"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/WebBangChien/:path*"
+      "destination": "/index.html"
     }
   ]
 }

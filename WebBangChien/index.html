@@ -1869,8 +1869,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   border-radius: 0 0 14px 14px;
   box-shadow: none;
 }
-/* mapContainer fill đầy mapBox (position relative trên mapBox) */
-.map-container{position:absolute;inset:0;width:100%;height:100%;}
+/* mapContainer follows the native map.png ratio. */
+.map-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 1.33;
+}
 /* Zoom wrapper (nếu dùng) */
 .map-zoom-wrapper{
   position:absolute;inset:0;
@@ -3482,7 +3489,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
         <div class="r-pane active" id="pane-map">
           <div class="map-box" id="mapBox">
             <!-- Container fill toàn bộ map-box, icon layer đồng bộ theo ảnh -->
-            <div class="map-container" id="mapContainer" style="position:absolute;inset:0;overflow:hidden;">
+            <div class="map-container" id="mapContainer">
               <img class="map-bg" src="./anh/map.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
               <div class="map-icons" id="mapIcons" style="position:absolute;inset:0;width:100%;height:100%;">
               <!-- tower_blue -->

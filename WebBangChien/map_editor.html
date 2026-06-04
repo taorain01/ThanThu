@@ -125,11 +125,11 @@
     position: relative;
     display: inline-block;
 
-    /* Giao diện mặc định - landscape map */
+    /* map.png native ratio: 1446 / 1088 */
     width: 100%;
     max-width: 100%;
     max-height: 100%;
-    aspect-ratio: 1.49; /* map.png - landscape display (1/0.67 ≈ 1.49) */
+    aspect-ratio: 1.33;
   }
 
   /* ═══ MAP WRAPPER (Zoom container) ═══ */
@@ -143,7 +143,7 @@
     display: block; 
     width: 100%; 
     height: 100%; 
-    object-fit: cover; 
+    object-fit: contain; 
     pointer-events: none;
   }
 
@@ -202,8 +202,8 @@
     <div class="control-group">
       <h4>2. Thuộc tính .map-container</h4>
       <div class="slider-row">
-        <label>Aspect Ratio (Width/Height) <span class="val" id="valAr">1.49</span></label>
-        <input type="range" id="rnAr" min="50" max="300" value="149">
+        <label>Aspect Ratio (Width/Height) <span class="val" id="valAr">1.33</span></label>
+        <input type="range" id="rnAr" min="50" max="300" value="133">
       </div>
       <div class="slider-row">
         <label>Width (%) <span class="val" id="valW">100%</span></label>
@@ -228,8 +228,8 @@
       <div class="select-row">
         <label>Object Fit</label>
         <select id="selObjFit">
-          <option value="contain">contain</option>
-          <option value="cover" selected>cover</option>
+          <option value="contain" selected>contain</option>
+          <option value="cover">cover</option>
           <option value="fill">fill</option>
           <option value="none">none</option>
         </select>
@@ -249,7 +249,7 @@
     <div class="log-box" id="coordsLog">
       > Hệ thống sẵn sàng.<br>
       > Kéo thả icon để canh tọa độ mới.<br>
-      > Map: map.png - tỉ lệ hiển thị landscape ~1.49 (ngang).<br>
+      > Map: map.png - tỉ lệ gốc 1446x1088 (~1.33), hiển thị full bằng contain.<br>
     </div>
   </div>
 

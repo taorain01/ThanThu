@@ -1836,14 +1836,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 #pane-timer iframe{display:block;flex:1 1 auto;min-height:0;height:100%;max-height:100%;width:100%;border:none;background:#0a1a0f;overflow:hidden}
 
 /* ─── MAP BOX ─── */
-/* aspect-ratio 43:24, width 100% tự vừa viewport */
+/* map.png is 1446x1088. Keep the full image visible instead of cropping it. */
 .map-box{
   position:relative;border-radius:16px;overflow:hidden;border:2px solid rgba(234,88,12,.2);
   /* width tự co khi viewport thấp: không để height vượt (100vh - overhead)
      Overhead thực tế: header(~80px) + daybar(~62px) + r-tabs(~53px) + pane-padding(32px) = ~227px
      Dùng 260px để có buffer an toàn cho timeline ~54px ở bottom */
-  width: min(100%, calc((100vh - 260px) * 0.67));
-  aspect-ratio: 0.67;
+  width: min(100%, calc(132.9vh - 346px));
+  aspect-ratio: 1446 / 1088;
   margin-inline: auto;
   flex: 0 0 auto;
   box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
@@ -1882,7 +1882,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 /* map-bg fill đầy container dù nằm ở đâu */
 .map-box .map-bg{
   display:block;position:absolute;inset:0;
-  width:100%;height:100%;object-fit:cover;
+  width:100%;height:100%;object-fit:contain;
   pointer-events:none;
 }
 /* Map giấy: dùng contain để hiện FULL ảnh, không crop */
@@ -2807,8 +2807,8 @@ html, body { overflow-x: hidden; }
 }
 /* Ảnh nền trong zoom-wrapper */
 .map-box .map-zoom-wrapper > .map-bg {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    /* Ảnh nền cover khớp với calcCoverFit */
+    width: 100%; height: 100%; object-fit: contain; display: block;
+    /* Match calcImageFit('contain') so the whole map.png stays visible. */
     position: absolute; inset: 0;
 }
 .map-box .map-zoom-wrapper > .map-bg-giay {
@@ -3483,7 +3483,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
           <div class="map-box" id="mapBox">
             <!-- Container fill toàn bộ map-box, icon layer đồng bộ theo ảnh -->
             <div class="map-container" id="mapContainer" style="position:absolute;inset:0;overflow:hidden;">
-              <img class="map-bg" src="./anh/map.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">
+              <img class="map-bg" src="./anh/map.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;">
               <div class="map-icons" id="mapIcons" style="position:absolute;inset:0;width:100%;height:100%;">
               <!-- tower_blue -->
               <div class="map-icon tower" style="left:36%;top:15%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>

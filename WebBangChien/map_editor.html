@@ -132,7 +132,7 @@
     height: auto; 
     max-width: 100%; 
     max-height: 100%;
-    aspect-ratio: 900 / 500; /* Mặc định chuẩn ảnh */
+    aspect-ratio: 0.67; /* Tested - khớp bản đồ thực tế */
   }
 
   /* ═══ MAP WRAPPER (Zoom container) ═══ */
@@ -266,36 +266,41 @@
         <div class="map-container" id="mapContainer">
           
           <!-- Spacer (Phantom img) -->
-          <img class="map-spacer" id="mapSpacer" src="./anh/battle_map_clean.png">
+          <img class="map-spacer" id="mapSpacer" src="./anh/map.png">
 
           <!-- Lớp zoom của index -->
           <div class="map-zoom-wrapper" id="mapZoomWrapper">
-             <img class="map-bg" id="mapBg" src="./anh/battle_map_clean.png" alt="Battle Map">
+             <img class="map-bg" id="mapBg" src="./anh/map.png" alt="Battle Map">
           </div>
 
           <!-- Lớp Icons theo phần trăm -->
           <div class="map-icons" id="mapIcons">
             <!-- tower_blue -->
-            <div class="map-icon tower" style="left:36%;top:15%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
-            <div class="map-icon tower" style="left:36%;top:50.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
-            <div class="map-icon tower" style="left:36%;top:84.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
+            <div class="map-icon tower" data-id="tb1" data-pair="tr1" data-sync="y" data-col="blue" style="left:36%;top:15%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
+            <div class="map-icon tower" data-id="tb2" data-pair="tr2" data-sync="y" data-col="blue" style="left:36%;top:50.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
+            <div class="map-icon tower" data-id="tb3" data-pair="tr3" data-sync="y" data-col="blue" style="left:36%;top:84.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
             <!-- tower_red -->
-            <div class="map-icon tower" style="left:62.5%;top:15%"><img src="./anh/icons/tower_red.png" width="100%"></div>
-            <div class="map-icon tower" style="left:62.5%;top:50.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
-            <div class="map-icon tower" style="left:62.5%;top:84.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
+            <div class="map-icon tower" data-id="tr1" data-pair="tb1" data-sync="y" data-col="red" style="left:62.5%;top:15%"><img src="./anh/icons/tower_red.png" width="100%"></div>
+            <div class="map-icon tower" data-id="tr2" data-pair="tb2" data-sync="y" data-col="red" style="left:62.5%;top:50.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
+            <div class="map-icon tower" data-id="tr3" data-pair="tb3" data-sync="y" data-col="red" style="left:62.5%;top:84.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
             <!-- boss -->
-            <div class="map-icon boss" style="left:50%;top:30.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
-            <div class="map-icon boss" style="left:50%;top:70.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
+            <div class="map-icon boss" data-id="boss1" style="left:50%;top:30.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
+            <div class="map-icon boss" data-id="boss2" style="left:50%;top:70.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
             <!-- goose -->
-            <div class="map-icon goose" style="left:8.5%;top:51.5%"><img src="./anh/icons/goose_blue.png" width="100%"></div>
-            <div class="map-icon goose" style="left:90.5%;top:50%"><img src="./anh/icons/goose_red.png" width="100%"></div>
+            <div class="map-icon goose" data-id="gb" style="left:8.5%;top:51.5%"><img src="./anh/icons/goose_blue.png" width="100%"></div>
+            <div class="map-icon goose" data-id="gr" style="left:90.5%;top:50%"><img src="./anh/icons/goose_red.png" width="100%"></div>
             <!-- tree -->
-            <div class="map-icon tree" style="left:4%;top:51%"><img src="./anh/icons/tree_blue.png" width="100%"></div>
-            <div class="map-icon tree" style="left:95.5%;top:50%"><img src="./anh/icons/tree_red.png" width="100%"></div>
-            <!-- dots -->
-            <div class="map-icon dot" style="left:29.5%;top:37.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" style="left:40.5%;top:37%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" style="left:57.5%;top:27.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon tree" data-id="ctb" style="left:4%;top:51%"><img src="./anh/icons/tree_blue.png" width="100%"></div>
+            <div class="map-icon tree" data-id="ctr" style="left:95.5%;top:50%"><img src="./anh/icons/tree_red.png" width="100%"></div>
+            <!-- dots (8 rừng) -->
+            <div class="map-icon dot" data-id="d1" style="left:29.5%;top:37.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d2" style="left:40.5%;top:37%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d3" style="left:57.5%;top:27.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d4" style="left:69%;top:37.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d5" style="left:29%;top:64.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d6" style="left:69.5%;top:65%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d7" style="left:40.5%;top:74%"><img src="./anh/icons/dot_red.png" width="100%"></div>
+            <div class="map-icon dot" data-id="d8" style="left:58.5%;top:65.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
           </div>
         </div>
       </div>
@@ -387,9 +392,16 @@
         navigator.clipboard.writeText(cssCode).then(() => alert('Đã copy CSS vào Clipboard!'));
     }
 
-    // ═══ Drag & Drop Logic
+    // ═══ Drag & Drop Logic — Với đồng bộ cặp trụ
     const mapIconsLayer = document.getElementById('mapIcons');
     let draggedIcon = null, isDragging = false;
+
+    // Tìm icon cặp (pair) bằng data-pair attribute
+    function findPairIcon(icon) {
+        const pairId = icon.dataset.pair;
+        if (!pairId) return null;
+        return mapIconsLayer.querySelector(`[data-id="${pairId}"]`);
+    }
 
     mapIconsLayer.addEventListener('mousedown', (e) => {
         const iconNode = e.target.closest('.map-icon');
@@ -397,6 +409,15 @@
         draggedIcon = iconNode;
         isDragging = true;
         iconNode.style.cursor = 'grabbing';
+        // Highlight cặp trụ + cột
+        const pair = findPairIcon(iconNode);
+        if (pair) pair.style.boxShadow = '0 0 12px #fbbf24';
+        const col = iconNode.dataset.col;
+        if (col) {
+            mapIconsLayer.querySelectorAll(`[data-col="${col}"]`).forEach(ic => {
+                if (ic !== iconNode) ic.style.boxShadow = '0 0 10px #60a5fa';
+            });
+        }
     });
 
     window.addEventListener('mousemove', (e) => {
@@ -414,13 +435,46 @@
 
         draggedIcon.style.left = pctX.toFixed(2) + '%';
         draggedIcon.style.top = pctY.toFixed(2) + '%';
+
+        // ═══ Đồng bộ cặp trụ (hàng ngang: sync Y) ═══
+        const pair = findPairIcon(draggedIcon);
+        if (pair) {
+            pair.style.top = pctY.toFixed(2) + '%';
+        }
+
+        // ═══ Đồng bộ cột dọc (cùng màu: sync X) ═══
+        const col = draggedIcon.dataset.col;
+        if (col) {
+            const colIcons = mapIconsLayer.querySelectorAll(`[data-col="${col}"]`);
+            colIcons.forEach(icon => {
+                if (icon !== draggedIcon) {
+                    icon.style.left = pctX.toFixed(2) + '%';
+                }
+            });
+        }
     });
 
     window.addEventListener('mouseup', () => {
         if (isDragging && draggedIcon) {
             isDragging = false;
             draggedIcon.style.cursor = 'grab';
-            logToScreen(`Tọa độ mới nhất: left:${draggedIcon.style.left}; top:${draggedIcon.style.top}`);
+            const id = draggedIcon.dataset.id || '?';
+            let msg = `[${id}] left:${draggedIcon.style.left}; top:${draggedIcon.style.top}`;
+            // Log cặp trụ nếu có
+            const pair = findPairIcon(draggedIcon);
+            if (pair) {
+                const pairId = pair.dataset.id || '?';
+                msg += ` | [${pairId}] left:${pair.style.left}; top:${pair.style.top}`;
+                pair.style.boxShadow = '';
+            }
+            // Xóa highlight cột
+            const col = draggedIcon.dataset.col;
+            if (col) {
+                mapIconsLayer.querySelectorAll(`[data-col="${col}"]`).forEach(ic => {
+                    ic.style.boxShadow = '';
+                });
+            }
+            logToScreen(msg);
             draggedIcon = null;
         }
     });

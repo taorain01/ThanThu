@@ -19,6 +19,12 @@ const memberRosterSync = require('../../utils/memberRosterSync');
 const { findLangGiaRole } = require('../../utils/langGiaRole');
 const { cleanupAlbumForUser } = require('../../utils/albumCleanup');
 
+function runBackground(label, task) {
+    Promise.resolve()
+        .then(task)
+        .catch(error => console.error(`[roiguild] ${label} failed:`, error.message));
+}
+
 /**
  * Check if user has Ky Cu role
  */
@@ -193,7 +199,7 @@ async function execute(message, args) {
 
             // Remove from pending_ids
             db.db.prepare('DELETE FROM pending_ids WHERE id = ?').run(pendingEntry.id);
-            await memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id);
+            runBackground('delete pending from Supabase', () => memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id));
 
             const embed = new EmbedBuilder()
                 .setColor(0x808080)
@@ -228,17 +234,25 @@ async function execute(message, args) {
     if (pendingEntry) {
         try {
             db.db.prepare('DELETE FROM pending_ids WHERE id = ?').run(pendingEntry.id);
-            await memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id);
+            runBackground('delete pending from Supabase', () => memberRosterSync.deletePendingFromSupabase(pendingEntry.game_uid, message.guild?.id));
         } catch (e) { /* ignore */ }
     }
 
     // Mark user as left
     const result = db.markUserAsLeft(targetDiscordId, leftDate.toISOString());
-    const albumCleanup = await cleanupAlbumForUser(targetDiscordId, 'roiguild', { client: message.client });
+    if (!result.success) {
+        return message.channel.send('❌ Có lỗi xảy ra khi đánh dấu thành viên rời guild!');
+    }
+
+    let albumImageCount = 0;
+    try {
+        albumImageCount = db.getAllAlbumImagesByUser(targetDiscordId).length;
+    } catch (e) { }
+    runBackground('album cleanup', () => cleanupAlbumForUser(targetDiscordId, 'roiguild', { client: message.client }));
 
     // === XÓA KHỎI HỆ THỐNG BANG CHIẾN ===
     // 1. Xóa "Luôn tham gia" cho cả 2 ngày
-    await cleanupWeekendBcRegulars(message.guild, targetDiscordId, 'roiguild');
+    runBackground('bc regular cleanup', () => cleanupWeekendBcRegulars(message.guild, targetDiscordId, 'roiguild'));
 
     // 2. Xóa khỏi tất cả session BC active
     const activeSessions = db.getActiveBangchienByGuild(message.guild.id);
@@ -250,41 +264,44 @@ async function execute(message, args) {
     let roleRemoved = false;
     let bcRoleRemoved = false;
     try {
-        const member = await message.guild.members.fetch(targetDiscordId).catch(() => null);
+        const member = message.guild.members.cache.get(targetDiscordId)
+            || await message.guild.members.fetch(targetDiscordId).catch(() => null);
         if (member) {
+            const rolesToRemove = [];
             const langGiaRole = findLangGiaRole(message.guild);
             if (langGiaRole && member.roles.cache.has(langGiaRole.id)) {
-                await member.roles.remove(langGiaRole);
+                rolesToRemove.push(langGiaRole);
                 roleRemoved = true;
             }
             const bcRole = message.guild.roles.cache.find(r => r.name === 'bc');
             if (bcRole && member.roles.cache.has(bcRole.id)) {
-                await member.roles.remove(bcRole);
+                rolesToRemove.push(bcRole);
                 bcRoleRemoved = true;
+            }
+            if (rolesToRemove.length > 0) {
+                await member.roles.remove(rolesToRemove, 'roiguild');
             }
         }
     } catch (e) {
         console.error('[roiguild] Loi xoa role:', e.message);
     }
 
-    try {
+    runBackground('Supabase sync', async () => {
         if (supaSync.isReady()) {
             const updatedUser = db.getUserByDiscordId(targetDiscordId) || {
                 ...userData,
                 position: 'Khong co'
             };
             await memberRosterSync.syncUserRecord(updatedUser, message.guild.id, message.guild);
-            for (const session of activeSessions) {
+            await Promise.all(activeSessions.map(async (session) => {
                 const updatedSession = db.getActiveBangchien(session.party_key);
                 const formatted = updatedSession
                     ? supaSync.formatActiveSession(updatedSession, db, message.guild)
                     : null;
                 if (formatted) await supaSync.syncBCSession(message.guild.id, updatedSession.day || session.day, formatted);
-            }
+            }));
         }
-    } catch (syncError) {
-        console.error('[roiguild] Supabase sync failed:', syncError.message);
-    }
+    });
 
     if (result.success) {
         const embed = new EmbedBuilder()
@@ -296,7 +313,7 @@ async function execute(message, args) {
                 { name: 'UID', value: userData.game_uid || 'N/A', inline: true },
                 { name: 'Ngày rời', value: `<t:${Math.floor(leftDate.getTime() / 1000)}:D>`, inline: true },
                 { name: 'Role LangGia', value: roleRemoved ? '🔴 Đã xóa' : '⚪ Không có/Không thể xóa', inline: true },
-                { name: 'Album phòng ảnh', value: `Đã xóa ${albumCleanup.deleted} ảnh / ${albumCleanup.discordMessagesDeleted} message`, inline: true }
+                { name: 'Album phòng ảnh', value: albumImageCount > 0 ? `Đang xóa nền ${albumImageCount} ảnh` : 'Không có ảnh', inline: true }
             )
             .setFooter({ text: `Đánh dấu bởi ${message.author.username}` })
             .setTimestamp();

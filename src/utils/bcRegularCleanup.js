@@ -56,13 +56,7 @@ async function removeBcRegularDay(guildId, discordId, day, reason = '') {
 
 async function cleanupWeekendBcRegulars(guildOrId, discordId, reason = '') {
     const guildId = typeof guildOrId === 'string' ? guildOrId : guildOrId?.id;
-    const results = [];
-
-    for (const day of BC_REGULAR_DAYS) {
-        results.push(await removeBcRegularDay(guildId, discordId, day, reason));
-    }
-
-    return results;
+    return Promise.all(BC_REGULAR_DAYS.map(day => removeBcRegularDay(guildId, discordId, day, reason)));
 }
 
 async function addBcRegularIfEligible(guild, discordId, username, day, memberOverride = null) {

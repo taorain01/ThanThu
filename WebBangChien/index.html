@@ -1842,8 +1842,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   /* width tự co khi viewport thấp: không để height vượt (100vh - overhead)
      Overhead thực tế: header(~80px) + daybar(~62px) + r-tabs(~53px) + pane-padding(32px) = ~227px
      Dùng 260px để có buffer an toàn cho timeline ~54px ở bottom */
-  width: min(100%, calc((100vh - 260px) * 43 / 24));
-  aspect-ratio: 43/24;
+  width: min(100%, calc((100vh - 260px) * 0.67));
+  aspect-ratio: 0.67;
   margin-inline: auto;
   flex: 0 0 auto;
   box-shadow:0 0 30px rgba(234,88,12,.1),inset 0 0 30px rgba(0,0,0,.3);
@@ -1948,13 +1948,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   color:#eff6ff;box-shadow:0 0 22px rgba(96,165,250,.18),0 4px 18px rgba(0,0,0,.42)}
 .sketch-action-btn.disabled{opacity:.35;pointer-events:none;filter:saturate(.4) brightness(.75)}
 
-/* Tam an cac muc web dang dong: ban do, nhiem vu, timer, chien thuat, DLAM. */
+/* Tam an cac muc web dang dong: ban do, nhiem vu, timer, chien thuat. */
 #rightMapTab,
 #rightTasksTab,
 #timerTab,
 #pane-timer,
 #btnTactics,
-#btnSketch,
 #mapSketchBtn,
 #splitActionBtn .split-divider,
 .mob-tab[data-target="mob-map"],
@@ -3406,6 +3405,13 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
         </svg>
         <span class="feedback-btn-label">Góp ý</span>
       </button>
+      <button id="btnSketch" class="feedback-btn" type="button" onclick="openTacticSketch()" title="DLAM - phác thảo chiến thuật">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+        </svg>
+        <span class="feedback-btn-label">DLAM</span>
+      </button>
       <button class="feedback-btn" type="button" onclick="openReleaseModal(event)" title="Cập nhật LangGiaWar V1.2">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
@@ -3477,7 +3483,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
           <div class="map-box" id="mapBox">
             <!-- Container fill toàn bộ map-box, icon layer đồng bộ theo ảnh -->
             <div class="map-container" id="mapContainer" style="position:absolute;inset:0;overflow:hidden;">
-              <img class="map-bg" src="./anh/battle_map_clean.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">
+              <img class="map-bg" src="./anh/map.png" alt="Battle Map" style="display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;">
               <div class="map-icons" id="mapIcons" style="position:absolute;inset:0;width:100%;height:100%;">
               <!-- tower_blue -->
               <div class="map-icon tower" style="left:36%;top:15%" data-type="tower_blue" data-name="Tháp Xanh Bắc"><img src="./anh/icons/tower_blue.png" width="100%"><span class="map-icon-tooltip">⛫ Tháp Xanh Bắc</span></div>
@@ -4394,6 +4400,47 @@ function getCachedSessionByKey(key) {
     return _cachedSessions[key] || null;
 }
 
+function rememberUpdatedSession(session) {
+    if (!session) return null;
+    session.time = normalizeSessionTime(session.time || LEAGUE_TIME);
+    const key = getSessionCacheKey(session);
+    if (!key) return session;
+    _cachedSessions[key] = session;
+    setSessionCache(getAllCachedSessions());
+    if (currentSessionData && getSessionCacheKey(currentSessionData) === key) {
+        currentSessionData = session;
+    }
+    return session;
+}
+
+function isMissingSelfSignupRpcError(error) {
+    const message = String(error?.message || error?.details || '');
+    return error?.code === 'PGRST202'
+        || /Could not find the function|schema cache|bc_update_own_session_registration/i.test(message);
+}
+
+async function updateOwnSessionRegistrationViaRpc(session, join) {
+    if (!sb || !session?.id || !window.currentDiscordId) {
+        return { handled: false };
+    }
+    const { data, error } = await sb.rpc('bc_update_own_session_registration', {
+        p_guild_id: GUILD_ID,
+        p_session_id: String(session.id),
+        p_join: !!join
+    });
+    if (error) {
+        if (isMissingSelfSignupRpcError(error)) return { handled: false, error };
+        return { handled: true, success: false, error };
+    }
+    const updatedSession = Array.isArray(data) ? data[0] : data;
+    if (updatedSession) rememberUpdatedSession(updatedSession);
+    return { handled: true, success: true, data: updatedSession || null };
+}
+
+function getSessionUpdateErrorMessage(error) {
+    return error?.message || String(error || 'Khong cap nhat duoc phien Bang Chien.');
+}
+
 function getSessionsForDay(day) {
     return _sessionsByDay[day] || [];
 }
@@ -4471,6 +4518,13 @@ function messageMentionsRosterField(message, field) {
     return new RegExp(`(^|[^a-z0-9_])${field}([^a-z0-9_]|$)`, 'i').test(String(message || ''));
 }
 
+function makeSessionUpdateNoRowsError() {
+    return {
+        code: 'BC_SESSION_UPDATE_NO_ROWS',
+        message: 'Khong cap nhat duoc phien Bang Chien. Tai khoan hien tai co the chua duoc cap quyen ghi roster.'
+    };
+}
+
 function removeUnavailableRosterPayloadFields(payload, error) {
     const message = String(error?.message || '');
     const hasField = (field) => Object.prototype.hasOwnProperty.call(payload, field);
@@ -4504,8 +4558,8 @@ async function updateSessionRosterPayload(payload, session) {
     const requiresDynamicRoster = layout.length > 4
         || Object.keys(teams || {}).some((key) => !INDEX_ACTIVE_TEAM_KEYS.includes(key));
     const applyUpdate = async () => {
-        const query = sb.from('bc_sessions').update(payload);
-        return applySessionFilter(query, session);
+        const query = sb.from('bc_sessions').update(payload).select('*');
+        return applySessionFilter(query, session).maybeSingle();
     };
 
     let result = await applyUpdate();
@@ -4515,6 +4569,9 @@ async function updateSessionRosterPayload(payload, session) {
         if (requiresDynamicRoster && /(team_layout|teams_json)/i.test(message)) break;
         if (!removeUnavailableRosterPayloadFields(payload, result.error)) break;
         result = await applyUpdate();
+    }
+    if (!result.error && !result.data) {
+        return { ...result, error: makeSessionUpdateNoRowsError() };
     }
     return result;
 }
@@ -6012,9 +6069,34 @@ async function joinSession(data, options = {}) {
             })
         };
     attachSessionRosterPayload(joinPayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
-    const { error: updateErr } = await updateSessionRosterPayload(joinPayload, data);
+    const { data: updatedSession, error: updateErr } = await updateSessionRosterPayload(joinPayload, data);
 
-    if (updateErr) { await customAlert('Lỗi đăng ký: ' + updateErr.message); return false; }
+    if (updateErr) {
+        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, true);
+        if (rpcResult.handled && rpcResult.success) {
+            if (options.reload !== false) {
+                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
+            }
+            return true;
+        }
+        const errorMessage = rpcResult.handled
+            ? getSessionUpdateErrorMessage(rpcResult.error)
+            : getSessionUpdateErrorMessage(updateErr);
+        await customAlert('Loi dang ky: ' + errorMessage);
+        return false;
+    }
+    if (updatedSession && !sessionContainsCurrentUser(updatedSession)) {
+        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, true);
+        if (rpcResult.handled && rpcResult.success) {
+            if (options.reload !== false) {
+                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
+            }
+            return true;
+        }
+        await customAlert('Loi dang ky: Supabase da nhan request nhung roster khong co ten ban.');
+        return false;
+    }
+    rememberUpdatedSession(updatedSession);
 
     if (tacticsPayload) {
         const sessionLike = {
@@ -6125,9 +6207,34 @@ async function leaveSession(data, options = {}) {
             })
         };
     attachSessionRosterPayload(leavePayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
-    const { error: updateErr } = await updateSessionRosterPayload(leavePayload, data);
+    const { data: updatedSession, error: updateErr } = await updateSessionRosterPayload(leavePayload, data);
 
-    if (updateErr) { await customAlert('Lỗi hủy đăng ký: ' + updateErr.message); return false; }
+    if (updateErr) {
+        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, false);
+        if (rpcResult.handled && rpcResult.success) {
+            if (options.reload !== false) {
+                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
+            }
+            return true;
+        }
+        const errorMessage = rpcResult.handled
+            ? getSessionUpdateErrorMessage(rpcResult.error)
+            : getSessionUpdateErrorMessage(updateErr);
+        await customAlert('Loi huy dang ky: ' + errorMessage);
+        return false;
+    }
+    if (updatedSession && sessionContainsCurrentUser(updatedSession)) {
+        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, false);
+        if (rpcResult.handled && rpcResult.success) {
+            if (options.reload !== false) {
+                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
+            }
+            return true;
+        }
+        await customAlert('Loi huy dang ky: Supabase da nhan request nhung roster van con ten ban.');
+        return false;
+    }
+    rememberUpdatedSession(updatedSession);
 
     if (tacticsPayload) {
         const sessionLike = {

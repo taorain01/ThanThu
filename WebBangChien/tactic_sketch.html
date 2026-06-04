@@ -75,15 +75,13 @@ button{border:0}
 .empty-note{font-size:12px;color:var(--faint);line-height:1.45;padding:7px 2px}
 .workspace{display:flex;flex-direction:column;min-width:0;min-height:0}
 .map-wrap{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 50%,rgba(20,43,29,.7),rgba(4,8,6,.92))}
-.map-viewport{position:relative;width:min(100%,calc((100vh - var(--header-h) - var(--timeline-h) - 42px) * 43 / 24));max-width:100%;max-height:100%;aspect-ratio:43/24;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-viewport{position:relative;width:min(100%,calc((100vh - var(--header-h) - var(--timeline-h) - 42px) * 0.67));max-width:100%;max-height:100%;aspect-ratio:0.67;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
 .map-stage{position:absolute;inset:0;width:100%;height:100%;touch-action:none;overflow:hidden;transform-origin:50% 50%;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
 .map-stage.zoomed{cursor:grab}
 .map-stage.zoomed.panning{cursor:grabbing;transition:none}
-.map-stage img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.map-stage img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
 .map-stage > img.map-bg{position:relative;z-index:1}
-.map-stage > img.map-bg.hidden-map{visibility:hidden}
-.map-bg-giay{position:absolute;inset:0;display:none;z-index:0;overflow:hidden;pointer-events:none;background:url('./anh/MapGiay.png') no-repeat;background-size:108.5% 132.5%;background-position:48% 50%}
-.map-bg-giay.show{display:block}
+
 .draw-layer,.dot-layer,.map-icons-layer{position:absolute;inset:0;width:100%;height:100%}
 .map-icons-layer{z-index:4;pointer-events:none}
 .map-icon{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
@@ -275,7 +273,7 @@ button{border:0}
           <div class="hotkey-item"><span>Mũi tên</span><kbd>4</kbd></div>
           <div class="hotkey-item"><span>Tẩy</span><kbd>5</kbd></div>
           <div class="hotkey-item"><span>Scale nét</span><kbd>S</kbd></div>
-          <div class="hotkey-item"><span>Map giấy</span><kbd>G</kbd></div>
+
           <div class="hotkey-item"><span>Undo</span><kbd>Ctrl Z</kbd></div>
           <div class="hotkey-item"><span>Redo</span><kbd>Ctrl Y</kbd></div>
           <div class="hotkey-item"><span>Thêm mốc</span><kbd>M</kbd></div>
@@ -302,13 +300,12 @@ button{border:0}
       <div class="map-wrap">
         <div class="map-badge" id="mapStatus"><strong>Local</strong><span>Đang chuẩn bị bản vẽ...</span></div>
         <div class="zoom-tools">
-          <button class="zoom-btn" id="sketchMapToggleBtn" onclick="toggleSketchMapMode()" title="Đổi map giấy (G)">▦ Bản đồ</button>
+
           <button class="zoom-btn" id="zoomResetBtn" onclick="resetZoom()" title="Đưa map về zoom mặc định (0)">⌖ Reset zoom</button>
         </div>
         <div class="map-viewport" id="mapViewport">
           <div class="map-stage" id="mapStage">
-            <img class="map-bg" id="mapImg" src="./anh/battle_map_clean.png" alt="Battle Map" draggable="false">
-            <div class="map-bg-giay" id="mapBgGiay"></div>
+            <img class="map-bg" id="mapImg" src="./anh/map.png" alt="Battle Map" draggable="false">
             <div class="map-icons-layer" id="mapIconsLayer"></div>
             <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="tower-label-layer" id="towerLabelLayer"></div>
@@ -453,7 +450,7 @@ const state = {
     zoom: 1,
     panX: 0,
     panY: 0,
-    mapPaperMode: readMapPaperPreference(),
+    mapPaperMode: false,
     strokeScaling: false,
     localDraftTimer: null
 };
@@ -986,23 +983,8 @@ function resetZoom(options = {}) {
     }
 }
 
-function setSketchMapMode(enabled, options = {}) {
-    state.mapPaperMode = Boolean(enabled);
-    byId('mapImg')?.classList.toggle('hidden-map', state.mapPaperMode);
-    byId('mapBgGiay')?.classList.toggle('show', state.mapPaperMode);
-    const btn = byId('sketchMapToggleBtn');
-    if (btn) {
-        btn.classList.toggle('active', state.mapPaperMode);
-        btn.textContent = state.mapPaperMode ? '▦ 3D Map' : '▦ Bản đồ';
-        btn.title = state.mapPaperMode ? 'Đổi sang map thường (G)' : 'Đổi map giấy (G)';
-    }
-    if (options.persist !== false) writeMapPaperPreference(state.mapPaperMode);
-    if (!options.silent) showToast(state.mapPaperMode ? 'Đã bật map giấy' : 'Đã bật map thường');
-}
-
-function toggleSketchMapMode() {
-    setSketchMapMode(!state.mapPaperMode);
-}
+function setSketchMapMode() { /* Removed - single map only */ }
+function toggleSketchMapMode() { /* Removed - single map only */ }
 
 function toggleZoomAtEvent(event) {
     if (state.zoom > 1) {
@@ -1075,11 +1057,7 @@ function handleSketchHotkey(event) {
         event.preventDefault();
         return;
     }
-    if (key === 'g') {
-        toggleSketchMapMode();
-        event.preventDefault();
-        return;
-    }
+
     if (key === 'm') {
         addMarkAtCursor(event.shiftKey);
         event.preventDefault();

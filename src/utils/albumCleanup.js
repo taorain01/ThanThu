@@ -41,18 +41,20 @@ async function cleanupAlbumForUser(userId, reason = 'unknown', options = {}) {
 
     const deleteResult = db.deleteAllAlbumImagesByUser(id);
 
-    const albumChannel = await resolveAlbumChannel(options);
-    if (albumChannel) {
-        const messageIds = new Set(images.map(image => image.message_id).filter(Boolean));
-        for (const messageId of messageIds) {
-            const albumMessage = await albumChannel.messages.fetch(messageId).catch(() => null);
-            if (!albumMessage) continue;
-            try {
-                await albumMessage.delete();
-                discordMessagesDeleted++;
-            } catch (error) {
-                discordMessagesFailed++;
-                console.error(`[AlbumCleanup] Discord message delete failed for ${id}/${messageId}:`, error.message);
+    const messageIds = new Set(images.map(image => image.message_id).filter(Boolean));
+    if (messageIds.size > 0) {
+        const albumChannel = await resolveAlbumChannel(options);
+        if (albumChannel) {
+            for (const messageId of messageIds) {
+                const albumMessage = await albumChannel.messages.fetch(messageId).catch(() => null);
+                if (!albumMessage) continue;
+                try {
+                    await albumMessage.delete();
+                    discordMessagesDeleted++;
+                } catch (error) {
+                    discordMessagesFailed++;
+                    console.error(`[AlbumCleanup] Discord message delete failed for ${id}/${messageId}:`, error.message);
+                }
             }
         }
     }

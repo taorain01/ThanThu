@@ -234,4 +234,6 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.bc_update_own_session_registration(text, uuid, boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.bc_update_own_session_registration(text, uuid, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bc_update_own_session_registration(text, uuid, boolean) TO authenticated, service_role;
+
+NOTIFY pgrst, 'reload schema';

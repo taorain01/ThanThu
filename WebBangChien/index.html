@@ -4419,6 +4419,14 @@ function isMissingSelfSignupRpcError(error) {
         || /Could not find the function|schema cache|bc_update_own_session_registration/i.test(message);
 }
 
+function makeMissingSelfSignupRpcError(error) {
+    console.warn('[LangGia] Missing self signup RPC:', error);
+    return {
+        code: 'BC_SELF_SIGNUP_RPC_MISSING',
+        message: 'Web chưa được cấp quyền tự đăng ký/hủy trên Supabase. Báo Quản Lý chạy bản cập nhật quyền DB.'
+    };
+}
+
 async function updateOwnSessionRegistrationViaRpc(session, join) {
     if (!sb || !session?.id || !window.currentDiscordId) {
         return { handled: false };
@@ -4429,7 +4437,9 @@ async function updateOwnSessionRegistrationViaRpc(session, join) {
         p_join: !!join
     });
     if (error) {
-        if (isMissingSelfSignupRpcError(error)) return { handled: false, error };
+        if (isMissingSelfSignupRpcError(error)) {
+            return { handled: true, success: false, error: makeMissingSelfSignupRpcError(error) };
+        }
         return { handled: true, success: false, error };
     }
     const updatedSession = Array.isArray(data) ? data[0] : data;
@@ -4521,7 +4531,7 @@ function messageMentionsRosterField(message, field) {
 function makeSessionUpdateNoRowsError() {
     return {
         code: 'BC_SESSION_UPDATE_NO_ROWS',
-        message: 'Khong cap nhat duoc phien Bang Chien. Tai khoan hien tai co the chua duoc cap quyen ghi roster.'
+        message: 'Supabase chưa cho tài khoản hiện tại ghi roster trực tiếp.'
     };
 }
 
@@ -6082,7 +6092,7 @@ async function joinSession(data, options = {}) {
         const errorMessage = rpcResult.handled
             ? getSessionUpdateErrorMessage(rpcResult.error)
             : getSessionUpdateErrorMessage(updateErr);
-        await customAlert('Loi dang ky: ' + errorMessage);
+        await customAlert('Lỗi đăng ký: ' + errorMessage);
         return false;
     }
     if (updatedSession && !sessionContainsCurrentUser(updatedSession)) {
@@ -6093,7 +6103,7 @@ async function joinSession(data, options = {}) {
             }
             return true;
         }
-        await customAlert('Loi dang ky: Supabase da nhan request nhung roster khong co ten ban.');
+        await customAlert('Lỗi đăng ký: Supabase đã nhận request nhưng roster không có tên bạn.');
         return false;
     }
     rememberUpdatedSession(updatedSession);
@@ -6220,7 +6230,7 @@ async function leaveSession(data, options = {}) {
         const errorMessage = rpcResult.handled
             ? getSessionUpdateErrorMessage(rpcResult.error)
             : getSessionUpdateErrorMessage(updateErr);
-        await customAlert('Loi huy dang ky: ' + errorMessage);
+        await customAlert('Lỗi hủy đăng ký: ' + errorMessage);
         return false;
     }
     if (updatedSession && sessionContainsCurrentUser(updatedSession)) {
@@ -6231,7 +6241,7 @@ async function leaveSession(data, options = {}) {
             }
             return true;
         }
-        await customAlert('Loi huy dang ky: Supabase da nhan request nhung roster van con ten ban.');
+        await customAlert('Lỗi hủy đăng ký: Supabase đã nhận request nhưng roster vẫn còn tên bạn.');
         return false;
     }
     rememberUpdatedSession(updatedSession);

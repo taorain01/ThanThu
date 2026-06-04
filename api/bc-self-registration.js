@@ -11,13 +11,29 @@ const DEFAULT_LAYOUT = [
 
 let adminClient = null;
 
+function getSupabaseConfig() {
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_KEY
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_SECRET_KEY
+    || '';
+  return { url, key };
+}
+
+function getEnvHealth() {
+  const { url, key } = getSupabaseConfig();
+  return {
+    supabaseUrl: Boolean(url),
+    supabaseSecret: Boolean(key)
+  };
+}
+
 function getAdminClient() {
-  if (adminClient) return adminClient;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const { url, key } = getSupabaseConfig();
   if (!url || !key) {
-    throw new Error('Backend chua cau hinh SUPABASE_URL/SUPABASE_SERVICE_KEY.');
+    throw new Error('Backend chua cau hinh SUPABASE_URL va SUPABASE_SERVICE_KEY/SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SECRET_KEY.');
   }
+  if (adminClient) return adminClient;
   adminClient = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false }
   });
@@ -220,19 +236,131 @@ function buildPlayer(userRow, discordId, fallbackName) {
   };
 }
 
-function buildUpdatePayload(session, userRow, discordId, fallbackName, join) {
+function getActiveSlotLayout(roster) {
+  const layout = [];
+  (roster.layout || []).forEach((team) => {
+    Array.from({ length: Math.max(0, Number(team.capacity) || 0) }).forEach(() => layout.push(team.id));
+  });
+  return layout;
+}
+
+function getFlatActiveRoster(roster) {
+  return (roster.layout || []).flatMap((team) => {
+    return (roster.teams[team.id] || []).map((player) => ({ ...player, team: team.id }));
+  });
+}
+
+function rebuildRosterFromFlat(layout, flatRoster, waitingList = []) {
+  let cursor = 0;
+  const teams = {};
+  layout.forEach((team) => {
+    const count = Math.max(0, Number(team.capacity) || 0);
+    teams[team.id] = flatRoster.slice(cursor, cursor + count).map((player) => ({
+      ...player,
+      team: team.id
+    }));
+    cursor += count;
+  });
+  return {
+    layout,
+    teams,
+    waitingList: (waitingList || []).map((player) => ({ ...player, team: 'waiting_list' }))
+  };
+}
+
+function isTacticalBotLikeId(id) {
+  return typeof id === 'string' && /^(bot_|slotbot_|slot_tmp_|idx_slot_tmp_|svc_slot_tmp_)/.test(id);
+}
+
+function findReservedSlotIndexFromPayload(payload, playerId) {
+  const template = Array.isArray(payload?.slot_template) ? payload.slot_template : [];
+  const matchesPlayer = (id) => id && !isTacticalBotLikeId(String(id)) && String(id) === String(playerId);
+  const byReserved = template.find((entry) => matchesPlayer(entry?.reserved_for));
+  if (byReserved) return Number(byReserved.slot_index);
+  const byCurrent = template.find((entry) => matchesPlayer(entry?.tactical_id || entry?.player_id || entry?.id));
+  return byCurrent ? Number(byCurrent.slot_index) : -1;
+}
+
+function parseTacticsPayload(markers) {
+  if (!markers) return null;
+  if (typeof markers === 'string') {
+    try {
+      const parsed = JSON.parse(markers);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+      return null;
+    }
+  }
+  return markers && typeof markers === 'object' ? markers : null;
+}
+
+function isSessionScopedTacticsError(error) {
+  const message = String(error?.message || error?.details || '');
+  return /session_id|schema cache|Could not find|column .* does not exist/i.test(message);
+}
+
+async function fetchSessionTacticsPayload(admin, guildId, session) {
+  if (!admin || !session) return null;
+
+  if (session.id) {
+    const scoped = await admin
+      .from('bc_tactics')
+      .select('markers,day,session_id,updated_at')
+      .eq('guild_id', guildId)
+      .eq('session_id', session.id)
+      .maybeSingle();
+    if (!scoped.error) return parseTacticsPayload(scoped.data?.markers);
+    if (!isSessionScopedTacticsError(scoped.error)) {
+      console.warn('[bc-self-registration] load session tactics failed:', scoped.error.message || scoped.error);
+      return null;
+    }
+  }
+
+  if (!session.day) return null;
+  const fallback = await admin
+    .from('bc_tactics')
+    .select('markers,day,updated_at')
+    .eq('guild_id', guildId)
+    .eq('day', session.day)
+    .order('updated_at', { ascending: false })
+    .limit(1);
+  if (fallback.error) {
+    console.warn('[bc-self-registration] load day tactics failed:', fallback.error.message || fallback.error);
+    return null;
+  }
+  const row = Array.isArray(fallback.data) ? fallback.data[0] : fallback.data;
+  return parseTacticsPayload(row?.markers);
+}
+
+function buildUpdatePayload(session, userRow, discordId, fallbackName, join, tacticsPayload = null) {
   const roster = getRosterState(session);
 
   if (join) {
     if (!rosterContains(roster, discordId)) {
       const player = buildPlayer(userRow, discordId, fallbackName);
-      const targetTeam = session.locked === true
-        ? null
-        : roster.layout.find((team) => (roster.teams[team.id] || []).length < Number(team.capacity || 0));
-      if (targetTeam) {
-        roster.teams[targetTeam.id].push({ ...player, team: targetTeam.id });
+      const reservedSlotIndex = findReservedSlotIndexFromPayload(tacticsPayload, discordId);
+      if (Number.isFinite(reservedSlotIndex) && reservedSlotIndex >= 0) {
+        const flatActive = getFlatActiveRoster(roster);
+        const waiting = (roster.waitingList || []).filter((item) => String(item.id) !== String(discordId));
+        const maxActive = getActiveSlotLayout(roster).length || 30;
+        const insertAt = Math.min(Math.max(0, reservedSlotIndex), flatActive.length);
+        flatActive.splice(insertAt, 0, player);
+        if (flatActive.length > maxActive) {
+          const displaced = flatActive.pop();
+          if (displaced?.id && String(displaced.id) !== String(discordId)) waiting.unshift(displaced);
+        }
+        const nextRoster = rebuildRosterFromFlat(roster.layout, flatActive, waiting);
+        roster.teams = nextRoster.teams;
+        roster.waitingList = nextRoster.waitingList;
       } else {
-        roster.waitingList.push({ ...player, team: 'waiting_list' });
+        const targetTeam = session.locked === true
+          ? null
+          : roster.layout.find((team) => (roster.teams[team.id] || []).length < Number(team.capacity || 0));
+        if (targetTeam) {
+          roster.teams[targetTeam.id].push({ ...player, team: targetTeam.id });
+        } else {
+          roster.waitingList.push({ ...player, team: 'waiting_list' });
+        }
       }
     }
   } else {
@@ -255,7 +383,9 @@ function buildUpdatePayload(session, userRow, discordId, fallbackName, join) {
     ...parseJsonObject(session.leader_ids),
     editor_id: discordId,
     editor_name: userRow.game_username || userRow.discord_name || fallbackName || discordId,
-    editor_action: join ? 'self_join_api' : 'self_leave_api',
+    editor_action: join
+      ? (findReservedSlotIndexFromPayload(tacticsPayload, discordId) >= 0 ? 'self_join_reclaim_api' : 'self_join_api')
+      : 'self_leave_api',
     edited_at: Date.now()
   };
 
@@ -320,6 +450,10 @@ module.exports = async function handler(req, res) {
     return send(res, 204, {});
   }
   if (req.method === 'GET') {
+    const url = new URL(req.url || '/', 'https://langgiawar.local');
+    if (url.searchParams.get('health') === '1') {
+      return send(res, 200, { ok: true, route: 'bc-self-registration', env: getEnvHealth() });
+    }
     return send(res, 200, { ok: true, route: 'bc-self-registration', method: 'POST' });
   }
   if (req.method !== 'POST') {
@@ -327,10 +461,10 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const admin = getAdminClient();
     const authHeader = String(req.headers.authorization || '');
     const token = authHeader.match(/^Bearer\s+(.+)$/i)?.[1] || '';
     if (!token) return send(res, 401, { error: 'Chua dang nhap.' });
+    const admin = getAdminClient();
 
     const { data: authData, error: authError } = await admin.auth.getUser(token);
     if (authError || !authData?.user) {
@@ -369,7 +503,8 @@ module.exports = async function handler(req, res) {
     if (sessionError) throw sessionError;
     if (!session) return send(res, 404, { error: 'Khong tim thay phien Bang Chien dang mo.' });
 
-    const payload = buildUpdatePayload(session, userRow, discordId, fallbackName, join);
+    const tacticsPayload = join ? await fetchSessionTacticsPayload(admin, guildId, session) : null;
+    const payload = buildUpdatePayload(session, userRow, discordId, fallbackName, join, tacticsPayload);
     const result = await updateSessionWithRosterPayload(admin, guildId, sessionId, payload);
     if (result.error) throw result.error;
     if (!result.data) return send(res, 500, { error: 'Supabase khong tra ve session sau khi cap nhat.' });

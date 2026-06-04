@@ -4481,6 +4481,52 @@ async function updateOwnSessionRegistrationViaApi(session, join) {
     return { handled: true, success: true, data: updatedSession };
 }
 
+async function updateOwnSessionRegistrationDirect(session, join, payload) {
+    if (!payload) return { handled: false };
+    const { data: updatedSession, error } = await updateSessionRosterPayload(payload, session);
+    if (error) return { handled: true, success: false, error };
+    if (updatedSession) rememberUpdatedSession(updatedSession);
+    return {
+        handled: true,
+        success: true,
+        data: updatedSession || null,
+        mode: join ? 'direct_join' : 'direct_leave'
+    };
+}
+
+async function persistSelfRegistration(session, join, payload) {
+    const apiResult = await updateOwnSessionRegistrationViaApi(session, join);
+    if (apiResult.handled && apiResult.success) {
+        return { ...apiResult, mode: join ? 'api_join' : 'api_leave' };
+    }
+
+    if (!hasElevatedRosterRole()) {
+        return apiResult.handled
+            ? apiResult
+            : { handled: true, success: false, error: { message: 'Backend đăng ký chưa sẵn sàng.' } };
+    }
+
+    const directResult = await updateOwnSessionRegistrationDirect(session, join, payload);
+    if (directResult.handled && directResult.success) return directResult;
+
+    if (apiResult.handled) {
+        const apiMessage = getSessionUpdateErrorMessage(apiResult.error);
+        const directMessage = directResult.handled ? getSessionUpdateErrorMessage(directResult.error) : '';
+        return {
+            handled: true,
+            success: false,
+            error: {
+                message: directMessage
+                    ? `${apiMessage} Fallback trực tiếp cũng lỗi: ${directMessage}`
+                    : apiMessage
+            }
+        };
+    }
+    return directResult.handled
+        ? directResult
+        : { handled: true, success: false, error: { message: 'Không có đường ghi đăng ký khả dụng.' } };
+}
+
 async function updateOwnSessionRegistrationViaRpc(session, join) {
     if (!sb || !session?.id || !window.currentDiscordId) {
         return { handled: false };
@@ -6135,37 +6181,22 @@ async function joinSession(data, options = {}) {
             })
         };
     attachSessionRosterPayload(joinPayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
-    const { data: updatedSession, error: updateErr } = await updateSessionRosterPayload(joinPayload, data);
+    const persistResult = await persistSelfRegistration(data, true, joinPayload);
 
-    if (updateErr) {
-        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, true);
-        if (rpcResult.handled && rpcResult.success) {
-            if (options.reload !== false) {
-                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
-            }
-            return true;
-        }
-        const errorMessage = rpcResult.handled
-            ? getSessionUpdateErrorMessage(rpcResult.error)
-            : getSessionUpdateErrorMessage(updateErr);
+    if (!persistResult.success) {
+        const errorMessage = getSessionUpdateErrorMessage(persistResult.error);
         await customAlert('Lỗi đăng ký: ' + errorMessage);
         return false;
     }
+    const updatedSession = persistResult.data || null;
     if (updatedSession && !sessionContainsCurrentUser(updatedSession)) {
-        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, true);
-        if (rpcResult.handled && rpcResult.success) {
-            if (options.reload !== false) {
-                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
-            }
-            return true;
-        }
         await customAlert('Lỗi đăng ký: Supabase đã nhận request nhưng roster không có tên bạn.');
         return false;
     }
-    rememberUpdatedSession(updatedSession);
+    if (updatedSession) rememberUpdatedSession(updatedSession);
 
     if (tacticsPayload) {
-        const sessionLike = {
+        const sessionLike = updatedSession || {
             ...data,
             team_attack1: nextTeams.team_attack1 || [],
             team_attack2: nextTeams.team_attack2 || [],
@@ -6183,7 +6214,7 @@ async function joinSession(data, options = {}) {
     }
 
     if (options.reload !== false) {
-        await loadBCData(data.day || currentDay, getSessionCacheKey(data));
+        await loadBCData(data.day || currentDay, getSessionCacheKey(updatedSession || data));
     }
     return true;
 }
@@ -6273,37 +6304,22 @@ async function leaveSession(data, options = {}) {
             })
         };
     attachSessionRosterPayload(leavePayload, data, nextTeams.team_layout || rosterState.layout || [], nextTeams.teams || {});
-    const { data: updatedSession, error: updateErr } = await updateSessionRosterPayload(leavePayload, data);
+    const persistResult = await persistSelfRegistration(data, false, leavePayload);
 
-    if (updateErr) {
-        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, false);
-        if (rpcResult.handled && rpcResult.success) {
-            if (options.reload !== false) {
-                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
-            }
-            return true;
-        }
-        const errorMessage = rpcResult.handled
-            ? getSessionUpdateErrorMessage(rpcResult.error)
-            : getSessionUpdateErrorMessage(updateErr);
+    if (!persistResult.success) {
+        const errorMessage = getSessionUpdateErrorMessage(persistResult.error);
         await customAlert('Lỗi hủy đăng ký: ' + errorMessage);
         return false;
     }
+    const updatedSession = persistResult.data || null;
     if (updatedSession && sessionContainsCurrentUser(updatedSession)) {
-        const rpcResult = await updateOwnSessionRegistrationViaRpc(data, false);
-        if (rpcResult.handled && rpcResult.success) {
-            if (options.reload !== false) {
-                await loadBCData(data.day || currentDay, getSessionCacheKey(rpcResult.data || data));
-            }
-            return true;
-        }
         await customAlert('Lỗi hủy đăng ký: Supabase đã nhận request nhưng roster vẫn còn tên bạn.');
         return false;
     }
-    rememberUpdatedSession(updatedSession);
+    if (updatedSession) rememberUpdatedSession(updatedSession);
 
     if (tacticsPayload) {
-        const sessionLike = {
+        const sessionLike = updatedSession || {
             ...data,
             team_attack1: nextTeams.team_attack1 || [],
             team_attack2: nextTeams.team_attack2 || [],
@@ -6321,7 +6337,7 @@ async function leaveSession(data, options = {}) {
     }
 
     if (options.reload !== false) {
-        await loadBCData(data.day || currentDay, getSessionCacheKey(data));
+        await loadBCData(data.day || currentDay, getSessionCacheKey(updatedSession || data));
     }
     return true;
 }

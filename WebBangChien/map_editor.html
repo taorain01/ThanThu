@@ -1,480 +1,1333 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bản Đồ Editor (Pro UI)</title>
+<title>Map Editor — Lang Gia Bang Chiến</title>
+<meta name="description" content="Chỉnh sửa vị trí, kích cỡ icon trên bản đồ Bang Chiến — Export CSS/HTML để dùng trong web chính">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-  body {
-    background: #0a120c; 
-    color: white; 
-    display: flex; 
-    flex-direction: row; 
-    margin: 0; 
-    height: 100vh;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden;
-  }
-  
-  /* ═══ SIDEBAR ĐIỀU KHIỂN ═══ */
-  .sidebar {
-    width: 380px;
-    background: #111814;
-    border-right: 2px solid #fbbf24;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    box-sizing: border-box;
-    overflow-y: auto;
-    z-index: 10;
-    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
-  }
-  .sidebar h3 { 
-    margin: 0 0 20px 0; 
-    font-size: 20px; 
-    color: #fbbf24; 
-    text-transform: uppercase;
-    font-weight: 800;
-  }
-  
-  .control-group {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.1);
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-  }
-  .control-group h4 { margin: 0 0 12px 0; color: #60a5fa; font-size: 14px; }
-  
-  .slider-row {
-    margin-bottom: 15px;
-  }
-  .slider-row:last-child { margin-bottom: 0; }
-  .slider-row label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: #cbd5e1;
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-  .slider-row .val { color: #fbbf24; }
-  input[type="range"] {
-    width: 100%;
-    accent-color: #fbbf24;
-    cursor: ew-resize;
-  }
-  
-  .select-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-  .select-row label { font-size: 13px; font-weight: 600; color: #cbd5e1; }
-  select {
-    background: #222; color: #fff; border: 1px solid #444; padding: 4px 8px; border-radius: 4px; outline: none;
-  }
-  
-  button.action-btn {
-    background: #059669; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold;
-    cursor: pointer; transition: 0.2s; width: 100%; margin-top: 10px;
-  }
-  button.action-btn:hover { background: #10b981; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08140d;--panel:#0d1d13;--panel2:#102619;--line:rgba(134,239,172,.15);
+  --text:#e5edf0;--muted:#95a3ad;--faint:#61717b;--gold:#fbbf24;--green:#4ade80;
+  --red:#f87171;--blue:#60a5fa;--violet:#a78bfa;--cyan:#22d3ee;
+  --sidebar-w:360px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);user-select:none;-webkit-user-select:none;display:flex}
+button,input,select,textarea{font-family:inherit}
+button{border:0;cursor:pointer}
+input[type="range"]{accent-color:var(--gold);cursor:ew-resize}
+input[type="number"],input[type="text"],select,textarea{
+  background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);border-radius:7px;
+  color:var(--text);padding:5px 8px;font-size:12px;outline:none;width:100%;
+}
+input[type="number"]:focus,input[type="text"]:focus,select:focus,textarea:focus{
+  border-color:rgba(251,191,36,.5);box-shadow:0 0 0 2px rgba(251,191,36,.08);
+}
+select{cursor:pointer}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:rgba(251,191,36,.18);border-radius:4px}
 
-  /* ═══ MAP PREVIEW AREA ═══ */
-  .preview-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    background: #020403;
-  }
-  
-  /* Lớp vỏ mô phỏng r-pane */
-  .viewport-sim {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-    margin: 20px;
-    border: 2px dashed rgba(96, 165, 250, 0.4);
-    background: repeating-linear-gradient(45deg, #111, #111 10px, #1a1a1a 10px, #1a1a1a 20px);
-  }
-  .viewport-label {
-    position: absolute; top: 8px; left: 8px; color: rgba(96, 165, 250, 0.8); font-size: 12px; font-weight: bold; pointer-events: none;
-  }
+/* ═══ SIDEBAR ═══ */
+.sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);height:100vh;
+  background:linear-gradient(180deg,rgba(13,29,19,.98),rgba(8,20,13,.99));
+  border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;z-index:10;
+}
+.sidebar-header{
+  padding:16px 16px 12px;border-bottom:1px solid var(--line);flex-shrink:0;
+  background:linear-gradient(90deg,rgba(8,20,13,.96),rgba(16,38,25,.94));
+}
+.sidebar-header h1{font-size:17px;font-weight:900;color:var(--gold);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.sidebar-header p{font-size:11px;color:var(--muted);line-height:1.4}
+.sidebar-scroll{flex:1;overflow-y:auto;padding:12px}
 
-  /* ═══ BẾN CHỨA MAP CHÍNH ═══ */
-  .map-box { 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    position: relative; 
-    overflow: hidden; 
-    background: #060a08;
-    /* Kích thước của map-box được điều khiển qua slider */
-    width: 100%;
-    height: 100%;
-  }
-  
-  /* ═══ CONTAINER - Lõi đo tỉ lệ ═══ */
-  .map-container {
-    position: relative;
-    display: inline-block;
+.section{border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.025);border-radius:10px;padding:10px;margin-bottom:10px}
+.section-title{
+  font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--gold);font-weight:900;
+  margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;
+}
+.section-title .badge{
+  font-size:10px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);
+  padding:1px 6px;border-radius:12px;color:var(--gold);font-weight:800;
+}
 
-    /* map.png native ratio: 1446 / 1088 */
-    width: 100%;
-    max-width: 100%;
-    max-height: 100%;
-    aspect-ratio: 1.33;
-  }
+/* Icon list */
+.icon-list{display:flex;flex-direction:column;gap:3px;max-height:260px;overflow-y:auto}
+.icon-item{
+  display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,.1);cursor:pointer;
+  transition:all .15s;
+}
+.icon-item:hover{border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.04)}
+.icon-item.selected{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.08);box-shadow:0 0 10px rgba(251,191,36,.08)}
+.icon-item .icon-thumb{width:22px;height:22px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 0 2px rgba(255,255,255,.5))}
+.icon-item .icon-name{font-size:11px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-item .icon-pos{font-size:10px;color:var(--faint);font-weight:600;white-space:nowrap}
 
-  /* ═══ MAP WRAPPER (Zoom container) ═══ */
-  .map-zoom-wrapper {
-    position: absolute; 
-    inset: 0; 
-  }
+/* Properties panel */
+.prop-group{margin-bottom:10px}
+.prop-group-title{font-size:10px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.prop-row{display:grid;grid-template-columns:70px 1fr;gap:6px;align-items:center;margin-bottom:6px}
+.prop-row label{font-size:11px;font-weight:600;color:var(--muted)}
+.prop-row-wide{margin-bottom:6px}
+.prop-row-wide label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:3px}
+.slider-with-val{display:grid;grid-template-columns:1fr 44px;gap:6px;align-items:center}
+.slider-with-val .val{font-size:11px;font-weight:800;color:var(--gold);text-align:right}
+.prop-row-2col{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.prop-row-2col label{font-size:10px;color:var(--faint);margin-bottom:2px;display:block}
+.no-icon-msg{font-size:12px;color:var(--faint);text-align:center;padding:16px 10px;line-height:1.5}
 
-  /* ═══ ẢNH NỀN BẢN ĐỒ ═══ */
-  img.map-bg {
-    display: block; 
-    width: 100%; 
-    height: 100%; 
-    object-fit: contain; 
-    pointer-events: none;
-  }
+/* Action buttons */
+.action-row{display:flex;gap:5px;flex-wrap:wrap}
+.act-btn{
+  height:30px;padding:0 10px;border-radius:8px;font-size:11px;font-weight:800;
+  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--text);
+  transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:4px;
+}
+.act-btn:hover{border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08)}
+.act-btn.primary{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fde68a}
+.act-btn.primary:hover{background:rgba(251,191,36,.22)}
+.act-btn.danger{color:#fecaca;border-color:rgba(248,113,113,.22);background:rgba(248,113,113,.06)}
+.act-btn.danger:hover{background:rgba(248,113,113,.12)}
+.act-btn.full{width:100%}
 
-  /* ═══ KHU VỰC ICON (Tọa độ %) ═══ */
-  .map-icons { 
-    position: absolute; 
-    inset: 0; 
-    pointer-events: auto;
-  }
-  .map-icon { 
-    position: absolute; 
-    transform: translate(-50%, -50%); 
-    width: 28px; 
-    height: 28px; 
-    border: 2px solid rgba(255,255,255,0.7);
-    border-radius: 5px;
-    background: rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center;
-    cursor: grab;
-    transition: box-shadow 0.2s;
-  }
-  .map-icon:hover { box-shadow: 0 0 10px #fbbf24; z-index: 10; }
-  .map-icon img { pointer-events: none; }
-  
-  /* Log output */
-  .log-box {
-    margin-top: 15px; background: #000; border: 1px solid #333; height: 120px; padding: 8px; font-family: monospace; font-size: 11px; color: #0f0; overflow-y: auto;
-  }
-  
-  /* Thẻ spacer ảo để thử class */
-  .map-spacer {
-    display: none;
-    width: 100%; height: 100%;
-    object-fit: contain; pointer-events: none; opacity: 0; visibility: hidden;
-  }
+/* Sidebar footer */
+.sidebar-footer{padding:10px 12px;border-top:1px solid var(--line);flex-shrink:0}
+
+/* ═══ MAP AREA ═══ */
+.map-area{
+  flex:1;display:flex;align-items:center;justify-content:center;position:relative;
+  background:radial-gradient(circle at 50% 50%,rgba(20,43,29,.5),rgba(4,8,6,.92));overflow:hidden;
+}
+.map-container{
+  position:relative;aspect-ratio:1446/1088;max-width:95%;max-height:95%;
+  border-radius:12px;border:1px solid rgba(251,191,36,.18);
+  box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);
+  overflow:hidden;background:#09140c;
+}
+.map-container img.map-bg{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.map-icons-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* Map icons */
+.map-icon{
+  position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:grab;
+  transition:box-shadow .18s,outline .18s;border-radius:4px;
+}
+.map-icon:hover{box-shadow:0 0 12px rgba(251,191,36,.5);z-index:10}
+.map-icon.selected{
+  outline:2px solid rgba(251,191,36,.8);outline-offset:2px;
+  box-shadow:0 0 20px rgba(251,191,36,.4);z-index:20;
+}
+.map-icon.dragging{cursor:grabbing;opacity:.8;z-index:30}
+.map-icon img{width:100%;height:100%;display:block;pointer-events:none}
+/* Sync highlights: cặp trụ ngang (pair) và cột dọc (col) */
+.map-icon.sync-pair{box-shadow:0 0 14px rgba(251,191,36,.7);z-index:9}
+.map-icon.sync-col{box-shadow:0 0 10px rgba(96,165,250,.7);z-index:8}
+
+/* Grid overlay */
+.grid-overlay{
+  position:absolute;inset:0;pointer-events:none;display:none;z-index:5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:10% 10%;
+}
+.grid-overlay.show{display:block}
+
+/* Crosshair */
+.crosshair{position:absolute;pointer-events:none;z-index:8;display:none}
+.crosshair.show{display:block}
+.crosshair .ch-h,.crosshair .ch-v{position:absolute;background:rgba(251,191,36,.25)}
+.crosshair .ch-h{left:0;right:0;height:1px}
+.crosshair .ch-v{top:0;bottom:0;width:1px}
+
+/* Coord tooltip */
+.coord-tooltip{
+  position:absolute;z-index:25;padding:4px 8px;border-radius:6px;
+  background:rgba(8,20,13,.92);border:1px solid rgba(251,191,36,.3);
+  font-size:11px;font-weight:700;color:#fde68a;pointer-events:none;
+  white-space:nowrap;transform:translate(12px,-100%);display:none;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+.coord-tooltip.show{display:block}
+
+/* Map toolbar */
+.map-toolbar{position:absolute;top:14px;right:14px;z-index:15;display:flex;gap:6px}
+.map-tool-btn{
+  height:32px;padding:0 10px;border-radius:8px;font-size:11px;font-weight:800;
+  border:1px solid rgba(255,255,255,.12);background:rgba(5,10,7,.82);
+  color:var(--muted);backdrop-filter:blur(8px);transition:all .15s;
+}
+.map-tool-btn:hover{border-color:rgba(251,191,36,.3);color:var(--text)}
+.map-tool-btn.active{border-color:rgba(96,165,250,.6);background:rgba(37,99,150,.28);color:#eff6ff}
+
+/* Back button */
+.back-link{
+  position:absolute;top:14px;left:14px;z-index:15;
+  height:32px;padding:0 12px;border-radius:8px;font-size:11px;font-weight:800;
+  border:1px solid rgba(255,255,255,.12);background:rgba(5,10,7,.82);
+  color:var(--muted);backdrop-filter:blur(8px);display:flex;align-items:center;gap:6px;
+  text-decoration:none;transition:all .15s;
+}
+.back-link:hover{border-color:rgba(74,222,128,.4);color:#bbf7d0}
+
+/* Toast */
+.toast{
+  position:fixed;left:50%;bottom:24px;z-index:100;
+  transform:translateX(-50%) translateY(16px) scale(.96);opacity:0;pointer-events:none;
+  max-width:min(500px,90vw);padding:10px 16px;border-radius:10px;
+  background:rgba(10,18,12,.96);border:1px solid rgba(251,191,36,.28);
+  color:#fde68a;font-size:13px;font-weight:700;
+  box-shadow:0 10px 28px rgba(0,0,0,.45);
+  transition:opacity .22s,transform .32s cubic-bezier(.2,1.3,.25,1);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+
+/* Export/Import modals */
+.modal-ov{position:fixed;inset:0;z-index:80;background:rgba(4,8,6,.85);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
+.modal-ov.show{display:flex}
+.modal{width:min(720px,95vw);max-height:85vh;border-radius:14px;border:1px solid rgba(251,191,36,.22);background:linear-gradient(180deg,rgba(16,38,25,.98),rgba(8,20,13,.98));box-shadow:0 24px 70px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.modal-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal-head h2{font-size:15px;font-weight:900;color:var(--gold)}
+.modal-close{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:#fca5a5}
+.modal-body{flex:1;overflow-y:auto;padding:16px 18px}
+.modal-body textarea{width:100%;min-height:240px;font-family:'Courier New',monospace;font-size:11px;line-height:1.5;resize:vertical;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--green);padding:12px}
+.modal-body textarea:focus{border-color:rgba(74,222,128,.4)}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+
+/* Keyboard shortcut hints */
+.shortcut-bar{
+  padding:8px 12px;border-top:1px solid var(--line);flex-shrink:0;
+  display:flex;flex-wrap:wrap;gap:6px;
+}
+.shortcut-tag{
+  font-size:9px;color:var(--faint);display:flex;align-items:center;gap:3px;
+}
+.shortcut-tag kbd{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:3px;padding:1px 4px;font-size:9px;font-family:inherit;
+  color:var(--muted);
+}
+
+@media(max-width:768px){
+  :root{--sidebar-w:100vw}
+  body{flex-direction:column}
+  .sidebar{width:100%;min-width:0;height:50vh;border-right:0;border-bottom:1px solid var(--line)}
+  .map-area{height:50vh}
+}
 </style>
 </head>
 <body>
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <h1>🗺️ Map Editor</h1>
+    <p>Kéo thả icon để chỉnh vị trí. Chọn icon để chỉnh kích cỡ. Export CSS/HTML để paste vào web chính.</p>
+  </div>
+  <div class="sidebar-scroll">
+    <!-- Icon List -->
+    <div class="section">
+      <div class="section-title"><span>📍 Danh sách Icon</span><span class="badge" id="iconCount">0</span></div>
+      <div class="icon-list" id="iconList"></div>
+    </div>
 
-  <!-- LEFT SIDEBAR -->
-  <div class="sidebar">
-    <h3>🛠 Map Layout Editor</h3>
-    
-    <div class="control-group">
-      <h4>1. Viewport (Vùng chứa Map-Box)</h4>
-      <div class="slider-row">
-        <label>Chiều cao (VH) <span class="val" id="valVh">90%</span></label>
-        <input type="range" id="rnVh" min="30" max="100" value="90">
-      </div>
-      <div class="slider-row">
-        <label>Chiều rộng (VW) <span class="val" id="valVw">90%</span></label>
-        <input type="range" id="rnVw" min="30" max="100" value="90">
+    <!-- Properties Panel -->
+    <div class="section" id="propsPanel">
+      <div class="section-title">⚙️ Thuộc tính Icon</div>
+      <div id="propsContent">
+        <div class="no-icon-msg">Chọn 1 icon trên bản đồ hoặc<br>trong danh sách để chỉnh sửa</div>
       </div>
     </div>
 
-    <div class="control-group">
-      <h4>2. Thuộc tính .map-container</h4>
-      <div class="slider-row">
-        <label>Aspect Ratio (Width/Height) <span class="val" id="valAr">1.33</span></label>
-        <input type="range" id="rnAr" min="50" max="300" value="133">
-      </div>
-      <div class="slider-row">
-        <label>Width (%) <span class="val" id="valW">100%</span></label>
-        <input type="range" id="rnW" min="10" max="200" value="100">
-      </div>
-      <div class="slider-row">
-        <label>Max-Width (%) <span class="val" id="valMw">100%</span></label>
-        <input type="range" id="rnMw" min="10" max="200" value="100">
-      </div>
-      <div class="select-row">
-        <label>Display</label>
-        <select id="selDisplay">
-          <option value="inline-block">inline-block</option>
-          <option value="block">block</option>
-          <option value="flex">flex</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="control-group">
-      <h4>3. Thuộc tính Ảnh (map-bg)</h4>
-      <div class="select-row">
-        <label>Object Fit</label>
-        <select id="selObjFit">
-          <option value="contain" selected>contain</option>
-          <option value="cover">cover</option>
-          <option value="fill">fill</option>
-          <option value="none">none</option>
-        </select>
-      </div>
-    </div>
-    
-    <div class="control-group">
-      <h4>4. Chế độ Móng Ảo (Spacer)</h4>
-      <div class="select-row">
-        <label style="flex:1;">Hiện thẻ img ảo thay Aspect Ratio?</label>
-        <input type="checkbox" id="chkSpacer" style="transform: scale(1.3);">
-      </div>
-    </div>
-
-    <button class="action-btn" onclick="copyCss()">📋 Copy Code CSS Hiện Tại</button>
-    
-    <div class="log-box" id="coordsLog">
-      > Hệ thống sẵn sàng.<br>
-      > Kéo thả icon để canh tọa độ mới.<br>
-      > Map: map.png - tỉ lệ gốc 1446x1088 (~1.33), hiển thị full bằng contain.<br>
+    <!-- Global Style Panel -->
+    <div class="section">
+      <div class="section-title">🎨 Style chung (tất cả icon)</div>
+      <div id="globalStyleContent"></div>
     </div>
   </div>
 
-  <!-- RIGHT PREVIEW -->
-  <div class="preview-area">
-    <div class="viewport-sim" id="viewportSim">
-      <div class="viewport-label">Vùng r-pane/mapBox viewport</div>
-      
-      <div class="map-box" id="mapBox">
-        <div class="map-container" id="mapContainer">
-          
-          <!-- Spacer (Phantom img) -->
-          <img class="map-spacer" id="mapSpacer" src="./anh/map.png">
-
-          <!-- Lớp zoom của index -->
-          <div class="map-zoom-wrapper" id="mapZoomWrapper">
-             <img class="map-bg" id="mapBg" src="./anh/map.png" alt="Battle Map">
-          </div>
-
-          <!-- Lớp Icons theo phần trăm -->
-          <div class="map-icons" id="mapIcons">
-            <!-- tower_blue -->
-            <div class="map-icon tower" data-id="tb1" data-pair="tr1" data-sync="y" data-col="blue" style="left:36%;top:15%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
-            <div class="map-icon tower" data-id="tb2" data-pair="tr2" data-sync="y" data-col="blue" style="left:36%;top:50.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
-            <div class="map-icon tower" data-id="tb3" data-pair="tr3" data-sync="y" data-col="blue" style="left:36%;top:84.5%"><img src="./anh/icons/tower_blue.png" width="100%"></div>
-            <!-- tower_red -->
-            <div class="map-icon tower" data-id="tr1" data-pair="tb1" data-sync="y" data-col="red" style="left:62.5%;top:15%"><img src="./anh/icons/tower_red.png" width="100%"></div>
-            <div class="map-icon tower" data-id="tr2" data-pair="tb2" data-sync="y" data-col="red" style="left:62.5%;top:50.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
-            <div class="map-icon tower" data-id="tr3" data-pair="tb3" data-sync="y" data-col="red" style="left:62.5%;top:84.5%"><img src="./anh/icons/tower_red.png" width="100%"></div>
-            <!-- boss -->
-            <div class="map-icon boss" data-id="boss1" style="left:50%;top:30.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
-            <div class="map-icon boss" data-id="boss2" style="left:50%;top:70.5%"><img src="./anh/icons/sun_boss.png" width="100%"></div>
-            <!-- goose -->
-            <div class="map-icon goose" data-id="gb" style="left:8.5%;top:51.5%"><img src="./anh/icons/goose_blue.png" width="100%"></div>
-            <div class="map-icon goose" data-id="gr" style="left:90.5%;top:50%"><img src="./anh/icons/goose_red.png" width="100%"></div>
-            <!-- tree -->
-            <div class="map-icon tree" data-id="ctb" style="left:4%;top:51%"><img src="./anh/icons/tree_blue.png" width="100%"></div>
-            <div class="map-icon tree" data-id="ctr" style="left:95.5%;top:50%"><img src="./anh/icons/tree_red.png" width="100%"></div>
-            <!-- dots (8 rừng) -->
-            <div class="map-icon dot" data-id="d1" style="left:29.5%;top:37.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d2" style="left:40.5%;top:37%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d3" style="left:57.5%;top:27.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d4" style="left:69%;top:37.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d5" style="left:29%;top:64.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d6" style="left:69.5%;top:65%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d7" style="left:40.5%;top:74%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-            <div class="map-icon dot" data-id="d8" style="left:58.5%;top:65.5%"><img src="./anh/icons/dot_red.png" width="100%"></div>
-          </div>
-        </div>
-      </div>
-
+  <div class="sidebar-footer">
+    <div class="action-row">
+      <button class="act-btn primary" id="btnExportHTML" title="Copy HTML để paste vào web chính">📋 Export HTML</button>
+      <button class="act-btn" id="btnExportCSS" title="Copy CSS positions">📋 CSS</button>
+      <button class="act-btn" id="btnExportJSON" title="Copy JSON data">📋 JSON</button>
+      <button class="act-btn" id="btnImport" title="Import JSON data">📥 Import</button>
+      <button class="act-btn danger" id="btnReset" title="Reset về mặc định">↺ Reset</button>
     </div>
   </div>
 
-  <script>
-    // ═══ Elements
-    const rnVh = document.getElementById('rnVh'), valVh = document.getElementById('valVh'), viewportSim = document.getElementById('viewportSim');
-    const rnVw = document.getElementById('rnVw'), valVw = document.getElementById('valVw');
-    const rnAr = document.getElementById('rnAr'), valAr = document.getElementById('valAr'), mapContainer = document.getElementById('mapContainer');
-    const rnW = document.getElementById('rnW'), valW = document.getElementById('valW');
-    const rnMw = document.getElementById('rnMw'), valMw = document.getElementById('valMw');
-    const selDisplay = document.getElementById('selDisplay'), selObjFit = document.getElementById('selObjFit');
-    const mapBg = document.getElementById('mapBg'), chkSpacer = document.getElementById('chkSpacer'), mapSpacer = document.getElementById('mapSpacer');
-    const coordsLog = document.getElementById('coordsLog');
+  <div class="shortcut-bar">
+    <span class="shortcut-tag"><kbd>G</kbd> Grid</span>
+    <span class="shortcut-tag"><kbd>S</kbd> Snap</span>
+    <span class="shortcut-tag"><kbd>Del</kbd> Xóa icon</span>
+    <span class="shortcut-tag"><kbd>Esc</kbd> Bỏ chọn</span>
+    <span class="shortcut-tag"><kbd>←→↑↓</kbd> Dời 0.5%</span>
+  </div>
+</aside>
 
-    function logToScreen(msg) {
-        coordsLog.innerHTML += `> ${msg}<br>`;
-        coordsLog.scrollTop = coordsLog.scrollHeight;
-    }
+<main class="map-area" id="mapArea">
+  <a class="back-link" href="./index.html">← Về trang chính</a>
+  <div class="map-toolbar">
+    <button class="map-tool-btn" id="gridBtn">▦ Grid</button>
+    <button class="map-tool-btn" id="snapBtn">⊞ Snap</button>
+  </div>
+  <div class="map-container" id="mapContainer">
+    <img class="map-bg" src="./anh/map.png" alt="Battle Map" draggable="false">
+    <div class="grid-overlay" id="gridOverlay"></div>
+    <div class="crosshair" id="crosshair">
+      <div class="ch-h"></div>
+      <div class="ch-v"></div>
+    </div>
+    <div class="map-icons-layer" id="mapIconsLayer"></div>
+    <div class="coord-tooltip" id="coordTooltip"></div>
+  </div>
+</main>
 
-    // ═══ Update Functions
-    function updateVP() {
-        valVh.textContent = rnVh.value + '%';
-        valVw.textContent = rnVw.value + '%';
-        viewportSim.style.height = rnVh.value + '%';
-        viewportSim.style.width = rnVw.value + '%';
-    }
+<div class="toast" id="toast"></div>
 
-    function updateContainer() {
-        // Aspect Ratio
-        const ratio = (parseInt(rnAr.value) / 100).toFixed(2);
-        valAr.textContent = ratio;
-        mapContainer.style.aspectRatio = chkSpacer.checked ? 'auto' : ratio;
+<!-- Export Modal -->
+<div class="modal-ov" id="exportModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Export</h2>
+      <button class="modal-close" id="modalCloseBtn">×</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="modalText" readonly></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="act-btn" id="modalDoneBtn">Đóng</button>
+      <button class="act-btn primary" id="modalCopyBtn">📋 Copy</button>
+    </div>
+  </div>
+</div>
 
-        // Width & Max-Width
-        valW.textContent = rnW.value + '%';
-        mapContainer.style.width = rnW.value + '%';
-        
-        valMw.textContent = rnMw.value + '%';
-        mapContainer.style.maxWidth = rnMw.value + '%';
+<!-- Import Modal -->
+<div class="modal-ov" id="importModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Import JSON</h2>
+      <button class="modal-close" id="importCloseBtn">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Paste JSON array (DEFAULT_MAP_OBJECTS) vào đây:</p>
+      <textarea id="importText" style="color:var(--cyan)"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="act-btn" id="importCancelBtn">Hủy</button>
+      <button class="act-btn primary" id="importApplyBtn">✓ Áp dụng</button>
+    </div>
+  </div>
+</div>
 
-        // Display
-        mapContainer.style.display = selDisplay.value;
-    }
+<script>
+/* ═══════════════════════════════════════════════════
+   DEFAULT_MAP_OBJECTS — Icon data mặc định
+   ═══════════════════════════════════════════════════ */
+const DEFAULT_MAP_OBJECTS = [
+    // Trụ xanh — pair: trụ đỏ cùng hàng (sync Y), col: 'blue' (sync X cột dọc)
+    { id: 'tb1', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 37.4, y: 32.8, label: '⛫ Trụ Xanh Bắc', size: 28, pair: 'tr1', col: 'blue' },
+    { id: 'tb2', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 37.4, y: 50.5, label: '⛫ Trụ Xanh Trung', size: 28, pair: 'tr2', col: 'blue' },
+    { id: 'tb3', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 37.4, y: 68.1, label: '⛫ Trụ Xanh Nam', size: 28, pair: 'tr3', col: 'blue' },
+    // Trụ đỏ — pair: trụ xanh cùng hàng (sync Y), col: 'red' (sync X cột dọc)
+    { id: 'tr1', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 57.4, y: 32.8, label: '⛫ Trụ Đỏ Bắc', size: 28, pair: 'tb1', col: 'red' },
+    { id: 'tr2', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 57.4, y: 50.5, label: '⛫ Trụ Đỏ Trung', size: 28, pair: 'tb2', col: 'red' },
+    { id: 'tr3', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 57.4, y: 68.1, label: '⛫ Trụ Đỏ Nam', size: 28, pair: 'tb3', col: 'red' },
+    { id: 'boss1', type: 'boss', className: 'boss', icon: './anh/icons/sun_boss.png', x: 39.8, y: 12.9, label: '☀ Boss Vàng Bắc', size: 26 },
+    { id: 'boss2', type: 'boss', className: 'boss', icon: './anh/icons/sun_boss.png', x: 56.1, y: 88.3, label: '☀ Boss Vàng Nam', size: 26 },
+    { id: 'gb', type: 'goose_blue', className: 'goose', icon: './anh/icons/goose_blue.png', x: 18.9, y: 50.6, label: 'Ngỗng Xanh', size: 28 },
+    { id: 'gr', type: 'goose_red', className: 'goose', icon: './anh/icons/goose_red.png', x: 75.8, y: 50.2, label: 'Ngỗng Đỏ', size: 28 },
+    { id: 'ctb', type: 'tree_blue', className: 'tree', icon: './anh/icons/tree_blue.png', x: 15.7, y: 50.2, label: 'Cây Xanh', size: 28 },
+    { id: 'ctr', type: 'tree_red', className: 'tree', icon: './anh/icons/tree_red.png', x: 79.0, y: 50.2, label: 'Cây Đỏ', size: 28 },
+    { id: 'd1', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 33.9, y: 43.6, label: 'Rừng A1', size: 22 },
+    { id: 'd2', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 41.5, y: 42.8, label: 'Rừng A2', size: 22 },
+    { id: 'd3', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 54.1, y: 38.8, label: 'Rừng B1', size: 22 },
+    { id: 'd4', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 60.4, y: 39.1, label: 'Rừng B2', size: 22 },
+    { id: 'd5', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 34.4, y: 61.8, label: 'Rừng C1', size: 22 },
+    { id: 'd6', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 61.4, y: 57.6, label: 'Rừng D2', size: 22 },
+    { id: 'd7', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 41.2, y: 61.9, label: 'Rừng C2', size: 22 },
+    { id: 'd8', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 53.5, y: 58.5, label: 'Rừng D1', size: 22 }
+];
 
-    function updateImg() {
-        mapBg.style.objectFit = selObjFit.value;
-    }
+const ICON_SOURCES = [
+    { value: './anh/icons/tower_blue.png', label: 'Tower Blue' },
+    { value: './anh/icons/tower_red.png', label: 'Tower Red' },
+    { value: './anh/icons/sun_boss.png', label: 'Boss' },
+    { value: './anh/icons/goose_blue.png', label: 'Goose Blue' },
+    { value: './anh/icons/goose_red.png', label: 'Goose Red' },
+    { value: './anh/icons/tree_blue.png', label: 'Tree Blue' },
+    { value: './anh/icons/tree_red.png', label: 'Tree Red' },
+    { value: './anh/icons/dot_red.png', label: 'Dot Red' },
+    { value: './anh/icons/dot_red2.png', label: 'Dot Red 2' },
+];
 
-    function updateSpacer() {
-        if(chkSpacer.checked) {
-            mapSpacer.style.display = 'block';
-            mapContainer.style.aspectRatio = 'auto'; // Spacer handle height
-        } else {
-            mapSpacer.style.display = 'none';
-            mapContainer.style.aspectRatio = (parseInt(rnAr.value) / 100).toFixed(2);
-        }
-    }
+// ═══ State
+let icons = [];
+let selectedId = null;
+let gridEnabled = false;
+let snapEnabled = false;
+const snapStep = 0.5;
+let dragState = null;
+let toastTimer = null;
 
-    // ═══ Events Listeners
-    rnVh.addEventListener('input', updateVP);
-    rnVw.addEventListener('input', updateVP);
-    rnAr.addEventListener('input', updateContainer);
-    rnW.addEventListener('input', updateContainer);
-    rnMw.addEventListener('input', updateContainer);
-    selDisplay.addEventListener('change', updateContainer);
-    selObjFit.addEventListener('change', updateImg);
-    chkSpacer.addEventListener('change', updateSpacer);
+// ═══ Global Style — áp dụng cho TẤT CẢ icon
+const DEFAULT_GLOBAL_STYLE = {
+    border: 2,           // border width (px)
+    borderColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 5,     // px
+    bg: 'rgba(0,0,0,0.5)',
+    glowSpread: 1.5,     // white glow spread (px)
+    glowOpacity: 0.9,
+    shadowX: 3,
+    shadowY: 4,
+    shadowBlur: 6,
+    shadowOpacity: 0.8
+};
+let globalStyle = null; // will be loaded/initialized
 
-    // Initial update
-    updateVP(); updateContainer(); updateImg(); updateSpacer();
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
 
-    function copyCss() {
-        const cssCode = `.map-container {
-    position: relative;
-    display: ${selDisplay.value};
-    width: ${rnW.value}%;
-    max-width: ${rnMw.value}%;
-    max-height: 100%;
-    ${chkSpacer.checked ? "/* Dùng thẻ spacer ẩn thay vì aspect-ratio */" : `aspect-ratio: ${(parseInt(rnAr.value)/100).toFixed(2)};`}
+// ═══ Storage
+const STORAGE_KEY = 'map_editor_v3_data';
+const STYLE_KEY = 'map_editor_v3_style';
+function loadFromStorage() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!Array.isArray(data) || !data.length) return null;
+        return data;
+    } catch { return null; }
+}
+function saveToStorage() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(icons)); } catch { /* ignore */ }
+}
+function loadGlobalStyle() {
+    try {
+        const raw = localStorage.getItem(STYLE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch { return null; }
+}
+function saveGlobalStyle() {
+    try { localStorage.setItem(STYLE_KEY, JSON.stringify(globalStyle)); } catch { /* ignore */ }
 }
 
-.map-bg {
-    object-fit: ${selObjFit.value};
-}`;
-        navigator.clipboard.writeText(cssCode).then(() => alert('Đã copy CSS vào Clipboard!'));
+// ═══ Initialize
+function init() {
+    const saved = loadFromStorage();
+    icons = saved || deepClone(DEFAULT_MAP_OBJECTS);
+    globalStyle = loadGlobalStyle() || deepClone(DEFAULT_GLOBAL_STYLE);
+    // Migrate: bổ sung pair/col từ defaults nếu data cũ thiếu
+    icons.forEach(function(ic) {
+        const def = DEFAULT_MAP_OBJECTS.find(function(d) { return d.id === ic.id; });
+        if (def) {
+            if (!ic.pair && def.pair) ic.pair = def.pair;
+            if (!ic.col && def.col) ic.col = def.col;
+        }
+    });
+    if (saved) saveToStorage(); // Lưu lại data đã migrate
+    renderMapIcons();
+    renderIconList();
+    renderGlobalStylePanel();
+    selectIcon(null);
+    bindButtons();
+}
+
+function bindButtons() {
+    document.getElementById('gridBtn').addEventListener('click', toggleGrid);
+    document.getElementById('snapBtn').addEventListener('click', toggleSnap);
+    document.getElementById('btnExportHTML').addEventListener('click', exportHTML);
+    document.getElementById('btnExportCSS').addEventListener('click', exportCSS);
+    document.getElementById('btnExportJSON').addEventListener('click', exportJSON);
+    document.getElementById('btnImport').addEventListener('click', openImport);
+    document.getElementById('btnReset').addEventListener('click', resetAll);
+
+    // Modal buttons
+    document.getElementById('modalCloseBtn').addEventListener('click', closeExportModal);
+    document.getElementById('modalDoneBtn').addEventListener('click', closeExportModal);
+    document.getElementById('modalCopyBtn').addEventListener('click', copyModalText);
+    document.getElementById('importCloseBtn').addEventListener('click', closeImportModal);
+    document.getElementById('importCancelBtn').addEventListener('click', closeImportModal);
+    document.getElementById('importApplyBtn').addEventListener('click', applyImport);
+
+    // Modal overlay click to close
+    document.getElementById('exportModal').addEventListener('click', function(e) {
+        if (e.target === this) closeExportModal();
+    });
+    document.getElementById('importModal').addEventListener('click', function(e) {
+        if (e.target === this) closeImportModal();
+    });
+}
+
+// ═══ Render map icons (uses safe DOM APIs)
+function renderMapIcons() {
+    const layer = document.getElementById('mapIconsLayer');
+    layer.replaceChildren();
+    icons.forEach(function(ic) {
+        const div = document.createElement('div');
+        div.className = 'map-icon' + (ic.id === selectedId ? ' selected' : '');
+        div.dataset.id = ic.id;
+        div.style.left = ic.x + '%';
+        div.style.top = ic.y + '%';
+        const sz = ic.size || 28;
+        div.style.width = sz + 'px';
+        div.style.height = sz + 'px';
+        // Global styles
+        var gs = globalStyle || DEFAULT_GLOBAL_STYLE;
+        div.style.border = gs.border + 'px solid ' + gs.borderColor;
+        div.style.borderRadius = gs.borderRadius + 'px';
+        div.style.background = gs.bg;
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = 'center';
+        div.style.filter = 'drop-shadow(0 0 ' + gs.glowSpread + 'px rgba(255,255,255,' + gs.glowOpacity + '))'
+            + ' drop-shadow(' + gs.shadowX + 'px ' + gs.shadowY + 'px ' + gs.shadowBlur + 'px rgba(0,0,0,' + gs.shadowOpacity + '))';
+        const img = document.createElement('img');
+        img.src = ic.icon;
+        img.alt = ic.label || ic.id;
+        img.draggable = false;
+        div.appendChild(img);
+        div.title = (ic.label || ic.id) + '\n(' + ic.x.toFixed(1) + '%, ' + ic.y.toFixed(1) + '%)';
+        div.addEventListener('pointerdown', onIconPointerDown);
+        layer.appendChild(div);
+    });
+}
+
+// ═══ Render icon list (uses safe DOM APIs)
+function renderIconList() {
+    const list = document.getElementById('iconList');
+    const countEl = document.getElementById('iconCount');
+    countEl.textContent = String(icons.length);
+    list.replaceChildren();
+    icons.forEach(function(ic) {
+        const div = document.createElement('div');
+        div.className = 'icon-item' + (ic.id === selectedId ? ' selected' : '');
+        div.dataset.id = ic.id;
+
+        const thumb = document.createElement('img');
+        thumb.className = 'icon-thumb';
+        thumb.src = ic.icon;
+        thumb.alt = '';
+        thumb.draggable = false;
+        div.appendChild(thumb);
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'icon-name';
+        nameSpan.textContent = ic.label || ic.id;
+        div.appendChild(nameSpan);
+
+        const posSpan = document.createElement('span');
+        posSpan.className = 'icon-pos';
+        posSpan.textContent = ic.x.toFixed(1) + ', ' + ic.y.toFixed(1);
+        div.appendChild(posSpan);
+
+        div.addEventListener('click', function() { selectIcon(ic.id); });
+        list.appendChild(div);
+    });
+}
+
+// ═══ Select icon
+function selectIcon(id) {
+    selectedId = id;
+    document.querySelectorAll('.map-icon').forEach(function(el) {
+        el.classList.toggle('selected', el.dataset.id === id);
+    });
+    document.querySelectorAll('.icon-item').forEach(function(el) {
+        el.classList.toggle('selected', el.dataset.id === id);
+    });
+    const listItem = document.querySelector('.icon-item[data-id="' + id + '"]');
+    if (listItem) listItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    updateCrosshair();
+    renderProperties();
+}
+
+function updateCrosshair() {
+    const ch = document.getElementById('crosshair');
+    const ic = icons.find(function(i) { return i.id === selectedId; });
+    if (!ic) { ch.classList.remove('show'); return; }
+    ch.classList.add('show');
+    ch.querySelector('.ch-h').style.top = ic.y + '%';
+    ch.querySelector('.ch-v').style.left = ic.x + '%';
+}
+
+// ═══ Properties Panel (uses safe DOM APIs)
+function renderProperties() {
+    const panel = document.getElementById('propsContent');
+    const ic = icons.find(function(i) { return i.id === selectedId; });
+    panel.replaceChildren();
+
+    if (!ic) {
+        const msg = document.createElement('div');
+        msg.className = 'no-icon-msg';
+        msg.textContent = 'Chọn 1 icon trên bản đồ hoặc trong danh sách để chỉnh sửa';
+        panel.appendChild(msg);
+        return;
     }
 
-    // ═══ Drag & Drop Logic — Với đồng bộ cặp trụ
-    const mapIconsLayer = document.getElementById('mapIcons');
-    let draggedIcon = null, isDragging = false;
+    // ── Position group
+    const posGroup = document.createElement('div');
+    posGroup.className = 'prop-group';
+    const posTitle = document.createElement('div');
+    posTitle.className = 'prop-group-title';
+    posTitle.textContent = '📌 Vị trí';
+    posGroup.appendChild(posTitle);
 
-    // Tìm icon cặp (pair) bằng data-pair attribute
-    function findPairIcon(icon) {
-        const pairId = icon.dataset.pair;
-        if (!pairId) return null;
-        return mapIconsLayer.querySelector(`[data-id="${pairId}"]`);
+    const pos2col = document.createElement('div');
+    pos2col.className = 'prop-row-2col';
+
+    // X input
+    const xDiv = document.createElement('div');
+    const xLabel = document.createElement('label');
+    xLabel.textContent = 'X (%)';
+    xDiv.appendChild(xLabel);
+    const xInput = document.createElement('input');
+    xInput.type = 'number';
+    xInput.id = 'propX';
+    xInput.value = String(ic.x);
+    xInput.step = '0.1';
+    xInput.min = '0';
+    xInput.max = '100';
+    xInput.addEventListener('change', function() { setProp('x', +this.value); });
+    xDiv.appendChild(xInput);
+    pos2col.appendChild(xDiv);
+
+    // Y input
+    const yDiv = document.createElement('div');
+    const yLabel = document.createElement('label');
+    yLabel.textContent = 'Y (%)';
+    yDiv.appendChild(yLabel);
+    const yInput = document.createElement('input');
+    yInput.type = 'number';
+    yInput.id = 'propY';
+    yInput.value = String(ic.y);
+    yInput.step = '0.1';
+    yInput.min = '0';
+    yInput.max = '100';
+    yInput.addEventListener('change', function() { setProp('y', +this.value); });
+    yDiv.appendChild(yInput);
+    pos2col.appendChild(yDiv);
+
+    posGroup.appendChild(pos2col);
+    panel.appendChild(posGroup);
+
+    // ── Size group
+    const sizeGroup = document.createElement('div');
+    sizeGroup.className = 'prop-group';
+    const sizeTitle = document.createElement('div');
+    sizeTitle.className = 'prop-group-title';
+    sizeTitle.textContent = '📐 Kích cỡ (px)';
+    sizeGroup.appendChild(sizeTitle);
+
+    const sizeRow = document.createElement('div');
+    sizeRow.className = 'slider-with-val';
+    const sizeSlider = document.createElement('input');
+    sizeSlider.type = 'range';
+    sizeSlider.min = '12';
+    sizeSlider.max = '120';
+    sizeSlider.value = String(ic.size || 28);
+    const sizeVal = document.createElement('span');
+    sizeVal.className = 'val';
+    sizeVal.textContent = (ic.size || 28) + 'px';
+    sizeSlider.addEventListener('input', function() {
+        sizeVal.textContent = this.value + 'px';
+        setProp('size', +this.value);
+    });
+    sizeRow.appendChild(sizeSlider);
+    sizeRow.appendChild(sizeVal);
+    sizeGroup.appendChild(sizeRow);
+    panel.appendChild(sizeGroup);
+
+    // ── Label & Icon group
+    const labelGroup = document.createElement('div');
+    labelGroup.className = 'prop-group';
+    const labelTitle = document.createElement('div');
+    labelTitle.className = 'prop-group-title';
+    labelTitle.textContent = '🏷️ Label & Icon';
+    labelGroup.appendChild(labelTitle);
+
+    // Label input
+    const labelRow = document.createElement('div');
+    labelRow.className = 'prop-row-wide';
+    const lblLabel = document.createElement('label');
+    lblLabel.textContent = 'Tên hiển thị';
+    labelRow.appendChild(lblLabel);
+    const lblInput = document.createElement('input');
+    lblInput.type = 'text';
+    lblInput.value = ic.label || '';
+    lblInput.maxLength = 48;
+    lblInput.addEventListener('change', function() { setProp('label', this.value); });
+    labelRow.appendChild(lblInput);
+    labelGroup.appendChild(labelRow);
+
+    // Icon source select
+    const iconRow = document.createElement('div');
+    iconRow.className = 'prop-row-wide';
+    const iconLabel = document.createElement('label');
+    iconLabel.textContent = 'Icon source';
+    iconRow.appendChild(iconLabel);
+    const iconSelect = document.createElement('select');
+    let hasCurrentIcon = false;
+    ICON_SOURCES.forEach(function(s) {
+        const opt = document.createElement('option');
+        opt.value = s.value;
+        opt.textContent = s.label;
+        if (s.value === ic.icon) { opt.selected = true; hasCurrentIcon = true; }
+        iconSelect.appendChild(opt);
+    });
+    if (!hasCurrentIcon) {
+        const opt = document.createElement('option');
+        opt.value = ic.icon;
+        opt.textContent = ic.icon;
+        opt.selected = true;
+        iconSelect.appendChild(opt);
+    }
+    iconSelect.addEventListener('change', function() { setProp('icon', this.value); });
+    iconRow.appendChild(iconSelect);
+    labelGroup.appendChild(iconRow);
+
+    // Type input
+    const typeRow = document.createElement('div');
+    typeRow.className = 'prop-row-wide';
+    const typeLabel = document.createElement('label');
+    typeLabel.textContent = 'Type';
+    typeRow.appendChild(typeLabel);
+    const typeInput = document.createElement('input');
+    typeInput.type = 'text';
+    typeInput.value = ic.type || '';
+    typeInput.maxLength = 24;
+    typeInput.addEventListener('change', function() { setProp('type', this.value); });
+    typeRow.appendChild(typeInput);
+    labelGroup.appendChild(typeRow);
+
+    panel.appendChild(labelGroup);
+}
+
+function setProp(key, value) {
+    const ic = icons.find(function(i) { return i.id === selectedId; });
+    if (!ic) return;
+    if (key === 'x') value = clamp(value, 0, 100);
+    if (key === 'y') value = clamp(value, 0, 100);
+    if (key === 'size') value = clamp(value, 12, 120);
+    ic[key] = value;
+    saveToStorage();
+    renderMapIcons();
+    renderIconList();
+    updateCrosshair();
+    // Don't re-render properties to avoid losing focus during slider drag
+}
+
+// ═══ Đồng bộ trụ: tìm icon cặp (pair) và icon cùng cột (col)
+function findPairIcon(ic) {
+    if (!ic || !ic.pair) return null;
+    return icons.find(function(i) { return i.id === ic.pair; }) || null;
+}
+function findColIcons(ic) {
+    if (!ic || !ic.col) return [];
+    return icons.filter(function(i) { return i.col === ic.col && i.id !== ic.id; });
+}
+
+// Highlight đồng bộ trên map
+function addSyncHighlights(ic) {
+    if (!ic) return;
+    const pair = findPairIcon(ic);
+    if (pair) {
+        const pairEl = document.querySelector('.map-icon[data-id="' + pair.id + '"]');
+        if (pairEl) pairEl.classList.add('sync-pair');
+    }
+    findColIcons(ic).forEach(function(colIc) {
+        const colEl = document.querySelector('.map-icon[data-id="' + colIc.id + '"]');
+        if (colEl) colEl.classList.add('sync-col');
+    });
+}
+function clearSyncHighlights() {
+    document.querySelectorAll('.map-icon.sync-pair,.map-icon.sync-col').forEach(function(el) {
+        el.classList.remove('sync-pair', 'sync-col');
+    });
+}
+
+// Đồng bộ vị trí pair (sync Y) + column (sync X) trên cả data lẫn DOM
+function syncTowerPositions(ic, newX, newY) {
+    if (!ic) return;
+    // ═══ Đồng bộ cặp trụ ngang: pair sync Y ═══
+    const pair = findPairIcon(ic);
+    if (pair) {
+        pair.y = +newY.toFixed(2);
+        const pairEl = document.querySelector('.map-icon[data-id="' + pair.id + '"]');
+        if (pairEl) pairEl.style.top = newY + '%';
+        // Update list
+        const pairPos = document.querySelector('.icon-item[data-id="' + pair.id + '"] .icon-pos');
+        if (pairPos) pairPos.textContent = pair.x.toFixed(1) + ', ' + newY.toFixed(1);
+    }
+    // ═══ Đồng bộ cột dọc: cùng màu sync X ═══
+    findColIcons(ic).forEach(function(colIc) {
+        colIc.x = +newX.toFixed(2);
+        const colEl = document.querySelector('.map-icon[data-id="' + colIc.id + '"]');
+        if (colEl) colEl.style.left = newX + '%';
+        // Update list
+        const colPos = document.querySelector('.icon-item[data-id="' + colIc.id + '"] .icon-pos');
+        if (colPos) colPos.textContent = newX.toFixed(1) + ', ' + colIc.y.toFixed(1);
+    });
+}
+
+// ═══ Drag & Drop
+function onIconPointerDown(e) {
+    e.preventDefault();
+    const div = e.currentTarget;
+    const id = div.dataset.id;
+    selectIcon(id);
+    const container = document.getElementById('mapContainer');
+    const rect = container.getBoundingClientRect();
+    const ic = icons.find(function(i) { return i.id === id; });
+    if (!ic) return;
+    div.classList.add('dragging');
+    // Highlight các icon được sync
+    addSyncHighlights(ic);
+    dragState = {
+        id: id,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: ic.x,
+        origY: ic.y,
+        containerRect: rect,
+        el: div
+    };
+    document.addEventListener('pointermove', onDragMove);
+    document.addEventListener('pointerup', onDragEnd);
+    document.addEventListener('pointercancel', onDragEnd);
+    div.setPointerCapture(e.pointerId);
+}
+
+function onDragMove(e) {
+    if (!dragState) return;
+    const ds = dragState;
+    const dx = e.clientX - ds.startX;
+    const dy = e.clientY - ds.startY;
+    let newX = ds.origX + (dx / ds.containerRect.width) * 100;
+    let newY = ds.origY + (dy / ds.containerRect.height) * 100;
+    newX = clamp(newX, 0, 100);
+    newY = clamp(newY, 0, 100);
+    if (snapEnabled) {
+        newX = Math.round(newX / snapStep) * snapStep;
+        newY = Math.round(newY / snapStep) * snapStep;
+    }
+    const ic = icons.find(function(i) { return i.id === ds.id; });
+    if (ic) {
+        ic.x = +newX.toFixed(2);
+        ic.y = +newY.toFixed(2);
+    }
+    ds.el.style.left = newX + '%';
+    ds.el.style.top = newY + '%';
+    ds.el.title = (ic.label || ic.id) + '\n(' + newX.toFixed(1) + '%, ' + newY.toFixed(1) + '%)';
+
+    // ═══ Đồng bộ trụ ngang/dọc ═══
+    syncTowerPositions(ic, newX, newY);
+
+    // Coordinate tooltip
+    const tooltip = document.getElementById('coordTooltip');
+    tooltip.textContent = 'X: ' + newX.toFixed(1) + '%  Y: ' + newY.toFixed(1) + '%';
+    tooltip.style.left = newX + '%';
+    tooltip.style.top = newY + '%';
+    tooltip.classList.add('show');
+
+    // Crosshair
+    const ch = document.getElementById('crosshair');
+    ch.classList.add('show');
+    ch.querySelector('.ch-h').style.top = newY + '%';
+    ch.querySelector('.ch-v').style.left = newX + '%';
+
+    // Update list position display
+    const posEl = document.querySelector('.icon-item[data-id="' + ds.id + '"] .icon-pos');
+    if (posEl) posEl.textContent = newX.toFixed(1) + ', ' + newY.toFixed(1);
+
+    // Update props inputs
+    const propX = document.getElementById('propX');
+    const propY = document.getElementById('propY');
+    if (propX) propX.value = newX.toFixed(1);
+    if (propY) propY.value = newY.toFixed(1);
+}
+
+function onDragEnd() {
+    if (!dragState) return;
+    dragState.el.classList.remove('dragging');
+    clearSyncHighlights();
+    document.getElementById('coordTooltip').classList.remove('show');
+    saveToStorage();
+    renderIconList();
+    dragState = null;
+    document.removeEventListener('pointermove', onDragMove);
+    document.removeEventListener('pointerup', onDragEnd);
+    document.removeEventListener('pointercancel', onDragEnd);
+}
+
+// ═══ Grid & Snap
+function toggleGrid() {
+    gridEnabled = !gridEnabled;
+    document.getElementById('gridOverlay').classList.toggle('show', gridEnabled);
+    document.getElementById('gridBtn').classList.toggle('active', gridEnabled);
+}
+
+function toggleSnap() {
+    snapEnabled = !snapEnabled;
+    document.getElementById('snapBtn').classList.toggle('active', snapEnabled);
+    showToast(snapEnabled ? 'Snap bật (0.5% steps)' : 'Snap tắt');
+}
+
+// ═══ Render Global Style Panel (safe DOM APIs)
+function renderGlobalStylePanel() {
+    var gs = globalStyle || DEFAULT_GLOBAL_STYLE;
+    var panel = document.getElementById('globalStyleContent');
+    panel.replaceChildren();
+
+    function makeSlider(label, key, min, max, step, unit, displayFn) {
+        var row = document.createElement('div');
+        row.className = 'prop-row-wide';
+        row.style.marginBottom = '8px';
+        var lbl = document.createElement('label');
+        lbl.textContent = label;
+        row.appendChild(lbl);
+        var sw = document.createElement('div');
+        sw.className = 'slider-with-val';
+        var slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = String(min);
+        slider.max = String(max);
+        slider.step = String(step);
+        slider.value = String(gs[key]);
+        var val = document.createElement('span');
+        val.className = 'val';
+        val.textContent = displayFn ? displayFn(gs[key]) : gs[key] + (unit || '');
+        slider.addEventListener('input', function() {
+            gs[key] = parseFloat(this.value);
+            val.textContent = displayFn ? displayFn(gs[key]) : gs[key] + (unit || '');
+            globalStyle = gs;
+            saveGlobalStyle();
+            renderMapIcons();
+        });
+        sw.appendChild(slider);
+        sw.appendChild(val);
+        row.appendChild(sw);
+        return row;
     }
 
-    mapIconsLayer.addEventListener('mousedown', (e) => {
-        const iconNode = e.target.closest('.map-icon');
-        if (!iconNode) return;
-        draggedIcon = iconNode;
-        isDragging = true;
-        iconNode.style.cursor = 'grabbing';
-        // Highlight cặp trụ + cột
-        const pair = findPairIcon(iconNode);
-        if (pair) pair.style.boxShadow = '0 0 12px #fbbf24';
-        const col = iconNode.dataset.col;
-        if (col) {
-            mapIconsLayer.querySelectorAll(`[data-col="${col}"]`).forEach(ic => {
-                if (ic !== iconNode) ic.style.boxShadow = '0 0 10px #60a5fa';
+    // ── Kích cỡ tất cả icon
+    var sizeTitle = document.createElement('div');
+    sizeTitle.className = 'prop-group-title';
+    sizeTitle.textContent = '📐 Kích cỡ tất cả icon';
+    panel.appendChild(sizeTitle);
+
+    // Calculate current average size for the slider
+    var avgSize = Math.round(icons.reduce(function(s, ic) { return s + (ic.size || 28); }, 0) / (icons.length || 1));
+    var sizeRow = document.createElement('div');
+    sizeRow.className = 'prop-row-wide';
+    sizeRow.style.marginBottom = '8px';
+    var sizeLbl = document.createElement('label');
+    sizeLbl.textContent = 'Size (px) — áp dụng tất cả';
+    sizeRow.appendChild(sizeLbl);
+    var sw = document.createElement('div');
+    sw.className = 'slider-with-val';
+    var sizeSlider = document.createElement('input');
+    sizeSlider.type = 'range';
+    sizeSlider.min = '12';
+    sizeSlider.max = '80';
+    sizeSlider.step = '1';
+    sizeSlider.value = String(avgSize);
+    var sizeVal = document.createElement('span');
+    sizeVal.className = 'val';
+    sizeVal.textContent = avgSize + 'px';
+    sizeSlider.addEventListener('input', function() {
+        var newSize = parseInt(this.value);
+        sizeVal.textContent = newSize + 'px';
+        icons.forEach(function(ic) { ic.size = newSize; });
+        saveToStorage();
+        renderMapIcons();
+    });
+    sw.appendChild(sizeSlider);
+    sw.appendChild(sizeVal);
+    sizeRow.appendChild(sw);
+    panel.appendChild(sizeRow);
+
+    // ── Border
+    var borderTitle = document.createElement('div');
+    borderTitle.className = 'prop-group-title';
+    borderTitle.textContent = '🔲 Border';
+    panel.appendChild(borderTitle);
+    panel.appendChild(makeSlider('Độ dày (px)', 'border', 0, 6, 0.5, 'px'));
+    panel.appendChild(makeSlider('Bo góc (px)', 'borderRadius', 0, 20, 1, 'px'));
+
+    // Border color select
+    var colorRow = document.createElement('div');
+    colorRow.className = 'prop-row-wide';
+    colorRow.style.marginBottom = '8px';
+    var colorLbl = document.createElement('label');
+    colorLbl.textContent = 'Màu border';
+    colorRow.appendChild(colorLbl);
+    var colorSelect = document.createElement('select');
+    var colorOptions = [
+        { v: 'rgba(255,255,255,0.7)', t: 'Trắng 70%' },
+        { v: 'rgba(255,255,255,0.4)', t: 'Trắng 40%' },
+        { v: 'rgba(255,255,255,1)', t: 'Trắng 100%' },
+        { v: 'rgba(251,191,36,0.7)', t: 'Vàng 70%' },
+        { v: 'rgba(96,165,250,0.5)', t: 'Xanh dương 50%' },
+        { v: 'rgba(0,0,0,0.5)', t: 'Đen 50%' },
+        { v: 'transparent', t: 'Không border' }
+    ];
+    var hasCurrentColor = false;
+    colorOptions.forEach(function(opt) {
+        var o = document.createElement('option');
+        o.value = opt.v;
+        o.textContent = opt.t;
+        if (opt.v === gs.borderColor) { o.selected = true; hasCurrentColor = true; }
+        colorSelect.appendChild(o);
+    });
+    if (!hasCurrentColor) {
+        var o = document.createElement('option');
+        o.value = gs.borderColor;
+        o.textContent = gs.borderColor;
+        o.selected = true;
+        colorSelect.appendChild(o);
+    }
+    colorSelect.addEventListener('change', function() {
+        gs.borderColor = this.value;
+        globalStyle = gs;
+        saveGlobalStyle();
+        renderMapIcons();
+    });
+    colorRow.appendChild(colorSelect);
+    panel.appendChild(colorRow);
+
+    // ── Background
+    var bgTitle = document.createElement('div');
+    bgTitle.className = 'prop-group-title';
+    bgTitle.style.marginTop = '6px';
+    bgTitle.textContent = '🎨 Nền icon';
+    panel.appendChild(bgTitle);
+    var bgRow = document.createElement('div');
+    bgRow.className = 'prop-row-wide';
+    bgRow.style.marginBottom = '8px';
+    var bgLbl = document.createElement('label');
+    bgLbl.textContent = 'Background';
+    bgRow.appendChild(bgLbl);
+    var bgSelect = document.createElement('select');
+    var bgOptions = [
+        { v: 'rgba(0,0,0,0.5)', t: 'Đen 50%' },
+        { v: 'rgba(0,0,0,0.3)', t: 'Đen 30%' },
+        { v: 'rgba(0,0,0,0.7)', t: 'Đen 70%' },
+        { v: 'rgba(0,0,0,0)', t: 'Trong suốt' },
+        { v: 'rgba(255,255,255,0.1)', t: 'Trắng 10%' },
+        { v: 'rgba(20,30,20,0.6)', t: 'Xanh đậm 60%' }
+    ];
+    var hasCurrentBg = false;
+    bgOptions.forEach(function(opt) {
+        var o = document.createElement('option');
+        o.value = opt.v;
+        o.textContent = opt.t;
+        if (opt.v === gs.bg) { o.selected = true; hasCurrentBg = true; }
+        bgSelect.appendChild(o);
+    });
+    if (!hasCurrentBg) {
+        var o = document.createElement('option');
+        o.value = gs.bg;
+        o.textContent = gs.bg;
+        o.selected = true;
+        bgSelect.appendChild(o);
+    }
+    bgSelect.addEventListener('change', function() {
+        gs.bg = this.value;
+        globalStyle = gs;
+        saveGlobalStyle();
+        renderMapIcons();
+    });
+    bgRow.appendChild(bgSelect);
+    panel.appendChild(bgRow);
+
+    // ── Drop Shadow
+    var shadowTitle = document.createElement('div');
+    shadowTitle.className = 'prop-group-title';
+    shadowTitle.style.marginTop = '6px';
+    shadowTitle.textContent = '✨ Bóng đổ / Glow';
+    panel.appendChild(shadowTitle);
+    panel.appendChild(makeSlider('White Glow (px)', 'glowSpread', 0, 8, 0.5, 'px'));
+    panel.appendChild(makeSlider('Glow Opacity', 'glowOpacity', 0, 1, 0.05, '', function(v) { return v.toFixed(2); }));
+    panel.appendChild(makeSlider('Shadow X (px)', 'shadowX', 0, 10, 0.5, 'px'));
+    panel.appendChild(makeSlider('Shadow Y (px)', 'shadowY', 0, 10, 0.5, 'px'));
+    panel.appendChild(makeSlider('Shadow Blur (px)', 'shadowBlur', 0, 20, 1, 'px'));
+    panel.appendChild(makeSlider('Shadow Opacity', 'shadowOpacity', 0, 1, 0.05, '', function(v) { return v.toFixed(2); }));
+
+    // ── Reset button
+    var resetRow = document.createElement('div');
+    resetRow.style.marginTop = '8px';
+    var resetBtn = document.createElement('button');
+    resetBtn.className = 'act-btn';
+    resetBtn.style.height = '26px';
+    resetBtn.style.fontSize = '10px';
+    resetBtn.textContent = 'Reset Style mặc định';
+    resetBtn.addEventListener('click', function() {
+        globalStyle = deepClone(DEFAULT_GLOBAL_STYLE);
+        saveGlobalStyle();
+        renderMapIcons();
+        renderGlobalStylePanel();
+        showToast('Đã reset style về mặc định');
+    });
+    resetRow.appendChild(resetBtn);
+    panel.appendChild(resetRow);
+}
+
+// Helper: build global CSS string for export
+function buildGlobalCSS() {
+    var gs = globalStyle || DEFAULT_GLOBAL_STYLE;
+    var css = '.map-icon {\n';
+    css += '  position: absolute;\n';
+    css += '  transform: translate(-50%, -50%);\n';
+    css += '  border: ' + gs.border + 'px solid ' + gs.borderColor + ';\n';
+    css += '  border-radius: ' + gs.borderRadius + 'px;\n';
+    css += '  background: ' + gs.bg + ';\n';
+    css += '  display: flex; align-items: center; justify-content: center;\n';
+    css += '  filter: drop-shadow(0 0 ' + gs.glowSpread + 'px rgba(255,255,255,' + gs.glowOpacity + '))';
+    css += ' drop-shadow(' + gs.shadowX + 'px ' + gs.shadowY + 'px ' + gs.shadowBlur + 'px rgba(0,0,0,' + gs.shadowOpacity + '));\n';
+    css += '}\n';
+    css += '.map-icon img { pointer-events: none; }\n';
+    return css;
+}
+
+// ═══ Export HTML — Main output for pasting into web
+function exportHTML() {
+    var gs = globalStyle || DEFAULT_GLOBAL_STYLE;
+    let html = '<!-- === Map Icons (paste vào div.map-icons trong web chính) === -->\n';
+    icons.forEach(function(ic) {
+        html += '<div class="map-icon ' + ic.className + '" data-id="' + ic.id + '"';
+        html += ' style="left:' + ic.x.toFixed(1) + '%;top:' + ic.y.toFixed(1) + '%">';
+        html += '<img src="' + ic.icon + '" width="100%">';
+        html += '</div>\n';
+    });
+
+    html += '\n/* === CSS chung cho .map-icon === */\n';
+    html += buildGlobalCSS();
+
+    html += '\n/* === CSS kích cỡ per-icon === */\n';
+    // Group by size
+    const sizeGroups = {};
+    icons.forEach(function(ic) {
+        const sz = ic.size || 28;
+        if (!sizeGroups[sz]) sizeGroups[sz] = [];
+        sizeGroups[sz].push(ic);
+    });
+    Object.keys(sizeGroups).forEach(function(sz) {
+        const group = sizeGroups[sz];
+        if (group.length === icons.length) {
+            html += '.map-icon { width: ' + sz + 'px; height: ' + sz + 'px; }\n';
+        } else {
+            group.forEach(function(ic) {
+                html += '.map-icon[data-id="' + ic.id + '"] { width: ' + sz + 'px; height: ' + sz + 'px; }\n';
             });
         }
     });
 
-    window.addEventListener('mousemove', (e) => {
-        if (!isDragging || !draggedIcon) return;
-        const rect = mapContainer.getBoundingClientRect();
-        
-        let x = e.clientX - rect.left;
-        let y = e.clientY - rect.top;
-        
-        let pctX = (x / rect.width) * 100;
-        let pctY = (y / rect.height) * 100;
+    document.getElementById('modalTitle').textContent = 'Export HTML + CSS';
+    document.getElementById('modalText').value = html;
+    document.getElementById('modalText').readOnly = true;
+    document.getElementById('exportModal').classList.add('show');
+}
 
-        pctX = Math.max(0, Math.min(100, pctX));
-        pctY = Math.max(0, Math.min(100, pctY));
-
-        draggedIcon.style.left = pctX.toFixed(2) + '%';
-        draggedIcon.style.top = pctY.toFixed(2) + '%';
-
-        // ═══ Đồng bộ cặp trụ (hàng ngang: sync Y) ═══
-        const pair = findPairIcon(draggedIcon);
-        if (pair) {
-            pair.style.top = pctY.toFixed(2) + '%';
-        }
-
-        // ═══ Đồng bộ cột dọc (cùng màu: sync X) ═══
-        const col = draggedIcon.dataset.col;
-        if (col) {
-            const colIcons = mapIconsLayer.querySelectorAll(`[data-col="${col}"]`);
-            colIcons.forEach(icon => {
-                if (icon !== draggedIcon) {
-                    icon.style.left = pctX.toFixed(2) + '%';
-                }
-            });
-        }
+// ═══ Export CSS
+function exportCSS() {
+    let css = '/* === CSS chung cho .map-icon === */\n';
+    css += buildGlobalCSS();
+    css += '\n/* === Map Icon Positions & Sizes === */\n';
+    icons.forEach(function(ic) {
+        css += '/* ' + (ic.label || ic.id) + ' */\n';
+        css += '.map-icon[data-id="' + ic.id + '"] { left: ' + ic.x.toFixed(1) + '%; top: ' + ic.y.toFixed(1) + '%;';
+        const sz = ic.size || 28;
+        css += ' width: ' + sz + 'px; height: ' + sz + 'px;';
+        css += ' }\n';
     });
 
-    window.addEventListener('mouseup', () => {
-        if (isDragging && draggedIcon) {
-            isDragging = false;
-            draggedIcon.style.cursor = 'grab';
-            const id = draggedIcon.dataset.id || '?';
-            let msg = `[${id}] left:${draggedIcon.style.left}; top:${draggedIcon.style.top}`;
-            // Log cặp trụ nếu có
-            const pair = findPairIcon(draggedIcon);
-            if (pair) {
-                const pairId = pair.dataset.id || '?';
-                msg += ` | [${pairId}] left:${pair.style.left}; top:${pair.style.top}`;
-                pair.style.boxShadow = '';
-            }
-            // Xóa highlight cột
-            const col = draggedIcon.dataset.col;
-            if (col) {
-                mapIconsLayer.querySelectorAll(`[data-col="${col}"]`).forEach(ic => {
-                    ic.style.boxShadow = '';
-                });
-            }
-            logToScreen(msg);
-            draggedIcon = null;
-        }
-    });
+    document.getElementById('modalTitle').textContent = 'Export CSS';
+    document.getElementById('modalText').value = css;
+    document.getElementById('modalText').readOnly = true;
+    document.getElementById('exportModal').classList.add('show');
+}
 
-  </script>
+// ═══ Export JSON
+function exportJSON() {
+    const data = icons.map(function(ic) {
+        const obj = {
+            id: ic.id,
+            type: ic.type,
+            className: ic.className,
+            icon: ic.icon,
+            x: +ic.x.toFixed(2),
+            y: +ic.y.toFixed(2),
+            label: ic.label,
+            size: ic.size || 28
+        };
+        // Giữ pair/col cho đồng bộ trụ
+        if (ic.pair) obj.pair = ic.pair;
+        if (ic.col) obj.col = ic.col;
+        return obj;
+    });
+    const jsonStr = 'const DEFAULT_MAP_OBJECTS = ' + JSON.stringify(data, null, 4) + ';';
+
+    document.getElementById('modalTitle').textContent = 'Export JSON (DEFAULT_MAP_OBJECTS)';
+    document.getElementById('modalText').value = jsonStr;
+    document.getElementById('modalText').readOnly = true;
+    document.getElementById('exportModal').classList.add('show');
+}
+
+function copyModalText() {
+    const textarea = document.getElementById('modalText');
+    textarea.select();
+    navigator.clipboard.writeText(textarea.value).then(function() {
+        showToast('Đã copy vào clipboard!');
+    }).catch(function() {
+        document.execCommand('copy');
+        showToast('Đã copy!');
+    });
+}
+
+function closeExportModal() {
+    document.getElementById('exportModal').classList.remove('show');
+}
+
+// ═══ Import
+function openImport() {
+    document.getElementById('importText').value = '';
+    document.getElementById('importModal').classList.add('show');
+    setTimeout(function() { document.getElementById('importText').focus(); }, 100);
+}
+
+function applyImport() {
+    const raw = document.getElementById('importText').value.trim();
+    try {
+        let jsonStr = raw;
+        // Remove "const ... = " prefix if present
+        const match = jsonStr.match(/=\s*(\[[\s\S]*\])\s*;?\s*$/);
+        if (match) jsonStr = match[1];
+        const data = JSON.parse(jsonStr);
+        if (!Array.isArray(data) || !data.length) throw new Error('Empty array');
+        icons = data.map(function(ic) {
+            var obj = {
+                id: ic.id || 'icon_' + Math.random().toString(36).slice(2, 8),
+                type: ic.type || 'dot',
+                className: ic.className || ic.type || 'dot',
+                icon: ic.icon || './anh/icons/dot_red.png',
+                x: clamp(+(ic.x || 50), 0, 100),
+                y: clamp(+(ic.y || 50), 0, 100),
+                label: ic.label || ic.id || '',
+                size: ic.size || 28
+            };
+            // Giữ lại pair/col cho đồng bộ trụ
+            if (ic.pair) obj.pair = ic.pair;
+            if (ic.col) obj.col = ic.col;
+            return obj;
+        });
+        saveToStorage();
+        renderMapIcons();
+        renderIconList();
+        selectIcon(null);
+        closeImportModal();
+        showToast('Import thành công: ' + icons.length + ' icon');
+    } catch (err) {
+        showToast('Import lỗi: ' + err.message);
+    }
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').classList.remove('show');
+}
+
+// ═══ Reset
+function resetAll() {
+    // TODO(security): Using confirm() for simplicity in this local-only dev tool
+    if (!confirm('Reset tất cả icon về vị trí & kích cỡ mặc định?')) return;
+    icons = deepClone(DEFAULT_MAP_OBJECTS);
+    globalStyle = deepClone(DEFAULT_GLOBAL_STYLE);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STYLE_KEY);
+    selectedId = null;
+    renderMapIcons();
+    renderIconList();
+    renderProperties();
+    renderGlobalStylePanel();
+    showToast('Đã reset về mặc định');
+}
+
+// ═══ Toast
+function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2500);
+}
+
+// ═══ Keyboard Shortcuts
+document.addEventListener('keydown', function(e) {
+    // Don't handle when typing in inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    const key = e.key.toLowerCase();
+
+    if (key === 'g') { toggleGrid(); e.preventDefault(); }
+    if (key === 's') { toggleSnap(); e.preventDefault(); }
+    if (key === 'escape') { selectIcon(null); e.preventDefault(); }
+
+    if (key === 'delete' || key === 'backspace') {
+        if (selectedId) {
+            const idx = icons.findIndex(function(i) { return i.id === selectedId; });
+            if (idx >= 0) {
+                const removed = icons.splice(idx, 1)[0];
+                showToast('Đã xóa: ' + (removed.label || removed.id));
+                selectedId = null;
+                saveToStorage();
+                renderMapIcons();
+                renderIconList();
+                renderProperties();
+            }
+            e.preventDefault();
+        }
+    }
+
+    // Arrow keys: nudge selected icon by 0.5% (+ sync trụ)
+    if (selectedId && ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].indexOf(key) >= 0) {
+        const ic = icons.find(function(i) { return i.id === selectedId; });
+        if (ic) {
+            const step = e.shiftKey ? 2 : 0.5;
+            if (key === 'arrowleft') ic.x = clamp(ic.x - step, 0, 100);
+            if (key === 'arrowright') ic.x = clamp(ic.x + step, 0, 100);
+            if (key === 'arrowup') ic.y = clamp(ic.y - step, 0, 100);
+            if (key === 'arrowdown') ic.y = clamp(ic.y + step, 0, 100);
+            ic.x = +ic.x.toFixed(2);
+            ic.y = +ic.y.toFixed(2);
+            // Đồng bộ trụ ngang/dọc
+            syncTowerPositions(ic, ic.x, ic.y);
+            saveToStorage();
+            renderMapIcons();
+            renderIconList();
+            updateCrosshair();
+            // Update props if open
+            const propX = document.getElementById('propX');
+            const propY = document.getElementById('propY');
+            if (propX) propX.value = ic.x.toFixed(1);
+            if (propY) propY.value = ic.y.toFixed(1);
+            e.preventDefault();
+        }
+    }
+});
+
+// ═══ Click on empty map area to deselect
+document.getElementById('mapContainer').addEventListener('pointerdown', function(e) {
+    if (!e.target.closest('.map-icon')) {
+        selectIcon(null);
+    }
+});
+
+// ═══ Start
+init();
+</script>
 </body>
 </html>

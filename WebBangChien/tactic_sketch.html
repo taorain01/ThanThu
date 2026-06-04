@@ -85,9 +85,8 @@ button{border:0}
 
 .draw-layer,.dot-layer,.map-icons-layer{position:absolute;inset:0;width:100%;height:100%}
 .map-icons-layer{z-index:4;pointer-events:none}
-.map-icon{position:absolute;transform:translate(-50%,-50%);pointer-events:none;width:28px;height:28px;border:0;border-radius:0;background:transparent;display:flex;align-items:center;justify-content:center}
+.map-icon{position:absolute;transform:translate(-50%,-50%);pointer-events:none;width:38px;height:38px;border:0 solid transparent;border-radius:0;background:rgba(0,0,0,0);display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 0px rgba(255,255,255,0)) drop-shadow(1.5px 5.5px 6px rgba(0,0,0,.1))}
 .map-icon img{width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;filter:none}
-.map-icon.tower,.map-icon.goose,.map-icon.boss,.map-icon.dot,.map-icon.tree{width:28px;height:28px}
 .map-icon-tooltip{display:none}
 .draw-layer{z-index:3;pointer-events:none;overflow:visible}
 .dot-layer{z-index:5;pointer-events:none}
@@ -341,34 +340,34 @@ const JUNGLE_EVENTS = [
     { time: 300, type: 'jungle', cls: 'ev-jungle', icon: '🌲', label: 'Rừng respawn' }
 ];
 const TOWER_ZONES = {
-    tb1: { x: 36, y: 15, name: 'Trụ xanh Bắc' },
-    tb2: { x: 36, y: 50.5, name: 'Trụ xanh Trung' },
-    tb3: { x: 36, y: 84.5, name: 'Trụ xanh Nam' },
-    tr1: { x: 62.5, y: 15, name: 'Trụ đỏ Bắc' },
-    tr2: { x: 62.5, y: 50.5, name: 'Trụ đỏ Trung' },
-    tr3: { x: 62.5, y: 84.5, name: 'Trụ đỏ Nam' }
+    tb1: { x: 37.6, y: 32.8, name: 'Trụ xanh Bắc' },
+    tb2: { x: 37.6, y: 50.5, name: 'Trụ xanh Trung' },
+    tb3: { x: 37.6, y: 68.1, name: 'Trụ xanh Nam' },
+    tr1: { x: 57.4, y: 32.8, name: 'Trụ đỏ Bắc' },
+    tr2: { x: 57.4, y: 50.5, name: 'Trụ đỏ Trung' },
+    tr3: { x: 57.4, y: 68.1, name: 'Trụ đỏ Nam' }
 };
 const DEFAULT_MAP_OBJECTS = [
-    { id: 'tb1', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 15, label: '⛫ Trụ Xanh Bắc' },
-    { id: 'tb2', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 50.5, label: '⛫ Trụ Xanh Trung' },
-    { id: 'tb3', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 36, y: 84.5, label: '⛫ Trụ Xanh Nam' },
-    { id: 'tr1', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 15, label: '⛫ Trụ Đỏ Bắc' },
-    { id: 'tr2', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 50.5, label: '⛫ Trụ Đỏ Trung' },
-    { id: 'tr3', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 84.5, label: '⛫ Trụ Đỏ Nam' },
-    { id: 'boss1', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 50, y: 30.5, label: '☀ Boss Vàng' },
-    { id: 'boss2', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 50, y: 70.5, label: '☀ Boss Vàng' },
-    { id: 'gb', type: 'goose_blue', className: 'goose', icon: './anh/icons/goose_blue.png', x: 8.5, y: 51.5, label: 'Ngỗng Xanh' },
-    { id: 'gr', type: 'goose_red', className: 'goose', icon: './anh/icons/goose_red.png', x: 90.5, y: 50, label: 'Ngỗng Đỏ' },
-    { id: 'ctb', type: 'tree_blue', className: 'tree', icon: './anh/icons/tree_blue.png', x: 4, y: 51, label: 'Cây Xanh' },
-    { id: 'ctr', type: 'tree_red', className: 'tree', icon: './anh/icons/tree_red.png', x: 95.5, y: 50, label: 'Cây Đỏ' },
-    { id: 'd1', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 29.5, y: 37.5, label: 'Rừng A1' },
-    { id: 'd2', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 40.5, y: 37, label: 'Rừng A2' },
-    { id: 'd3', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 57.5, y: 27.5, label: 'Rừng B1' },
-    { id: 'd4', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 69, y: 37.5, label: 'Rừng B2' },
-    { id: 'd5', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 29, y: 64.5, label: 'Rừng C1' },
-    { id: 'd6', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 69.5, y: 65, label: 'Rừng D2' },
-    { id: 'd7', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 40.5, y: 74, label: 'Rừng C2' },
-    { id: 'd8', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 58.5, y: 65.5, label: 'Rừng D1' }
+    { id: 'tb1', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 37.6, y: 32.8, label: '⛫ Trụ Xanh Bắc' },
+    { id: 'tb2', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 37.6, y: 50.5, label: '⛫ Trụ Xanh Trung' },
+    { id: 'tb3', type: 'tower_blue', className: 'tower', icon: './anh/icons/tower_blue.png', x: 37.6, y: 68.1, label: '⛫ Trụ Xanh Nam' },
+    { id: 'tr1', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 57.4, y: 32.8, label: '⛫ Trụ Đỏ Bắc' },
+    { id: 'tr2', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 57.4, y: 50.5, label: '⛫ Trụ Đỏ Trung' },
+    { id: 'tr3', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 57.4, y: 68.1, label: '⛫ Trụ Đỏ Nam' },
+    { id: 'boss1', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 39.8, y: 12.9, label: '☀ Boss Vàng' },
+    { id: 'boss2', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 56.1, y: 88.3, label: '☀ Boss Vàng' },
+    { id: 'gb', type: 'goose_blue', className: 'goose', icon: './anh/icons/goose_blue.png', x: 18.9, y: 50.6, label: 'Ngỗng Xanh' },
+    { id: 'gr', type: 'goose_red', className: 'goose', icon: './anh/icons/goose_red.png', x: 75.8, y: 50.2, label: 'Ngỗng Đỏ' },
+    { id: 'ctb', type: 'tree_blue', className: 'tree', icon: './anh/icons/tree_blue.png', x: 15.7, y: 50.2, label: 'Cây Xanh' },
+    { id: 'ctr', type: 'tree_red', className: 'tree', icon: './anh/icons/tree_red.png', x: 79.0, y: 50.2, label: 'Cây Đỏ' },
+    { id: 'd1', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 33.9, y: 43.6, label: 'Rừng A1' },
+    { id: 'd2', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 41.5, y: 42.8, label: 'Rừng A2' },
+    { id: 'd3', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 54.1, y: 38.8, label: 'Rừng B1' },
+    { id: 'd4', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 60.4, y: 39.1, label: 'Rừng B2' },
+    { id: 'd5', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 34.4, y: 61.8, label: 'Rừng C1' },
+    { id: 'd6', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 61.4, y: 57.6, label: 'Rừng D2' },
+    { id: 'd7', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 41.2, y: 61.9, label: 'Rừng C2' },
+    { id: 'd8', type: 'dot', className: 'dot', icon: './anh/icons/dot_red.png', x: 53.5, y: 58.5, label: 'Rừng D1' }
 ];
 const ROLE_PRESETS = {
     blue_dps_qd: { team: 'blue', role: 'DPS', subRole: 'QD', label: 'Quạt Dù', color: '#60a5fa' },

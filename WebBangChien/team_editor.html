@@ -736,12 +736,20 @@
     .quick-team-sub{margin-top:4px;font-size:12px;color:var(--muted);line-height:1.45}
     .quick-team-grid{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:14px;min-height:360px;overflow:hidden}
     .quick-team-sources,.quick-team-preview{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035);overflow:auto;padding:10px}
-    .quick-team-sources{display:flex;flex-direction:column;gap:8px}
-    .quick-source{width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.04);color:var(--text);padding:11px 12px;cursor:pointer}
+    .quick-team-sources{display:flex;flex-direction:column;gap:12px}
+    .quick-source-group{display:flex;flex-direction:column;gap:6px}
+    .quick-source-group-title{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+    .quick-source-list{display:flex;flex-direction:column;gap:6px}
+    .quick-source{width:100%;text-align:left;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.035);color:var(--text);padding:8px 10px;cursor:pointer}
     .quick-source:hover,.quick-source.active{border-color:rgba(58,208,126,.42);background:rgba(58,208,126,.08)}
-    .quick-source-title{font-weight:900;font-size:13px}
-    .quick-source-meta{margin-top:5px;color:var(--muted);font-size:12px;line-height:1.35}
-    .quick-source-kind{display:inline-flex;align-items:center;gap:5px;margin-top:8px;border:1px solid var(--line);border-radius:999px;padding:3px 8px;color:var(--gold);font-size:11px;font-weight:800}
+    .quick-source.league{border-color:rgba(251,191,36,.36);background:rgba(251,191,36,.07)}
+    .quick-source.league.active{border-color:rgba(251,191,36,.72);box-shadow:0 0 0 1px rgba(251,191,36,.12) inset}
+    .quick-source-main{display:flex;align-items:center;gap:6px;min-width:0}
+    .quick-source-title{font-weight:900;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+    .quick-source-meta{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .quick-source-kind,.quick-source-league{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:2px 6px;font-size:10px;font-weight:900;white-space:nowrap}
+    .quick-source-kind{color:var(--muted)}
+    .quick-source-league{border-color:rgba(251,191,36,.52);background:rgba(251,191,36,.16);color:var(--gold)}
     .quick-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
     .quick-stat{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(0,0,0,.12)}
     .quick-stat span{display:block;color:var(--muted);font-size:11px}
@@ -1163,6 +1171,10 @@
     let teamGridColumnCount = 0;
     let teamLayoutResizeTimer = null;
     const ROSTER_DRAFT_VERSION = 1;
+    const QUICK_HISTORY_DAYS = 7;
+    const QUICK_HISTORY_LIMIT = 60;
+    const ROSTER_HISTORY_LIMIT = 40;
+    const LEADER_AUDIT_KEYS = new Set(['editor_id', 'editor_name', 'editor_action', 'edited_at']);
     const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
 
     function hasKcWebAccess(discordId = currentDiscordId) {
@@ -1965,6 +1977,25 @@
       renderEditor();
     }
 
+    function normalizeFingerprintValue(value) {
+      if (Array.isArray(value)) return value.map(normalizeFingerprintValue);
+      if (!value || typeof value !== 'object') return value;
+      return Object.keys(value).sort().reduce((acc, key) => {
+        acc[key] = normalizeFingerprintValue(value[key]);
+        return acc;
+      }, {});
+    }
+
+    function normalizeFingerprintLeaderIds(value) {
+      const leaderIds = safeParse(value, {});
+      if (!leaderIds || typeof leaderIds !== 'object' || Array.isArray(leaderIds)) return {};
+      return Object.keys(leaderIds).sort().reduce((acc, key) => {
+        if (LEADER_AUDIT_KEYS.has(key)) return acc;
+        acc[key] = normalizeFingerprintValue(leaderIds[key]);
+        return acc;
+      }, {});
+    }
+
     function getSessionFingerprint(session) {
       if (!session) return '';
       return JSON.stringify({
@@ -1979,7 +2010,7 @@
         waiting_list: safeParse(session.waiting_list, []),
         team_sizes: safeParse(session.team_sizes, {}),
         team_names: safeParse(session.team_names, {}),
-        leader_ids: safeParse(session.leader_ids, {}),
+        leader_ids: normalizeFingerprintLeaderIds(session.leader_ids),
         locked: session.locked === true,
         note: session.note || '',
         time: session.time || '19:30'
@@ -2313,21 +2344,74 @@
       return { layout, teams, waiting, activeCount, waitingCount: waiting.length, capacity };
     }
 
+    function isQuickLeagueSession(session) {
+      const note = String(session?.note || '').trim();
+      return normalizeSessionTime(session?.time || '19:30') === '19:30' || /^league$/i.test(note);
+    }
+
+    function getQuickSourceNote(session) {
+      const note = String(session?.note || '').trim();
+      return note && !/^league$/i.test(note) ? note : '';
+    }
+
     function getQuickSourceLabel(session) {
       const day = DAY_LABELS[session?.day] || session?.day || 'Session';
       const time = normalizeSessionTime(session?.time || '19:30');
-      const note = String(session?.note || '').trim();
-      return `${day} - ${time}${note && !/^league$/i.test(note) ? ` - ${note}` : ''}`;
+      const note = getQuickSourceNote(session);
+      return `${day} - ${time}${note ? ` - ${note}` : ''}`;
+    }
+
+    function getQuickSourceDisplayMeta(session) {
+      return {
+        dayLabel: DAY_LABELS[session?.day] || session?.day || 'Session',
+        timeLabel: normalizeSessionTime(session?.time || '19:30'),
+        noteText: getQuickSourceNote(session),
+        isLeague: isQuickLeagueSession(session)
+      };
+    }
+
+    function getQuickSourceUpdatedMs(source) {
+      const time = source?.updatedAt ? new Date(source.updatedAt).getTime() : 0;
+      return Number.isFinite(time) ? time : 0;
+    }
+
+    function sortQuickSourceList(list) {
+      return [...(list || [])].sort((a, b) => {
+        const leagueDiff = Number(b.isLeague) - Number(a.isLeague);
+        if (leagueDiff !== 0) return leagueDiff;
+        const timeDiff = getQuickSourceUpdatedMs(b) - getQuickSourceUpdatedMs(a);
+        if (timeDiff !== 0) return timeDiff;
+        return String(a.label || '').localeCompare(String(b.label || ''), 'vi', { sensitivity: 'base' });
+      });
+    }
+
+    function getQuickHistoryCutoffIso() {
+      return new Date(Date.now() - QUICK_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    function formatQuickSourceUpdated(value) {
+      const time = value ? new Date(value) : null;
+      if (!time || Number.isNaN(time.getTime())) return 'khong ro';
+      return time.toLocaleString('vi-VN', {
+        hour12: false,
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     }
 
     function buildQuickSourceFromSession(session) {
       const info = getQuickSourceRosterInfo(session);
       const id = String(session?.id || `${session?.day || ''}|${session?.time || ''}`);
+      const display = getQuickSourceDisplayMeta(session);
       return {
         key: `active:${id}`,
         type: 'active',
+        group: 'active',
         sourceSessionId: String(session?.id || ''),
         label: getQuickSourceLabel(session),
+        ...display,
         session: { ...session },
         updatedAt: session?.updated_at || session?.created_at || '',
         activeCount: info.activeCount,
@@ -2339,12 +2423,15 @@
     function buildQuickSourceFromSnapshot(row) {
       const session = { ...row, id: row.source_session_id };
       const info = getQuickSourceRosterInfo(session);
+      const display = getQuickSourceDisplayMeta(session);
       return {
-        key: `snapshot:${row.source_session_id}`,
+        key: `snapshot:${row.id || row.source_session_id}`,
         type: 'snapshot',
+        group: 'history',
         sourceSessionId: String(row.source_session_id || ''),
         snapshotId: row.id,
         label: row.label || getQuickSourceLabel(session),
+        ...display,
         session,
         updatedAt: row.captured_at || row.updated_at || '',
         activeCount: info.activeCount,
@@ -2360,8 +2447,9 @@
           .from('bc_roster_snapshots')
           .select('*')
           .eq('guild_id', GUILD_ID)
+          .gte('captured_at', getQuickHistoryCutoffIso())
           .order('captured_at', { ascending: false })
-          .limit(50);
+          .limit(QUICK_HISTORY_LIMIT);
         if (error) {
           if (isRosterSnapshotMissingError(error)) {
             supportsRosterSnapshots = false;
@@ -2397,16 +2485,19 @@
         .filter((session) => String(session.id || '') !== currentId)
         .map(buildQuickSourceFromSession);
       const activeSourceIds = new Set(activeSources.map((source) => source.sourceSessionId).filter(Boolean));
+      const snapshotSeen = new Set();
       const snapshotSources = (await fetchQuickRosterSnapshots())
-        .filter((row) => String(row.source_session_id || '') !== currentId)
-        .filter((row) => !activeSourceIds.has(String(row.source_session_id || '')))
+        .filter((row) => {
+          const sourceId = String(row.source_session_id || row.id || '');
+          if (!sourceId || sourceId === currentId) return false;
+          if (activeSourceIds.has(sourceId)) return false;
+          if (snapshotSeen.has(sourceId)) return false;
+          snapshotSeen.add(sourceId);
+          return true;
+        })
         .map(buildQuickSourceFromSnapshot);
 
-      return [...activeSources, ...snapshotSources].sort((a, b) => {
-        const at = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const bt = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-        return bt - at;
-      });
+      return [...sortQuickSourceList(activeSources), ...sortQuickSourceList(snapshotSources)];
     }
 
     function renderQuickTeamSources() {
@@ -2418,18 +2509,38 @@
         container.innerHTML = '<div class="quick-empty">Khong co session hoac snapshot nao de copy.</div>';
         return;
       }
-      container.innerHTML = quickTeamSources.map((source, index) => {
-        const isActive = selectedQuickTeamSource?.key === source.key;
-        const kind = source.type === 'active' ? 'Active session' : 'Snapshot';
-        const updated = source.updatedAt ? new Date(source.updatedAt).toLocaleString('vi-VN', { hour12: false }) : 'khong ro';
-        return `
-          <button class="quick-source ${isActive ? 'active' : ''}" type="button" data-quick-source="${index}">
-            <div class="quick-source-title">${escapeHtml(source.label)}</div>
-            <div class="quick-source-meta">${source.activeCount}/${source.capacity} active - ${source.waitingCount} waiting<br>Cap nhat: ${escapeHtml(updated)}</div>
-            <span class="quick-source-kind">${escapeHtml(kind)}</span>
-          </button>
-        `;
-      }).join('');
+      const indexedSources = quickTeamSources.map((source, index) => ({ source, index }));
+      const groups = [
+        { key: 'active', title: 'Dang mo', entries: indexedSources.filter((entry) => entry.source.group === 'active') },
+        { key: 'history', title: `Lich su ${QUICK_HISTORY_DAYS} ngay`, entries: indexedSources.filter((entry) => entry.source.group === 'history') }
+      ].filter((group) => group.entries.length);
+      container.innerHTML = groups.map((group) => `
+        <div class="quick-source-group">
+          <div class="quick-source-group-title">
+            <span>${escapeHtml(group.title)}</span>
+            <span>${group.entries.length}</span>
+          </div>
+          <div class="quick-source-list">
+            ${group.entries.map(({ source, index }) => {
+              const isActive = selectedQuickTeamSource?.key === source.key;
+              const kind = source.type === 'active' ? 'Active' : 'Snapshot';
+              const updated = formatQuickSourceUpdated(source.updatedAt);
+              const title = `${source.dayLabel || 'Session'} - ${source.timeLabel || '19:30'}${source.noteText ? ` - ${source.noteText}` : ''}`;
+              const leagueBadge = source.isLeague ? '<span class="quick-source-league">LEAGUE</span>' : '';
+              return `
+                <button class="quick-source ${isActive ? 'active' : ''} ${source.isLeague ? 'league' : ''}" type="button" data-quick-source="${index}" title="${escapeHtml(source.label || title)}">
+                  <div class="quick-source-main">
+                    <div class="quick-source-title">${escapeHtml(title)}</div>
+                    ${leagueBadge}
+                    <span class="quick-source-kind">${escapeHtml(kind)}</span>
+                  </div>
+                  <div class="quick-source-meta">${source.activeCount}/${source.capacity} active - ${source.waitingCount} cho - ${escapeHtml(updated)}</div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('');
       container.querySelectorAll('[data-quick-source]').forEach((button) => {
         button.addEventListener('click', () => selectQuickTeamSource(Number(button.dataset.quickSource)));
       });
@@ -2809,7 +2920,11 @@
       });
     }
 
-    async function loadRosterHistoryEntries() {
+    function getRosterHistoryCutoffIso() {
+      return new Date(Date.now() - QUICK_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    async function queryRosterHistoryEntries(detailsMatch, { recentOnly = false, limit = ROSTER_HISTORY_LIMIT } = {}) {
       if (!sb || !currentDay) return [];
       let query = sb.from('bc_logs')
         .select('id,action,details,performed_by,source,created_at')
@@ -2817,19 +2932,43 @@
         .eq('source', 'web')
         .in('action', ['roster_sync', 'quick_team'])
         .order('created_at', { ascending: false })
-        .limit(30);
-      if (currentSessionId) query = query.contains('details', { session_id: currentSessionId });
-      else query = query.contains('details', { day: currentDay });
+        .limit(limit);
+      if (recentOnly) query = query.gte('created_at', getRosterHistoryCutoffIso());
+      query = query.contains('details', detailsMatch);
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
+    }
+
+    function mergeRosterHistoryEntries(entryGroups) {
+      const map = new Map();
+      (entryGroups || []).flat().forEach((entry) => {
+        if (!entry) return;
+        const key = entry.id || `${entry.created_at || ''}:${entry.action || ''}:${JSON.stringify(entry.details || {})}`;
+        if (!map.has(key)) map.set(key, entry);
+      });
+      return [...map.values()]
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, ROSTER_HISTORY_LIMIT);
+    }
+
+    async function loadRosterHistoryEntries() {
+      if (!sb || !currentDay) return [];
+      const queries = [
+        queryRosterHistoryEntries({ day: currentDay }, { recentOnly: true })
+      ];
+      if (currentSessionId) {
+        queries.unshift(queryRosterHistoryEntries({ session_id: currentSessionId }, { recentOnly: false }));
+      }
+      const groups = await Promise.all(queries);
+      return mergeRosterHistoryEntries(groups);
     }
 
     function renderRosterHistoryEntries(entries) {
       const container = document.getElementById('historyList');
       if (!container) return;
       if (!entries.length) {
-        container.innerHTML = '<div class="history-empty">Chưa có lịch sử chỉnh sửa web cho session này.</div>';
+        container.innerHTML = '<div class="history-empty">Chua co lich su web cho session/ngay trong 7 ngay gan day.</div>';
         return;
       }
       container.innerHTML = entries.map((entry) => {
@@ -2838,7 +2977,8 @@
         const title = details.summary || summarizeRosterActions(actions);
         const editor = details.editor_name || entry.performed_by || 'Web';
         const time = formatRosterLogTime(entry.created_at || details.edited_at);
-        const sessionText = details.session_id ? `Session ${String(details.session_id).slice(0, 8)}` : `Ngày ${details.day || currentDay}`;
+        const sessionText = details.session_id ? `S ${String(details.session_id).slice(0, 8)}` : (DAY_LABELS[details.day] || details.day || currentDay);
+        const actionText = actions.map(getRosterActionLabel).join(', ');
         return `
           <div class="history-item">
             <div class="history-top">
@@ -2846,7 +2986,7 @@
               <span>${escapeHtml(editor)}</span>
             </div>
             <div class="history-title">${escapeHtml(title)}</div>
-            <div class="history-meta">${escapeHtml(sessionText)} · ${escapeHtml(actions.map(getRosterActionLabel).join(', '))}</div>
+            <div class="history-meta">${escapeHtml(actionText)} - ${escapeHtml(sessionText)}</div>
           </div>
         `;
       }).join('');
@@ -3965,6 +4105,7 @@
         || (snapshot.team_layout || []).length > 4
         || Object.keys(snapshot.teams || {}).some((key) => !['team_attack1', 'team_attack2', 'team_defense', 'team_forest'].includes(key));
 
+      const syncStartedAt = Date.now();
       isSyncing = true;
       updateSyncBadge(actionsToSync.size > 1 ? 'Đang đồng bộ một gói thay đổi...' : 'Đang đồng bộ thay đổi...', true);
       const payload = {
@@ -4077,12 +4218,16 @@
         return;
       }
 
+      const changedDuringSync = localMutationAt > syncStartedAt;
+      if (!changedDuringSync && localState) {
+        localState.leader_ids = JSON.parse(JSON.stringify(snapshot.leader_ids || {}));
+      }
       lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
       rememberSnapshot(snapshot);
       lastSyncedFingerprint = snapshotFingerprint;
       await saveRosterSnapshotForSession(snapshot, 'web_sync');
       await recordRosterWebLog(actionsToSync, beforeFingerprint, snapshotFingerprint, snapshot);
-      const stillPending = pendingSyncActions.size || debounceTimer;
+      const stillPending = changedDuringSync || pendingSyncActions.size || debounceTimer;
       const suspiciousEmptySync = snapshotActiveCount === 0 && remoteActiveCount > 0;
       if (!suspiciousEmptySync && !stillPending && getSessionFingerprint(buildCurrentSessionSnapshot()) === snapshotFingerprint) {
         removeRosterDraft(snapshot.id || currentSessionId, snapshot.day || currentDay);

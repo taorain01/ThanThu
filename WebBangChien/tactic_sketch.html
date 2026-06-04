@@ -75,7 +75,8 @@ button{border:0}
 .empty-note{font-size:12px;color:var(--faint);line-height:1.45;padding:7px 2px}
 .workspace{display:flex;flex-direction:column;min-width:0;min-height:0}
 .map-wrap{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 50%,rgba(20,43,29,.7),rgba(4,8,6,.92))}
-.map-viewport,.map-container{position:relative;display:inline-block;width:min(100%,calc(132.9vh - 117px));max-width:100%;max-height:100%;aspect-ratio:var(--map-ratio);overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-viewport{width:min(100%,calc((100vh - var(--header-h) - 32px) * 1.33));max-height:100%;aspect-ratio:1.33;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-container{position:relative;display:inline-block;width:100%;max-width:100%;max-height:100%;aspect-ratio:1.33}
 .map-stage{position:absolute;inset:0;width:100%;height:100%;touch-action:none;overflow:hidden;transform-origin:50% 50%;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
 .map-stage.zoomed{cursor:grab}
 .map-stage.zoomed.panning{cursor:grabbing;transition:none}
@@ -156,7 +157,7 @@ button{border:0}
   .side{max-height:214px;border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr;overflow:auto}
   .workspace{min-height:0}
   .map-wrap{padding:8px}
-  .map-viewport{width:min(100%,calc(132.9vh - 433px));height:auto}
+  .map-viewport{width:min(100%,calc((100vh - var(--header-h) - 230px) * 1.33));height:auto}
   .map-badge{left:12px;top:12px;font-size:11px}
   .timeline{padding:8px 10px}
   .tool-grid{grid-template-columns:repeat(5,42px)}
@@ -167,7 +168,7 @@ button{border:0}
   .public-toggle{height:30px}
   .hdr-btn{font-size:11px}
   .side{max-height:238px}
-  .map-viewport{width:min(100%,calc(132.9vh - 465px))}
+  .map-viewport{width:min(100%,calc((100vh - var(--header-h) - 254px) * 1.33))}
   .timeline-top{flex-wrap:wrap}
   .time-range{flex-basis:100%;order:4}
 }
@@ -288,14 +289,16 @@ button{border:0}
 
           <button class="zoom-btn" id="zoomResetBtn" onclick="resetZoom()" title="Đưa map về zoom mặc định (0)">⌖ Reset zoom</button>
         </div>
-        <div class="map-viewport map-container" id="mapViewport">
-          <div class="map-stage" id="mapStage">
-            <img class="map-bg" id="mapImg" src="./anh/map.png" alt="Battle Map" draggable="false">
-            <div class="map-icons-layer" id="mapIconsLayer"></div>
-            <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
-            <div class="tower-label-layer" id="towerLabelLayer"></div>
-            <div class="dot-layer" id="dotLayer"></div>
-            <div class="selection-box" id="selectionBox"></div>
+        <div class="map-viewport">
+          <div class="map-container" id="mapViewport">
+            <div class="map-stage" id="mapStage">
+              <img class="map-bg" id="mapImg" src="./anh/map.png" alt="Battle Map" draggable="false">
+              <div class="map-icons-layer" id="mapIconsLayer"></div>
+              <svg class="draw-layer" id="drawLayer" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
+              <div class="tower-label-layer" id="towerLabelLayer"></div>
+              <div class="dot-layer" id="dotLayer"></div>
+              <div class="selection-box" id="selectionBox"></div>
+            </div>
           </div>
         </div>
       </div>

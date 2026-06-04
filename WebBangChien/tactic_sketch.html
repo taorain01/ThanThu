@@ -19,7 +19,7 @@
   --bg:#08140d;--panel:#0d1d13;--panel2:#102619;--line:rgba(134,239,172,.15);
   --text:#e5edf0;--muted:#95a3ad;--faint:#61717b;--gold:#fbbf24;--green:#4ade80;
   --red:#f87171;--blue:#60a5fa;--violet:#a78bfa;--cyan:#22d3ee;
-  --header-h:56px;--timeline-h:128px;--side-w:292px;
+  --header-h:56px;--timeline-h:0px;--side-w:292px;
 }
 html,body{height:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;background:radial-gradient(circle at 50% 0,#12351f 0,#08140d 42%,#040806 100%);color:var(--text);user-select:none;-webkit-user-select:none}
@@ -75,29 +75,18 @@ button{border:0}
 .empty-note{font-size:12px;color:var(--faint);line-height:1.45;padding:7px 2px}
 .workspace{display:flex;flex-direction:column;min-width:0;min-height:0}
 .map-wrap{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(circle at 50% 50%,rgba(20,43,29,.7),rgba(4,8,6,.92))}
-.map-viewport,.map-container{position:relative;display:inline-block;width:min(100%,calc((100vh - var(--header-h) - var(--timeline-h) - 42px) * 1.49));max-width:100%;max-height:100%;aspect-ratio:1.49;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
+.map-viewport,.map-container{position:relative;display:inline-block;width:min(100%,calc((100vh - var(--header-h) - 42px) * 1.49));max-width:100%;max-height:100%;aspect-ratio:1.49;overflow:hidden;border-radius:12px;border:1px solid rgba(251,191,36,.16);box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 40px rgba(251,191,36,.08);background:#09140c}
 .map-stage{position:absolute;inset:0;width:100%;height:100%;touch-action:none;overflow:hidden;transform-origin:50% 50%;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
 .map-stage.zoomed{cursor:grab}
 .map-stage.zoomed.panning{cursor:grabbing;transition:none}
-.map-stage img,.map-bg{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.map-stage img,.map-bg{display:block;width:100%;height:100%;object-fit:cover;object-position:center center;pointer-events:none}
 .map-stage > img.map-bg{position:relative;z-index:1}
 
 .draw-layer,.dot-layer,.map-icons-layer{position:absolute;inset:0;width:100%;height:100%}
 .map-icons-layer{z-index:4;pointer-events:none}
-.map-icon{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
-.map-icon img{width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8))}
-.map-icon.tower{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1))}
-.map-icon.tower img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.56)}
-.map-icon.tower[data-type="tower_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.09)}
-.map-icon.goose{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1))}
-.map-icon.goose img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.63)}
-.map-icon.goose[data-type="goose_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.14)}
-.map-icon.boss{width:calc(60px * var(--map-scale,1));height:calc(60px * var(--map-scale,1))}
-.map-icon.dot{width:calc(52px * var(--map-scale,1));height:calc(55px * var(--map-scale,1))}
-.map-icon.dot img{filter:drop-shadow(0 0 1.3px rgba(255,255,255,.9)) drop-shadow(0 0 .8px rgba(255,255,255,.8)) drop-shadow(3px 4px 1px rgba(0,0,0,.8)) brightness(1.97) saturate(1.1) hue-rotate(54deg)}
-.map-icon.tree{width:calc(72px * var(--map-scale,1));height:calc(72px * var(--map-scale,1))}
-.map-icon.tree img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.58)}
-.map-icon.tree[data-type="tree_red"] img{filter:drop-shadow(0 0 1.5px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8)) drop-shadow(3px 4px 6px rgba(0,0,0,.8)) brightness(1.11)}
+.map-icon{position:absolute;transform:translate(-50%,-50%);pointer-events:none;width:28px;height:28px;border:2px solid rgba(255,255,255,.7);border-radius:5px;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+.map-icon img{width:100%;height:100%;display:block;pointer-events:none;object-fit:contain;filter:none}
+.map-icon.tower,.map-icon.goose,.map-icon.boss,.map-icon.dot,.map-icon.tree{width:28px;height:28px}
 .map-icon-tooltip{display:none}
 .draw-layer{z-index:3;pointer-events:none;overflow:visible}
 .dot-layer{z-index:5;pointer-events:none}
@@ -122,7 +111,7 @@ button{border:0}
 .map-badge.warn strong{color:#fde68a}
 .map-badge.saved{position:relative;overflow:hidden}
 .map-badge.saved::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);animation:badgeSweep .95s ease}
-.toast{position:fixed;left:50%;bottom:calc(var(--timeline-h) + 18px);z-index:70;transform:translateX(-50%) translateY(22px) scale(.96);opacity:0;pointer-events:none;max-width:min(520px,92vw);padding:10px 14px;border-radius:10px;background:rgba(10,18,12,.94);border:1px solid rgba(251,191,36,.26);color:#fde68a;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,0,0,.42);transition:opacity .22s,transform .38s cubic-bezier(.2,1.35,.25,1)}
+.toast{position:fixed;left:50%;bottom:18px;z-index:70;transform:translateX(-50%) translateY(22px) scale(.96);opacity:0;pointer-events:none;max-width:min(520px,92vw);padding:10px 14px;border-radius:10px;background:rgba(10,18,12,.94);border:1px solid rgba(251,191,36,.26);color:#fde68a;font-size:13px;font-weight:700;box-shadow:0 10px 28px rgba(0,0,0,.42);transition:opacity .22s,transform .38s cubic-bezier(.2,1.35,.25,1)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
 .timeline{height:var(--timeline-h);flex-shrink:0;border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(13,29,19,.98),rgba(8,20,13,.99));padding:10px 16px}
 .timeline-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -156,7 +145,7 @@ button{border:0}
 @keyframes dotPulse{0%{opacity:.6;transform:scale(.55)}100%{opacity:0;transform:scale(1.55)}}
 @keyframes badgeSweep{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 @media (max-width: 900px){
-  :root{--header-h:96px;--timeline-h:142px;--side-w:100%}
+  :root{--header-h:96px;--timeline-h:0px;--side-w:100%}
   .topbar{height:var(--header-h);flex-wrap:wrap;align-content:center;padding:8px 10px}
   .brand{order:1;flex:1 1 calc(100% - 78px)}
   .topbar .back{order:0}
@@ -258,9 +247,7 @@ button{border:0}
         <div class="action-row">
           <button class="mini-btn edit-only" onclick="undoSketch()">Undo</button>
           <button class="mini-btn edit-only" onclick="redoSketch()">Redo</button>
-          <button class="mini-btn edit-only" onclick="duplicateActiveMark()">Copy mốc</button>
-          <button class="mini-btn edit-only" onclick="clearActiveMark()">Dọn mốc</button>
-          <button class="mini-btn danger edit-only" onclick="deleteActiveMark()">Xóa mốc</button>
+          <button class="mini-btn edit-only" onclick="clearActiveMark()">Dọn bản vẽ</button>
         </div>
       </section>
 
@@ -276,8 +263,6 @@ button{border:0}
 
           <div class="hotkey-item"><span>Undo</span><kbd>Ctrl Z</kbd></div>
           <div class="hotkey-item"><span>Redo</span><kbd>Ctrl Y</kbd></div>
-          <div class="hotkey-item"><span>Thêm mốc</span><kbd>M</kbd></div>
-          <div class="hotkey-item"><span>Copy mốc</span><kbd>Shift M</kbd></div>
           <div class="hotkey-item"><span>Xóa chọn</span><kbd>Del</kbd></div>
           <div class="hotkey-item"><span>Bỏ chọn</span><kbd>Esc</kbd></div>
           <div class="hotkey-item"><span>Reset zoom</span><kbd>0</kbd></div>
@@ -298,7 +283,6 @@ button{border:0}
 
     <section class="workspace">
       <div class="map-wrap">
-        <div class="map-badge" id="mapStatus"><strong>Local</strong><span>Đang chuẩn bị bản vẽ...</span></div>
         <div class="zoom-tools">
 
           <button class="zoom-btn" id="zoomResetBtn" onclick="resetZoom()" title="Đưa map về zoom mặc định (0)">⌖ Reset zoom</button>
@@ -314,16 +298,6 @@ button{border:0}
           </div>
         </div>
       </div>
-      <footer class="timeline">
-        <div class="timeline-top">
-          <div class="active-time" id="activeTime">30:00</div>
-          <input class="time-range" type="range" id="timeCursor" min="0" max="1800" step="30" value="1800">
-          <div class="time-readout" id="timeCursorLabel">30:00</div>
-          <button class="mini-btn edit-only" onclick="addMarkAtCursor(false)">Thêm mốc</button>
-          <button class="mini-btn edit-only" onclick="addMarkAtCursor(true)">Thêm + copy</button>
-        </div>
-        <div class="timeline-track" id="timelineTrack"></div>
-      </footer>
     </section>
   </main>
 </div>
@@ -377,8 +351,8 @@ const DEFAULT_MAP_OBJECTS = [
     { id: 'tr1', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 15, label: '⛫ Trụ Đỏ Bắc' },
     { id: 'tr2', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 50.5, label: '⛫ Trụ Đỏ Trung' },
     { id: 'tr3', type: 'tower_red', className: 'tower', icon: './anh/icons/tower_red.png', x: 62.5, y: 84.5, label: '⛫ Trụ Đỏ Nam' },
-    { id: 'boss1', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 50, y: 30.5, label: '☀ Boss Vàng' },
-    { id: 'boss2', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 50, y: 70.5, label: '☀ Boss Vàng' },
+    { id: 'boss1', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 39.83, y: 5.75, label: '☀ Boss Vàng' },
+    { id: 'boss2', type: 'boss', className: 'boss boss-event active', icon: './anh/icons/sun_boss.png', x: 55.92, y: 95.74, label: '☀ Boss Vàng' },
     { id: 'gb', type: 'goose_blue', className: 'goose', icon: './anh/icons/goose_blue.png', x: 8.5, y: 51.5, label: 'Ngỗng Xanh' },
     { id: 'gr', type: 'goose_red', className: 'goose', icon: './anh/icons/goose_red.png', x: 90.5, y: 50, label: 'Ngỗng Đỏ' },
     { id: 'ctb', type: 'tree_blue', className: 'tree', icon: './anh/icons/tree_blue.png', x: 4, y: 51, label: 'Cây Xanh' },
@@ -884,7 +858,6 @@ function redoSketch() {
 }
 
 function updateStatus() {
-    const badge = byId('mapStatus');
     const saveBtn = byId('saveBtn');
     const copyBtn = byId('copyBtn');
     const titleInput = byId('sketchTitle');
@@ -901,29 +874,6 @@ function updateStatus() {
     if (publicWrap) publicWrap.classList.toggle('disabled', state.readOnly);
     if (copyBtn) copyBtn.style.display = state.readOnly ? '' : 'none';
     document.querySelectorAll('.tool-btn,.mini-btn.edit-only').forEach(btn => { btn.disabled = editDisabled; });
-
-    if (!badge) return;
-    badge.classList.toggle('warn', !state.tableAvailable);
-    const activeMark = getActiveMark();
-    let strong = 'Local';
-    let text = `${formatTime(activeMark?.time ?? TOTAL_SECONDS)} · ${activeMark?.dots?.length || 0} chấm · ${activeMark?.strokes?.length || 0} nét`;
-    if (!state.tableAvailable) {
-        strong = 'Chưa lưu online';
-        text = 'Thiếu bảng bc_tactic_sketches. Bản vẽ chỉ lưu local.';
-    } else if (state.readOnly) {
-        strong = 'Đang xem';
-        text = 'Tạo bản sao để chỉnh sửa';
-    } else if (state.dirty) {
-        strong = 'Chưa lưu';
-    } else if (state.currentSketch?.id) {
-        strong = 'Đã lưu';
-    }
-    badge.innerHTML = '';
-    const s = document.createElement('strong');
-    s.textContent = strong;
-    const span = document.createElement('span');
-    span.textContent = text;
-    badge.append(s, span);
 }
 
 function updateCounters() {
@@ -979,7 +929,7 @@ function resetZoom(options = {}) {
     state.panY = 0;
     applyZoom();
     if (!options.silent) {
-        showToast(moved ? 'Đã reset zoom' : 'Zoom đang ở mặc định. Muốn xóa nét dùng Dọn mốc.');
+    showToast(moved ? 'Đã reset zoom' : 'Zoom đang ở mặc định. Muốn xóa nét dùng Dọn bản vẽ.');
     }
 }
 
@@ -1058,11 +1008,6 @@ function handleSketchHotkey(event) {
         return;
     }
 
-    if (key === 'm') {
-        addMarkAtCursor(event.shiftKey);
-        event.preventDefault();
-        return;
-    }
     if (key === '0') {
         resetZoom();
         event.preventDefault();
@@ -1107,7 +1052,6 @@ function bindUi() {
 
     const dotSize = byId('dotSize');
     const brushSize = byId('brushSize');
-    const timeCursor = byId('timeCursor');
     const title = byId('sketchTitle');
     const pub = byId('publicToggle');
     const strokeScale = byId('strokeScaleToggle');
@@ -1123,22 +1067,6 @@ function bindUi() {
         brushSize.addEventListener('input', () => {
             state.brushSize = Number(brushSize.value) || 4;
             byId('brushSizeLabel').textContent = String(state.brushSize);
-        });
-    }
-    if (timeCursor && !timeCursor.dataset.bound) {
-        timeCursor.dataset.bound = '1';
-        timeCursor.addEventListener('input', () => {
-            byId('timeCursorLabel').textContent = formatTime(timeCursor.value);
-        });
-    }
-    const timelineTrack = byId('timelineTrack');
-    if (timelineTrack && !timelineTrack.dataset.bound) {
-        timelineTrack.dataset.bound = '1';
-        timelineTrack.addEventListener('click', (event) => {
-            if (event.target.closest?.('.mark-btn')) return;
-            const time = eventToTimelineTime(event, timelineTrack);
-            byId('timeCursor').value = String(time);
-            byId('timeCursorLabel').textContent = formatTime(time);
         });
     }
     if (title && !title.dataset.bound) {
@@ -1416,8 +1344,10 @@ function onPointerMove(event) {
             mark.type = ev?.type || mark.type || 'custom';
             mark.label = ev?.label || formatTime(time);
             ensureSystemDotsForMark(mark);
-            byId('timeCursor').value = String(time);
-            byId('timeCursorLabel').textContent = formatTime(time);
+            const timeCursor = byId('timeCursor');
+            const timeCursorLabel = byId('timeCursorLabel');
+            if (timeCursor) timeCursor.value = String(time);
+            if (timeCursorLabel) timeCursorLabel.textContent = formatTime(time);
             renderTimeline();
         }
         event.preventDefault();
@@ -1562,7 +1492,6 @@ function renderAll() {
     renderDots();
     renderStrokes();
     renderTowerLabels();
-    renderTimeline();
     updateStatus();
 }
 
@@ -1730,14 +1659,15 @@ function renderStrokes() {
 
 function renderTimeline() {
     const track = byId('timelineTrack');
+    const activeTimeEl = byId('activeTime');
+    if (!track || !activeTimeEl) return;
     const active = getActiveMark();
     const activeTime = active?.time ?? TOTAL_SECONDS;
-    byId('activeTime').textContent = `${formatTime(activeTime)} ${getSystemEvent(activeTime)?.icon || ''}`.trim();
-    if (byId('timeCursor')) {
-        byId('timeCursor').value = String(activeTime);
-        byId('timeCursorLabel').textContent = formatTime(activeTime);
-    }
-    if (!track) return;
+    activeTimeEl.textContent = `${formatTime(activeTime)} ${getSystemEvent(activeTime)?.icon || ''}`.trim();
+    const timeCursor = byId('timeCursor');
+    const timeCursorLabel = byId('timeCursorLabel');
+    if (timeCursor) timeCursor.value = String(activeTime);
+    if (timeCursorLabel) timeCursorLabel.textContent = formatTime(activeTime);
     track.innerHTML = '';
     const playhead = document.createElement('div');
     playhead.className = 'timeline-playhead';
@@ -2016,8 +1946,7 @@ async function loadSketchLists() {
         state.publicSketches = publicRows.data || [];
     } catch (error) {
         markSketchTableUnavailable(error);
-        if (!state.tableAvailable) showToast('Chưa lưu online: thiếu bảng bc_tactic_sketches');
-        else console.warn('[Sketch] Load lists failed:', error);
+        if (state.tableAvailable) console.warn('[Sketch] Load lists failed:', error);
     }
     renderSketchLists();
 }
@@ -2178,11 +2107,6 @@ async function saveSketch() {
         await loadSketchLists();
         renderAll();
         clearLocalDraft();
-        const badge = byId('mapStatus');
-        if (badge) {
-            badge.classList.add('saved');
-            setTimeout(() => badge.classList.remove('saved'), 1100);
-        }
         showToast('Đã lưu bản phác thảo');
     } catch (error) {
         markSketchTableUnavailable(error);

@@ -32,6 +32,9 @@ DuyetLaiMem/
 VoiceBot/
 VoiceBot 2/
 anh/
+!WebBangChien/anh/
+WebBangChien/anh/*
+!WebBangChien/anh/map.png
 tools/dist/
 reports/
 

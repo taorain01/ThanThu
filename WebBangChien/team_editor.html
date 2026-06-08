@@ -538,11 +538,14 @@
     .web-weapon-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(4px);min-width:max-content;max-width:220px;padding:7px 9px;border-radius:8px;border:1px solid rgba(125,211,252,.22);background:rgba(4,10,6,.96);box-shadow:0 12px 28px rgba(0,0,0,.45);color:var(--text);font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;opacity:0;pointer-events:none;z-index:80;transition:opacity .12s,transform .12s}
     .web-weapon-tip img{width:24px;height:24px;object-fit:contain;border-radius:5px}
     .web-weapon-slot:hover .web-weapon-tip{opacity:1;transform:translateX(-50%) translateY(0)}
-    .web-weapon-picker{position:fixed;z-index:2000;width:min(330px,calc(100vw - 18px));max-height:min(390px,calc(100vh - 18px));overflow:auto;padding:10px;border-radius:10px;border:1px solid rgba(125,211,252,.22);background:rgba(4,10,6,.98);box-shadow:0 18px 46px rgba(0,0,0,.58);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-    .web-weapon-option{position:relative;height:56px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:4px;color:var(--text)}
+    .web-weapon-picker{position:fixed;z-index:2000;width:min(320px,calc(100vw - 18px));max-height:min(390px,calc(100vh - 18px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(125,211,252,.35) transparent;padding:10px;border-radius:10px;border:1px solid rgba(125,211,252,.22);background:rgba(4,10,6,.98);box-shadow:0 18px 46px rgba(0,0,0,.58);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+    .web-weapon-picker::-webkit-scrollbar{width:6px;height:0}
+    .web-weapon-picker::-webkit-scrollbar-track{background:transparent}
+    .web-weapon-picker::-webkit-scrollbar-thumb{background:rgba(125,211,252,.24);border-radius:999px}
+    .web-weapon-option{position:relative;height:52px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:3px;color:var(--text)}
     .web-weapon-option:hover,.web-weapon-option.active{border-color:rgba(246,196,83,.48);background:rgba(246,196,83,.1)}
     .web-weapon-option.clear{color:var(--muted);font-size:11px;font-weight:900}
-    .web-weapon-option img{width:42px;height:42px;object-fit:contain;border-radius:6px}
+    .web-weapon-option img{width:34px;height:34px;object-fit:contain;border-radius:6px}
     .web-weapon-option-label{position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%) translateY(4px);padding:6px 8px;border-radius:7px;background:rgba(4,10,6,.98);border:1px solid rgba(125,211,252,.22);color:var(--text);font-size:11px;font-weight:800;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
     .web-weapon-option:hover .web-weapon-option-label{opacity:1;transform:translateX(-50%) translateY(0)}
     .role-tag{
@@ -1306,7 +1309,30 @@
     }
 
     function getWebWeaponMeta(id) { return WEB_WEAPON_BY_ID[String(id || '').trim()] || null; }
-    function getWebWeaponIconSrc(id) { return `./anh/iconvukhi/${encodeURIComponent(id)}.png`; }
+    function getWebWeaponIconSrc(id) {
+      const fileName = `${encodeURIComponent(id)}.png`;
+      if (window.location.protocol === 'file:') return `./anh/iconvukhi/${fileName}`;
+      const basePath = window.location.pathname.includes('/WebBangChien/') ? '/WebBangChien' : '';
+      return `${basePath}/anh/iconvukhi/${fileName}`;
+    }
+    function getWebWeaponIconFallbackSrc(id) {
+      const fileName = `${encodeURIComponent(id)}.png`;
+      const currentUsesNestedPath = window.location.pathname.includes('/WebBangChien/');
+      return `${currentUsesNestedPath ? '' : '/WebBangChien'}/anh/iconvukhi/${fileName}`;
+    }
+    function handleWebWeaponIconError(img, id) {
+      if (!img || window.location.protocol === 'file:') {
+        if (img) img.hidden = true;
+        return;
+      }
+      const fallbackSrc = getWebWeaponIconFallbackSrc(id);
+      if (!img.dataset.weaponFallbackTried && !img.src.endsWith(fallbackSrc)) {
+        img.dataset.weaponFallbackTried = '1';
+        img.src = fallbackSrc;
+        return;
+      }
+      img.hidden = true;
+    }
 
     function renderWebWeaponSlots(member, editable = isLeaderEditor && !localState?.locked) {
       const roles = normalizeWebWeaponRoles(member?.web_weapon_roles || member?.webWeaponRoles);
@@ -1319,9 +1345,9 @@
           const attrs = editable
             ? `type="button" data-action="web-weapon-slot" data-id="${memberId}" data-slot="${slotIndex}"`
             : '';
-          const body = meta ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="${escapeHtmlAttr(meta.label)}">` : '';
+          const body = meta ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${escapeHtmlAttr(meta.id)}')">` : '';
           const tip = meta
-            ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="">${escapeHtml(meta.label)}</span>`
+            ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${escapeHtmlAttr(meta.id)}')">${escapeHtml(meta.label)}</span>`
             : `<span class="web-weapon-tip">Chưa chọn vũ khí</span>`;
           return `<${tag} class="web-weapon-slot${meta ? '' : ' empty'}${editable ? ' editable' : ''}" ${attrs}>${body}${tip}</${tag}>`;
         }).join('')}
@@ -1989,8 +2015,8 @@
       picker.innerHTML = `
         <button type="button" class="web-weapon-option clear" data-web-weapon-pick="">Trống<span class="web-weapon-option-label">Xóa ô này</span></button>
         ${WEB_WEAPON_CATALOG.map((item) => `
-          <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-web-weapon-pick="${escapeHtmlAttr(item.id)}">
-            <img src="${getWebWeaponIconSrc(item.id)}" alt="${escapeHtmlAttr(item.label)}">
+          <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-web-weapon-pick="${escapeHtmlAttr(item.id)}" aria-label="${escapeHtmlAttr(item.label)}">
+            <img src="${getWebWeaponIconSrc(item.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${escapeHtmlAttr(item.id)}')">
             <span class="web-weapon-option-label">${escapeHtml(item.label)}</span>
           </button>
         `).join('')}
@@ -2780,6 +2806,72 @@
       };
     }
 
+    function parseQuickRosterLogSnapshot(row) {
+      const details = row?.details && typeof row.details === 'object' ? row.details : {};
+      const parsed = safeParse(details.after_fingerprint || details.snapshot || details.roster_snapshot, null);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      const layout = safeParse(parsed.team_layout, []);
+      if (!Array.isArray(layout) || !layout.length) return null;
+      return {
+        id: `log:${row.id}`,
+        source_session_id: details.session_id || parsed.id || null,
+        day: details.day || parsed.day || null,
+        time: parsed.time || '19:30',
+        note: parsed.note || '',
+        label: getQuickSourceLabel(parsed),
+        captured_at: details.edited_at || row.created_at || '',
+        source_updated_at: details.edited_at || row.created_at || '',
+        team_layout: layout,
+        teams: parsed.teams || parsed.teams_json || {},
+        team_attack1: parsed.team_attack1 || [],
+        team_attack2: parsed.team_attack2 || [],
+        team_defense: parsed.team_defense || [],
+        team_forest: parsed.team_forest || [],
+        waiting_list: parsed.waiting_list || [],
+        team_sizes: parsed.team_sizes || {},
+        team_names: parsed.team_names || {},
+        leader_ids: parsed.leader_ids || {},
+        source: 'web_log',
+        source_log_id: row.id
+      };
+    }
+
+    function getQuickSourceLayoutCount(source) {
+      return normalizeTeamLayout(source?.session || {}).length;
+    }
+
+    function isBetterQuickHistorySource(candidate, existing) {
+      if (!existing) return true;
+      const layoutDiff = getQuickSourceLayoutCount(candidate) - getQuickSourceLayoutCount(existing);
+      if (layoutDiff !== 0) return layoutDiff > 0;
+      const activeDiff = Number(candidate?.activeCount || 0) - Number(existing?.activeCount || 0);
+      if (activeDiff !== 0) return activeDiff > 0;
+      return getQuickSourceUpdatedMs(candidate) > getQuickSourceUpdatedMs(existing);
+    }
+
+    async function fetchQuickRosterLogSnapshots() {
+      try {
+        const { data, error } = await sb
+          .from('bc_logs')
+          .select('id,created_at,details')
+          .eq('guild_id', GUILD_ID)
+          .in('action', ['roster_sync', 'quick_team'])
+          .gte('created_at', getQuickHistoryCutoffIso())
+          .order('created_at', { ascending: false })
+          .limit(QUICK_HISTORY_LIMIT);
+        if (error) {
+          console.warn('[TeamEditor] Load roster log snapshots failed:', error);
+          return [];
+        }
+        return (data || [])
+          .map(parseQuickRosterLogSnapshot)
+          .filter(Boolean);
+      } catch (error) {
+        console.warn('[TeamEditor] Load roster log snapshots exception:', error);
+        return [];
+      }
+    }
+
     async function fetchQuickRosterSnapshots() {
       if (!supportsRosterSnapshots) return [];
       try {
@@ -2825,17 +2917,21 @@
         .filter((session) => String(session.id || '') !== currentId)
         .map(buildQuickSourceFromSession);
       const activeSourceIds = new Set(activeSources.map((source) => source.sourceSessionId).filter(Boolean));
-      const snapshotSeen = new Set();
-      const snapshotSources = (await fetchQuickRosterSnapshots())
-        .filter((row) => {
-          const sourceId = String(row.source_session_id || row.id || '');
-          if (!sourceId || sourceId === currentId) return false;
-          if (activeSourceIds.has(sourceId)) return false;
-          if (snapshotSeen.has(sourceId)) return false;
-          snapshotSeen.add(sourceId);
-          return true;
-        })
-        .map(buildQuickSourceFromSnapshot);
+      const activeBySourceId = new Map(activeSources.map((source) => [source.sourceSessionId, source]));
+      const snapshotRows = await fetchQuickRosterSnapshots();
+      const logRows = await fetchQuickRosterLogSnapshots();
+      const historyBySourceId = new Map();
+      [...snapshotRows, ...logRows].forEach((row) => {
+        const sourceId = String(row.source_session_id || row.id || '');
+        if (!sourceId) return;
+        const source = buildQuickSourceFromSnapshot(row);
+        const activeSource = activeBySourceId.get(sourceId);
+        if (activeSource && !isBetterQuickHistorySource(source, activeSource)) return;
+        if (sourceId === currentId && getQuickSourceLayoutCount(source) <= getQuickSourceLayoutCount({ session: localState || currentSessionData || {} })) return;
+        if (isBetterQuickHistorySource(source, historyBySourceId.get(sourceId))) historyBySourceId.set(sourceId, source);
+      });
+      const snapshotSources = [...historyBySourceId.values()]
+        .filter((source) => !activeSourceIds.has(source.sourceSessionId) || getQuickSourceLayoutCount(source) > getQuickSourceLayoutCount(activeBySourceId.get(source.sourceSessionId)));
 
       return [...sortQuickSourceList(activeSources), ...sortQuickSourceList(snapshotSources)];
     }

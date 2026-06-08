@@ -1819,11 +1819,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .web-weapon-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(4px);min-width:max-content;max-width:220px;padding:7px 9px;border-radius:8px;border:1px solid rgba(141,255,183,.22);background:rgba(5,14,9,.96);box-shadow:0 12px 28px rgba(0,0,0,.45);color:var(--text);font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;opacity:0;pointer-events:none;z-index:80;transition:opacity .12s,transform .12s}
 .web-weapon-tip img{width:24px;height:24px;object-fit:contain;border-radius:5px}
 .web-weapon-slot:hover .web-weapon-tip{opacity:1;transform:translateX(-50%) translateY(0)}
-.web-weapon-picker{position:fixed;z-index:2000;width:min(330px,calc(100vw - 18px));max-height:min(390px,calc(100vh - 18px));overflow:auto;padding:10px;border-radius:10px;border:1px solid rgba(141,255,183,.22);background:rgba(5,14,9,.98);box-shadow:0 18px 46px rgba(0,0,0,.58);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-.web-weapon-option{position:relative;height:56px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:4px;color:var(--text)}
+.web-weapon-picker{position:fixed;z-index:2000;width:min(320px,calc(100vw - 18px));max-height:min(390px,calc(100vh - 18px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(141,255,183,.35) transparent;padding:10px;border-radius:10px;border:1px solid rgba(141,255,183,.22);background:rgba(5,14,9,.98);box-shadow:0 18px 46px rgba(0,0,0,.58);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.web-weapon-picker::-webkit-scrollbar{width:6px;height:0}
+.web-weapon-picker::-webkit-scrollbar-track{background:transparent}
+.web-weapon-picker::-webkit-scrollbar-thumb{background:rgba(141,255,183,.24);border-radius:999px}
+.web-weapon-option{position:relative;height:52px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:3px;color:var(--text)}
 .web-weapon-option:hover,.web-weapon-option.active{border-color:rgba(251,191,36,.48);background:rgba(251,191,36,.1)}
 .web-weapon-option.clear{color:var(--text3);font-size:11px;font-weight:900}
-.web-weapon-option img{width:42px;height:42px;object-fit:contain;border-radius:6px}
+.web-weapon-option img{width:34px;height:34px;object-fit:contain;border-radius:6px}
 .web-weapon-option-label{position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%) translateY(4px);padding:6px 8px;border-radius:7px;background:rgba(5,14,9,.98);border:1px solid rgba(141,255,183,.22);color:var(--text);font-size:11px;font-weight:800;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
 .web-weapon-option:hover .web-weapon-option-label{opacity:1;transform:translateX(-50%) translateY(0)}
 .m-tag{padding:2px 8px;border-radius:14px;font-size:10px;font-weight:700;letter-spacing:.3px}
@@ -4842,7 +4845,30 @@ function normalizeWebWeaponRoles(value) {
 }
 
 function getWebWeaponMeta(id) { return WEB_WEAPON_BY_ID[String(id || '').trim()] || null; }
-function getWebWeaponIconSrc(id) { return `./anh/iconvukhi/${encodeURIComponent(id)}.png`; }
+function getWebWeaponIconSrc(id) {
+    const fileName = `${encodeURIComponent(id)}.png`;
+    if (window.location.protocol === 'file:') return `./anh/iconvukhi/${fileName}`;
+    const basePath = window.location.pathname.includes('/WebBangChien/') ? '/WebBangChien' : '';
+    return `${basePath}/anh/iconvukhi/${fileName}`;
+}
+function getWebWeaponIconFallbackSrc(id) {
+    const fileName = `${encodeURIComponent(id)}.png`;
+    const currentUsesNestedPath = window.location.pathname.includes('/WebBangChien/');
+    return `${currentUsesNestedPath ? '' : '/WebBangChien'}/anh/iconvukhi/${fileName}`;
+}
+function handleWebWeaponIconError(img, id) {
+    if (!img || window.location.protocol === 'file:') {
+        if (img) img.hidden = true;
+        return;
+    }
+    const fallbackSrc = getWebWeaponIconFallbackSrc(id);
+    if (!img.dataset.weaponFallbackTried && !img.src.endsWith(fallbackSrc)) {
+        img.dataset.weaponFallbackTried = '1';
+        img.src = fallbackSrc;
+        return;
+    }
+    img.hidden = true;
+}
 
 function renderIndexWebWeaponSlots(player, editable = false) {
     const roles = normalizeWebWeaponRoles(player?.web_weapon_roles || player?.webWeaponRoles);
@@ -4855,9 +4881,9 @@ function renderIndexWebWeaponSlots(player, editable = false) {
             const attrs = editable
                 ? `type="button" data-action="index-web-weapon-slot" data-id="${memberId}" data-slot="${slotIndex}"`
                 : '';
-            const body = meta ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="${escapeIndexHtml(meta.label)}">` : '';
+            const body = meta ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${escapeIndexHtml(meta.id)}')">` : '';
             const tip = meta
-                ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="">${escapeIndexHtml(meta.label)}</span>`
+                ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${escapeIndexHtml(meta.id)}')">${escapeIndexHtml(meta.label)}</span>`
                 : `<span class="web-weapon-tip">Chưa chọn vũ khí</span>`;
             return `<${tag} class="web-weapon-slot${meta ? '' : ' empty'}${editable ? ' editable' : ''}" ${attrs}>${body}${tip}</${tag}>`;
         }).join('')}
@@ -5266,8 +5292,8 @@ function openIndexWebWeaponPicker(anchor, discordId, slotIndex) {
     picker.innerHTML = `
         <button type="button" class="web-weapon-option clear" data-index-web-weapon-pick="">Trống<span class="web-weapon-option-label">Xóa ô này</span></button>
         ${WEB_WEAPON_CATALOG.map((item) => `
-            <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-index-web-weapon-pick="${escapeIndexHtml(item.id)}">
-                <img src="${getWebWeaponIconSrc(item.id)}" alt="${escapeIndexHtml(item.label)}">
+            <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-index-web-weapon-pick="${escapeIndexHtml(item.id)}" aria-label="${escapeIndexHtml(item.label)}">
+                <img src="${getWebWeaponIconSrc(item.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${escapeIndexHtml(item.id)}')">
                 <span class="web-weapon-option-label">${escapeIndexHtml(item.label)}</span>
             </button>
         `).join('')}

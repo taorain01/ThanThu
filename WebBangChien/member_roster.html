@@ -393,9 +393,13 @@
     .web-weapon-picker {
       position: fixed;
       z-index: 2000;
-      width: min(330px, calc(100vw - 18px));
+      width: min(320px, calc(100vw - 18px));
       max-height: min(390px, calc(100vh - 18px));
-      overflow: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(141,255,183,.35) transparent;
       padding: 10px;
       border-radius: 10px;
       border: 1px solid rgba(141,255,183,.22);
@@ -405,9 +409,18 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 7px;
     }
+    .web-weapon-picker::-webkit-scrollbar {
+      width: 6px;
+      height: 0;
+    }
+    .web-weapon-picker::-webkit-scrollbar-track { background: transparent; }
+    .web-weapon-picker::-webkit-scrollbar-thumb {
+      background: rgba(141,255,183,.24);
+      border-radius: 999px;
+    }
     .web-weapon-option {
       position: relative;
-      height: 56px;
+      height: 52px;
       border-radius: 8px;
       border: 1px solid rgba(255,255,255,.09);
       background: rgba(255,255,255,.035);
@@ -415,7 +428,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      padding: 4px;
+      padding: 3px;
     }
     .web-weapon-option:hover,
     .web-weapon-option.active {
@@ -428,8 +441,8 @@
       font-weight: 900;
     }
     .web-weapon-option img {
-      width: 42px;
-      height: 42px;
+      width: 34px;
+      height: 34px;
       object-fit: contain;
       border-radius: 6px;
     }
@@ -1343,7 +1356,30 @@
       .slice(0, 2);
   }
   function getWebWeaponMeta(id) { return WEB_WEAPON_BY_ID[String(id || '').trim()] || null; }
-  function getWebWeaponIconSrc(id) { return `./anh/iconvukhi/${encodeURIComponent(id)}.png`; }
+  function getWebWeaponIconSrc(id) {
+    const fileName = `${encodeURIComponent(id)}.png`;
+    if (window.location.protocol === 'file:') return `./anh/iconvukhi/${fileName}`;
+    const basePath = window.location.pathname.includes('/WebBangChien/') ? '/WebBangChien' : '';
+    return `${basePath}/anh/iconvukhi/${fileName}`;
+  }
+  function getWebWeaponIconFallbackSrc(id) {
+    const fileName = `${encodeURIComponent(id)}.png`;
+    const currentUsesNestedPath = window.location.pathname.includes('/WebBangChien/');
+    return `${currentUsesNestedPath ? '' : '/WebBangChien'}/anh/iconvukhi/${fileName}`;
+  }
+  function handleWebWeaponIconError(img, id) {
+    if (!img || window.location.protocol === 'file:') {
+      if (img) img.hidden = true;
+      return;
+    }
+    const fallbackSrc = getWebWeaponIconFallbackSrc(id);
+    if (!img.dataset.weaponFallbackTried && !img.src.endsWith(fallbackSrc)) {
+      img.dataset.weaponFallbackTried = '1';
+      img.src = fallbackSrc;
+      return;
+    }
+    img.hidden = true;
+  }
   function renderWebWeaponSlots(row, editable = canEditWebWeaponRoles()) {
     const roles = normalizeWebWeaponRoles(row?.web_weapon_roles || row?.webWeaponRoles);
     const memberId = esc(row?.discord_id || row?.id || '');
@@ -1356,10 +1392,10 @@
           ? `type="button" data-action="web-weapon-slot" data-id="${memberId}" data-slot="${slotIndex}"`
           : '';
         const body = meta
-          ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="${esc(meta.label)}">`
+          ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${esc(meta.id)}')">`
           : '';
         const tip = meta
-          ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="">${esc(meta.label)}</span>`
+          ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${esc(meta.id)}')">${esc(meta.label)}</span>`
           : `<span class="web-weapon-tip">Chưa chọn vũ khí</span>`;
         return `<${tag} class="web-weapon-slot${meta ? '' : ' empty'}${editable ? ' editable' : ''}" ${attrs}>${body}${tip}</${tag}>`;
       }).join('')}
@@ -2407,8 +2443,8 @@
     picker.innerHTML = `
       <button type="button" class="web-weapon-option clear" data-web-weapon-pick="">Trống<span class="web-weapon-option-label">Xóa ô này</span></button>
       ${WEB_WEAPON_CATALOG.map((item) => `
-        <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-web-weapon-pick="${esc(item.id)}">
-          <img src="${getWebWeaponIconSrc(item.id)}" alt="${esc(item.label)}">
+        <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-web-weapon-pick="${esc(item.id)}" aria-label="${esc(item.label)}">
+          <img src="${getWebWeaponIconSrc(item.id)}" alt="" loading="lazy" decoding="async" onerror="handleWebWeaponIconError(this,'${esc(item.id)}')">
           <span class="web-weapon-option-label">${esc(item.label)}</span>
         </button>
       `).join('')}

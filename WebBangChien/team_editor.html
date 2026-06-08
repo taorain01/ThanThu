@@ -526,8 +526,25 @@
     .avatar.healer{background:rgba(97,232,155,.22);border-color:rgba(97,232,155,.5)}
     .avatar.tanker{background:rgba(255,173,77,.22);border-color:rgba(255,173,77,.5)}
     .member-main{min-width:0;flex:1}
-    .member-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .member-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+    .member-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .member-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .web-weapon-slots{display:inline-flex;align-items:center;gap:3px;flex-shrink:0}
+    .web-weapon-slot{position:relative;width:22px;height:22px;border-radius:6px;border:1px solid rgba(125,211,252,.18);background:rgba(255,255,255,.035);display:inline-flex;align-items:center;justify-content:center;padding:0;color:var(--muted);vertical-align:middle}
+    .web-weapon-slot.empty::before{content:"";width:8px;height:8px;border-radius:3px;border:1px dashed rgba(255,255,255,.28)}
+    .web-weapon-slot.editable{cursor:pointer}
+    .web-weapon-slot.editable:hover{border-color:rgba(246,196,83,.5);background:rgba(246,196,83,.1)}
+    .web-weapon-slot img{width:18px;height:18px;object-fit:contain;border-radius:4px;display:block}
+    .web-weapon-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(4px);min-width:max-content;max-width:220px;padding:7px 9px;border-radius:8px;border:1px solid rgba(125,211,252,.22);background:rgba(4,10,6,.96);box-shadow:0 12px 28px rgba(0,0,0,.45);color:var(--text);font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;opacity:0;pointer-events:none;z-index:80;transition:opacity .12s,transform .12s}
+    .web-weapon-tip img{width:24px;height:24px;object-fit:contain;border-radius:5px}
+    .web-weapon-slot:hover .web-weapon-tip{opacity:1;transform:translateX(-50%) translateY(0)}
+    .web-weapon-picker{position:fixed;z-index:2000;width:min(330px,calc(100vw - 18px));max-height:min(390px,calc(100vh - 18px));overflow:auto;padding:10px;border-radius:10px;border:1px solid rgba(125,211,252,.22);background:rgba(4,10,6,.98);box-shadow:0 18px 46px rgba(0,0,0,.58);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+    .web-weapon-option{position:relative;height:56px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:4px;color:var(--text)}
+    .web-weapon-option:hover,.web-weapon-option.active{border-color:rgba(246,196,83,.48);background:rgba(246,196,83,.1)}
+    .web-weapon-option.clear{color:var(--muted);font-size:11px;font-weight:900}
+    .web-weapon-option img{width:42px;height:42px;object-fit:contain;border-radius:6px}
+    .web-weapon-option-label{position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%) translateY(4px);padding:6px 8px;border-radius:7px;background:rgba(4,10,6,.98);border:1px solid rgba(125,211,252,.22);color:var(--text);font-size:11px;font-weight:800;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
+    .web-weapon-option:hover .web-weapon-option-label{opacity:1;transform:translateX(-50%) translateY(0)}
     .role-tag{
       padding:5px 8px;
       border-radius:999px;
@@ -948,8 +965,8 @@
         <!-- Nút Split: chuyển giữa Đội Hình / Chiến Thuật -->
         <div class="split-btn" id="splitNav">
           <div class="split-side left active"><span>✏️ Đội Hình</span></div>
-          <div class="split-divider"></div>
-          <div class="split-side right" onclick="navigateTo('tactics')"><span>⚔️ Chiến Thuật</span></div>
+          <div class="split-divider" style="display:none"></div>
+          <div class="split-side right" style="display:none" aria-hidden="true" onclick="navigateTo('tactics')"><span>⚔️ Chiến Thuật</span></div>
         </div>
       </div>
 
@@ -1107,6 +1124,25 @@
       { value: '💠', label: 'Đặc biệt' },
       { value: '👑', label: 'Chủ lực' }
     ];
+    const WEB_WEAPON_CATALOG = [
+      { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
+      { id:'Cuu_Kiem', label:'Cửu Kiếm' },
+      { id:'Du_Nem', label:'Dù Ném' },
+      { id:'Hoanh_Dao', label:'Hoành Đao' },
+      { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' },
+      { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
+      { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
+      { id:'Mach_Dao', label:'Mạch Đao' },
+      { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
+      { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
+      { id:'Roi_Nem', label:'Roi Ném' },
+      { id:'Song_Dao', label:'Song Đao' },
+      { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+      { id:'Vo_Danh_Kiem', label:'Vô Danh Kiếm' },
+      { id:'Vo_Danh_Thuong', label:'Vô Danh Thương' },
+      { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' }
+    ];
+    const WEB_WEAPON_BY_ID = Object.fromEntries(WEB_WEAPON_CATALOG.map((item) => [item.id, item]));
     const SORT_OPTIONS = [
       { value: 'default', label: 'Mặc định' },
       { value: 'role', label: 'Theo vai trò' },
@@ -1153,6 +1189,7 @@
     let activeSortMenu = null;
     let activeFilter = { type: 'all', value: 'all' };
     let currentRenderView = null;
+    let webWeaponPickerEl = null;
     let currentDropIntent = null;
     let dragPointer = null;
     let dragStatusRaf = null;
@@ -1255,6 +1292,42 @@
       return escapeHtml(value).replace(/`/g, '&#96;');
     }
 
+    function normalizeWebWeaponRoles(value) {
+      let source = value;
+      if (typeof source === 'string') {
+        try { source = JSON.parse(source || '[]'); } catch (error) { source = []; }
+      }
+      if (!Array.isArray(source)) source = [];
+      const seen = new Set();
+      return source
+        .map((item) => String(item || '').trim())
+        .filter((item) => WEB_WEAPON_BY_ID[item] && !seen.has(item) && seen.add(item))
+        .slice(0, 2);
+    }
+
+    function getWebWeaponMeta(id) { return WEB_WEAPON_BY_ID[String(id || '').trim()] || null; }
+    function getWebWeaponIconSrc(id) { return `./anh/iconvukhi/${encodeURIComponent(id)}.png`; }
+
+    function renderWebWeaponSlots(member, editable = isLeaderEditor && !localState?.locked) {
+      const roles = normalizeWebWeaponRoles(member?.web_weapon_roles || member?.webWeaponRoles);
+      const memberId = escapeHtmlAttr(member?.id || member?.discord_id || '');
+      return `<span class="web-weapon-slots" data-web-weapon-member="${memberId}">
+        ${[0, 1].map((slotIndex) => {
+          const id = roles[slotIndex] || '';
+          const meta = getWebWeaponMeta(id);
+          const tag = editable ? 'button' : 'span';
+          const attrs = editable
+            ? `type="button" data-action="web-weapon-slot" data-id="${memberId}" data-slot="${slotIndex}"`
+            : '';
+          const body = meta ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="${escapeHtmlAttr(meta.label)}">` : '';
+          const tip = meta
+            ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="">${escapeHtml(meta.label)}</span>`
+            : `<span class="web-weapon-tip">Chưa chọn vũ khí</span>`;
+          return `<${tag} class="web-weapon-slot${meta ? '' : ' empty'}${editable ? ' editable' : ''}" ${attrs}>${body}${tip}</${tag}>`;
+        }).join('')}
+      </span>`;
+    }
+
     function normalizeTeamId(value, fallback) {
       return String(value || fallback || '')
         .trim()
@@ -1354,16 +1427,49 @@
       }).sort((a, b) => a.order - b.order).map((team, index) => ({ ...team, order:index + 1 }));
     }
 
+    const BLOCKED_EDITOR_ROSTER_NAMES = new Set(['web', 'user', 'unknown', 'player']);
+
+    function normalizeEditorRosterName(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    function getEditorRosterDisplayName(member) {
+      return String(member?.gn || member?.game_username || member?.name || member?.username || '').trim();
+    }
+
+    function isEditorRosterMemberAllowed(member) {
+      if (!member || typeof member !== 'object') return false;
+      const id = String(member.id || '').trim();
+      const displayName = getEditorRosterDisplayName(member);
+      if (!id || !displayName) return false;
+      return !BLOCKED_EDITOR_ROSTER_NAMES.has(normalizeEditorRosterName(displayName));
+    }
+
+    function sanitizeEditorRosterMembers(members, teamKey = '') {
+      return (Array.isArray(members) ? members : [])
+        .filter(isEditorRosterMemberAllowed)
+        .map((member) => ({ ...member, team: teamKey || member.team }));
+    }
+
+    function countEditorRosterMembers(members) {
+      return (Array.isArray(members) ? members : []).filter(isEditorRosterMemberAllowed).length;
+    }
+
     function getRosterSourceDecision(session = {}, layout = normalizeTeamLayout(session)) {
       const rawTeams = getRosterTeamsObject(session, layout);
       const dynamic = rawTeams && typeof rawTeams === 'object' && !Array.isArray(rawTeams) ? rawTeams : null;
       const dynamicTotal = dynamic
         ? layout.reduce((sum, team, index) => {
             const list = getDynamicTeamMembers(dynamic, team, index);
-            return sum + (Array.isArray(list) ? list.length : 0);
+            return sum + countEditorRosterMembers(list);
           }, 0)
         : 0;
-      const legacyTotal = layout.reduce((sum, team, index) => sum + getLegacyTeamMembers(session, team, index).length, 0);
+      const legacyTotal = layout.reduce((sum, team, index) => sum + countEditorRosterMembers(getLegacyTeamMembers(session, team, index)), 0);
       return {
         rawTeams: dynamic,
         preferLegacy: legacyTotal > 0 && dynamicTotal === 0
@@ -1378,7 +1484,7 @@
       candidates.forEach((candidate) => {
         const count = layout.reduce((sum, team, index) => {
           const list = getDynamicTeamMembers(candidate, team, index);
-          return sum + (Array.isArray(list) ? list.length : 0);
+          return sum + countEditorRosterMembers(list);
         }, 0);
         if (count > bestCount) {
           best = candidate;
@@ -1390,19 +1496,21 @@
 
     function getDynamicTeamMembers(rawTeams, team, index) {
       if (!rawTeams || typeof rawTeams !== 'object' || !team) return null;
-      if (Array.isArray(rawTeams[team.id])) return rawTeams[team.id];
+      if (Array.isArray(rawTeams[team.id])) return sanitizeEditorRosterMembers(rawTeams[team.id], team.id);
       const legacyKey = LEGACY_TEAM_IDS[index];
-      if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) return rawTeams[legacyKey];
+      if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) {
+        return sanitizeEditorRosterMembers(rawTeams[legacyKey], team.id);
+      }
       return null;
     }
 
     function getLegacyTeamMembers(session = {}, team, index) {
       if (!session || !team) return [];
-      const direct = safeParse(session[team.id], []);
+      const direct = sanitizeEditorRosterMembers(safeParse(session[team.id], []), team.id);
       if (Array.isArray(direct) && direct.length) return direct;
       const legacyKey = LEGACY_TEAM_IDS[index];
       if (legacyKey && legacyKey !== team.id) {
-        const fallback = safeParse(session[legacyKey], []);
+        const fallback = sanitizeEditorRosterMembers(safeParse(session[legacyKey], []), team.id);
         if (Array.isArray(fallback) && fallback.length) return fallback;
       }
       return Array.isArray(direct) ? direct : [];
@@ -1621,7 +1729,7 @@
       layout.forEach((team, index) => {
         const fromDynamic = !preferLegacy ? getDynamicTeamMembers(rawTeams, team, index) : null;
         const source = fromDynamic || getLegacyTeamMembers(state, team, index);
-        teams[team.id] = (Array.isArray(source) ? source : []).map((member) => ({ ...member, team: team.id }));
+        teams[team.id] = sanitizeEditorRosterMembers(source, team.id);
         state[team.id] = teams[team.id];
       });
       state.team_layout = layout;
@@ -1648,7 +1756,7 @@
         forest: legacyNames.forest || 'TEAM RỪNG'
       };
       LEGACY_TEAM_IDS.forEach((id) => { state[id] = state[id] || []; });
-      state.waiting_list = [...safeParse(state.waiting_list, [])];
+      state.waiting_list = sanitizeEditorRosterMembers(safeParse(state.waiting_list, []), 'waiting_list');
       return state;
     }
 
@@ -1659,7 +1767,7 @@
     function buildTeamsPayloadFromState(state = localState) {
       const teams = {};
       (state?.team_layout || []).forEach((team) => {
-        teams[team.id] = (state[team.id] || []).map((item) => ({ ...item, team: team.id }));
+        teams[team.id] = sanitizeEditorRosterMembers(state[team.id] || [], team.id);
       });
       return teams;
     }
@@ -1675,6 +1783,238 @@
           : [];
       });
       return mirror;
+    }
+
+    function buildTeamSizesFromLayout(layout) {
+      const sizes = {};
+      (layout || []).slice(0, LEGACY_TEAM_IDS.length).forEach((team, index) => {
+        const sizeKey = LEGACY_SIZE_KEY_MAP[LEGACY_TEAM_IDS[index]];
+        if (sizeKey) sizes[sizeKey] = Number(team.capacity) || 0;
+      });
+      return sizes;
+    }
+
+    function buildTeamNamesFromLayout(layout) {
+      const names = {};
+      (layout || []).slice(0, LEGACY_TEAM_IDS.length).forEach((team, index) => {
+        const sizeKey = LEGACY_SIZE_KEY_MAP[LEGACY_TEAM_IDS[index]];
+        if (sizeKey) names[sizeKey] = team.name || '';
+      });
+      return names;
+    }
+
+    function applyWebWeaponRolesToState(state, discordId, roles) {
+      const normalized = normalizeWebWeaponRoles(roles);
+      let changed = false;
+      const applyList = (list) => {
+        (Array.isArray(list) ? list : []).forEach((member) => {
+          if (String(member?.id || member?.discord_id || '') !== String(discordId)) return;
+          member.web_weapon_roles = normalized.slice();
+          changed = true;
+        });
+      };
+      getActiveTeamKeys(state).forEach((teamKey) => applyList(state[teamKey]));
+      applyList(state.waiting_list);
+      return changed;
+    }
+
+    function buildSessionPayloadFromState(state, session = {}, action = 'sync', targetId = null) {
+      normalizeDynamicRosterState(state);
+      normalizeLeaderState(state);
+      const teams = buildTeamsPayloadFromState(state);
+      const mirror = buildLegacyMirrorFromState(state);
+      const leaderIds = {
+        ...(state.leader_ids || {}),
+        editor_id: currentDiscordId || null,
+        editor_name: currentUserName || 'Web',
+        editor_action: action,
+        edited_at: Date.now()
+      };
+      if (targetId) leaderIds.editor_target_id = String(targetId);
+      const payload = {
+        team_attack1: JSON.stringify(mirror.team_attack1 || []),
+        team_attack2: JSON.stringify(mirror.team_attack2 || []),
+        team_defense: JSON.stringify(mirror.team_defense || []),
+        team_forest: JSON.stringify(mirror.team_forest || []),
+        waiting_list: JSON.stringify(state.waiting_list || []),
+        team_sizes: JSON.stringify(buildTeamSizesFromLayout(state.team_layout || [])),
+        team_names: JSON.stringify(buildTeamNamesFromLayout(state.team_layout || [])),
+        leader_ids: JSON.stringify(leaderIds),
+        team_layout: state.team_layout || [],
+        teams_json: JSON.stringify(teams)
+      };
+      if (Object.prototype.hasOwnProperty.call(session || {}, 'teams')) payload.teams = teams;
+      if (Object.prototype.hasOwnProperty.call(session || {}, 'locked')) payload.locked = !!state.locked;
+      return payload;
+    }
+
+    async function updateSessionRowWithPayload(session, payload) {
+      const applyUpdate = async (nextPayload) => sb.from('bc_sessions')
+        .update(nextPayload)
+        .eq('guild_id', GUILD_ID)
+        .eq('id', session.id)
+        .select('*')
+        .maybeSingle();
+      let nextPayload = { ...payload };
+      let { data, error } = await applyUpdate(nextPayload);
+      if (error && /locked/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.locked;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+      }
+      if (error && /(team_layout|teams|teams_json)/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.team_layout;
+        delete nextPayload.teams;
+        delete nextPayload.teams_json;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+      }
+      if (error && /team_names/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.team_names;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+      }
+      if (error && /team_sizes/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.team_sizes;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+      }
+      if (error && /leader_ids/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.leader_ids;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+      }
+      if (error) throw error;
+      return data || { ...session, ...nextPayload };
+    }
+
+    async function fetchActiveSessionsForBulkUpdate() {
+      let result = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID).eq('status', 'active');
+      if (result.error && /status/i.test(result.error.message || '')) {
+        result = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID);
+      }
+      if (result.error) throw result.error;
+      return result.data || [];
+    }
+
+    function setLocalWebWeaponRoles(discordId, roles) {
+      const normalized = normalizeWebWeaponRoles(roles);
+      if (!localState) return;
+      if (applyWebWeaponRolesToState(localState, discordId, normalized)) {
+        markLocalMutation();
+        renderEditor();
+      }
+    }
+
+    async function syncWebWeaponRolesToActiveSessions(discordId, roles) {
+      const sessions = await fetchActiveSessionsForBulkUpdate();
+      for (const session of sessions) {
+        const state = cloneSessionState(session);
+        if (!applyWebWeaponRolesToState(state, discordId, roles)) continue;
+        const payload = buildSessionPayloadFromState(state, session, 'web_weapon_roles', discordId);
+        const updated = await updateSessionRowWithPayload(session, payload);
+        upsertEditorSessionOption(updated);
+        if (String(updated?.id || '') === String(currentSessionId || '')) {
+          currentSessionData = updated;
+          lastRemoteFingerprint = getSessionFingerprint(updated);
+        }
+      }
+      if (localState) {
+        normalizeDynamicRosterState(localState);
+        normalizeLeaderState(localState);
+      }
+      renderSessionSelector();
+    }
+
+    async function saveWebWeaponRoles(discordId, roles) {
+      if (!isLeaderEditor || localState?.locked) return;
+      const normalized = normalizeWebWeaponRoles(roles);
+      updateSyncBadge('Đang lưu vũ khí web...', true);
+      const { error } = await sb.rpc('bc_manager_update_web_weapon_roles', {
+        p_guild_id: GUILD_ID,
+        p_discord_id: String(discordId),
+        p_web_weapon_roles: normalized
+      });
+      if (error) throw error;
+      setLocalWebWeaponRoles(discordId, normalized);
+      await syncWebWeaponRolesToActiveSessions(discordId, normalized);
+      updateSyncBadge('Đã cập nhật vũ khí web');
+    }
+
+    function findLocalRosterMember(discordId) {
+      return getAllRosterMembers().find(({ member }) =>
+        String(member?.id || member?.discord_id || '') === String(discordId)
+      )?.member || null;
+    }
+
+    function closeWebWeaponPicker() {
+      if (webWeaponPickerEl) {
+        webWeaponPickerEl.remove();
+        webWeaponPickerEl = null;
+      }
+    }
+
+    function positionWebWeaponPicker(anchor, picker) {
+      const rect = anchor.getBoundingClientRect();
+      const margin = 9;
+      picker.style.left = '0px';
+      picker.style.top = '0px';
+      document.body.appendChild(picker);
+      const width = picker.offsetWidth || 330;
+      const height = picker.offsetHeight || 320;
+      const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
+      let top = rect.bottom + margin;
+      if (top + height > window.innerHeight - margin) top = Math.max(margin, rect.top - height - margin);
+      picker.style.left = `${left}px`;
+      picker.style.top = `${top}px`;
+    }
+
+    function openWebWeaponPicker(anchor, discordId, slotIndex) {
+      if (!isLeaderEditor || localState?.locked) return;
+      closeWebWeaponPicker();
+      const member = findLocalRosterMember(discordId) || {};
+      const currentRoles = normalizeWebWeaponRoles(member.web_weapon_roles || member.webWeaponRoles);
+      const picker = document.createElement('div');
+      picker.className = 'web-weapon-picker';
+      picker.innerHTML = `
+        <button type="button" class="web-weapon-option clear" data-web-weapon-pick="">Trống<span class="web-weapon-option-label">Xóa ô này</span></button>
+        ${WEB_WEAPON_CATALOG.map((item) => `
+          <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-web-weapon-pick="${escapeHtmlAttr(item.id)}">
+            <img src="${getWebWeaponIconSrc(item.id)}" alt="${escapeHtmlAttr(item.label)}">
+            <span class="web-weapon-option-label">${escapeHtml(item.label)}</span>
+          </button>
+        `).join('')}
+      `;
+      picker.addEventListener('click', async (event) => {
+        const option = event.target.closest('[data-web-weapon-pick]');
+        if (!option) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const picked = option.dataset.webWeaponPick || '';
+        const nextRoles = currentRoles.slice(0, 2);
+        if (picked) nextRoles[slotIndex] = picked;
+        else nextRoles.splice(slotIndex, 1);
+        closeWebWeaponPicker();
+        try {
+          await saveWebWeaponRoles(discordId, nextRoles);
+        } catch (error) {
+          updateSyncBadge('Lỗi lưu vũ khí web');
+          await customAlert(error.message || String(error));
+          await loadSession().catch(() => null);
+        }
+      });
+      webWeaponPickerEl = picker;
+      positionWebWeaponPicker(anchor, picker);
     }
 
     function hasElevatedEditorRole() {
@@ -2073,7 +2413,7 @@
         saved_at: new Date().toISOString(),
         actor: {
           id: currentDiscordId || null,
-          name: currentUserName || 'Web'
+          name: currentUserName || 'Thanh vien'
         },
         action: action || 'sync',
         snapshot,
@@ -2167,7 +2507,7 @@
       const savedAt = draft.saved_at
         ? new Date(draft.saved_at).toLocaleString('vi-VN', { hour12: false })
         : 'không rõ thời gian';
-      const actorName = draft.actor?.name || 'Web';
+      const actorName = draft.actor?.name || 'Thanh vien';
       const ok = await customConfirm(
         `Có bản nháp đội hình chưa đồng bộ (${savedAt}) từ ${actorName}. Khôi phục bản nháp này?`,
         {
@@ -2222,7 +2562,7 @@
         primary_action: getRepresentativePendingAction(new Set(actionList)),
         summary: summarizeRosterActions(actionList),
         editor_id: currentDiscordId || null,
-        editor_name: currentUserName || 'Web',
+        editor_name: currentUserName || 'Thanh vien',
         before_fingerprint: beforeFingerprint || null,
         after_fingerprint: afterFingerprint || null,
         edited_at: new Date().toISOString()
@@ -2578,9 +2918,9 @@
     async function fetchQuickTeamActiveUsers() {
       let result = await sb
         .from('bc_users')
-        .select('discord_id,discord_name,game_username,game_uid,position,sub_role,combat_role,weapon_role,lang_gia_member,left_at')
+        .select('discord_id,discord_name,game_username,game_uid,position,sub_role,combat_role,weapon_role,web_weapon_roles,lang_gia_member,left_at')
         .eq('guild_id', GUILD_ID);
-      if (result.error && /(combat_role|weapon_role|left_at)/i.test(result.error.message || '')) {
+      if (result.error && /(combat_role|weapon_role|web_weapon_roles|left_at)/i.test(result.error.message || '')) {
         result = await sb
           .from('bc_users')
           .select('discord_id,discord_name,game_username,game_uid,position,sub_role,lang_gia_member')
@@ -2615,6 +2955,7 @@
         sub: weapon,
         sub_role: weapon,
         weapon_role: weapon,
+        web_weapon_roles: normalizeWebWeaponRoles(userRow.web_weapon_roles || sourceMember?.web_weapon_roles || sourceMember?.webWeaponRoles),
         isLeader: false,
         isTeamLeader: false,
         ld: false
@@ -2975,7 +3316,7 @@
         const details = normalizeRosterLogDetails(entry.details);
         const actions = normalizeRosterActions(details.actions || [details.primary_action || 'sync']);
         const title = details.summary || summarizeRosterActions(actions);
-        const editor = details.editor_name || entry.performed_by || 'Web';
+        const editor = details.editor_name || entry.performed_by || 'Thanh vien';
         const time = formatRosterLogTime(entry.created_at || details.edited_at);
         const sessionText = details.session_id ? `S ${String(details.session_id).slice(0, 8)}` : (DAY_LABELS[details.day] || details.day || currentDay);
         const actionText = actions.map(getRosterActionLabel).join(', ');
@@ -3700,7 +4041,7 @@
         <div class="slot-badge">${slotNumber}</div>
         <div class="avatar ${cls}">${roleShort(member.role)}</div>
         <div class="member-main">
-          <div class="member-name">${displayName}</div>
+          <div class="member-name"><span class="member-name-text">${displayName}</span>${renderWebWeaponSlots(member)}</div>
           <div class="member-sub">${secondaryName}</div>
         </div>
         <button class="leader-btn ${(member.isTeamLeader || member.ld) ? 'active' : ''}" type="button">👑</button>
@@ -4095,7 +4436,7 @@
       snapshot.leader_ids = {
         ...(snapshot.leader_ids || {}),
         editor_id: currentDiscordId || null,
-        editor_name: currentUserName || 'Web',
+        editor_name: currentUserName || 'Thanh vien',
         editor_action: pendingEditorAction || 'sync',
         edited_at: Date.now()
       };
@@ -4236,7 +4577,7 @@
         updateSyncBadge('Đã đồng bộ');
       } else {
         pendingEditorAction = getRepresentativePendingAction();
-        updateSyncBadge('Web đã cập nhật, đang chờ gom lượt đồng bộ tiếp theo...', true);
+        updateSyncBadge('Da cap nhat, dang cho gom luot dong bo tiep theo...', true);
       }
       updateHeader();
     }
@@ -4587,6 +4928,110 @@
       document.getElementById('resizeModal').classList.remove('show');
     }
 
+    function clonePlainObject(value, fallback = {}) {
+      try { return JSON.parse(JSON.stringify(value ?? fallback)); } catch (error) { return fallback; }
+    }
+
+    function reflowSessionStateToLayout(session, nextLayout) {
+      const state = cloneSessionState(session);
+      const oldLayout = state.team_layout || [];
+      const oldTeams = buildTeamsPayloadFromState(state);
+      const flatActive = oldLayout.flatMap((team) => (oldTeams[team.id] || []).map((member) => ({ ...member })));
+      const toWaiting = (member) => ({
+        ...member,
+        team: 'waiting_list',
+        isTeamLeader: false,
+        ld: false
+      });
+      let waiting = (state.waiting_list || []).map(toWaiting);
+      const nextTeams = {};
+      let activeCursor = 0;
+
+      nextLayout.forEach((team) => {
+        const count = Number(team.capacity) || 0;
+        nextTeams[team.id] = flatActive.slice(activeCursor, activeCursor + count).map((member) => ({
+          ...member,
+          team: team.id
+        }));
+        activeCursor += count;
+      });
+      waiting = [
+        ...flatActive.slice(activeCursor).map(toWaiting),
+        ...waiting
+      ];
+
+      const nextTeamIds = new Set(nextLayout.map((team) => team.id));
+      oldLayout.forEach((team) => {
+        if (!nextTeamIds.has(team.id)) delete state[team.id];
+      });
+      state.team_layout = nextLayout.map((team, index) => ({ ...team, order: index + 1 }));
+      state.teams = nextTeams;
+      state.team_layout.forEach((team) => {
+        state[team.id] = nextTeams[team.id] || [];
+      });
+      state.waiting_list = waiting;
+      state.leader_ids = {
+        ...(state.leader_ids || {}),
+        teams: Object.fromEntries(Object.entries(state.leader_ids?.teams || {}).filter(([teamId]) => nextTeamIds.has(teamId)))
+      };
+      normalizeDynamicRosterState(state);
+      normalizeLeaderState(state);
+      return state;
+    }
+
+    async function syncResizeLayoutToActiveSessions(nextLayout, beforeFingerprint) {
+      if (!sb || !currentSessionId) throw new Error('Chưa xác định session hiện tại.');
+      isSyncing = true;
+      updateSyncBadge('Đang đồng bộ Resize cho tất cả session active...', true);
+      const sessions = await fetchActiveSessionsForBulkUpdate();
+      let updatedCurrent = null;
+      try {
+        for (const session of sessions) {
+          const isCurrent = String(session.id || '') === String(currentSessionId || '');
+          const state = isCurrent
+            ? clonePlainObject(localState, {})
+            : reflowSessionStateToLayout(session, nextLayout);
+          if (isCurrent) {
+            normalizeDynamicRosterState(state);
+            normalizeLeaderState(state);
+          }
+          const payload = buildSessionPayloadFromState(state, session, 'resize_global');
+          const updated = await updateSessionRowWithPayload(session, payload);
+          upsertEditorSessionOption(updated);
+          if (isCurrent) updatedCurrent = updated;
+        }
+      } finally {
+        isSyncing = false;
+        if (localState) {
+          normalizeDynamicRosterState(localState);
+          normalizeLeaderState(localState);
+        }
+      }
+
+      if (updatedCurrent) {
+        currentSessionData = updatedCurrent;
+        localState = cloneSessionState(updatedCurrent);
+        normalizeLeaderState(localState);
+        refreshLeaderEditorPermission();
+      }
+      const snapshot = buildCurrentSessionSnapshot();
+      const snapshotFingerprint = getSessionFingerprint(snapshot);
+      lastSyncAt = new Date().toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      lastSyncedFingerprint = snapshotFingerprint;
+      lastRemoteFingerprint = snapshotFingerprint;
+      pendingSyncActions = new Set();
+      pendingEditorAction = null;
+      localMutationAt = 0;
+      if (snapshot) {
+        await saveRosterSnapshotForSession(snapshot, 'web_resize_global');
+        await recordRosterWebLog(new Set(['resize']), beforeFingerprint, snapshotFingerprint, snapshot);
+        removeRosterDraft(snapshot.id || currentSessionId, snapshot.day || currentDay);
+      }
+      renderSessionSelector();
+      renderEditor();
+      updateSyncBadge('Đã đồng bộ Resize cho tất cả session active');
+    }
+
     async function applyResize() {
       if (document.querySelectorAll('[data-resize-row]').length) {
         const nextLayout = balanceResizeDraftLayout(readResizeDraftLayoutFromDom());
@@ -4658,9 +5103,16 @@
         markLocalMutation();
         closeResizeModal();
         renderEditor();
-        scheduleSync('resize', 'Đã cập nhật đội hình trên web, đang gom thay đổi để đồng bộ...');
         if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
-        await syncSessionState(true);
+        const beforeFingerprint = lastSyncedFingerprint || lastRemoteFingerprint;
+        try {
+          await syncResizeLayoutToActiveSessions(nextLayout, beforeFingerprint);
+        } catch (error) {
+          pendingSyncActions.add('resize');
+          pendingEditorAction = 'resize';
+          updateSyncBadge('Lỗi đồng bộ Resize');
+          await customAlert('Không đồng bộ được Resize cho tất cả session: ' + (error.message || error));
+        }
         return;
       }
       const nextSizes = {};
@@ -4970,10 +5422,21 @@
       if (event.target.id === 'quickTeamModal') closeQuickTeamModal();
     });
     document.addEventListener('click', (event) => {
+      const weaponSlot = event.target.closest('[data-action="web-weapon-slot"]');
+      if (weaponSlot) {
+        event.preventDefault();
+        event.stopPropagation();
+        openWebWeaponPicker(weaponSlot, weaponSlot.dataset.id, Number(weaponSlot.dataset.slot) || 0);
+        return;
+      }
+      if (webWeaponPickerEl && !event.target.closest('.web-weapon-picker')) closeWebWeaponPicker();
       if (!activeSortMenu) return;
       if (event.target.closest('[data-sort-btn]') || event.target.closest('.sort-menu')) return;
       activeSortMenu = null;
       renderEditor();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeWebWeaponPicker();
     });
     window.addEventListener('resize', scheduleEditorResizeLayout);
 

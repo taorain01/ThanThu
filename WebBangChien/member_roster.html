@@ -318,6 +318,142 @@
       box-shadow: 0 0 0 3px rgba(245,200,66,.06);
     }
     .name-edit-btn svg { width: 13px; height: 13px; }
+    .web-weapon-slots {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .web-weapon-slot {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(141,255,183,.18);
+      background: rgba(255,255,255,.035);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      color: var(--muted);
+      vertical-align: middle;
+    }
+    .web-weapon-slot.empty::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      border: 1px dashed rgba(255,255,255,.28);
+    }
+    .web-weapon-slot.editable { cursor: pointer; }
+    .web-weapon-slot.editable:hover {
+      border-color: rgba(245,200,66,.46);
+      background: rgba(245,200,66,.1);
+    }
+    .web-weapon-slot img {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      border-radius: 4px;
+      display: block;
+    }
+    .web-weapon-tip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%) translateY(4px);
+      min-width: max-content;
+      max-width: 220px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid rgba(141,255,183,.22);
+      background: rgba(5,14,9,.96);
+      box-shadow: 0 12px 28px rgba(0,0,0,.45);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 80;
+      transition: opacity .12s, transform .12s;
+    }
+    .web-weapon-tip img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      border-radius: 5px;
+    }
+    .web-weapon-slot:hover .web-weapon-tip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .web-weapon-picker {
+      position: fixed;
+      z-index: 2000;
+      width: min(330px, calc(100vw - 18px));
+      max-height: min(390px, calc(100vh - 18px));
+      overflow: auto;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(141,255,183,.22);
+      background: rgba(5,14,9,.98);
+      box-shadow: 0 18px 46px rgba(0,0,0,.58);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+    }
+    .web-weapon-option {
+      position: relative;
+      height: 56px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.035);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .web-weapon-option:hover,
+    .web-weapon-option.active {
+      border-color: rgba(245,200,66,.48);
+      background: rgba(245,200,66,.1);
+    }
+    .web-weapon-option.clear {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .web-weapon-option img {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+    .web-weapon-option-label {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 7px);
+      transform: translateX(-50%) translateY(4px);
+      padding: 6px 8px;
+      border-radius: 7px;
+      background: rgba(5,14,9,.98);
+      border: 1px solid rgba(141,255,183,.22);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s, transform .12s;
+    }
+    .web-weapon-option:hover .web-weapon-option-label {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
     .info .meta {
       font-size: 11px;
       color: var(--muted);
@@ -1095,6 +1231,25 @@
   const COMBAT_ROLES = ['DPS', 'Healer', 'Tanker'];
   const WEAPON_ROLES = ['QD', 'VD', 'SD', '9K', 'DR', 'HD'];
   const WEAPON_LABELS = { QD:'Quạt Đủ', VD:'Vô Danh', SD:'Song Đao', '9K':'Cửu Kiếm', DR:'Dù Rơi', HD:'Hoành Đao' };
+  const WEB_WEAPON_CATALOG = [
+    { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
+    { id:'Cuu_Kiem', label:'Cửu Kiếm' },
+    { id:'Du_Nem', label:'Dù Ném' },
+    { id:'Hoanh_Dao', label:'Hoành Đao' },
+    { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' },
+    { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
+    { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
+    { id:'Mach_Dao', label:'Mạch Đao' },
+    { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
+    { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
+    { id:'Roi_Nem', label:'Roi Ném' },
+    { id:'Song_Dao', label:'Song Đao' },
+    { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+    { id:'Vo_Danh_Kiem', label:'Vô Danh Kiếm' },
+    { id:'Vo_Danh_Thuong', label:'Vô Danh Thương' },
+    { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' }
+  ];
+  const WEB_WEAPON_BY_ID = Object.fromEntries(WEB_WEAPON_CATALOG.map((item) => [item.id, item]));
   const POSITION_LABELS = { owner:'Chủ guild', pbc:'Phó guild', kc:'Kỳ cựu', mem:'Thành viên' };
 
   let sb = null, currentSession = null, currentDiscordId = '', currentUserName = 'Người dùng';
@@ -1102,6 +1257,7 @@
   let realtimeChannel = null, reloadTimer = null;
   let editModalResolve = null, editModalPreviousFocus = null;
   let logPanelOpen = false, logEntries = [], logFilter = 'all', logReloadTimer = null;
+  let webWeaponPickerEl = null;
 
   try {
     const fn = window.supabase?.createClient || window.supabase?.supabase?.createClient;
@@ -1174,6 +1330,41 @@
   }
   function rowCombat(r) { return normalizeCombat(r?.combat_role, normalizeWeapon(r?.weapon_role||r?.sub_role) ? 'DPS' : ''); }
   function rowWeapon(r) { return normalizeWeapon(r?.weapon_role||r?.sub_role); }
+  function normalizeWebWeaponRoles(value) {
+    let source = value;
+    if (typeof source === 'string') {
+      try { source = JSON.parse(source || '[]'); } catch (error) { source = []; }
+    }
+    if (!Array.isArray(source)) source = [];
+    const seen = new Set();
+    return source
+      .map((item) => String(item || '').trim())
+      .filter((item) => WEB_WEAPON_BY_ID[item] && !seen.has(item) && seen.add(item))
+      .slice(0, 2);
+  }
+  function getWebWeaponMeta(id) { return WEB_WEAPON_BY_ID[String(id || '').trim()] || null; }
+  function getWebWeaponIconSrc(id) { return `./anh/iconvukhi/${encodeURIComponent(id)}.png`; }
+  function renderWebWeaponSlots(row, editable = canEditWebWeaponRoles()) {
+    const roles = normalizeWebWeaponRoles(row?.web_weapon_roles || row?.webWeaponRoles);
+    const memberId = esc(row?.discord_id || row?.id || '');
+    return `<span class="web-weapon-slots" data-web-weapon-member="${memberId}">
+      ${[0, 1].map((slotIndex) => {
+        const id = roles[slotIndex] || '';
+        const meta = getWebWeaponMeta(id);
+        const tag = editable ? 'button' : 'span';
+        const attrs = editable
+          ? `type="button" data-action="web-weapon-slot" data-id="${memberId}" data-slot="${slotIndex}"`
+          : '';
+        const body = meta
+          ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="${esc(meta.label)}">`
+          : '';
+        const tip = meta
+          ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="">${esc(meta.label)}</span>`
+          : `<span class="web-weapon-tip">Chưa chọn vũ khí</span>`;
+        return `<${tag} class="web-weapon-slot${meta ? '' : ' empty'}${editable ? ' editable' : ''}" ${attrs}>${body}${tip}</${tag}>`;
+      }).join('')}
+    </span>`;
+  }
   function positionSort(r) { return ({owner:0,pbc:1,kc:2,mem:3})[displayPosition(r)] ?? 9; }
   function isManagerPosition(pos) { return ['bc','pbc','kc','ql'].includes(normalizePosition(pos)); }
 
@@ -1510,6 +1701,14 @@
     });
     return sizes;
   }
+  function buildTeamNamesFromLayout(layout) {
+    const names = {};
+    layout.slice(0, LEGACY_TEAM_IDS.length).forEach((team, index) => {
+      const sizeKey = LEGACY_SIZE_KEYS[LEGACY_TEAM_IDS[index]];
+      if (sizeKey) names[sizeKey] = team.name || '';
+    });
+    return names;
+  }
   function buildTeamsPayloadFromRoster(roster) {
     const teams = {};
     roster.layout.forEach(team => {
@@ -1520,9 +1719,68 @@
   function encodeExistingJsonField(sess, key, value) {
     return typeof sess?.[key] === 'string' || key === 'teams_json' ? JSON.stringify(value) : value;
   }
+  function applyWebWeaponRolesToRoster(roster, discordId, roles) {
+    const normalized = normalizeWebWeaponRoles(roles);
+    let changed = false;
+    const applyList = (list) => {
+      (Array.isArray(list) ? list : []).forEach((member) => {
+        if (String(member?.id || member?.discord_id || '') !== String(discordId)) return;
+        member.web_weapon_roles = normalized.slice();
+        changed = true;
+      });
+    };
+    roster.layout.forEach((team) => applyList(roster.teams[team.id]));
+    applyList(roster.waitingList);
+    return changed;
+  }
+  function buildWebWeaponSessionPayload(sess, roster, discordId) {
+    const teamsPayload = buildTeamsPayloadFromRoster(roster);
+    const mirror = buildLegacyMirrorFromRoster(roster);
+    const leaderIds = parseLeaderIds(sess);
+    const payload = {
+      team_attack1: JSON.stringify(mirror.team_attack1 || []),
+      team_attack2: JSON.stringify(mirror.team_attack2 || []),
+      team_defense: JSON.stringify(mirror.team_defense || []),
+      team_forest: JSON.stringify(mirror.team_forest || []),
+      waiting_list: JSON.stringify(roster.waitingList || []),
+      leader_ids: JSON.stringify({
+        ...leaderIds,
+        editor_id: currentDiscordId,
+        editor_name: currentUserName || 'Web',
+        editor_action: 'web_weapon_roles',
+        editor_target_id: String(discordId),
+        edited_at: Date.now()
+      })
+    };
+    if (hasOwn(sess, 'team_layout')) payload.team_layout = encodeExistingJsonField(sess, 'team_layout', roster.layout);
+    if (hasOwn(sess, 'teams')) payload.teams = encodeExistingJsonField(sess, 'teams', teamsPayload);
+    if (hasOwn(sess, 'teams_json')) payload.teams_json = encodeExistingJsonField(sess, 'teams_json', teamsPayload);
+    if (hasOwn(sess, 'team_sizes')) payload.team_sizes = JSON.stringify(buildTeamSizesFromLayout(roster.layout));
+    if (hasOwn(sess, 'team_names')) payload.team_names = JSON.stringify(buildTeamNamesFromLayout(roster.layout));
+    return payload;
+  }
   function parseLeaderIds(sess = {}) {
     const parsed = parseMaybeJson(sess.leader_ids, {});
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  }
+  function isCurrentUserSessionLeader() {
+    if (!currentSession || !currentDiscordId) return false;
+    const leaderIds = parseLeaderIds(currentSession);
+    const directLeaderIds = [
+      leaderIds.creator_id,
+      leaderIds.commander,
+      leaderIds.team1,
+      leaderIds.team2,
+      leaderIds.team3,
+      leaderIds.team4,
+      ...Object.values(leaderIds.teams || {})
+    ].filter(Boolean).map(String);
+    if (directLeaderIds.includes(String(currentDiscordId))) return true;
+    const member = collectSessionMembers(currentSession).get(String(currentDiscordId));
+    return Boolean(member?.isLeader || member?.ld || member?.isTeamLeader);
+  }
+  function canEditWebWeaponRoles() {
+    return isManager || isCurrentUserSessionLeader();
   }
   function buildSessionParticipant(row, teamKey) {
     const combat = rowCombat(row) || 'DPS';
@@ -1544,6 +1802,7 @@
       sub: weapon || null,
       sub_role: weapon || null,
       weapon_role: weapon || null,
+      web_weapon_roles: normalizeWebWeaponRoles(row.web_weapon_roles),
       team: teamKey,
       joinedAt: Date.now()
     };
@@ -1593,6 +1852,7 @@
           id,
           combat_role: combat,
           weapon_role: weapon,
+          web_weapon_roles: normalizeWebWeaponRoles(player?.web_weapon_roles || player?.webWeaponRoles),
           session_team: teamKey,
           session_label: labels.get(teamKey) || teamKey
         });
@@ -1622,6 +1882,7 @@
       combat_role: combat || row.combat_role || null,
       weapon_role: weapon || row.weapon_role || null,
       sub_role: row.sub_role || weapon || null,
+      web_weapon_roles: normalizeWebWeaponRoles(row.web_weapon_roles || member.web_weapon_roles || member.webWeaponRoles),
       session_team: member.session_team,
       session_label: member.session_label
     };
@@ -1792,6 +2053,7 @@
         <div class="info">
           <div class="name">
             <span class="name-text">${esc(row.game_username||row.discord_name||row.discord_id)}</span>
+            ${renderWebWeaponSlots(row)}
             ${renderNameEditButton('edit-member', row.discord_id)}
             ${isSelf ? '<span class="pill you">Bạn</span>' : ''}
           </div>
@@ -2004,6 +2266,174 @@
     return data || { ...currentSession, ...payload };
   }
 
+  async function updateSessionRowWithPayload(sess, payload) {
+    const applyUpdate = async (nextPayload) => {
+      return sb.from('bc_sessions')
+        .update(nextPayload)
+        .eq('guild_id', GUILD_ID)
+        .eq('id', sess.id)
+        .select('*')
+        .maybeSingle();
+    };
+
+    let nextPayload = { ...payload };
+    let { data, error } = await applyUpdate(nextPayload);
+    if (error && /(team_layout|teams|teams_json)/i.test(error.message || '')) {
+      nextPayload = { ...nextPayload };
+      delete nextPayload.team_layout;
+      delete nextPayload.teams;
+      delete nextPayload.teams_json;
+      const retry = await applyUpdate(nextPayload);
+      data = retry.data;
+      error = retry.error || null;
+    }
+    if (error && /team_names/i.test(error.message || '')) {
+      nextPayload = { ...nextPayload };
+      delete nextPayload.team_names;
+      const retry = await applyUpdate(nextPayload);
+      data = retry.data;
+      error = retry.error || null;
+    }
+    if (error && /team_sizes/i.test(error.message || '')) {
+      nextPayload = { ...nextPayload };
+      delete nextPayload.team_sizes;
+      const retry = await applyUpdate(nextPayload);
+      data = retry.data;
+      error = retry.error || null;
+    }
+    if (error && /leader_ids/i.test(error.message || '')) {
+      nextPayload = { ...nextPayload };
+      delete nextPayload.leader_ids;
+      const retry = await applyUpdate(nextPayload);
+      data = retry.data;
+      error = retry.error || null;
+    }
+    if (error) throw error;
+    return data || { ...sess, ...nextPayload };
+  }
+
+  async function fetchActiveSessionsForWebWeaponSync() {
+    let result = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID).eq('status', 'active');
+    if (result.error && /status/i.test(result.error.message || '')) {
+      result = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID);
+    }
+    if (result.error) throw result.error;
+    return result.data || [];
+  }
+
+  async function syncWebWeaponRolesToActiveSessions(discordId, roles) {
+    const sessions = await fetchActiveSessionsForWebWeaponSync();
+    for (const sess of sessions) {
+      const roster = getSessionRosterState(sess);
+      if (!applyWebWeaponRolesToRoster(roster, discordId, roles)) continue;
+      const payload = buildWebWeaponSessionPayload(sess, roster, discordId);
+      const updated = await updateSessionRowWithPayload(sess, payload);
+      if (currentSession && String(updated?.id || sess.id || '') === String(currentSession.id || '')) {
+        currentSession = updated;
+        sessionMemberMap = collectSessionMembers(currentSession);
+        sessionMemberIds = new Set(sessionMemberMap.keys());
+      }
+    }
+  }
+
+  function setLocalWebWeaponRoles(discordId, roles) {
+    const normalized = normalizeWebWeaponRoles(roles);
+    activeRows = activeRows.map((row) => String(row.discord_id) === String(discordId)
+      ? { ...row, web_weapon_roles: normalized.slice() }
+      : row);
+    if (currentSession) {
+      const roster = getSessionRosterState(currentSession);
+      if (applyWebWeaponRolesToRoster(roster, discordId, normalized)) {
+        const teamsPayload = buildTeamsPayloadFromRoster(roster);
+        const mirror = buildLegacyMirrorFromRoster(roster);
+        currentSession = {
+          ...currentSession,
+          ...mirror,
+          waiting_list: roster.waitingList,
+          team_layout: roster.layout,
+          teams_json: teamsPayload
+        };
+        sessionMemberMap = collectSessionMembers(currentSession);
+        sessionMemberIds = new Set(sessionMemberMap.keys());
+      }
+    }
+  }
+
+  async function saveWebWeaponRoles(discordId, roles) {
+    if (!canEditWebWeaponRoles()) return;
+    const normalized = normalizeWebWeaponRoles(roles);
+    showStatus('Đang lưu vũ khí web...', '');
+    const { error } = await sb.rpc('bc_manager_update_web_weapon_roles', {
+      p_guild_id: GUILD_ID,
+      p_discord_id: String(discordId),
+      p_web_weapon_roles: normalized
+    });
+    if (error) throw error;
+    setLocalWebWeaponRoles(discordId, normalized);
+    render();
+    await syncWebWeaponRolesToActiveSessions(discordId, normalized);
+    showStatus('Đã cập nhật vũ khí web.', 'ok');
+  }
+
+  function closeWebWeaponPicker() {
+    if (webWeaponPickerEl) {
+      webWeaponPickerEl.remove();
+      webWeaponPickerEl = null;
+    }
+  }
+
+  function positionWebWeaponPicker(anchor, picker) {
+    const rect = anchor.getBoundingClientRect();
+    const margin = 9;
+    picker.style.left = '0px';
+    picker.style.top = '0px';
+    document.body.appendChild(picker);
+    const width = picker.offsetWidth || 330;
+    const height = picker.offsetHeight || 320;
+    const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
+    let top = rect.bottom + margin;
+    if (top + height > window.innerHeight - margin) top = Math.max(margin, rect.top - height - margin);
+    picker.style.left = `${left}px`;
+    picker.style.top = `${top}px`;
+  }
+
+  function openWebWeaponPicker(anchor, discordId, slotIndex) {
+    if (!canEditWebWeaponRoles()) return;
+    closeWebWeaponPicker();
+    const row = getActiveById(discordId) || {};
+    const currentRoles = normalizeWebWeaponRoles(row.web_weapon_roles);
+    const picker = document.createElement('div');
+    picker.className = 'web-weapon-picker';
+    picker.innerHTML = `
+      <button type="button" class="web-weapon-option clear" data-web-weapon-pick="">Trống<span class="web-weapon-option-label">Xóa ô này</span></button>
+      ${WEB_WEAPON_CATALOG.map((item) => `
+        <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-web-weapon-pick="${esc(item.id)}">
+          <img src="${getWebWeaponIconSrc(item.id)}" alt="${esc(item.label)}">
+          <span class="web-weapon-option-label">${esc(item.label)}</span>
+        </button>
+      `).join('')}
+    `;
+    picker.addEventListener('click', async (event) => {
+      const option = event.target.closest('[data-web-weapon-pick]');
+      if (!option) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const picked = option.dataset.webWeaponPick || '';
+      const nextRoles = currentRoles.slice(0, 2);
+      if (picked) nextRoles[slotIndex] = picked;
+      else nextRoles.splice(slotIndex, 1);
+      closeWebWeaponPicker();
+      try {
+        await saveWebWeaponRoles(discordId, nextRoles);
+      } catch (error) {
+        showStatus(error.message || String(error), 'error');
+        await loadRoster(false).catch(() => null);
+      }
+    });
+    webWeaponPickerEl = picker;
+    positionWebWeaponPicker(anchor, picker);
+  }
+
   async function addMemberToSessionDirect(discordId) {
     if (!currentSession) await loadCurrentSession();
     if (!currentSession) throw new Error('Khong tim thay session.');
@@ -2146,6 +2576,11 @@
   });
   document.addEventListener('keydown', ev => {
     if (ev.key !== 'Escape') return;
+    if (webWeaponPickerEl) {
+      ev.preventDefault();
+      closeWebWeaponPicker();
+      return;
+    }
     if (editModalResolve) {
       ev.preventDefault();
       closeEditModal(null);
@@ -2158,6 +2593,14 @@
   });
   document.addEventListener('click', async ev => {
     if (ev.target.closest('#btnLoginPanel')) return loginDiscord();
+    const weaponSlot = ev.target.closest('[data-action="web-weapon-slot"]');
+    if (weaponSlot) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openWebWeaponPicker(weaponSlot, weaponSlot.dataset.id, Number(weaponSlot.dataset.slot) || 0);
+      return;
+    }
+    if (webWeaponPickerEl && !ev.target.closest('.web-weapon-picker')) closeWebWeaponPicker();
     if (logPanelOpen && !ev.target.closest('#rosterLogPanel') && !ev.target.closest('#btnRosterLog')) {
       closeRosterLogPanel();
     }
@@ -2165,6 +2608,7 @@
     if (!btn || btn.tagName === 'SELECT') return;
     try {
       const a = btn.dataset.action, id = btn.dataset.id;
+      if (a==='web-weapon-slot') return;
       if (a==='edit-member') await editMember(id);
       if (a==='edit-pending') await editPending(id);
       if (a==='delete-pending') await deletePending(id);

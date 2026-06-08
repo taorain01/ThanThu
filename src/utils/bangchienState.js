@@ -255,50 +255,135 @@ const bcRefreshTimers = new Map();
 // Thời gian debounce refresh BC overview (5 phút)
 const BC_REFRESH_DEBOUNCE = 5 * 60 * 1000;
 
+// Serialize overview edits/sends per guild so concurrent web INSERT events do not create duplicates.
+const bcOverviewLocks = new Map();
+
+// One auto-end timer per guild/day. Do not schedule per session.
+const bcAutoEndTimers = new Map();
+const bcAutoEndRunning = new Set();
+
 // Map lưu listbc detail messages (để real-time refresh)
 // Key: `${guildId}_${day}`, Value: { message, messageId, channelId }
 const listbcDetailMessages = new Map();
 
+function isBangchienOverviewMessage(message) {
+    if (!message?.author?.bot || !Array.isArray(message.embeds)) return false;
+    return message.embeds.some((embed) => String(embed?.title || '').includes('Bang Chiến Lang Gia'));
+}
+
+async function fetchOverviewMessages(channel, knownMessage = null) {
+    const byId = new Map();
+    if (knownMessage && isBangchienOverviewMessage(knownMessage)) {
+        byId.set(knownMessage.id, knownMessage);
+    }
+
+    try {
+        const fetched = await channel.messages.fetch({ limit: 100 }).catch(() => null);
+        if (fetched) {
+            for (const [, message] of fetched) {
+                if (isBangchienOverviewMessage(message)) byId.set(message.id, message);
+            }
+        }
+    } catch (e) { }
+
+    return [...byId.values()].sort((a, b) => (b.createdTimestamp || 0) - (a.createdTimestamp || 0));
+}
+
+function enqueueOverviewWork(guildId, work) {
+    const previous = bcOverviewLocks.get(guildId) || Promise.resolve();
+    const next = previous.catch(() => { }).then(work);
+    bcOverviewLocks.set(guildId, next);
+    next.finally(() => {
+        if (bcOverviewLocks.get(guildId) === next) bcOverviewLocks.delete(guildId);
+    }).catch(() => { });
+    return next;
+}
+
+function resolveOverviewChannelId(guildId, channelOrId = null) {
+    if (typeof channelOrId === 'string') return channelOrId;
+    if (channelOrId?.id) return channelOrId.id;
+
+    const overviewData = bangchienOverviews.get(guildId);
+    if (overviewData?.channelId) return overviewData.channelId;
+
+    const trackedChannelId = bangchienChannels.get(guildId);
+    if (trackedChannelId) return trackedChannelId;
+
+    try {
+        const db = require('../database/db');
+        return db.getConfig ? db.getConfig(`bc_channel_${guildId}`) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function upsertOverviewEmbed(client, guildId, channelOrId = null) {
+    return enqueueOverviewWork(guildId, async () => {
+        const channelId = resolveOverviewChannelId(guildId, channelOrId);
+        if (!channelId) return null;
+
+        const channel = typeof channelOrId === 'object' && channelOrId?.id === channelId
+            ? channelOrId
+            : await client.channels.fetch(channelId).catch(() => null);
+        if (!channel) return null;
+
+        const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
+        const guild = channel.guild || client.guilds.cache.get(guildId);
+        const embed = createOverviewEmbed(guildId, guild);
+        const row = createOverviewButton(guildId);
+        const editOptions = { embeds: [embed], components: row ? [row] : [] };
+
+        const overviewData = bangchienOverviews.get(guildId);
+        let knownMessage = null;
+        if (overviewData?.message && overviewData.channelId === channelId) {
+            knownMessage = overviewData.message;
+        } else if (overviewData?.messageId && overviewData.channelId === channelId) {
+            knownMessage = await channel.messages.fetch(overviewData.messageId).catch(() => null);
+        }
+
+        const overviewMessages = await fetchOverviewMessages(channel, knownMessage);
+        let target = overviewMessages[0] || null;
+
+        if (target) {
+            try {
+                await target.edit(editOptions);
+            } catch (e) {
+                try { await target.delete(); } catch (deleteError) { }
+                target = null;
+            }
+        }
+
+        if (!target) {
+            target = await channel.send(editOptions);
+        }
+
+        for (const duplicate of overviewMessages) {
+            if (duplicate.id === target.id) continue;
+            try { await duplicate.delete(); } catch (e) { }
+        }
+
+        bangchienOverviews.set(guildId, {
+            messageId: target.id,
+            channelId,
+            message: target
+        });
+
+        return target;
+    });
+}
+
 /**
- * Refresh overview embed ở kênh ?bc (xóa cũ, gửi mới)
+ * Refresh overview embed ở kênh ?bc (edit message mới nhất, xóa bản trùng)
  * Dùng chung cho tất cả handlers khi có thay đổi dữ liệu BC
  * @param {Client} client - Discord client
  * @param {string} guildId - Guild ID
  */
-async function refreshOverviewEmbed(client, guildId) {
-    const overviewData = bangchienOverviews.get(guildId);
-    if (!overviewData) return;
-
+async function refreshOverviewEmbed(client, guildId, channelOrId = null) {
     try {
-        const { createOverviewEmbed, createOverviewButton } = require('../commands/bangchien/bangchien');
-        const newEmbed = createOverviewEmbed(guildId, client.guilds.cache.get(guildId));
-        const newRow = createOverviewButton(guildId);
-
-        // Thử edit trước (nhanh hơn)
-        if (overviewData.message) {
-            try {
-                const editOptions = { embeds: [newEmbed] };
-                if (newRow) editOptions.components = [newRow];
-                else editOptions.components = [];
-                await overviewData.message.edit(editOptions);
-                return;
-            } catch (e) {
-                // Message không còn tồn tại → xóa và gửi mới
-            }
-        }
-
-        // Fallback: gửi message mới vào channel overview
-        const channel = await client.channels.fetch(overviewData.channelId).catch(() => null);
-        if (!channel) return;
-
-        const sendOptions = { embeds: [newEmbed] };
-        if (newRow) sendOptions.components = [newRow];
-        const newMessage = await channel.send(sendOptions);
-
-        overviewData.messageId = newMessage.id;
-        overviewData.message = newMessage;
+        return await upsertOverviewEmbed(client, guildId, channelOrId);
     } catch (e) {
         console.error('[bangchienState] Error refreshing overview:', e.message);
+        return null;
     }
 }
 
@@ -348,19 +433,24 @@ function isSessionExpired(session) {
  * @param {string} guildId - Guild ID
  * @returns {number} Số session đã cleanup
  */
-async function autoCleanupExpiredSessions(client, guildId) {
+async function autoCleanupExpiredSessions(client, guildId, options = {}) {
     const db = require('../database/db');
 
     const activeSessions = db.getActiveBangchienByGuild(guildId);
-    if (activeSessions.length === 0) return 0;
+    if (activeSessions.length === 0) {
+        return options.returnDetails ? { cleanedCount: 0, results: [] } : 0;
+    }
 
     let cleanedCount = 0;
+    const cleanupResults = [];
+    const targetDay = options.day || null;
 
     for (const session of activeSessions) {
+        const sessionDay = session.day || 'sat';
+        if (targetDay && sessionDay !== targetDay) continue;
         if (!isSessionExpired(session)) continue;
 
         const partyKey = session.party_key;
-        const sessionDay = session.day || 'sat';
 
         console.log(`[bangchien] Auto-cleanup session hết hạn: ${partyKey} (${sessionDay})`);
 
@@ -370,6 +460,7 @@ async function autoCleanupExpiredSessions(client, guildId) {
             // 1. AUTO-SAVE PRESET Team Thủ/Rừng
             const teamDefense = session.team_defense || [];
             const teamForest = session.team_forest || [];
+            const presetSaved = { thu: 0, rung: 0 };
 
             if (teamDefense.length > 0) {
                 const currentPreset = db.getBcPreset(guildId, 'thu', sessionDay);
@@ -380,6 +471,7 @@ async function autoCleanupExpiredSessions(client, guildId) {
                     }
                 }
                 db.setBcPreset(guildId, 'thu', newPreset, sessionDay);
+                presetSaved.thu = teamDefense.length;
             }
 
             if (teamForest.length > 0) {
@@ -391,16 +483,24 @@ async function autoCleanupExpiredSessions(client, guildId) {
                     }
                 }
                 db.setBcPreset(guildId, 'rung', newPreset, sessionDay);
+                presetSaved.rung = teamForest.length;
             }
 
             // 2. XÓA ROLE BC cho participants
+            let participants = [];
+            let removedCount = 0;
             if (guild) {
-                const participants = [
-                    ...(session.team_attack1 || []),
-                    ...(session.team_attack2 || []),
-                    ...(session.team_defense || []),
-                    ...(session.team_forest || [])
-                ];
+                try {
+                    const roster = require('./bangchienRoster');
+                    participants = roster.getActiveRosterMembers(session);
+                } catch (e) {
+                    participants = [
+                        ...(session.team_attack1 || []),
+                        ...(session.team_attack2 || []),
+                        ...(session.team_defense || []),
+                        ...(session.team_forest || [])
+                    ];
+                }
 
                 const bcRole = guild.roles.cache.find(r => r.name === 'bc');
                 if (bcRole && participants.length > 0) {
@@ -409,6 +509,7 @@ async function autoCleanupExpiredSessions(client, guildId) {
                             const member = await guild.members.fetch({ user: p.id, force: true }).catch(() => null);
                             if (member && member.roles.cache.has(bcRole.id)) {
                                 await member.roles.remove(bcRole);
+                                removedCount++;
                             }
                         } catch (e) { }
                     }
@@ -434,12 +535,43 @@ async function autoCleanupExpiredSessions(client, guildId) {
             // 4. XÓA SESSION KHỎI DB
             db.deleteActiveBangchien(partyKey);
 
-            // 5. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
+            // 5. Lưu snapshot thực chiến cuối tuần 19:30 trước khi xóa Supabase
+            try {
+                if (['sat', 'sun'].includes(sessionDay) && normalizeBcTime(session.time || LEAGUE_TIME) === LEAGUE_TIME) {
+                    const { saveBattleTacticsHistorySnapshot } = require('./supabaseSync');
+                    await saveBattleTacticsHistorySnapshot(guildId, sessionDay, {
+                        time: session.time || LEAGUE_TIME,
+                        roster: {
+                            attack1: session.team_attack1 || [],
+                            attack2: session.team_attack2 || [],
+                            defense: session.team_defense || [],
+                            forest: session.team_forest || []
+                        },
+                        resultNote: `Auto-end ${DAY_CONFIG[sessionDay]?.name || sessionDay} 23:00`
+                    });
+                }
+            } catch (e) {
+                console.log('[bangchien] Auto-cleanup: Lỗi lưu battle snapshot:', e.message);
+            }
+
+            // 6. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
             try {
                 const { deleteBCSession } = require('./supabaseSync');
                 await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME);
             } catch (e) { /* bỏ qua nếu supabase chưa init */ }
 
+            cleanupResults.push({
+                guildId,
+                partyKey,
+                day: sessionDay,
+                dayName: DAY_CONFIG[sessionDay]?.name || sessionDay,
+                time: normalizeBcTime(session.time || LEAGUE_TIME),
+                channelId: session.channel_id,
+                participants: participants.length,
+                removed: removedCount,
+                presetThu: presetSaved.thu,
+                presetRung: presetSaved.rung
+            });
             cleanedCount++;
             console.log(`[bangchien] Auto-cleanup xong: ${partyKey} (${sessionDay})`);
 
@@ -461,7 +593,151 @@ async function autoCleanupExpiredSessions(client, guildId) {
         console.log(`[bangchien] Auto-cleanup hoàn tất: ${cleanedCount} session hết hạn đã xóa (guild ${guildId})`);
     }
 
-    return cleanedCount;
+    return options.returnDetails ? { cleanedCount, results: cleanupResults } : cleanedCount;
+}
+
+function getMsUntilBangchienAutoEnd(day) {
+    if (!DAY_CONFIG[day]) return null;
+
+    const vnOffset = 7 * 60;
+    const localOffset = new Date().getTimezoneOffset();
+    const now = new Date();
+    const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
+    const targetDayOfWeek = DAY_NUM[day] ?? 0;
+    const todayDayOfWeek = vnNow.getDay();
+
+    let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;
+    if (daysUntilTarget < 0) daysUntilTarget += 7;
+
+    const cleanupDate = new Date(vnNow);
+    cleanupDate.setDate(cleanupDate.getDate() + daysUntilTarget);
+    cleanupDate.setHours(23, 0, 0, 0);
+
+    const cleanupUTC = new Date(cleanupDate.getTime() - (localOffset + vnOffset) * 60 * 1000);
+    return cleanupUTC.getTime() - Date.now();
+}
+
+async function sendBangchienAutoEndSummary(client, guildId, channelId, results) {
+    if (!channelId || !Array.isArray(results) || results.length === 0) return;
+
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel) return;
+
+    const { EmbedBuilder } = require('discord.js');
+    const byDay = {};
+    let totalParticipants = 0;
+    let totalRolesRemoved = 0;
+
+    for (const result of results) {
+        const key = result.dayName || result.day || 'Unknown';
+        if (!byDay[key]) byDay[key] = { participants: 0, removed: 0, presetThu: 0, presetRung: 0, times: [] };
+        byDay[key].participants += result.participants || 0;
+        byDay[key].removed += result.removed || 0;
+        byDay[key].presetThu += result.presetThu || 0;
+        byDay[key].presetRung += result.presetRung || 0;
+        if (result.time) byDay[key].times.push(result.time);
+        totalParticipants += result.participants || 0;
+        totalRolesRemoved += result.removed || 0;
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(0x2ECC71)
+        .setTitle('✅ BANG CHIẾN ĐÃ TỰ ĐỘNG KẾT THÚC!')
+        .setDescription('⏰ Đã 23:00 - các phiên Bang Chiến hôm nay đã tự động kết thúc.');
+
+    for (const [dayName, info] of Object.entries(byDay)) {
+        const times = [...new Set(info.times)].sort().join(', ');
+        embed.addFields({
+            name: `📅 ${dayName}${times ? ` (${times})` : ''}`,
+            value: `👥 ${info.participants} người đi · 🔴 ${info.removed} role xóa · 💾 🛡️${info.presetThu} 🌲${info.presetRung}`,
+            inline: false
+        });
+    }
+
+    embed.setFooter({ text: `Tổng: ${totalParticipants} người · ${totalRolesRemoved} role xóa · ${results.length} phiên` })
+        .setTimestamp();
+
+    await channel.send({ embeds: [embed] });
+}
+
+async function runBangchienAutoEnd(client, guildId, day) {
+    const timerKey = `${guildId}:${day}`;
+    const timerData = bcAutoEndTimers.get(timerKey);
+    bcAutoEndTimers.delete(timerKey);
+
+    if (bcAutoEndRunning.has(timerKey)) return;
+    bcAutoEndRunning.add(timerKey);
+
+    try {
+        const cleanup = await autoCleanupExpiredSessions(client, guildId, { day, returnDetails: true });
+        const results = cleanup.results || [];
+        if (results.length === 0) {
+            console.log(`[bangchien] Auto-end ${day}: không có session hết hạn để thông báo.`);
+            return;
+        }
+
+        const channelId = timerData?.channelId || results.find(r => r.channelId)?.channelId || resolveOverviewChannelId(guildId);
+        await sendBangchienAutoEndSummary(client, guildId, channelId, results);
+
+        try {
+            const { refreshScheduleEmbed } = require('../commands/thongbao/thongbaoguild');
+            await refreshScheduleEmbed(client, guildId, channelId, 'edit');
+        } catch (e) {
+            console.log('[bangchien] Auto-end: Không thể cập nhật lịch tuần:', e.message);
+        }
+
+        console.log(`[bangchien] Auto-end ${day}: đã gửi 1 embed tổng hợp cho ${results.length} session.`);
+    } catch (e) {
+        console.error(`[bangchien] Lỗi auto-end ${day}:`, e.message);
+    } finally {
+        bcAutoEndRunning.delete(timerKey);
+    }
+}
+
+function scheduleBangchienAutoEnd(client, guildId, day, channelId = null) {
+    if (!client || !guildId || !DAY_CONFIG[day]) return false;
+
+    const timerKey = `${guildId}:${day}`;
+    const existing = bcAutoEndTimers.get(timerKey);
+    if (existing) {
+        if (channelId) existing.channelId = channelId;
+        return true;
+    }
+
+    const msUntilCleanup = getMsUntilBangchienAutoEnd(day);
+    if (!(msUntilCleanup > 0 && msUntilCleanup < 7 * 24 * 60 * 60 * 1000)) return false;
+
+    const timerId = setTimeout(() => {
+        runBangchienAutoEnd(client, guildId, day).catch((e) => {
+            console.error(`[bangchien] Lỗi timer auto-end ${day}:`, e.message);
+        });
+    }, msUntilCleanup);
+
+    bcAutoEndTimers.set(timerKey, { timerId, channelId, client });
+
+    const hoursUntil = Math.floor(msUntilCleanup / (60 * 60 * 1000));
+    const minutesUntil = Math.floor((msUntilCleanup % (60 * 60 * 1000)) / (60 * 1000));
+    console.log(`[bangchien] Đặt lịch auto-end BC 23:00 ${day} sau ${hoursUntil}h${minutesUntil}m (1 timer/ngày)`);
+    return true;
+}
+
+function scheduleBangchienAutoEndsForGuild(client, guildId) {
+    const db = require('../database/db');
+    const activeSessions = db.getActiveBangchienByGuild(guildId);
+    const byDay = new Map();
+
+    for (const session of activeSessions) {
+        const day = session.day;
+        if (!DAY_CONFIG[day] || isSessionExpired(session)) continue;
+        if (!byDay.has(day)) byDay.set(day, session.channel_id || resolveOverviewChannelId(guildId));
+    }
+
+    let scheduled = 0;
+    for (const [day, channelId] of byDay) {
+        if (scheduleBangchienAutoEnd(client, guildId, day, channelId)) scheduled++;
+    }
+
+    return scheduled;
 }
 
 async function ensureWeekendDefaultSessions(guild, options = {}) {
@@ -547,6 +823,7 @@ module.exports = {
     bangchienOverviews,
     listbcDetailMessages,
     bcRefreshTimers,
+    bcAutoEndTimers,
     // Constants
     BANGCHIEN_MAX_MEMBERS,
     BANGCHIEN_MAX_PARTIES,
@@ -575,9 +852,12 @@ module.exports = {
     getUserBangchienParty,
     getNextDayDate,
     getDayNameWithDate,
+    upsertOverviewEmbed,
     refreshOverviewEmbed,
     // Auto-cleanup
     isSessionExpired,
     autoCleanupExpiredSessions,
+    scheduleBangchienAutoEnd,
+    scheduleBangchienAutoEndsForGuild,
     ensureWeekendDefaultSessions
 };

@@ -1748,16 +1748,46 @@ function cloneDeep(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
+const BLOCKED_TACTICS_ROSTER_NAMES = new Set(['web', 'user', 'unknown', 'player']);
+
+function normalizeTacticsRosterName(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function getTacticsRosterDisplayName(player) {
+    return String(player?.gn || player?.game_username || player?.name || player?.username || '').trim();
+}
+
+function isTacticsRosterPlayerAllowed(player) {
+    if (!player || typeof player !== 'object') return false;
+    const id = String(player.id || '').trim();
+    const displayName = getTacticsRosterDisplayName(player);
+    if (!id || !displayName) return false;
+    return !BLOCKED_TACTICS_ROSTER_NAMES.has(normalizeTacticsRosterName(displayName));
+}
+
+function sanitizeTacticsRosterPlayers(players, teamKey = '') {
+    return (Array.isArray(players) ? players : [])
+        .filter(isTacticsRosterPlayerAllowed)
+        .map((player) => ({ ...player, team: teamKey || player.team }));
+}
+
 function parseSessionTeam(teamKey) {
     try {
         const roster = getSessionRosterState(sessionData);
+        if (teamKey === 'waiting_list') return roster.waitingList || [];
         if (roster.teams?.[teamKey]) return roster.teams[teamKey];
         if (LEGACY_TACTICS_TEAM_KEYS.includes(teamKey)) {
             const mirror = buildTacticsLegacyMirror(roster);
             return mirror[teamKey] || [];
         }
         const value = sessionData?.[teamKey];
-        return typeof value === 'string' ? JSON.parse(value) : (value || []);
+        return sanitizeTacticsRosterPlayers(typeof value === 'string' ? JSON.parse(value) : (value || []), teamKey);
     } catch (e) {
         return [];
     }
@@ -5940,12 +5970,12 @@ function getSessionRosterState(data = sessionData) {
     const teams = {};
     layout.forEach((team) => {
         const dynamicList = rawTeams && Array.isArray(rawTeams[team.id]) ? rawTeams[team.id] : null;
-        teams[team.id] = (dynamicList || parseTacticsJsonList(data?.[team.id])).map((player) => ({ ...player, team: team.id }));
+        teams[team.id] = sanitizeTacticsRosterPlayers(dynamicList || parseTacticsJsonList(data?.[team.id]), team.id);
     });
     return {
         layout,
         teams,
-        waitingList: parseTacticsJsonList(data?.waiting_list).map((player) => ({ ...player, team:'waiting_list' }))
+        waitingList: sanitizeTacticsRosterPlayers(parseTacticsJsonList(data?.waiting_list), 'waiting_list')
     };
 }
 
@@ -9230,13 +9260,7 @@ function getRealPlayersFromSession() {
 
 function getWaitingPlayersFromSession() {
     if (!sessionData) return [];
-    try {
-        return typeof sessionData.waiting_list === 'string'
-            ? JSON.parse(sessionData.waiting_list || '[]')
-            : (sessionData.waiting_list || []);
-    } catch (error) {
-        return [];
-    }
+    return getSessionRosterState(sessionData).waitingList || [];
 }
 
 function getRegisteredHumanCount() {

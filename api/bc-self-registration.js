@@ -80,6 +80,17 @@ function parseJsonObject(value, fallback = {}) {
   }
 }
 
+function normalizeWebWeaponRoles(value) {
+  const source = Array.isArray(value)
+    ? value
+    : (typeof value === 'string' ? parseJsonList(value) : []);
+  const seen = new Set();
+  return source
+    .map((item) => String(item || '').trim())
+    .filter((item) => item && !seen.has(item) && seen.add(item))
+    .slice(0, 2);
+}
+
 function normalizeAccessRole(value) {
   return String(value || '')
     .normalize('NFD')
@@ -91,6 +102,39 @@ function normalizeAccessRole(value) {
 
 function isLeftPosition(position) {
   return ['khong co', 'left', 'out'].includes(normalizeAccessRole(position));
+}
+
+const BLOCKED_ROSTER_NAMES = new Set(['web', 'user', 'unknown', 'player']);
+
+function normalizeRosterName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getRosterDisplayName(player) {
+  return String(player?.gn || player?.game_username || player?.name || player?.username || '').trim();
+}
+
+function isRosterPlayerAllowed(player) {
+  if (!player || typeof player !== 'object') return false;
+  const id = String(player.id || '').trim();
+  const displayName = getRosterDisplayName(player);
+  if (!id || !displayName) return false;
+  return !BLOCKED_ROSTER_NAMES.has(normalizeRosterName(displayName));
+}
+
+function sanitizeRosterPlayers(players, teamKey = '') {
+  return (Array.isArray(players) ? players : [])
+    .filter(isRosterPlayerAllowed)
+    .map((player) => ({ ...player, team: teamKey || player.team }));
+}
+
+function countRosterPlayers(players) {
+  return (Array.isArray(players) ? players : []).filter(isRosterPlayerAllowed).length;
 }
 
 function normalizeTeamId(value, fallback) {
@@ -133,18 +177,20 @@ function getTeamLayout(session) {
 
 function getDynamicTeamMembers(rawTeams, team, index) {
   if (!rawTeams || typeof rawTeams !== 'object' || !team) return null;
-  if (Array.isArray(rawTeams[team.id])) return rawTeams[team.id];
+  if (Array.isArray(rawTeams[team.id])) return sanitizeRosterPlayers(rawTeams[team.id], team.id);
   const legacyKey = TEAM_KEYS[index];
-  if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) return rawTeams[legacyKey];
+  if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) {
+    return sanitizeRosterPlayers(rawTeams[legacyKey], team.id);
+  }
   return null;
 }
 
 function getLegacyTeamMembers(session, team, index) {
-  const direct = parseJsonList(session[team.id]);
+  const direct = sanitizeRosterPlayers(parseJsonList(session[team.id]), team.id);
   if (direct.length) return direct;
   const legacyKey = TEAM_KEYS[index];
   if (legacyKey && legacyKey !== team.id) {
-    const fallback = parseJsonList(session[legacyKey]);
+    const fallback = sanitizeRosterPlayers(parseJsonList(session[legacyKey]), team.id);
     if (fallback.length) return fallback;
   }
   return direct;
@@ -162,7 +208,7 @@ function getRosterState(session) {
   for (const candidate of candidates) {
     const count = layout.reduce((sum, team, index) => {
       const list = getDynamicTeamMembers(candidate, team, index);
-      return sum + (Array.isArray(list) ? list.length : 0);
+      return sum + countRosterPlayers(list);
     }, 0);
     if (count > dynamicTotal) {
       dynamic = candidate;
@@ -171,22 +217,19 @@ function getRosterState(session) {
   }
 
   const legacyTotal = layout.reduce((sum, team, index) => {
-    return sum + getLegacyTeamMembers(session, team, index).length;
+    return sum + countRosterPlayers(getLegacyTeamMembers(session, team, index));
   }, 0);
   const preferLegacy = legacyTotal > 0 && dynamicTotal === 0;
   const teams = {};
   layout.forEach((team, index) => {
     const fromDynamic = !preferLegacy ? getDynamicTeamMembers(dynamic, team, index) : null;
-    teams[team.id] = (fromDynamic || getLegacyTeamMembers(session, team, index)).map((player) => ({
-      ...player,
-      team: team.id
-    }));
+    teams[team.id] = sanitizeRosterPlayers(fromDynamic || getLegacyTeamMembers(session, team, index), team.id);
   });
 
   return {
     layout,
     teams,
-    waitingList: parseJsonList(session.waiting_list).map((player) => ({ ...player, team: 'waiting_list' }))
+    waitingList: sanitizeRosterPlayers(parseJsonList(session.waiting_list), 'waiting_list')
   };
 }
 
@@ -200,7 +243,7 @@ function buildLegacyMirror(roster) {
       : legacyKey === 'team_attack2' ? 'attack2'
       : legacyKey === 'team_defense' ? 'defense'
       : 'forest';
-    mirror[legacyKey] = (roster.teams[team.id] || []).map((player) => ({ ...player, team: legacyKey }));
+    mirror[legacyKey] = sanitizeRosterPlayers(roster.teams[team.id] || [], legacyKey);
     teamSizes[sizeKey] = team.capacity;
     teamNames[sizeKey] = team.name;
   });
@@ -232,6 +275,7 @@ function buildPlayer(userRow, discordId, fallbackName) {
     gn: gameName,
     sub: userRow.weapon_role || userRow.sub_role || '',
     role: userRow.combat_role || 'DPS',
+    web_weapon_roles: normalizeWebWeaponRoles(userRow.web_weapon_roles),
     joinedAt: Date.now()
   };
 }
@@ -255,16 +299,13 @@ function rebuildRosterFromFlat(layout, flatRoster, waitingList = []) {
   const teams = {};
   layout.forEach((team) => {
     const count = Math.max(0, Number(team.capacity) || 0);
-    teams[team.id] = flatRoster.slice(cursor, cursor + count).map((player) => ({
-      ...player,
-      team: team.id
-    }));
+    teams[team.id] = sanitizeRosterPlayers(flatRoster.slice(cursor, cursor + count), team.id);
     cursor += count;
   });
   return {
     layout,
     teams,
-    waitingList: (waitingList || []).map((player) => ({ ...player, team: 'waiting_list' }))
+    waitingList: sanitizeRosterPlayers(waitingList || [], 'waiting_list')
   };
 }
 
@@ -338,6 +379,11 @@ function buildUpdatePayload(session, userRow, discordId, fallbackName, join, tac
   if (join) {
     if (!rosterContains(roster, discordId)) {
       const player = buildPlayer(userRow, discordId, fallbackName);
+      if (!isRosterPlayerAllowed(player)) {
+        const error = new Error('Tai khoan chua co ten game/Discord hop le.');
+        error.statusCode = 400;
+        throw error;
+      }
       const reservedSlotIndex = findReservedSlotIndexFromPayload(tacticsPayload, discordId);
       if (Number.isFinite(reservedSlotIndex) && reservedSlotIndex >= 0) {
         const flatActive = getFlatActiveRoster(roster);
@@ -353,14 +399,9 @@ function buildUpdatePayload(session, userRow, discordId, fallbackName, join, tac
         roster.teams = nextRoster.teams;
         roster.waitingList = nextRoster.waitingList;
       } else {
-        const targetTeam = session.locked === true
-          ? null
-          : roster.layout.find((team) => (roster.teams[team.id] || []).length < Number(team.capacity || 0));
-        if (targetTeam) {
-          roster.teams[targetTeam.id].push({ ...player, team: targetTeam.id });
-        } else {
-          roster.waitingList.push({ ...player, team: 'waiting_list' });
-        }
+        // Tat ca dang ky moi -> vao du bi (waiting_list)
+        // Leader se sap xep thu cong vao team
+        roster.waitingList.push({ ...player, team: 'waiting_list' });
       }
     }
   } else {
@@ -484,7 +525,7 @@ module.exports = async function handler(req, res) {
 
     const { data: userRow, error: userError } = await admin
       .from('bc_users')
-      .select('discord_id,discord_name,game_username,sub_role,weapon_role,combat_role,position,lang_gia_member')
+      .select('discord_id,discord_name,game_username,sub_role,weapon_role,combat_role,web_weapon_roles,position,lang_gia_member')
       .eq('guild_id', guildId)
       .eq('discord_id', discordId)
       .maybeSingle();

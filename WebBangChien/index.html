@@ -1807,8 +1807,25 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .m-av svg{width:16px;height:16px;border-radius:50%}
 .m-av.ld{border-color:var(--gold);box-shadow:0 0 8px rgba(251,191,36,.4)}
 .m-det{flex:1;min-width:0}
-.m-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.m-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-gn{font-size:11px;color:var(--text3)}
+.web-weapon-slots{display:inline-flex;align-items:center;gap:3px;flex-shrink:0}
+.web-weapon-slot{position:relative;width:22px;height:22px;border-radius:6px;border:1px solid rgba(141,255,183,.18);background:rgba(255,255,255,.035);display:inline-flex;align-items:center;justify-content:center;padding:0;color:var(--text3);vertical-align:middle}
+.web-weapon-slot.empty::before{content:"";width:8px;height:8px;border-radius:3px;border:1px dashed rgba(255,255,255,.28)}
+.web-weapon-slot.editable{cursor:pointer}
+.web-weapon-slot.editable:hover{border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.1)}
+.web-weapon-slot img{width:18px;height:18px;object-fit:contain;border-radius:4px;display:block}
+.web-weapon-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(4px);min-width:max-content;max-width:220px;padding:7px 9px;border-radius:8px;border:1px solid rgba(141,255,183,.22);background:rgba(5,14,9,.96);box-shadow:0 12px 28px rgba(0,0,0,.45);color:var(--text);font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;opacity:0;pointer-events:none;z-index:80;transition:opacity .12s,transform .12s}
+.web-weapon-tip img{width:24px;height:24px;object-fit:contain;border-radius:5px}
+.web-weapon-slot:hover .web-weapon-tip{opacity:1;transform:translateX(-50%) translateY(0)}
+.web-weapon-picker{position:fixed;z-index:2000;width:min(330px,calc(100vw - 18px));max-height:min(390px,calc(100vh - 18px));overflow:auto;padding:10px;border-radius:10px;border:1px solid rgba(141,255,183,.22);background:rgba(5,14,9,.98);box-shadow:0 18px 46px rgba(0,0,0,.58);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.web-weapon-option{position:relative;height:56px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:4px;color:var(--text)}
+.web-weapon-option:hover,.web-weapon-option.active{border-color:rgba(251,191,36,.48);background:rgba(251,191,36,.1)}
+.web-weapon-option.clear{color:var(--text3);font-size:11px;font-weight:900}
+.web-weapon-option img{width:42px;height:42px;object-fit:contain;border-radius:6px}
+.web-weapon-option-label{position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%) translateY(4px);padding:6px 8px;border-radius:7px;background:rgba(5,14,9,.98);border:1px solid rgba(141,255,183,.22);color:var(--text);font-size:11px;font-weight:800;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s}
+.web-weapon-option:hover .web-weapon-option-label{opacity:1;transform:translateX(-50%) translateY(0)}
 .m-tag{padding:2px 8px;border-radius:14px;font-size:10px;font-weight:700;letter-spacing:.3px}
 .m-tag.d{background:rgba(96,165,250,.12);color:var(--dps)}
 .m-tag.h{background:rgba(74,222,128,.12);color:var(--healer)}
@@ -3673,6 +3690,26 @@ removeDuplicateStaticScreens();
 const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
 const GUILD_ID = '450633680000385036';
+const WEB_WEAPON_CATALOG = [
+    { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
+    { id:'Cuu_Kiem', label:'Cửu Kiếm' },
+    { id:'Du_Nem', label:'Dù Ném' },
+    { id:'Hoanh_Dao', label:'Hoành Đao' },
+    { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' },
+    { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
+    { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
+    { id:'Mach_Dao', label:'Mạch Đao' },
+    { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
+    { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
+    { id:'Roi_Nem', label:'Roi Ném' },
+    { id:'Song_Dao', label:'Song Đao' },
+    { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+    { id:'Vo_Danh_Kiem', label:'Vô Danh Kiếm' },
+    { id:'Vo_Danh_Thuong', label:'Vô Danh Thương' },
+    { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' }
+];
+const WEB_WEAPON_BY_ID = Object.fromEntries(WEB_WEAPON_CATALOG.map((item) => [item.id, item]));
+let indexWebWeaponPickerEl = null;
 const FEEDBACK_WEBHOOK_URL = 'https://discord.com/api/webhooks/1510942626629812286/sfgMzhCOwjR32VSewFRmatqFn0Z5h2toU-wtgvFxiVRy428yhDyZEJMUVGdLWPLuoBS2';
 const FEEDBACK_DELETE_OWNER_ID = '395151484179841024';
 const FEEDBACK_CATEGORY_LABELS = {
@@ -4791,6 +4828,75 @@ function escapeIndexHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function normalizeWebWeaponRoles(value) {
+    let source = value;
+    if (typeof source === 'string') {
+        try { source = JSON.parse(source || '[]'); } catch (error) { source = []; }
+    }
+    if (!Array.isArray(source)) source = [];
+    const seen = new Set();
+    return source
+        .map((item) => String(item || '').trim())
+        .filter((item) => WEB_WEAPON_BY_ID[item] && !seen.has(item) && seen.add(item))
+        .slice(0, 2);
+}
+
+function getWebWeaponMeta(id) { return WEB_WEAPON_BY_ID[String(id || '').trim()] || null; }
+function getWebWeaponIconSrc(id) { return `./anh/iconvukhi/${encodeURIComponent(id)}.png`; }
+
+function renderIndexWebWeaponSlots(player, editable = false) {
+    const roles = normalizeWebWeaponRoles(player?.web_weapon_roles || player?.webWeaponRoles);
+    const memberId = escapeIndexHtml(player?.id || player?.discord_id || '');
+    return `<span class="web-weapon-slots" data-web-weapon-member="${memberId}">
+        ${[0, 1].map((slotIndex) => {
+            const id = roles[slotIndex] || '';
+            const meta = getWebWeaponMeta(id);
+            const tag = editable ? 'button' : 'span';
+            const attrs = editable
+                ? `type="button" data-action="index-web-weapon-slot" data-id="${memberId}" data-slot="${slotIndex}"`
+                : '';
+            const body = meta ? `<img src="${getWebWeaponIconSrc(meta.id)}" alt="${escapeIndexHtml(meta.label)}">` : '';
+            const tip = meta
+                ? `<span class="web-weapon-tip"><img src="${getWebWeaponIconSrc(meta.id)}" alt="">${escapeIndexHtml(meta.label)}</span>`
+                : `<span class="web-weapon-tip">Chưa chọn vũ khí</span>`;
+            return `<${tag} class="web-weapon-slot${meta ? '' : ' empty'}${editable ? ' editable' : ''}" ${attrs}>${body}${tip}</${tag}>`;
+        }).join('')}
+    </span>`;
+}
+
+const INDEX_BLOCKED_ROSTER_NAMES = new Set(['web', 'user', 'unknown', 'player']);
+
+function normalizeIndexRosterName(value) {
+    return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function getIndexRosterDisplayName(player) {
+    return String(player?.gn || player?.game_username || player?.name || player?.username || '').trim();
+}
+
+function isIndexRosterPlayerAllowed(player) {
+    if (!player || typeof player !== 'object') return false;
+    const id = String(player.id || '').trim();
+    const displayName = getIndexRosterDisplayName(player);
+    if (!id || !displayName) return false;
+    return !INDEX_BLOCKED_ROSTER_NAMES.has(normalizeIndexRosterName(displayName));
+}
+
+function sanitizeIndexRosterPlayers(players, teamKey = '') {
+    return (Array.isArray(players) ? players : [])
+        .filter(isIndexRosterPlayerAllowed)
+        .map((player) => ({ ...player, team: teamKey || player.team }));
+}
+
+function countIndexRosterPlayers(players) {
+    return (Array.isArray(players) ? players : []).filter(isIndexRosterPlayerAllowed).length;
+}
+
 function normalizeIndexTeamId(value, fallback) {
     return String(value || fallback || '')
         .trim()
@@ -4898,10 +5004,10 @@ function getIndexRosterSourceDecision(session, layout = getIndexTeamLayout(sessi
     const dynamicTotal = dynamic
         ? layout.reduce((sum, team, index) => {
             const list = getIndexDynamicTeamMembers(dynamic, team, index);
-            return sum + (Array.isArray(list) ? list.length : 0);
+            return sum + countIndexRosterPlayers(list);
         }, 0)
         : 0;
-    const legacyTotal = layout.reduce((sum, team, index) => sum + getIndexLegacyTeamMembers(session, team, index).length, 0);
+    const legacyTotal = layout.reduce((sum, team, index) => sum + countIndexRosterPlayers(getIndexLegacyTeamMembers(session, team, index)), 0);
     return {
         rawTeams: dynamic,
         preferLegacy: legacyTotal > 0 && dynamicTotal === 0
@@ -4916,7 +5022,7 @@ function getIndexRosterTeamsObject(session, layout = getIndexTeamLayout(session)
     candidates.forEach((candidate) => {
         const count = layout.reduce((sum, team, index) => {
             const list = getIndexDynamicTeamMembers(candidate, team, index);
-            return sum + (Array.isArray(list) ? list.length : 0);
+            return sum + countIndexRosterPlayers(list);
         }, 0);
         if (count > bestCount) {
             best = candidate;
@@ -4928,19 +5034,21 @@ function getIndexRosterTeamsObject(session, layout = getIndexTeamLayout(session)
 
 function getIndexDynamicTeamMembers(rawTeams, team, index) {
     if (!rawTeams || typeof rawTeams !== 'object' || !team) return null;
-    if (Array.isArray(rawTeams[team.id])) return rawTeams[team.id];
+    if (Array.isArray(rawTeams[team.id])) return sanitizeIndexRosterPlayers(rawTeams[team.id], team.id);
     const legacyKey = INDEX_ACTIVE_TEAM_KEYS[index];
-    if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) return rawTeams[legacyKey];
+    if (legacyKey && legacyKey !== team.id && Array.isArray(rawTeams[legacyKey])) {
+        return sanitizeIndexRosterPlayers(rawTeams[legacyKey], team.id);
+    }
     return null;
 }
 
 function getIndexLegacyTeamMembers(session, team, index) {
     if (!session || !team) return [];
-    const direct = parseIndexJsonList(session?.[team.id]);
+    const direct = sanitizeIndexRosterPlayers(parseIndexJsonList(session?.[team.id]), team.id);
     if (Array.isArray(direct) && direct.length) return direct;
     const legacyKey = INDEX_ACTIVE_TEAM_KEYS[index];
     if (legacyKey && legacyKey !== team.id) {
-        const fallback = parseIndexJsonList(session?.[legacyKey]);
+        const fallback = sanitizeIndexRosterPlayers(parseIndexJsonList(session?.[legacyKey]), team.id);
         if (Array.isArray(fallback) && fallback.length) return fallback;
     }
     return Array.isArray(direct) ? direct : [];
@@ -4952,15 +5060,12 @@ function getIndexRosterState(session) {
     const teams = {};
     layout.forEach((team, index) => {
         const fromDynamic = !preferLegacy ? getIndexDynamicTeamMembers(rawTeams, team, index) : null;
-        teams[team.id] = (fromDynamic || getIndexLegacyTeamMembers(session, team, index)).map((player) => ({
-            ...player,
-            team: team.id
-        }));
+        teams[team.id] = sanitizeIndexRosterPlayers(fromDynamic || getIndexLegacyTeamMembers(session, team, index), team.id);
     });
     return {
         layout,
         teams,
-        waitingList: parseIndexJsonList(session?.waiting_list).map((player) => ({ ...player, team:'waiting_list' }))
+        waitingList: sanitizeIndexRosterPlayers(parseIndexJsonList(session?.waiting_list), 'waiting_list')
     };
 }
 
@@ -4974,12 +5079,218 @@ function buildIndexLegacyMirrorFromRoster(roster) {
             : legacyKey === 'team_attack2' ? 'attack2'
             : legacyKey === 'team_defense' ? 'defense'
             : 'forest';
-        mirror[legacyKey] = (roster.teams[team.id] || []).map((player) => ({ ...player, team: legacyKey }));
+        mirror[legacyKey] = sanitizeIndexRosterPlayers(roster.teams[team.id] || [], legacyKey);
         teamSizes[sizeKey] = team.capacity;
         teamNames[sizeKey] = team.name;
     });
     INDEX_ACTIVE_TEAM_KEYS.forEach((key) => { mirror[key] = mirror[key] || []; });
     return { ...mirror, team_sizes: teamSizes, team_names: teamNames };
+}
+
+function applyIndexWebWeaponRolesToRoster(roster, discordId, roles) {
+    const normalized = normalizeWebWeaponRoles(roles);
+    let changed = false;
+    const applyList = (list) => {
+        (Array.isArray(list) ? list : []).forEach((player) => {
+            if (String(player?.id || player?.discord_id || '') !== String(discordId)) return;
+            player.web_weapon_roles = normalized.slice();
+            changed = true;
+        });
+    };
+    roster.layout.forEach((team) => applyList(roster.teams[team.id]));
+    applyList(roster.waitingList);
+    return changed;
+}
+
+function buildIndexWebWeaponSessionPayload(session, roster, discordId) {
+    const mirror = buildIndexLegacyMirrorFromRoster(roster);
+    const teamsPayload = {};
+    roster.layout.forEach((team) => { teamsPayload[team.id] = roster.teams[team.id] || []; });
+    const leaderIds = parseSessionLeaderIds(session);
+    const payload = {
+        team_attack1: JSON.stringify(mirror.team_attack1 || []),
+        team_attack2: JSON.stringify(mirror.team_attack2 || []),
+        team_defense: JSON.stringify(mirror.team_defense || []),
+        team_forest: JSON.stringify(mirror.team_forest || []),
+        waiting_list: JSON.stringify(roster.waitingList || []),
+        team_layout: roster.layout || [],
+        teams_json: JSON.stringify(teamsPayload),
+        team_sizes: JSON.stringify(mirror.team_sizes || {}),
+        team_names: JSON.stringify(mirror.team_names || {}),
+        leader_ids: JSON.stringify({
+            ...leaderIds,
+            editor_id: window.currentDiscordId || null,
+            editor_name: window.currentUserName || 'Web',
+            editor_action: 'web_weapon_roles',
+            editor_target_id: String(discordId),
+            edited_at: Date.now()
+        })
+    };
+    if (Object.prototype.hasOwnProperty.call(session || {}, 'teams')) payload.teams = teamsPayload;
+    return payload;
+}
+
+async function updateIndexSessionRowWithPayload(session, payload) {
+    const applyUpdate = async (nextPayload) => sb.from('bc_sessions')
+        .update(nextPayload)
+        .eq('guild_id', GUILD_ID)
+        .eq('id', session.id)
+        .select('*')
+        .maybeSingle();
+    let nextPayload = { ...payload };
+    let { data, error } = await applyUpdate(nextPayload);
+    if (error && /(team_layout|teams|teams_json)/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.team_layout;
+        delete nextPayload.teams;
+        delete nextPayload.teams_json;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+    }
+    if (error && /team_names/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.team_names;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+    }
+    if (error && /team_sizes/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.team_sizes;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+    }
+    if (error && /leader_ids/i.test(error.message || '')) {
+        nextPayload = { ...nextPayload };
+        delete nextPayload.leader_ids;
+        const retry = await applyUpdate(nextPayload);
+        data = retry.data;
+        error = retry.error || null;
+    }
+    if (error) throw error;
+    return data || { ...session, ...nextPayload };
+}
+
+async function syncIndexWebWeaponRolesToActiveSessions(discordId, roles) {
+    let result = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID).eq('status', 'active');
+    if (result.error && /status/i.test(result.error.message || '')) {
+        result = await sb.from('bc_sessions').select('*').eq('guild_id', GUILD_ID);
+    }
+    if (result.error) throw result.error;
+    for (const session of result.data || []) {
+        const roster = getIndexRosterState(session);
+        if (!applyIndexWebWeaponRolesToRoster(roster, discordId, roles)) continue;
+        const payload = buildIndexWebWeaponSessionPayload(session, roster, discordId);
+        const updated = await updateIndexSessionRowWithPayload(session, payload);
+        rememberUpdatedSession(updated);
+    }
+    if (currentSessionData) currentSessionData = getCachedSessionByKey(getSessionCacheKey(currentSessionData)) || currentSessionData;
+}
+
+function setIndexLocalWebWeaponRoles(discordId, roles) {
+    const normalized = normalizeWebWeaponRoles(roles);
+    Object.keys(_cachedSessions || {}).forEach((key) => {
+        const session = _cachedSessions[key];
+        const roster = getIndexRosterState(session);
+        if (!applyIndexWebWeaponRolesToRoster(roster, discordId, normalized)) return;
+        const mirror = buildIndexLegacyMirrorFromRoster(roster);
+        const teamsPayload = {};
+        roster.layout.forEach((team) => { teamsPayload[team.id] = roster.teams[team.id] || []; });
+        _cachedSessions[key] = {
+            ...session,
+            ...mirror,
+            waiting_list: roster.waitingList,
+            team_layout: roster.layout,
+            teams_json: teamsPayload
+        };
+    });
+    setSessionCache(Object.values(_cachedSessions || {}));
+    if (currentSessionData) currentSessionData = getCachedSessionByKey(getSessionCacheKey(currentSessionData)) || currentSessionData;
+}
+
+async function saveIndexWebWeaponRoles(discordId, roles) {
+    if (!canEditTeamRoster(currentSessionData)) return;
+    const normalized = normalizeWebWeaponRoles(roles);
+    const { error } = await sb.rpc('bc_manager_update_web_weapon_roles', {
+        p_guild_id: GUILD_ID,
+        p_discord_id: String(discordId),
+        p_web_weapon_roles: normalized
+    });
+    if (error) throw error;
+    setIndexLocalWebWeaponRoles(discordId, normalized);
+    renderTeams(currentSessionData);
+    await syncIndexWebWeaponRolesToActiveSessions(discordId, normalized);
+    renderTeams(currentSessionData);
+}
+
+function findIndexRosterPlayerById(discordId) {
+    if (!currentSessionData) return null;
+    const roster = getIndexRosterState(currentSessionData);
+    return [
+        ...roster.layout.flatMap((team) => roster.teams[team.id] || []),
+        ...(roster.waitingList || [])
+    ].find((player) => String(player?.id || player?.discord_id || '') === String(discordId)) || null;
+}
+
+function closeIndexWebWeaponPicker() {
+    if (indexWebWeaponPickerEl) {
+        indexWebWeaponPickerEl.remove();
+        indexWebWeaponPickerEl = null;
+    }
+}
+
+function positionIndexWebWeaponPicker(anchor, picker) {
+    const rect = anchor.getBoundingClientRect();
+    const margin = 9;
+    picker.style.left = '0px';
+    picker.style.top = '0px';
+    document.body.appendChild(picker);
+    const width = picker.offsetWidth || 330;
+    const height = picker.offsetHeight || 320;
+    const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
+    let top = rect.bottom + margin;
+    if (top + height > window.innerHeight - margin) top = Math.max(margin, rect.top - height - margin);
+    picker.style.left = `${left}px`;
+    picker.style.top = `${top}px`;
+}
+
+function openIndexWebWeaponPicker(anchor, discordId, slotIndex) {
+    if (!canEditTeamRoster(currentSessionData)) return;
+    closeIndexWebWeaponPicker();
+    const player = findIndexRosterPlayerById(discordId) || {};
+    const currentRoles = normalizeWebWeaponRoles(player.web_weapon_roles || player.webWeaponRoles);
+    const picker = document.createElement('div');
+    picker.className = 'web-weapon-picker';
+    picker.innerHTML = `
+        <button type="button" class="web-weapon-option clear" data-index-web-weapon-pick="">Trống<span class="web-weapon-option-label">Xóa ô này</span></button>
+        ${WEB_WEAPON_CATALOG.map((item) => `
+            <button type="button" class="web-weapon-option${currentRoles[slotIndex] === item.id ? ' active' : ''}" data-index-web-weapon-pick="${escapeIndexHtml(item.id)}">
+                <img src="${getWebWeaponIconSrc(item.id)}" alt="${escapeIndexHtml(item.label)}">
+                <span class="web-weapon-option-label">${escapeIndexHtml(item.label)}</span>
+            </button>
+        `).join('')}
+    `;
+    picker.addEventListener('click', async (event) => {
+        const option = event.target.closest('[data-index-web-weapon-pick]');
+        if (!option) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const picked = option.dataset.indexWebWeaponPick || '';
+        const nextRoles = currentRoles.slice(0, 2);
+        if (picked) nextRoles[slotIndex] = picked;
+        else nextRoles.splice(slotIndex, 1);
+        closeIndexWebWeaponPicker();
+        try {
+            await saveIndexWebWeaponRoles(discordId, nextRoles);
+        } catch (error) {
+            await customAlert(error.message || String(error));
+            await loadAllSessions().catch(() => null);
+        }
+    });
+    indexWebWeaponPickerEl = picker;
+    positionIndexWebWeaponPicker(anchor, picker);
 }
 
 function getIndexRosterSnapshot(session) {
@@ -5019,13 +5330,10 @@ function rebuildIndexSessionTeamsFromFlat(session, flatRoster, waitingList = [])
     const next = {};
     layout.forEach((team) => {
         const count = Math.max(0, Number(team.capacity) || 0);
-        next[team.id] = flatRoster.slice(cursor, cursor + count).map((player) => ({
-            ...player,
-            team: team.id
-        }));
+        next[team.id] = sanitizeIndexRosterPlayers(flatRoster.slice(cursor, cursor + count), team.id);
         cursor += count;
     });
-    next.waiting_list = (waitingList || []).map((player) => ({ ...player }));
+    next.waiting_list = sanitizeIndexRosterPlayers(waitingList || [], 'waiting_list');
     const teamsOnly = {};
     layout.forEach((team) => { teamsOnly[team.id] = next[team.id] || []; });
     const roster = { layout, teams: teamsOnly, waitingList: next.waiting_list };
@@ -5688,7 +5996,8 @@ async function loadAllSessions() {
                 }).join('')}
             </select>`
             : '';
-        tab.innerHTML = `<span class="day-tab-main">${calSvg} ${label} <span class="time-badge">${time}</span>${kind}${dateStr ? ` <span class="day-date">${dateStr}</span>` : ''}${delBtn}</span>${timeOptions}`;
+        const dropArrow = hasTimeSelect ? ' <span style="font-size:9px;opacity:.7;margin-left:2px">&#x25BE;</span>' : '';
+        tab.innerHTML = `<span class="day-tab-main">${calSvg} ${label} <span class="time-badge">${time}${dropArrow}</span>${kind}${dateStr ? ` <span class="day-date">${dateStr}</span>` : ''}${delBtn}</span>${timeOptions}`;
         tab.onclick = function() { switchDay(this, dayKey); };
         sep.parentNode.insertBefore(tab, sep);
     });
@@ -5919,7 +6228,7 @@ async function recordIndexOwnRoleLog(beforeRow, combat, weapon) {
         category: 'member_roster',
         summary: `Doi role ${targetName}`,
         actor_id: window.currentDiscordId,
-        actor_name: window.currentUserName || 'Web',
+        actor_name: window.currentUserName || 'Thanh vien',
         target_type: 'member',
         target_id: String(window.currentDiscordId),
         target_name: targetName,
@@ -6081,17 +6390,18 @@ async function joinSession(data, options = {}) {
     if (allPlayers.some(p => p.id === window.currentDiscordId)) { return true; }
 
     // Lookup bc_users để lấy game_username, sub_role
-    let gameName = '', subRole = '', combatRole = 'DPS';
+    let gameName = '', subRole = '', combatRole = 'DPS', webWeaponRoles = [];
     try {
         const { data: userInfo } = await sb
             .from('bc_users')
-            .select('game_username, sub_role, position, combat_role, weapon_role')
+            .select('game_username, sub_role, position, combat_role, weapon_role, web_weapon_roles')
             .eq('discord_id', window.currentDiscordId)
             .single();
         if (userInfo) {
             gameName = userInfo.game_username || '';
             subRole = userInfo.weapon_role || userInfo.sub_role || '';
             combatRole = userInfo.combat_role || (subRole ? 'DPS' : 'DPS');
+            webWeaponRoles = normalizeWebWeaponRoles(userInfo.web_weapon_roles);
         }
     } catch(e) {
         try {
@@ -6115,8 +6425,13 @@ async function joinSession(data, options = {}) {
         gn: gameName,
         sub: subRole,
         role: combatRole,
+        web_weapon_roles: webWeaponRoles,
         joinedAt: Date.now()
     };
+    if (!isIndexRosterPlayerAllowed(newPlayer)) {
+        await customAlert('Khong the dang ky: tai khoan chua co ten game/Discord hop le.');
+        return false;
+    }
 
     const sessionTactics = await fetchCurrentSessionTacticsRow('markers,day,session_id', data);
     const rawPayload = sessionTactics?.markers;
@@ -6660,7 +6975,7 @@ function buildTeamsHtml(data) {
                 const isMe = p.id === window.currentDiscordId;
                 const isLeader = p.ld || p.isLeader || p.isTeamLeader;
                 const actionBtn = isMe && !isLeader ? `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>` : '';
-                card += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${escapeIndexHtml(sub)}</div></div>`;
+                card += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span>${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${escapeIndexHtml(sub)}</div></div>`;
                 num++;
             });
             card += `</div></div>`;
@@ -6722,7 +7037,7 @@ function buildTeamsHtml(data) {
             const isMe = p.id === window.currentDiscordId;
             const isLeader = p.ld || p.isLeader || p.isTeamLeader;
             const actionBtn = isMe && !isLeader ? `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>` : '';
-            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${escapeIndexHtml(sub)}</div></div>`;
+            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span>${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${escapeIndexHtml(sub)}</div></div>`;
             num++;
         });
 
@@ -6803,7 +7118,7 @@ function buildTeamsHtml(data) {
             const isMe = p.id === window.currentDiscordId;
             // Chỉ chặn team leader (isLeader/ld) — creator vẫn được tự hủy đăng ký
             if (isMe && !isLeader) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>`;
-            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name">${displayName}${ld}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${sub}</div></div>`;
+            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span>${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}</div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-tag ${rcls}">${p.role || 'DPS'}${sub}</div></div>`;
             num++;
         });
 
@@ -6843,7 +7158,11 @@ function updateDayTabSelectedSession(session) {
     const key = getSessionCacheKey(session);
     document.querySelectorAll(`.day-tab[data-day="${session.day}"]`).forEach((tab) => {
         const timeBadge = tab.querySelector('.time-badge');
-        if (timeBadge) timeBadge.textContent = normalizeSessionTime(session.time || LEAGUE_TIME);
+        if (timeBadge) {
+            const hasSelect = !!tab.querySelector('.session-time-select');
+            const arrow = hasSelect ? ' <span style="font-size:9px;opacity:.7;margin-left:2px">&#x25BE;</span>' : '';
+            timeBadge.innerHTML = normalizeSessionTime(session.time || LEAGUE_TIME) + arrow;
+        }
 
         const kindText = getSessionKindText(session);
         let kindEl = tab.querySelector('.day-session-kind');
@@ -7095,7 +7414,7 @@ function renderIndexRosterLogEntries() {
         const details = entry._details || {};
         const source = String(entry.source || 'web').toLowerCase();
         const sourceClass = source.replace(/[^a-z0-9_-]+/g, '');
-        const actor = details.actor_name || details.editor_name || entry.performed_by || 'Web';
+        const actor = details.actor_name || details.editor_name || entry.performed_by || 'Thanh vien';
         const meta = getIndexRosterLogMeta(entry);
         const changeText = getIndexRosterLogChangeText(entry);
         return `
@@ -7186,6 +7505,21 @@ function initIndexRosterLogControls() {
 }
 
 initIndexRosterLogControls();
+
+document.addEventListener('click', (event) => {
+    const weaponSlot = event.target.closest('[data-action="index-web-weapon-slot"]');
+    if (weaponSlot) {
+        event.preventDefault();
+        event.stopPropagation();
+        openIndexWebWeaponPicker(weaponSlot, weaponSlot.dataset.id, Number(weaponSlot.dataset.slot) || 0);
+        return;
+    }
+    if (indexWebWeaponPickerEl && !event.target.closest('.web-weapon-picker')) closeIndexWebWeaponPicker();
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeIndexWebWeaponPicker();
+});
 
 let _realtimeSetup = false;
 let _pollingInterval = null;
@@ -7397,17 +7731,18 @@ async function createCustomBc() {
     const creatorId = window.currentDiscordId || 'unknown';
 
     // Lookup game_username từ bc_users
-    let gameName = '', subRole = '', combatRole = 'DPS';
+    let gameName = '', subRole = '', combatRole = 'DPS', webWeaponRoles = [];
     try {
         const { data: userInfo } = await sb
             .from('bc_users')
-            .select('game_username, sub_role, combat_role, weapon_role')
+            .select('game_username, sub_role, combat_role, weapon_role, web_weapon_roles')
             .eq('discord_id', creatorId)
             .single();
         if (userInfo) {
             gameName = userInfo.game_username || '';
             subRole = userInfo.weapon_role || userInfo.sub_role || '';
             combatRole = userInfo.combat_role || (subRole ? 'DPS' : 'DPS');
+            webWeaponRoles = normalizeWebWeaponRoles(userInfo.web_weapon_roles);
         }
     } catch(e) {
         try {
@@ -7432,6 +7767,7 @@ async function createCustomBc() {
         gn: gameName,
         sub: subRole,
         role: combatRole,
+        web_weapon_roles: webWeaponRoles,
         isLeader: true, // Leader không được phép hủy đăng ký
         joinedAt: Date.now()
     };

@@ -332,17 +332,26 @@ function assignParticipant(session, participant, options = {}) {
         isLeader: !!participant.isLeader
     };
     let targetTeam = 'waiting_list';
-    if (!options.locked && session?.locked !== true) {
-        const target = roster.layout.find((team) => (roster.teams[team.id] || []).length < team.capacity);
-        if (target) {
-            roster.teams[target.id].push(newParticipant);
-            targetTeam = target.id;
+
+    // Leader tạo session → vào team chính như cũ
+    if (newParticipant.isLeader) {
+        if (!options.locked && session?.locked !== true) {
+            const target = roster.layout.find((team) => (roster.teams[team.id] || []).length < team.capacity);
+            if (target) {
+                roster.teams[target.id].push(newParticipant);
+                targetTeam = target.id;
+            } else {
+                roster.waitingList.push(newParticipant);
+            }
         } else {
             roster.waitingList.push(newParticipant);
         }
     } else {
+        // Tất cả đăng ký mới → vào dự bị (waiting_list)
+        // Leader sẽ sắp xếp thủ công vào team
         roster.waitingList.push(newParticipant);
     }
+
     return {
         success: true,
         roster,

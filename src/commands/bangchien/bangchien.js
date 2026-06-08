@@ -22,11 +22,14 @@ const {
     isLeagueSession,
     compareSessionsBySchedule,
     LEAGUE_TIME,
+    upsertOverviewEmbed,
     refreshOverviewEmbed,
+    scheduleBangchienAutoEnd,
     // Auto-cleanup
     autoCleanupExpiredSessions
 } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
+
 
 
 // Táº¡o embed thĂ´ng bĂ¡o bang chiáº¿n - HIá»‚N THá» 4 TEAM
@@ -385,7 +388,7 @@ function isUserInSession(session, userId) {
 /**
  * Debounced refresh BC overview embed
  * Khi cĂ³ tin nháº¯n má»›i trong kĂªnh BC â†’ clear timer cÅ© â†’ set timer 5 phĂºt
- * Khi timer háº¿t â†’ xĂ³a embed cÅ©, gá»­i embed má»›i á»Ÿ cuá»‘i kĂªnh
+ * Khi timer hết → edit overview mới nhất và xóa bản trùng nếu có
  * @param {Client} client - Discord client
  * @param {string} guildId - Guild ID
  */
@@ -408,24 +411,9 @@ function refreshBcOverviewDebounced(client, guildId) {
             const data = bangchienOverviews.get(guildId);
             if (!data) return;
 
-            // XĂ³a embed cÅ©
-            try { if (data.message) await data.message.delete(); } catch (e) { }
+            await refreshOverviewEmbed(client, guildId, data.channelId);
 
-            // Gá»­i embed má»›i
-            const newEmbed = createOverviewEmbed(guildId, client.guilds.cache.get(guildId));
-            const newRow = createOverviewButton(guildId);
-            const channel = await client.channels.fetch(data.channelId).catch(() => null);
-            if (!channel) return;
-
-            const refreshOptions = { embeds: [newEmbed] };
-            if (newRow) refreshOptions.components = [newRow];
-            const newMessage = await channel.send(refreshOptions);
-
-            // Cáº­p nháº­t reference
-            data.messageId = newMessage.id;
-            data.message = newMessage;
-
-            console.log(`[bangchien] Debounced refresh overview táº¡i ${channel.name}`);
+            console.log(`[bangchien] Debounced refresh overview guild ${guildId}`);
         } catch (e) {
             console.error('[bangchien] Error debounced refresh overview:', e.message);
         } finally {
@@ -469,34 +457,13 @@ module.exports = {
         // CASE 1: ?bc (khĂ´ng cĂ³ args) â†’ Hiá»ƒn thá»‹ Overview táº¥t cáº£ ngĂ y
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         if (!day) {
-            // XĂ³a overview cÅ© náº¿u cĂ³
-            const existingOverview = bangchienOverviews.get(guildId);
-            if (existingOverview) {
-                // Clear debounce timer cÅ©
-                const oldTimer = bcRefreshTimers.get(guildId);
-                if (oldTimer) { clearTimeout(oldTimer); bcRefreshTimers.delete(guildId); }
-                try { if (existingOverview.message) await existingOverview.message.delete(); } catch (e) { }
-            }
-
-            const overviewEmbed = createOverviewEmbed(guildId, message.guild);
-            const overviewButton = createOverviewButton(guildId);
+            const oldTimer = bcRefreshTimers.get(guildId);
+            if (oldTimer) { clearTimeout(oldTimer); bcRefreshTimers.delete(guildId); }
 
             // XĂ³a tin nháº¯n lá»‡nh
             try { await message.delete(); } catch (e) { }
 
-            // Gá»­i embed - chá»‰ thĂªm components náº¿u cĂ³ button
-            const sendOptions = { embeds: [overviewEmbed] };
-            if (overviewButton) {
-                sendOptions.components = [overviewButton];
-            }
-            const overviewMsg = await message.channel.send(sendOptions);
-
-            // LÆ°u vĂ o Map (khĂ´ng cáº§n intervalId ná»¯a â€” dĂ¹ng debounce)
-            bangchienOverviews.set(guildId, {
-                messageId: overviewMsg.id,
-                channelId: message.channel.id,
-                message: overviewMsg
-            });
+            await upsertOverviewEmbed(client, guildId, message.channel);
 
             console.log(`[bangchien] ${leaderName} hiá»ƒn thá»‹ overview táº¡i ${message.guild.name}`);
             return;
@@ -541,7 +508,7 @@ module.exports = {
             }
 
             // Cáº­p nháº­t overview thay vĂ¬ gá»­i embed riĂªng
-            await refreshOverviewEmbed(client, guildId);
+            await refreshOverviewEmbed(client, guildId, existingSession.channel_id || message.channel.id);
 
             // Sync lĂªn Supabase Ä‘á»ƒ web nháº­n realtime update
             // (quan trá»ng sau bot restart â€” web cáº§n data má»›i Ä‘á»ƒ hiá»ƒn thá»‹ Ä‘Ăºng)
@@ -677,7 +644,7 @@ module.exports = {
         });
 
         // Cáº­p nháº­t overview embed
-        await refreshOverviewEmbed(client, guildId);
+        await refreshOverviewEmbed(client, guildId, message.channel.id);
 
         // ThĂ´ng bĂ¡o ngáº¯n
         const reply = await message.channel.send(`âœ… ÄĂ£ má»Ÿ Ä‘Äƒng kĂ½ BC **${dayConfig.name}**! Xem táº¡i kĂªnh ?bc overview.`);
@@ -777,168 +744,8 @@ module.exports = {
             // Tag lĂºc 19:15 (15 phĂºt trÆ°á»›c BC)
             scheduleTag(19, 15, 'â”ï¸ CĂ²n **15 phĂºt** ná»¯a lĂ  Ä‘áº¿n giá» Bang Chiáº¿n! Táº­p trung ngay!');
 
-            // ===== Tá»° Äá»˜NG END BC LĂC 23:00 VN (full logic giá»‘ng ?bcend) =====
-            const cleanupDate = new Date(vnNow);
-            cleanupDate.setDate(cleanupDate.getDate() + daysUntilTarget);
-            cleanupDate.setHours(23, 0, 0, 0);
-
-            const cleanupUTC = new Date(cleanupDate.getTime() - (localOffset + vnOffset) * 60 * 1000);
-            const msUntilCleanup = cleanupUTC.getTime() - Date.now();
-
-            if (msUntilCleanup > 0 && msUntilCleanup < 7 * 24 * 60 * 60 * 1000) {
-                setTimeout(async () => {
-                    try {
-                        const dbCleanup = require('../../database/db');
-                        const channel = await client.channels.fetch(channelId).catch(() => null);
-                        if (!channel) return;
-                        const guild = channel.guild;
-
-                        // Láº¥y session tá»« DB
-                        const autoEndSession = dbCleanup.getActiveBangchienByDayTime
-                            ? dbCleanup.getActiveBangchienByDayTime(guildId, day, bcTime)
-                            : dbCleanup.getActiveBangchienByDay(guildId, day);
-                        if (!autoEndSession) {
-                            console.log(`[bangchien] Auto-end 23:00 ${day}: Session Ä‘Ă£ Ä‘Æ°á»£c end trÆ°á»›c Ä‘Ă³, bá» qua.`);
-                            return;
-                        }
-                        const autoEndPartyKey = autoEndSession.party_key;
-
-                        // 1. AUTO-SAVE PRESET Team Thá»§/Rá»«ng
-                        const autoEndTeamDefense = autoEndSession.team_defense || [];
-                        const autoEndTeamForest = autoEndSession.team_forest || [];
-                        let presetSaved = { thu: 0, rung: 0 };
-
-                        if (autoEndTeamDefense.length > 0) {
-                            const currentPresetThu = dbCleanup.getBcPreset(guildId, 'thu', day);
-                            const newPresetThu = [...currentPresetThu];
-                            for (const p of autoEndTeamDefense) {
-                                if (!newPresetThu.some(m => m.id === p.id)) {
-                                    newPresetThu.push({ id: p.id, username: p.username });
-                                }
-                            }
-                            dbCleanup.setBcPreset(guildId, 'thu', newPresetThu, day);
-                            presetSaved.thu = autoEndTeamDefense.length;
-                        }
-
-                        if (autoEndTeamForest.length > 0) {
-                            const currentPresetRung = dbCleanup.getBcPreset(guildId, 'rung', day);
-                            const newPresetRung = [...currentPresetRung];
-                            for (const p of autoEndTeamForest) {
-                                if (!newPresetRung.some(m => m.id === p.id)) {
-                                    newPresetRung.push({ id: p.id, username: p.username });
-                                }
-                            }
-                            dbCleanup.setBcPreset(guildId, 'rung', newPresetRung, day);
-                            presetSaved.rung = autoEndTeamForest.length;
-                        }
-
-                        // 2. XĂ“A ROLE BC cho táº¥t cáº£ participants
-                        const participants = bangchienRoster.getActiveRosterMembers(autoEndSession);
-
-                        const bcRole = guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
-                        let removedCount = 0;
-
-                        if (bcRole && participants.length > 0) {
-                            for (const p of participants) {
-                                try {
-                                    const member = await guild.members.fetch({ user: p.id, force: true }).catch(() => null);
-                                    if (member && member.roles.cache.has(bcRole.id)) {
-                                        await member.roles.remove(bcRole);
-                                        removedCount++;
-                                    }
-                                } catch (e) { }
-                            }
-                        }
-
-                        // 3. XĂ“A MEMORY DATA
-                        const notifData = bangchienNotifications.get(autoEndPartyKey);
-                        if (notifData) {
-                            if (notifData.intervalId) clearInterval(notifData.intervalId);
-                            try { if (notifData.message) await notifData.message.delete(); } catch (e) { }
-                        }
-                        bangchienNotifications.delete(autoEndPartyKey);
-                        bangchienRegistrations.delete(autoEndPartyKey);
-
-                        // XĂ³a finalized parties liĂªn quan
-                        const { bangchienFinalizedParties } = require('../../utils/bangchienState');
-                        for (const [msgId, data] of bangchienFinalizedParties.entries()) {
-                            if (data.guildId === guildId && data.leaderId === autoEndSession.leader_id) {
-                                bangchienFinalizedParties.delete(msgId);
-                            }
-                        }
-
-                        // Chá»‰ xĂ³a bangchienChannels náº¿u khĂ´ng cĂ²n session nĂ o khĂ¡c
-                        const remainingKeys = getGuildBangchienKeys(guildId);
-                        // Trá»« session Ä‘ang end ra (vĂ¬ chÆ°a xĂ³a khá»i notifications)
-                        if (remainingKeys.filter(k => k !== autoEndPartyKey).length === 0) {
-                            bangchienChannels.delete(guildId);
-                        }
-
-                        // 4. XĂ“A SESSION KHá»I DB
-                        dbCleanup.deleteActiveBangchien(autoEndPartyKey);
-
-                        // 4.5. LÆ°u snapshot thá»±c chiáº¿n cuá»‘i tuáº§n 19:30 trÆ°á»›c khi xĂ³a session
-                        try {
-                            if (['sat', 'sun'].includes(day) && (autoEndSession.time || '19:30') === '19:30') {
-                                const { saveBattleTacticsHistorySnapshot } = require('../../utils/supabaseSync');
-                                await saveBattleTacticsHistorySnapshot(guildId, day, {
-                                    time: autoEndSession.time || '19:30',
-                                    roster: {
-                                        attack1: autoEndSession.team_attack1 || [],
-                                        attack2: autoEndSession.team_attack2 || [],
-                                        defense: autoEndSession.team_defense || [],
-                                        forest: autoEndSession.team_forest || []
-                                    },
-                                    resultNote: `Auto-end ${DAY_CONFIG[day].name} 23:00`
-                                });
-                            }
-                        } catch (e) {
-                            console.log('[bangchien] Auto-end: Lá»—i lÆ°u battle snapshot:', e.message);
-                        }
-
-                        // 4.6. SYNC XĂ“A TRĂN SUPABASE â†’ web realtime DELETE
-                        try {
-                            const { deleteBCSession } = require('../../utils/supabaseSync');
-                            await deleteBCSession(guildId, day, autoEndSession.time || bcTime);
-                        } catch (e) {
-                            console.log('[bangchien] Auto-end: Lá»—i xĂ³a Supabase:', e.message);
-                        }
-
-                        // 5. Cáº¬P NHáº¬T OVERVIEW EMBED
-                        await refreshOverviewEmbed(client, guildId);
-
-                        // 6. Cáº¬P NHáº¬T Lá»CH TUáº¦N
-                        try {
-                            const { refreshScheduleEmbed } = require('../thongbao/thongbaoguild');
-                            await refreshScheduleEmbed(client, guildId, channelId, 'edit');
-                        } catch (e) {
-                            console.log('[bangchien] Auto-end: KhĂ´ng thá»ƒ cáº­p nháº­t lá»‹ch tuáº§n:', e.message);
-                        }
-
-                        // 7. Gá»¬I THĂ”NG BĂO
-                        const { EmbedBuilder: AutoEndEmbed } = require('discord.js');
-                        const autoEndEmbed = new AutoEndEmbed()
-                            .setColor(0x2ECC71)
-                            .setTitle(`âœ… BANG CHIáº¾N ${DAY_CONFIG[day].name.toUpperCase()} ÄĂƒ Tá»° Äá»˜NG Káº¾T THĂC!`)
-                            .setDescription(`â° ÄĂ£ 23:00 - Bang Chiáº¿n **${DAY_CONFIG[day].name}** tá»± Ä‘á»™ng káº¿t thĂºc.`)
-                            .addFields(
-                                { name: 'đŸ‘¥ Sá»‘ ngÆ°á»i Ä‘Ă£ Ä‘i', value: `${participants.length} ngÆ°á»i`, inline: true },
-                                { name: 'đŸ”´ ÄĂ£ xĂ³a role', value: `${removedCount} ngÆ°á»i`, inline: true },
-                                { name: 'đŸ’¾ Preset Ä‘Ă£ lÆ°u', value: `đŸ›¡ï¸ Thá»§: ${presetSaved.thu} | đŸŒ² Rá»«ng: ${presetSaved.rung}`, inline: true }
-                            )
-                            .setTimestamp();
-
-                        await channel.send({ embeds: [autoEndEmbed] });
-                        console.log(`[bangchien] Auto-end 23:00 ${day}: End thĂ nh cĂ´ng (${removedCount} role removed, preset: thu=${presetSaved.thu} rung=${presetSaved.rung})`);
-                    } catch (e) {
-                        console.error('[bangchien] Lá»—i auto-end 23:00:', e.message);
-                    }
-                }, msUntilCleanup);
-
-                const hoursUntil = Math.floor(msUntilCleanup / (60 * 60 * 1000));
-                const minutesUntil = Math.floor((msUntilCleanup % (60 * 60 * 1000)) / (60 * 1000));
-                console.log(`[bangchien] Äáº·t lá»‹ch auto-end BC lĂºc 23:00 ${day} sau ${hoursUntil}h${minutesUntil}m`);
-            }
+            // Auto-end dùng scheduler chung: 1 timer cho mỗi guild/ngày, gom tất cả phiên.
+            scheduleBangchienAutoEnd(client, guildId, day, channelId);
 
         } catch (e) {
             console.log('[bangchien] Lá»—i Ä‘áº·t lá»‹ch tag/cleanup:', e.message);

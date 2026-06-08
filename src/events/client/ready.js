@@ -5,16 +5,76 @@ const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/qu
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const memberRosterSync = require('../../utils/memberRosterSync');
-const { LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, LEAGUE_TIME, normalizeBcTime, isLeagueSession } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
 // Legacy state for deleting old roster-summary notification embeds when still tracked in memory.
 const _notifDebounceMap = new Map();
 const _sessionSummaryStateMap = new Map();
+const _webOpenNoticeBuffer = new Map();
+const WEB_OPEN_NOTICE_DEBOUNCE_MS = 5000;
 
 function resolvePrimaryGuild(client) {
   return client.guilds.cache.get(ALLOWED_GUILD_ID) || null;
+}
+
+function queueWebOpenNotice(client, guild, channelId, entry) {
+  if (!client || !guild?.id || !channelId || !entry?.day) return;
+
+  const bufferKey = `${guild.id}:${channelId}`;
+  let buffer = _webOpenNoticeBuffer.get(bufferKey);
+  if (!buffer) {
+    buffer = { client, guild, channelId, entries: [], timer: null };
+    _webOpenNoticeBuffer.set(bufferKey, buffer);
+  }
+
+  buffer.client = client;
+  buffer.guild = guild;
+  buffer.channelId = channelId;
+  buffer.entries.push(entry);
+
+  if (buffer.timer) clearTimeout(buffer.timer);
+  buffer.timer = setTimeout(() => {
+    flushWebOpenNotice(bufferKey).catch((error) => {
+      console.error('[Supabase] Không gửi được thông báo mở BC tổng hợp:', error.message);
+    });
+  }, WEB_OPEN_NOTICE_DEBOUNCE_MS);
+}
+
+async function flushWebOpenNotice(bufferKey) {
+  const buffer = _webOpenNoticeBuffer.get(bufferKey);
+  if (!buffer || buffer.entries.length === 0) return;
+  _webOpenNoticeBuffer.delete(bufferKey);
+
+  const channel = await buffer.client.channels.fetch(buffer.channelId).catch(() => null);
+  if (!channel) return;
+
+  const grouped = new Map();
+  for (const entry of buffer.entries) {
+    if (!grouped.has(entry.day)) grouped.set(entry.day, []);
+    grouped.get(entry.day).push(entry);
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(0x87CEEB)
+    .setTitle('💀 BANG CHIẾN ĐÃ MỞ!')
+    .setDescription('Các phiên mới đã được tạo từ web. Dùng `?bc` hoặc web để đăng ký.')
+    .setTimestamp();
+
+  for (const [day, entries] of grouped) {
+    const label = DAY_CONFIG[day]?.name || day;
+    const lines = entries
+      .sort((a, b) => String(a.time).localeCompare(String(b.time)))
+      .map((item) => {
+        const note = item.note ? ` _${item.note}_` : (isLeagueSession(item.time) ? ' `LEAGUE`' : '');
+        return `• **${item.time}**${note}`;
+      });
+    embed.addFields({ name: `📅 ${label}`, value: lines.join('\n'), inline: false });
+  }
+
+  await channel.send({ embeds: [embed] });
+  console.log(`[Supabase] Đã gửi 1 thông báo mở BC tổng hợp (${buffer.entries.length} session)`);
 }
 
 
@@ -141,9 +201,7 @@ function getRandomStatus() {
  * Chạy khi bot khởi động để đảm bảo setTimeout không bị mất sau restart
  */
 async function cleanupAndRescheduleBc(client) {
-  const { autoCleanupExpiredSessions, isSessionExpired, DAY_CONFIG,
-    bangchienNotifications, bangchienRegistrations, bangchienChannels
-  } = require('../../utils/bangchienState');
+  const { autoCleanupExpiredSessions, scheduleBangchienAutoEndsForGuild } = require('../../utils/bangchienState');
 
   console.log('[ready] Bắt đầu cleanup + re-schedule BC...');
 
@@ -158,65 +216,8 @@ async function cleanupAndRescheduleBc(client) {
       console.log(`[ready] Đã cleanup ${cleaned} session BC hết hạn (guild ${guild.name})`);
     }
 
-    // 2. Re-schedule timer cho session còn hạn
-    const activeSessions = db.getActiveBangchienByGuild(guildId);
-    for (const session of activeSessions) {
-      if (isSessionExpired(session)) continue; // đã cleanup ở trên
-
-      const day = session.day;
-      if (!day) continue;
-
-      // Tính thời gian đến 23:00 VN ngày BC
-      const vnOffset = 7 * 60;
-      const localOffset = new Date().getTimezoneOffset();
-      const now = new Date();
-      const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
-
-      const { DAY_NUM } = require('../../utils/bangchienState');
-      const targetDayOfWeek = DAY_NUM[day] ?? 0; // Dùng DAY_NUM map cho tất cả ngày
-      const todayDayOfWeek = vnNow.getDay();
-
-      let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;
-      if (daysUntilTarget < 0) daysUntilTarget += 7;
-
-      const cleanupDate = new Date(vnNow);
-      cleanupDate.setDate(cleanupDate.getDate() + daysUntilTarget);
-      cleanupDate.setHours(23, 0, 0, 0);
-
-      const cleanupUTC = new Date(cleanupDate.getTime() - (localOffset + vnOffset) * 60 * 1000);
-      const msUntilCleanup = cleanupUTC.getTime() - Date.now();
-
-      if (msUntilCleanup > 0 && msUntilCleanup < 7 * 24 * 60 * 60 * 1000) {
-        const partyKey = session.party_key;
-        const channelId = session.channel_id;
-
-        setTimeout(async () => {
-          try {
-            // Gọi lại autoCleanupExpiredSessions (vì lúc này session đã hết hạn)
-            await autoCleanupExpiredSessions(client, guildId);
-
-            // Gửi thông báo
-            const channel = await client.channels.fetch(channelId).catch(() => null);
-            if (channel) {
-              const { EmbedBuilder } = require('discord.js');
-              const dayName = DAY_CONFIG[day]?.name || day;
-              const embed = new EmbedBuilder()
-                .setColor(0x2ECC71)
-                .setTitle(`✅ BANG CHIẾN ${dayName.toUpperCase()} ĐÃ TỰ ĐỘNG KẾT THÚC!`)
-                .setDescription(`⏰ Đã 23:00 - Bang Chiến **${dayName}** tự động kết thúc.`)
-                .setTimestamp();
-              await channel.send({ embeds: [embed] });
-            }
-          } catch (e) {
-            console.error('[ready] Lỗi re-scheduled auto-end:', e.message);
-          }
-        }, msUntilCleanup);
-
-        const hoursUntil = Math.floor(msUntilCleanup / (60 * 60 * 1000));
-        const minutesUntil = Math.floor((msUntilCleanup % (60 * 60 * 1000)) / (60 * 1000));
-        console.log(`[ready] Re-schedule auto-end BC ${day} sau ${hoursUntil}h${minutesUntil}m (party: ${partyKey})`);
-      }
-    }
+    const scheduled = scheduleBangchienAutoEndsForGuild(client, guildId);
+    if (scheduled > 0) console.log(`[ready] Đã re-schedule ${scheduled} auto-end timer theo ngày cho ${guild.name}`);
   }
 
   console.log('[ready] Cleanup + re-schedule BC hoàn tất!');
@@ -576,12 +577,13 @@ module.exports = {
         await clearRosterSummaryEmbedsForGuild(client, guild);
 
         try {
-          const { ensureWeekendDefaultSessions, refreshOverviewEmbed } = require('../../utils/bangchienState');
+          const { ensureWeekendDefaultSessions, refreshOverviewEmbed, scheduleBangchienAutoEndsForGuild } = require('../../utils/bangchienState');
           const createdDefaults = await ensureWeekendDefaultSessions(guild);
           if (createdDefaults.length > 0) {
             console.log(`[Supabase] Created ${createdDefaults.length} default weekend BC sessions`);
             await refreshOverviewEmbed(client, guild.id);
           }
+          scheduleBangchienAutoEndsForGuild(client, guild.id);
         } catch (defaultSessionErr) {
           console.error('[Supabase] Loi tao default weekend sessions:', defaultSessionErr.message);
         }
@@ -638,7 +640,7 @@ module.exports = {
           // CASE: INSERT session từ web
           if (newData._inserted) {
             try {
-              const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, createPartyKey, refreshOverviewEmbed, normalizeBcTime, LEAGUE_TIME } = require('../../utils/bangchienState');
+              const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, createPartyKey, refreshOverviewEmbed, scheduleBangchienAutoEnd, normalizeBcTime, LEAGUE_TIME } = require('../../utils/bangchienState');
               const day = newData.day;
               const time = normalizeBcTime(newData.time || LEAGUE_TIME);
               const dayConfig = DAY_CONFIG[day];
@@ -708,46 +710,15 @@ module.exports = {
 
               // Recurring signup is temporarily disabled; keep existing data untouched.
 
-              // Gửi thông báo vào kênh
-              const channel = await client.channels.fetch(bcChannelId).catch(() => null);
-              if (channel) {
-                const { EmbedBuilder } = require('discord.js');
-                const noteStr = newData.note ? `  _${newData.note}_` : '';
-                const embed = new EmbedBuilder()
-                  .setColor(dayConfig.color)
-                  .setTitle(`💀 BANG CHIẾN ${dayConfig.name.toUpperCase()} ĐÃ MỞ!`)
-                  .setDescription(`✅ Được tạo từ **${creatorName}**${noteStr}\n⏰ Thời gian: **${time}**\n\n` +
-                    `📝 Dùng \`?bc\` để xem tổng quan hoặc Đăng ký trên web.`)
-                  .setTimestamp();
-                await channel.send({ embeds: [embed] });
-              }
+              queueWebOpenNotice(client, guild, bcChannelId, {
+                day,
+                time,
+                note: newData.note || null,
+                creatorName
+              });
 
-              // Gửi overview embed (bảng tổng quan) ngay sau thông báo
-              // Nếu đã có overview → xóa cũ rồi gửi mới. Nếu chưa có → tạo mới luôn.
-              const { createOverviewEmbed, createOverviewButton } = require('../../commands/bangchien/bangchien');
-              const { bangchienOverviews } = require('../../utils/bangchienState');
-              
-              // Xóa overview cũ nếu có
-              const existingOverview = bangchienOverviews.get(guild.id);
-              if (existingOverview) {
-                try { if (existingOverview.message) await existingOverview.message.delete(); } catch (e) { }
-              }
-              
-              // Gửi overview embed mới vào kênh BC
-              if (channel) {
-                const overviewEmbed = createOverviewEmbed(guild.id, guild);
-                const overviewButton = createOverviewButton(guild.id);
-                const sendOptions = { embeds: [overviewEmbed] };
-                if (overviewButton) sendOptions.components = [overviewButton];
-                const overviewMsg = await channel.send(sendOptions);
-                
-                // Lưu vào Map để các handler khác có thể refresh
-                bangchienOverviews.set(guild.id, {
-                  messageId: overviewMsg.id,
-                  channelId: bcChannelId,
-                  message: overviewMsg
-                });
-              }
+              await refreshOverviewEmbed(client, guild.id, bcChannelId);
+              scheduleBangchienAutoEnd(client, guild.id, day, bcChannelId);
 
               // Cập nhật lịch tuần
               try {
@@ -755,7 +726,7 @@ module.exports = {
                 await refreshScheduleEmbed(client, guild.id, null, 'resend');
               } catch (e) { }
 
-              console.log(`[Supabase] ✅ Web INSERT → tạo SQLite session ${day} ${time}, thông báo #${channel?.name || bcChannelId}`);
+              console.log(`[Supabase] ✅ Web INSERT → tạo SQLite session ${day} ${time}, queue thông báo tổng hợp`);
             } catch (err) {
               console.error('[Supabase] ❌ Xử lý web INSERT lỗi:', err.message);
             }

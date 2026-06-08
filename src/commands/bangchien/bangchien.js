@@ -32,17 +32,17 @@ const bangchienRoster = require('../../utils/bangchienRoster');
 
 
 
-// Táº¡o embed thĂ´ng bĂ¡o bang chiáº¿n - HIá»‚N THá» 4 TEAM
+// Tạo embed thông báo bang chiến - HIỂN THỊ 4 TEAM
 function createBangchienEmbed(partyKey, leaderName, guild = null) {
     const db = require('../../database/db');
 
-    // DYNAMIC TEAM SIZES - Äá»“ng bá»™ vá»›i ?bcsize
+    // DYNAMIC TEAM SIZES - Đồng bộ với ?bcsize
     const TEAM_ATTACK1_SIZE = db.getTeamSize('attack1') || 10;
     const TEAM_ATTACK2_SIZE = db.getTeamSize('attack2') || 10;
     const TEAM_DEFENSE_SIZE = db.getTeamSize('defense') ?? 5;
     const TEAM_FOREST_SIZE = db.getTeamSize('forest') ?? 5;
 
-    // Láº¥y data tá»« DB
+    // Lấy data từ DB
     let teamAttack1 = [];
     let teamAttack2 = [];
     let teamDefense = [];
@@ -59,19 +59,19 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     }
 
     // Role emojis
-    const roleEmojis = { 'DPS': 'đŸ”µ', 'Quáº¡t DĂ¹': 'đŸ”µ', 'VĂ´ Danh': 'đŸ”µ', 'Song Äao': 'đŸ”µ', 'Cá»­u Kiáº¿m': 'đŸ”µ', 'Healer': 'đŸŸ¢', 'Tanker': 'đŸŸ ' };
-    const dpsSubTypeRoles = ['Quáº¡t DĂ¹', 'VĂ´ Danh', 'Song Äao', 'Cá»­u Kiáº¿m'];
+    const roleEmojis = { 'DPS': '🔵', 'Quạt Dù': '🔵', 'Vô Danh': '🔵', 'Song Đao': '🔵', 'Cửu Kiếm': '🔵', 'Healer': '🟢', 'Tanker': '🟠' };
+    const dpsSubTypeRoles = ['Quạt Dù', 'Vô Danh', 'Song Đao', 'Cửu Kiếm'];
     const allRoleNames = ['DPS', 'Healer', 'Tanker'];
-    const dpsShortTags = { 'Quáº¡t DĂ¹': 'QD', 'VĂ´ Danh': 'VD', 'Song Äao': 'SD', 'Cá»­u Kiáº¿m': '9K' };
+    const dpsShortTags = { 'Quạt Dù': 'QD', 'Vô Danh': 'VD', 'Song Đao': 'SD', 'Cửu Kiếm': '9K' };
 
-    // Helper: láº¥y role - Æ¯U TIĂN Healer/Tanker trÆ°á»›c DPS
+    // Helper: lấy role - ƯU TIÊN Healer/Tanker trước DPS
     function getMemberRole(memberId) {
         if (!guild) return null;
         try {
             const member = guild.members.cache.get(memberId);
             if (!member) return null;
 
-            // Check Healer vĂ  Tanker TRÆ¯á»C (Æ°u tiĂªn cao hÆ¡n)
+            // Check Healer và Tanker TRƯỚC (ưu tiên cao hơn)
             const healerRole = guild.roles.cache.find(r => r.name === 'Healer');
             if (healerRole && member.roles.cache.has(healerRole.id)) return 'Healer';
 
@@ -91,13 +91,13 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         return null;
     }
 
-    // Helper: format má»™t ngÆ°á»i
+    // Helper: format một người
     function formatMember(r, index) {
         const userData = db.getUserByDiscordId(r.id);
         const gameName = userData?.game_username || null;
-        // LUĂ”N detect role tá»« Discord (khĂ´ng fallback sang role DB)
+        // LUÔN detect role từ Discord (không fallback sang role DB)
         const role = getMemberRole(r.id);
-        const roleDisplay = role ? roleEmojis[role] : 'â“';
+        const roleDisplay = role ? roleEmojis[role] : '❓';
 
         let subTypeTag = '';
         if (role === 'DPS' && guild) {
@@ -114,15 +114,15 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         }
 
         const nameDisplay = gameName ? `<@${r.id}> (${gameName})` : `<@${r.id}>`;
-        const leaderIcon = r.isTeamLeader ? ' đŸ‘‘' : '';
+        const leaderIcon = r.isTeamLeader ? ' 👑' : '';
         return `${index}. ${roleDisplay}${subTypeTag} ${nameDisplay}${leaderIcon}`;
     }
 
-    // Helper: tĂ­nh stats
+    // Helper: tính stats
     function getTeamStats(team) {
         let stats = { healer: 0, tanker: 0, dps: 0, unknown: 0 };
         team.forEach(p => {
-            // LUĂ”N detect role tá»« Discord (khĂ´ng fallback sang role DB)
+            // LUÔN detect role từ Discord (không fallback sang role DB)
             const role = getMemberRole(p.id);
             if (role === 'Healer') stats.healer++;
             else if (role === 'Tanker') stats.tanker++;
@@ -134,12 +134,12 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
 
     // Helper: format stats text
     function formatStats(stats) {
-        let text = `đŸŸ¢${stats.healer} đŸŸ ${stats.tanker} đŸ”µ${stats.dps}`;
-        if (stats.unknown > 0) text += ` â“${stats.unknown}`;
+        let text = `🟢${stats.healer} 🟠${stats.tanker} 🔵${stats.dps}`;
+        if (stats.unknown > 0) text += ` ❓${stats.unknown}`;
         return text;
     }
 
-    // Helper: chia list dĂ i
+    // Helper: chia list dài
     function splitListIntoChunks(list, maxLength = 1000) {
         const chunks = [];
         let currentChunk = '';
@@ -156,52 +156,52 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         return chunks;
     }
 
-    // Helper: add team field to embed (chá»‰ hiá»‡n 1 slot trá»‘ng náº¿u chÆ°a Ä‘áº§y)
+    // Helper: add team field to embed (chỉ hiện 1 slot trống nếu chưa đầy)
     function addTeamField(embed, teamName, emoji, team, maxSize, startNum) {
         const stats = getTeamStats(team);
         const statsText = formatStats(stats);
 
-        // Táº¡o danh sĂ¡ch: members + 1 slot trá»‘ng (náº¿u chÆ°a Ä‘áº§y)
+        // Tạo danh sách: members + 1 slot trống (nếu chưa đầy)
         const lines = [];
         for (let i = 0; i < team.length; i++) {
             lines.push(formatMember(team[i], startNum + i));
         }
-        // Chá»‰ thĂªm 1 slot trá»‘ng náº¿u team chÆ°a Ä‘áº§y
+        // Chỉ thêm 1 slot trống nếu team chưa đầy
         if (team.length < maxSize) {
             const nextSlot = startNum + team.length;
-            lines.push(`${nextSlot}. _Trá»‘ng..._`);
+            lines.push(`${nextSlot}. _Trống..._`);
         }
 
-        const list = lines.join('\n') || '_Trá»‘ng..._';
+        const list = lines.join('\n') || '_Trống..._';
         const chunks = splitListIntoChunks(list);
         chunks.forEach((chunk, index) => {
             embed.addFields({
-                name: index === 0 ? `${emoji} ${teamName} (${team.length}/${maxSize}) [${statsText}]` : 'â€‹',
+                name: index === 0 ? `${emoji} ${teamName} (${team.length}/${maxSize}) [${statsText}]` : '​',
                 value: chunk,
                 inline: false
             });
         });
 
-        return maxSize; // Return maxSize Ä‘á»ƒ sá»‘ thá»© tá»± liĂªn tá»¥c
+        return maxSize; // Return maxSize để số thứ tự liên tục
     }
 
-    // Láº¥y mĂ u vĂ  tĂªn ngĂ y tá»« partyKey
+    // Lấy màu và tên ngày từ partyKey
     const day = getDayFromPartyKey(partyKey);
     const dayConfig = day ? DAY_CONFIG[day] : { name: '', color: 0x9B59B6 };
     const dayTitle = day ? ` - ${getDayNameWithDate(day)}` : '';
 
     const embed = new EmbedBuilder()
         .setColor(dayConfig.color)
-        .setTitle(`â”ï¸ ÄÄ‚NG KĂ BANG CHIáº¾N LANG GIA${dayTitle}`)
-        .setDescription('â“ = ChÆ°a dĂ¹ng `?pickrole` Ä‘á»ƒ chá»n vai trĂ²\n`?bcdoi <sá»‘1> <sá»‘2>` Ä‘á»ƒ Ä‘á»•i chá»—');
+        .setTitle(`⚔️ ĐĂNG KÝ BANG CHIẾN LANG GIA${dayTitle}`)
+        .setDescription('❓ = Chưa dùng `?pickrole` để chọn vai trò\n`?bcdoi <số1> <số2>` để đổi chỗ');
 
-    // Láº¥y tĂªn team tĂ¹y chá»‰nh
+    // Lấy tên team tùy chỉnh
     const teamNames = db.getTeamNames ? db.getTeamNames() : {
-        attack1: 'TEAM CĂ”NG 1', attack2: 'TEAM CĂ”NG 2',
-        defense: 'TEAM THá»¦', forest: 'TEAM Rá»ªNG'
+        attack1: 'TEAM CÔNG 1', attack2: 'TEAM CÔNG 2',
+        defense: 'TEAM THỦ', forest: 'TEAM RỪNG'
     };
 
-    // Team CĂ´ng 1: 1-10
+    // Team Công 1: 1-10
     let currentNum = 1;
     const dynamicRoster = bangchienRoster.normalizeRoster(activeSession || {
         team_attack1: teamAttack1,
@@ -211,38 +211,38 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
         waiting_list: waitingList
     });
     for (const team of dynamicRoster.layout) {
-        currentNum += addTeamField(embed, team.name, team.icon || 'â€¢', dynamicRoster.teams[team.id] || [], team.capacity, currentNum);
+        currentNum += addTeamField(embed, team.name, team.icon || '•', dynamicRoster.teams[team.id] || [], team.capacity, currentNum);
     }
     if (false) {
-    currentNum += addTeamField(embed, teamNames.attack1, 'â”ï¸', teamAttack1, TEAM_ATTACK1_SIZE, currentNum);
+    currentNum += addTeamField(embed, teamNames.attack1, '⚔️', teamAttack1, TEAM_ATTACK1_SIZE, currentNum);
 
-    // Team CĂ´ng 2: 11-20
-    currentNum += addTeamField(embed, teamNames.attack2, 'đŸ—¡ï¸', teamAttack2, TEAM_ATTACK2_SIZE, currentNum);
+    // Team Công 2: 11-20
+    currentNum += addTeamField(embed, teamNames.attack2, '🗡️', teamAttack2, TEAM_ATTACK2_SIZE, currentNum);
 
-    // Team Thá»§: chá»‰ hiá»‡n náº¿u size > 0
+    // Team Thủ: chỉ hiện nếu size > 0
     if (TEAM_DEFENSE_SIZE > 0) {
-        currentNum += addTeamField(embed, teamNames.defense, 'đŸ›¡ï¸', teamDefense, TEAM_DEFENSE_SIZE, currentNum);
+        currentNum += addTeamField(embed, teamNames.defense, '🛡️', teamDefense, TEAM_DEFENSE_SIZE, currentNum);
     } else {
-        // Váº«n cá»™ng maxSize Ä‘á»ƒ giá»¯ sá»‘ thá»© tá»± liĂªn tá»¥c
+        // Vẫn cộng maxSize để giữ số thứ tự liên tục
         currentNum += TEAM_DEFENSE_SIZE;
     }
 
-    // Team Rá»«ng: chá»‰ hiá»‡n náº¿u size > 0
+    // Team Rừng: chỉ hiện nếu size > 0
     if (TEAM_FOREST_SIZE > 0) {
-        currentNum += addTeamField(embed, teamNames.forest, 'đŸŒ²', teamForest, TEAM_FOREST_SIZE, currentNum);
+        currentNum += addTeamField(embed, teamNames.forest, '🌲', teamForest, TEAM_FOREST_SIZE, currentNum);
     } else {
         currentNum += TEAM_FOREST_SIZE;
     }
     }
 
 
-    // Danh sĂ¡ch chá»
+    // Danh sách chờ
     if (waitingList.length > 0) {
         const waitList = waitingList.map((r, i) => formatMember(r, currentNum + i)).join('\n');
         const waitChunks = splitListIntoChunks(waitList);
         waitChunks.forEach((chunk, index) => {
             embed.addFields({
-                name: index === 0 ? `â³ Danh sĂ¡ch chá» (${waitingList.length})` : 'â€‹',
+                name: index === 0 ? `⏳ Danh sách chờ (${waitingList.length})` : '​',
                 value: chunk,
                 inline: false
             });
@@ -250,50 +250,50 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     }
 
     const total = bangchienRoster.getRosterCounts(dynamicRoster).total;
-    embed.setFooter({ text: `Leader: ${leaderName} â€¢ Tá»•ng: ${total}/30 ngÆ°á»i` })
+    embed.setFooter({ text: `Leader: ${leaderName} • Tổng: ${total}/30 người` })
         .setTimestamp();
 
     return embed;
 }
 
-// Táº¡o buttons cĂ´ng khai (cho táº¥t cáº£ ngÆ°á»i dĂ¹ng tháº¥y)
+// Tạo buttons công khai (cho tất cả người dùng thấy)
 function createBangchienButtons(partyKey, day = null) {
     const row = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId(`bangchien_join_${partyKey}`)
-                .setLabel('âœ… Tham gia')
+                .setLabel('✅ Tham gia')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId(`bangchien_leave_${partyKey}`)
-                .setLabel('âŒ Há»§y Ä‘Äƒng kĂ½')
+                .setLabel('❌ Hủy đăng ký')
                 .setStyle(ButtonStyle.Secondary),
         );
     return row;
 }
 
-// Táº¡o buttons quáº£n lĂ½ (chá»‰ Leader tháº¥y qua ?bcql)
+// Tạo buttons quản lý (chỉ Leader thấy qua ?bcql)
 function createBangchienAdminButtons(partyKey) {
     const row = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId(`bangchien_kick_${partyKey}`)
-                .setLabel('âŒ Loáº¡i bá»')
+                .setLabel('❌ Loại bỏ')
                 .setStyle(ButtonStyle.Danger),
             new ButtonBuilder()
                 .setCustomId(`bangchien_priority_${partyKey}`)
-                .setLabel('â¬†ï¸ Æ¯u tiĂªn')
+                .setLabel('⬆️ Ưu tiên')
                 .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId(`bangchien_finalize_${partyKey}`)
-                .setLabel('đŸ“‹ Chá»‘t DS')
+                .setLabel('📋 Chốt DS')
                 .setStyle(ButtonStyle.Success)
         );
 
     return row;
 }
 
-// Fetch táº¥t cáº£ BC members vĂ o cache (gá»i 1 láº§n khi khĂ´i phá»¥c session sau restart)
+// Fetch tất cả BC members vào cache (gọi 1 lần khi khôi phục session sau restart)
 async function fetchBcMembers(guild, participants) {
     if (!guild || !participants || participants.length === 0) return;
     try {
@@ -305,9 +305,9 @@ async function fetchBcMembers(guild, participants) {
     }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 // MULTI-DAY OVERVIEW FUNCTIONS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════════════
 
 function createOverviewEmbed(guildId, guild = null, userId = null) {
     const db = require('../../database/db');
@@ -379,7 +379,7 @@ function createOverviewButton(guildId) {
     );
 }
 
-// Helper: kiá»ƒm tra userId cĂ³ trong session khĂ´ng
+// Helper: kiểm tra userId có trong session không
 function isUserInSession(session, userId) {
     if (!userId) return false;
     const allMembers = bangchienRoster.getAllRosterMembers(session);
@@ -387,7 +387,7 @@ function isUserInSession(session, userId) {
 }
 /**
  * Debounced refresh BC overview embed
- * Khi cĂ³ tin nháº¯n má»›i trong kĂªnh BC â†’ clear timer cÅ© â†’ set timer 5 phĂºt
+ * Khi có tin nhắn mới trong kênh BC → clear timer cũ → set timer 5 phút
  * Khi timer hết → edit overview mới nhất và xóa bản trùng nếu có
  * @param {Client} client - Discord client
  * @param {string} guildId - Guild ID
@@ -397,7 +397,7 @@ function refreshBcOverviewDebounced(client, guildId) {
     const overviewData = bangchienOverviews.get(guildId);
     if (!overviewData) return;
 
-    // Kiá»ƒm tra cĂ³ session Ä‘ang má»Ÿ khĂ´ng (báº¥t ká»³ ngĂ y nĂ o)
+    // Kiểm tra có session đang mở không (bất kỳ ngày nào)
     const allSessions = db.getActiveBangchienByGuild(guildId);
     if (allSessions.length === 0) return;
 
@@ -405,7 +405,7 @@ function refreshBcOverviewDebounced(client, guildId) {
     const existingTimer = bcRefreshTimers.get(guildId);
     if (existingTimer) clearTimeout(existingTimer);
 
-    // Set timer má»›i (5 phĂºt)
+    // Set timer mới (5 phút)
     const timeoutId = setTimeout(async () => {
         try {
             const data = bangchienOverviews.get(guildId);
@@ -427,7 +427,7 @@ function refreshBcOverviewDebounced(client, guildId) {
 module.exports = {
     name: 'bangchien',
     aliases: ['bc', 'dangkybangchien'],
-    description: 'Báº¯t Ä‘áº§u Ä‘Äƒng kĂ½ Bang Chiáº¿n (30 ngÆ°á»i). DĂ¹ng: ?bc (tá»•ng quan), ?bc t7, ?bc cn',
+    description: 'Bắt đầu đăng ký Bang Chiến (30 người). Dùng: ?bc (tổng quan), ?bc t7, ?bc cn',
 
     async execute(message, args, client) {
         const guildId = message.guild.id;
@@ -435,57 +435,57 @@ module.exports = {
         const leaderName = message.author.username;
         const db = require('../../database/db');
 
-        // Lookup tĂªn ingame tá»« DB
+        // Lookup tên ingame từ DB
         const userInfo = db.getUserByDiscordId(leaderId);
         const gameName = userInfo?.game_username || '';
-        const displayName = gameName || leaderName; // Æ¯u tiĂªn tĂªn ingame
+        const displayName = gameName || leaderName; // Ưu tiên tên ingame
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // AUTO-CLEANUP: Dá»n session BC háº¿t háº¡n trÆ°á»›c khi xá»­ lĂ½
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ═══════════════════════════════════════════════════════════════════
+        // AUTO-CLEANUP: Dọn session BC hết hạn trước khi xử lý
+        // ═══════════════════════════════════════════════════════════════════
         await autoCleanupExpiredSessions(client, guildId);
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // PARSE ARGS: ?bc / ?bc t7 / ?bc t2 21h Ghi chĂº
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        const parsed = parseDayArg(args); // { day, time, note } hoáº·c null
+        // ═══════════════════════════════════════════════════════════════════
+        // PARSE ARGS: ?bc / ?bc t7 / ?bc t2 21h Ghi chú
+        // ═══════════════════════════════════════════════════════════════════
+        const parsed = parseDayArg(args); // { day, time, note } hoặc null
         const day = parsed?.day || null;
         const bcTime = normalizeBcTime(parsed?.time || LEAGUE_TIME);
         const bcNote = parsed?.note || (day && PRIMARY_DAYS.includes(day) && bcTime === LEAGUE_TIME ? 'LEAGUE' : null);
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // CASE 1: ?bc (khĂ´ng cĂ³ args) â†’ Hiá»ƒn thá»‹ Overview táº¥t cáº£ ngĂ y
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ═══════════════════════════════════════════════════════════════════
+        // CASE 1: ?bc (không có args) → Hiển thị Overview tất cả ngày
+        // ═══════════════════════════════════════════════════════════════════
         if (!day) {
             const oldTimer = bcRefreshTimers.get(guildId);
             if (oldTimer) { clearTimeout(oldTimer); bcRefreshTimers.delete(guildId); }
 
-            // XĂ³a tin nháº¯n lá»‡nh
+            // Xóa tin nhắn lệnh
             try { await message.delete(); } catch (e) { }
 
             await upsertOverviewEmbed(client, guildId, message.channel);
 
-            console.log(`[bangchien] ${leaderName} hiá»ƒn thá»‹ overview táº¡i ${message.guild.name}`);
+            console.log(`[bangchien] ${leaderName} hiển thị overview tại ${message.guild.name}`);
             return;
         }
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // CASE 2: ?bc t7 / ?bc t2 21h ... â†’ Táº¡o hoáº·c hiá»ƒn thá»‹ session
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ═══════════════════════════════════════════════════════════════════
+        // CASE 2: ?bc t7 / ?bc t2 21h ... → Tạo hoặc hiển thị session
+        // ═══════════════════════════════════════════════════════════════════
         const dayConfig = DAY_CONFIG[day];
 
-        // Kiá»ƒm tra session hiá»‡n cĂ³ trong DB
+        // Kiểm tra session hiện có trong DB
         const existingSession = db.getActiveBangchienByDayTime
             ? db.getActiveBangchienByDayTime(guildId, day, bcTime)
             : db.getActiveBangchienByDay(guildId, day);
 
         if (existingSession) {
-            // Session Ä‘Ă£ tá»“n táº¡i â†’ chá»‰ cáº­p nháº­t overview, KHĂ”NG gá»­i embed riĂªng
+            // Session đã tồn tại → chỉ cập nhật overview, KHÔNG gửi embed riêng
             const partyKey = existingSession.party_key;
 
-            // KhĂ´i phá»¥c vĂ o memory náº¿u cáº§n (sau restart)
+            // Khôi phục vào memory nếu cần (sau restart)
             if (!bangchienNotifications.has(partyKey)) {
-                console.log(`[bangchien] KhĂ´i phá»¥c session ${day} tá»« DB: ${partyKey}`);
+                console.log(`[bangchien] Khôi phục session ${day} từ DB: ${partyKey}`);
 
                 bangchienNotifications.set(partyKey, {
                     intervalId: null,
@@ -499,19 +499,19 @@ module.exports = {
                     time: existingSession.time || bcTime
                 });
 
-                // KhĂ´i phá»¥c registrations
+                // Khôi phục registrations
                 const allParticipants = bangchienRoster.getAllRosterMembers(existingSession);
                 bangchienRegistrations.set(partyKey, allParticipants);
 
-                // Fetch members vĂ o cache
+                // Fetch members vào cache
                 await fetchBcMembers(message.guild, allParticipants);
             }
 
-            // Cáº­p nháº­t overview thay vĂ¬ gá»­i embed riĂªng
+            // Cập nhật overview thay vì gửi embed riêng
             await refreshOverviewEmbed(client, guildId, existingSession.channel_id || message.channel.id);
 
-            // Sync lĂªn Supabase Ä‘á»ƒ web nháº­n realtime update
-            // (quan trá»ng sau bot restart â€” web cáº§n data má»›i Ä‘á»ƒ hiá»ƒn thá»‹ Ä‘Ăºng)
+            // Sync lên Supabase để web nhận realtime update
+            // (quan trọng sau bot restart — web cần data mới để hiển thị đúng)
             try {
                 const supaSync = require('../../utils/supabaseSync');
                 if (supaSync.isReady()) {
@@ -519,33 +519,33 @@ module.exports = {
                     if (formatted) {
                         formatted.time = existingSession.time || bcTime;
                         await supaSync.syncBCSession(guildId, day, formatted);
-                        console.log(`[bangchien] âœ… Sync session ${day} lĂªn Supabase (?bc existing)`);
+                        console.log(`[bangchien] ✅ Sync session ${day} lên Supabase (?bc existing)`);
                     }
                 }
             } catch (syncErr) {
-                console.log('[bangchien] Lá»—i sync Supabase (existing session):', syncErr.message);
+                console.log('[bangchien] Lỗi sync Supabase (existing session):', syncErr.message);
             }
 
-            // Reply ngáº¯n cho user biáº¿t
+            // Reply ngắn cho user biết
             const reply = await message.reply({
-                content: `âœ… Session **${dayConfig.name}** Ä‘ang má»Ÿ. Xem táº¡i kĂªnh ?bc overview.`,
+                content: `✅ Session **${dayConfig.name}** đang mở. Xem tại kênh ?bc overview.`,
                 allowedMentions: { repliedUser: false }
             });
             setTimeout(() => { try { reply.delete(); } catch (e) { } }, 5000);
 
-            // XĂ³a tin nháº¯n lá»‡nh
+            // Xóa tin nhắn lệnh
             try { await message.delete(); } catch (e) { }
-            console.log(`[bangchien] ${leaderName} xem session ${dayConfig.name} â†’ cáº­p nháº­t overview`);
+            console.log(`[bangchien] ${leaderName} xem session ${dayConfig.name} → cập nhật overview`);
             return;
         }
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // CASE 3: Táº¡o session má»›i cho ngĂ y Ä‘Ă³ (CHá»ˆ Ká»² Cá»°U/QUáº¢N LĂ)
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ═══════════════════════════════════════════════════════════════════
+        // CASE 3: Tạo session mới cho ngày đó (CHỈ KỲ CỰU/QUẢN LÝ)
+        // ═══════════════════════════════════════════════════════════════════
 
-        // Kiá»ƒm tra quyá»n: Chá»‰ Ká»³ Cá»±u hoáº·c Quáº£n LĂ½ má»›i Ä‘Æ°á»£c má»Ÿ session má»›i
-        const kyCuuRole = message.guild.roles.cache.find(r => r.name === 'Ká»³ Cá»±u');
-        const quanLyRole = message.guild.roles.cache.find(r => r.name === 'Quáº£n LĂ½');
+        // Kiểm tra quyền: Chỉ Kỳ Cựu hoặc Quản Lý mới được mở session mới
+        const kyCuuRole = message.guild.roles.cache.find(r => r.name === 'Kỳ Cựu');
+        const quanLyRole = message.guild.roles.cache.find(r => r.name === 'Quản Lý');
         const OWNER_ID = '395151484179841024';
 
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
@@ -554,34 +554,34 @@ module.exports = {
 
         if (!isKyCuu && !isQuanLy && !isOwner) {
             return message.reply({
-                content: `âŒ Chá»‰ **Ká»³ Cá»±u** hoáº·c **Quáº£n LĂ½** má»›i Ä‘Æ°á»£c má»Ÿ Bang Chiáº¿n!\nđŸ’¡ Náº¿u Ä‘Ă£ cĂ³ session, dĂ¹ng \`?bc\` Ä‘á»ƒ xem tá»•ng quan.`,
+                content: `❌ Chỉ **Kỳ Cựu** hoặc **Quản Lý** mới được mở Bang Chiến!\n💡 Nếu đã có session, dùng \`?bc\` để xem tổng quan.`,
                 allowedMentions: { repliedUser: false }
             });
         }
 
         const confirmEmbed = new EmbedBuilder()
             .setColor(dayConfig.color)
-            .setTitle(`â”ï¸ XĂC NHáº¬N Táº O BANG CHIáº¾N - ${dayConfig.name}`)
-            .setDescription(`**${leaderName}** muá»‘n má»Ÿ Ä‘Äƒng kĂ½ Bang Chiáº¿n cho **${dayConfig.name}**.\n\n` +
-                `đŸ“‹ Sau khi xĂ¡c nháº­n, má»i ngÆ°á»i cĂ³ thá»ƒ Ä‘Äƒng kĂ½.\n` +
-                `â° Báº¡n cĂ³ 30 giĂ¢y Ä‘á»ƒ xĂ¡c nháº­n.`)
-            .setFooter({ text: 'Nháº¥n XĂ¡c Nháº­n Ä‘á»ƒ tiáº¿p tá»¥c' });
+            .setTitle(`⚔️ XÁC NHẬN TẠO BANG CHIẾN - ${dayConfig.name}`)
+            .setDescription(`**${leaderName}** muốn mở đăng ký Bang Chiến cho **${dayConfig.name}**.\n\n` +
+                `📋 Sau khi xác nhận, mọi người có thể đăng ký.\n` +
+                `⏰ Bạn có 30 giây để xác nhận.`)
+            .setFooter({ text: 'Nhấn Xác Nhận để tiếp tục' });
 
         const confirmRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`bc_confirm_${day}_${leaderId}`)
-                    .setLabel('âœ… XĂ¡c Nháº­n')
+                    .setLabel('✅ Xác Nhận')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId(`bc_cancel_${day}_${leaderId}`)
-                    .setLabel('âŒ Há»§y')
+                    .setLabel('❌ Hủy')
                     .setStyle(ButtonStyle.Danger)
             );
 
         const confirmMsg = await message.reply({ embeds: [confirmEmbed], components: [confirmRow] });
 
-        // Chá» xĂ¡c nháº­n
+        // Chờ xác nhận
         try {
             const filter = i => i.user.id === leaderId &&
                 (i.customId === `bc_confirm_${day}_${leaderId}` || i.customId === `bc_cancel_${day}_${leaderId}`);
@@ -589,19 +589,19 @@ module.exports = {
 
             if (confirmation.customId === `bc_cancel_${day}_${leaderId}`) {
                 await confirmMsg.delete().catch(() => { });
-                return message.reply({ content: 'âŒ ÄĂ£ há»§y táº¡o Bang Chiáº¿n.', allowedMentions: { repliedUser: false } });
+                return message.reply({ content: '❌ Đã hủy tạo Bang Chiến.', allowedMentions: { repliedUser: false } });
             }
 
             await confirmMsg.delete().catch(() => { });
         } catch (e) {
             await confirmMsg.delete().catch(() => { });
-            return message.reply({ content: 'â° Háº¿t thá»i gian xĂ¡c nháº­n. Vui lĂ²ng thá»­ láº¡i.', allowedMentions: { repliedUser: false } });
+            return message.reply({ content: '⏰ Hết thời gian xác nhận. Vui lòng thử lại.', allowedMentions: { repliedUser: false } });
         }
 
-        // Táº¡o party key má»›i vá»›i day
+        // Tạo party key mới với day
         const partyKey = createPartyKey(guildId, day, leaderId, bcTime);
 
-        // Khá»Ÿi táº¡o trong memory
+        // Khởi tạo trong memory
         bangchienRegistrations.set(partyKey, [{
             id: leaderId,
             username: leaderName,
@@ -611,7 +611,7 @@ module.exports = {
             isLeader: true
         }]);
 
-        // LÆ°u vĂ o DB vá»›i day, time, note
+        // Lưu vào DB với day, time, note
         db.createActiveBangchien({
             guildId,
             partyKey,
@@ -626,11 +626,11 @@ module.exports = {
 
         // Recurring signup is temporarily disabled; keep existing data untouched.
 
-        // KHĂ”NG gá»­i embed riĂªng - chá»‰ cáº­p nháº­t overview
-        // XĂ³a tin nháº¯n lá»‡nh
+        // KHÔNG gửi embed riêng - chỉ cập nhật overview
+        // Xóa tin nhắn lệnh
         try { await message.delete(); } catch (e) { }
 
-        // LÆ°u thĂ´ng tin vĂ o memory (khĂ´ng cĂ³ interval refresh cho ?bc t7/cn)
+        // Lưu thông tin vào memory (không có interval refresh cho ?bc t7/cn)
         bangchienNotifications.set(partyKey, {
             intervalId: null,
             channelId: message.channel.id,
@@ -643,17 +643,17 @@ module.exports = {
             time: bcTime
         });
 
-        // Cáº­p nháº­t overview embed
+        // Cập nhật overview embed
         await refreshOverviewEmbed(client, guildId, message.channel.id);
 
-        // ThĂ´ng bĂ¡o ngáº¯n
-        const reply = await message.channel.send(`âœ… ÄĂ£ má»Ÿ Ä‘Äƒng kĂ½ BC **${dayConfig.name}**! Xem táº¡i kĂªnh ?bc overview.`);
+        // Thông báo ngắn
+        const reply = await message.channel.send(`✅ Đã mở đăng ký BC **${dayConfig.name}**! Xem tại kênh ?bc overview.`);
         setTimeout(() => { try { reply.delete(); } catch (e) { } }, 8000);
 
-        // ÄÄƒng kĂ½ kĂªnh
+        // Đăng ký kênh
         bangchienChannels.set(guildId, message.channel.id);
 
-        // Sync lĂªn Supabase Ä‘á»ƒ web cáº­p nháº­t realtime
+        // Sync lên Supabase để web cập nhật realtime
         try {
             const supaSync = require('../../utils/supabaseSync');
             const db = require('../../database/db');
@@ -665,9 +665,9 @@ module.exports = {
                         formatted.time = bcTime;
                         formatted.note = bcNote || '';
                         await supaSync.syncBCSession(guildId, day, formatted);
-                        console.log(`[bangchien] âœ… ÄĂ£ sync session ${day} lĂªn Supabase`);
+                        console.log(`[bangchien] ✅ Đã sync session ${day} lên Supabase`);
                     } else {
-                        console.log(`[bangchien] â ï¸ formatActiveSession tráº£ vá» null cho ${day}`);
+                        console.log(`[bangchien] ⚠️ formatActiveSession trả về null cho ${day}`);
                     }
                 }
             }
@@ -675,19 +675,19 @@ module.exports = {
             console.log('[bangchien] Supabase sync error:', e.message);
         }
 
-        console.log(`[bangchien] ${leaderName} táº¡o party ${dayConfig.name} táº¡i ${message.guild.name}`);
+        console.log(`[bangchien] ${leaderName} tạo party ${dayConfig.name} tại ${message.guild.name}`);
 
-        // Cáº­p nháº­t lá»‹ch tuáº§n ngay khi má»Ÿ session (khĂ´ng truyá»n channelId Ä‘á»ƒ dĂ¹ng channel tá»« /thongbaoguild)
+        // Cập nhật lịch tuần ngay khi mở session (không truyền channelId để dùng channel từ /thongbaoguild)
         try {
             const { refreshScheduleEmbed } = require('../thongbao/thongbaoguild');
             await refreshScheduleEmbed(message.client, guildId, null, 'resend');
-            console.log(`[bangchien] ÄĂ£ cáº­p nháº­t lá»‹ch tuáº§n sau khi má»Ÿ BC ${day}`);
+            console.log(`[bangchien] Đã cập nhật lịch tuần sau khi mở BC ${day}`);
         } catch (e) {
-            console.log('[bangchien] KhĂ´ng thá»ƒ cáº­p nháº­t lá»‹ch tuáº§n:', e.message);
+            console.log('[bangchien] Không thể cập nhật lịch tuần:', e.message);
         }
 
-        // ===== Äáº¶T Lá»CH TAG ROLE BC VĂ€O 19:00 (30p trÆ°á»›c) VĂ€ 19:15 (15p trÆ°á»›c) =====
-        // ===== VĂ€ XĂ“A ROLE BC VĂ€O 23:00 (sau khi Ä‘Ă¡nh xong) =====
+        // ===== ĐẶT LỊCH TAG ROLE BC VÀO 19:00 (30p trước) VÀ 19:15 (15p trước) =====
+        // ===== VÀ XÓA ROLE BC VÀO 23:00 (sau khi đánh xong) =====
         try {
             const BC_ROLE_NAME = 'bc';
             const vnOffset = 7 * 60;
@@ -695,9 +695,9 @@ module.exports = {
             const now = new Date();
             const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
 
-            // TĂ¬m ngĂ y T7 hoáº·c CN tiáº¿p theo
+            // Tìm ngày T7 hoặc CN tiếp theo
             const { DAY_NUM } = require('../../utils/bangchienState');
-            const targetDayOfWeek = DAY_NUM[day] ?? 0; // DĂ¹ng DAY_NUM map cho táº¥t cáº£ ngĂ y
+            const targetDayOfWeek = DAY_NUM[day] ?? 0; // Dùng DAY_NUM map cho tất cả ngày
             const todayDayOfWeek = vnNow.getDay();
 
             let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;
@@ -705,7 +705,7 @@ module.exports = {
 
             const channelId = message.channel.id;
 
-            // HĂ m helper Ä‘á»ƒ Ä‘áº·t lá»‹ch tag
+            // Hàm helper để đặt lịch tag
             const scheduleTag = (hour, minute, tagMessage) => {
                 const targetDate = new Date(vnNow);
                 targetDate.setDate(targetDate.getDate() + daysUntilTarget);
@@ -721,36 +721,36 @@ module.exports = {
                             if (channel) {
                                 const role = channel.guild.roles.cache.find(r => r.name === BC_ROLE_NAME);
                                 if (role) {
-                                    await channel.send(`đŸ° <@&${role.id}> ${tagMessage}`);
-                                    console.log(`[bangchien] ÄĂ£ tag role BC cho ${day} lĂºc ${hour}:${minute.toString().padStart(2, '0')}`);
+                                    await channel.send(`🏰 <@&${role.id}> ${tagMessage}`);
+                                    console.log(`[bangchien] Đã tag role BC cho ${day} lúc ${hour}:${minute.toString().padStart(2, '0')}`);
                                 }
                             }
                         } catch (e) {
-                            console.log('[bangchien] Lá»—i tag role:', e.message);
+                            console.log('[bangchien] Lỗi tag role:', e.message);
                         }
                     }, msUntilTag);
 
                     const hoursUntil = Math.floor(msUntilTag / (60 * 60 * 1000));
                     const minutesUntil = Math.floor((msUntilTag % (60 * 60 * 1000)) / (60 * 1000));
-                    console.log(`[bangchien] Äáº·t lá»‹ch tag ${hour}:${minute.toString().padStart(2, '0')} ${day} sau ${hoursUntil}h${minutesUntil}m`);
+                    console.log(`[bangchien] Đặt lịch tag ${hour}:${minute.toString().padStart(2, '0')} ${day} sau ${hoursUntil}h${minutesUntil}m`);
                     return true;
                 }
                 return false;
             };
 
-            // Tag lĂºc 19:00 (30 phĂºt trÆ°á»›c BC)
-            scheduleTag(19, 0, 'â° CĂ²n **30 phĂºt** ná»¯a lĂ  Ä‘áº¿n giá» Bang Chiáº¿n! Chuáº©n bá»‹ táº­p trung!');
+            // Tag lúc 19:00 (30 phút trước BC)
+            scheduleTag(19, 0, '⏰ Còn **30 phút** nữa là đến giờ Bang Chiến! Chuẩn bị tập trung!');
 
-            // Tag lĂºc 19:15 (15 phĂºt trÆ°á»›c BC)
-            scheduleTag(19, 15, 'â”ï¸ CĂ²n **15 phĂºt** ná»¯a lĂ  Ä‘áº¿n giá» Bang Chiáº¿n! Táº­p trung ngay!');
+            // Tag lúc 19:15 (15 phút trước BC)
+            scheduleTag(19, 15, '⚔️ Còn **15 phút** nữa là đến giờ Bang Chiến! Tập trung ngay!');
 
             // Auto-end dùng scheduler chung: 1 timer cho mỗi guild/ngày, gom tất cả phiên.
             scheduleBangchienAutoEnd(client, guildId, day, channelId);
 
         } catch (e) {
-            console.log('[bangchien] Lá»—i Ä‘áº·t lá»‹ch tag/cleanup:', e.message);
+            console.log('[bangchien] Lỗi đặt lịch tag/cleanup:', e.message);
         }
-        // ===== Káº¾T THĂC Äáº¶T Lá»CH TAG + CLEANUP =====
+        // ===== KẾT THÚC ĐẶT LỊCH TAG + CLEANUP =====
     },
 
     // Export functions

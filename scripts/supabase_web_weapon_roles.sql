@@ -63,8 +63,10 @@ AS $$
         OR p_member->>'discordId' = p_discord_id
     ) AND (
         lower(coalesce(p_member->>'isLeader', 'false')) IN ('true', '1', 'yes')
+        OR lower(coalesce(p_member->>'is_leader', 'false')) IN ('true', '1', 'yes')
         OR lower(coalesce(p_member->>'ld', 'false')) IN ('true', '1', 'yes')
         OR lower(coalesce(p_member->>'isTeamLeader', 'false')) IN ('true', '1', 'yes')
+        OR lower(coalesce(p_member->>'is_team_leader', 'false')) IN ('true', '1', 'yes')
     );
 $$;
 
@@ -89,6 +91,7 @@ DECLARE
     v_roles jsonb;
     v_is_manager boolean := false;
     v_is_session_leader boolean := false;
+    v_is_self_update boolean := false;
 BEGIN
     IF v_auth_id IS NULL THEN
         RAISE EXCEPTION 'Not authenticated';
@@ -125,7 +128,22 @@ BEGIN
         ELSE ''
     END;
     v_is_manager := v_has_web_access
-        OR v_actor_position IN ('bc', 'bang chu', 'pbc', 'pho bang chu', 'pho guild', 'kc', 'ql', 'quan ly', 'ky cuu');
+        OR v_actor_position IN (
+            'bc',
+            'bang chu',
+            'chu bang',
+            'chu guild',
+            'pbc',
+            'pho bang chu',
+            'pho guild',
+            'kc',
+            'ky cuong',
+            'ql',
+            'quan ly',
+            'quan tri',
+            'ky cuu'
+        );
+    v_is_self_update := v_actor_found AND p_discord_id = v_actor_discord_id;
 
     IF NOT v_is_manager THEN
         SELECT EXISTS (
@@ -192,7 +210,7 @@ BEGIN
         INTO v_is_session_leader;
     END IF;
 
-    IF NOT (v_is_manager OR v_is_session_leader) THEN
+    IF NOT (v_is_manager OR v_is_session_leader OR v_is_self_update) THEN
         RAISE EXCEPTION 'Not allowed to update web weapon roles';
     END IF;
 

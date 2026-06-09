@@ -2224,7 +2224,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-active-grid.dense .m-row{padding:3px 5px}
 .bc-active-grid.dense .m-sub{display:none}
 @media (min-width: 769px) {
-  .bc-active-grid.fit-active-roster .t-list{overflow:hidden}
+  .bc-active-grid.fit-active-roster .t-list{overflow:hidden auto}
   .bc-active-grid.fit-active-roster .m-row{
     height:var(--bc-member-row-h,28px);
     min-height:0;
@@ -2247,16 +2247,11 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
     padding:2px 6px;
     font-size:9px;
   }
-  .bc-active-grid.fit-active-roster .m-right{gap:1px;max-width:52%}
+  .bc-active-grid.fit-active-roster .m-det{flex:1 1 0;min-width:40px}
+  .bc-active-grid.fit-active-roster .m-right{gap:1px;max-width:52%;margin-left:4px}
   .bc-active-grid.fit-active-roster .bc-leave-inline{padding:3px 6px;font-size:10px}
-  .bc-active-grid.fit-active-roster .web-weapon-slot{
-    width:calc(var(--bc-member-row-h,28px) - 4px);
-    height:calc(var(--bc-member-row-h,28px) - 4px);
-  }
-  .bc-active-grid.fit-active-roster .web-weapon-slot img{
-    width:calc(var(--bc-member-row-h,28px) - 9px);
-    height:calc(var(--bc-member-row-h,28px) - 9px);
-  }
+  .bc-active-grid.fit-active-roster .web-weapon-slot{width:26px;height:26px}
+  .bc-active-grid.fit-active-roster .web-weapon-slot img{width:21px;height:21px}
   .bc-waiting-side .t-list{overflow-y:auto}
 }
 @media (max-width: 1280px) and (min-width: 769px) {
@@ -7038,6 +7033,7 @@ function formatSubLabel(code) {
 function getIndexRosterGridColumns(teamCount) {
     if (teamCount >= 7) return 4;
     if (teamCount >= 5) return 3;
+    if (teamCount === 3) return 3;
     if (teamCount <= 1) return 1;
     return 2;
 }

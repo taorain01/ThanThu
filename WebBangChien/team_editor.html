@@ -718,6 +718,35 @@
       opacity:1;
       transform:translate(-50%,-50%) scale(1);
     }
+    .mobile-nav{display:none}
+    .mob-tab-row{display:flex;align-items:stretch;width:100%;min-width:0}
+    .mob-tab{
+      flex:1;
+      min-width:0;
+      border:0;
+      background:transparent;
+      color:var(--muted);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:2px;
+      padding:7px 4px;
+      font:inherit;
+      font-size:19px;
+      cursor:pointer;
+    }
+    .mob-tab span{
+      max-width:100%;
+      font-size:10px;
+      font-weight:800;
+      line-height:1.1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .mob-tab.active{color:var(--gold)}
+    .mob-tab.mob-action{color:var(--green)}
     .mobile-move-sheet-wrap{
       position:fixed;
       inset:0;
@@ -814,6 +843,7 @@
       opacity:.45;
     }
     .mobile-move-team{
+      display:block;
       min-width:0;
       font-size:13px;
       font-weight:900;
@@ -822,6 +852,7 @@
       text-overflow:ellipsis;
     }
     .mobile-move-meta{
+      display:block;
       margin-top:3px;
       color:var(--muted);
       font-size:11px;
@@ -964,6 +995,7 @@
         display:block;
         grid-template-columns: 1fr !important;
         padding: 10px;
+        padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
         gap: 10px;
         overflow-x:hidden;
         overflow-y:auto;
@@ -1018,6 +1050,22 @@
       /* Modal responsive */
       .modal { width: 90vw; padding: 16px }
       .quick-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .mobile-nav{
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        z-index:45;
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+        background:rgba(10,18,12,.96);
+        border-top:1px solid rgba(34,197,94,.15);
+        backdrop-filter:blur(12px);
+        -webkit-backdrop-filter:blur(12px);
+        padding:6px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+        box-shadow:0 -12px 30px rgba(0,0,0,.32);
+      }
     }
 
     /* ═══ NÚT SPLIT — Chuyển trang ═══ */
@@ -1180,6 +1228,14 @@
     </div>
   </div>
 
+  <div class="mobile-nav" id="teamEditorMobileNav" aria-label="Điều hướng mobile">
+    <div class="mob-tab-row">
+      <button class="mob-tab" type="button" data-editor-mobile-nav="teams">👥<span>Đội hình</span></button>
+      <button class="mob-tab mob-action" type="button" data-editor-mobile-nav="signup">⚔️<span>Đăng ký</span></button>
+      <button class="mob-tab active" type="button" data-editor-mobile-nav="editor">✏️<span>Đổi Hình</span></button>
+    </div>
+  </div>
+
   <div class="drag-status-pill" id="dragStatusPill"></div>
   <div class="center-notice" id="centerNotice"></div>
   <div class="mobile-move-sheet-wrap" id="mobileMoveSheet" aria-hidden="true">
@@ -1302,22 +1358,25 @@
       { value: '👑', label: 'Chủ lực' }
     ];
     const WEB_WEAPON_CATALOG = [
-      { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
-      { id:'Cuu_Kiem', label:'Cửu Kiếm' },
-      { id:'Du_Nem', label:'Dù Ném' },
-      { id:'Hoanh_Dao', label:'Hoành Đao' },
-      { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' },
-      { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
-      { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
-      { id:'Mach_Dao', label:'Mạch Đao' },
-      { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
-      { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
-      { id:'Roi_Nem', label:'Roi Ném' },
-      { id:'Song_Dao', label:'Song Đao' },
-      { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+      // Global launch: 2025-11-14
       { id:'Vo_Danh_Kiem', label:'Vô Danh Kiếm' },
       { id:'Vo_Danh_Thuong', label:'Vô Danh Thương' },
-      { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' }
+      { id:'Cuu_Kiem', label:'Cửu Kiếm' },
+      { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
+      { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+      { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
+      { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
+      { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' },
+      { id:'Song_Dao', label:'Song Đao' },
+      { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
+      { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
+      { id:'Mach_Dao', label:'Mạch Đao' },
+      // Version 1.4 Home Afar: 2026-03-06
+      { id:'Du_Nem', label:'Dù Ném' },
+      { id:'Roi_Nem', label:'Roi Ném' },
+      // Version 1.5 As Snow Falls: 2026-04-02
+      { id:'Hoanh_Dao', label:'Hoành Đao' },
+      { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' }
     ];
     const WEB_WEAPON_BY_ID = Object.fromEntries(WEB_WEAPON_CATALOG.map((item) => [item.id, item]));
     const SORT_OPTIONS = [
@@ -5847,6 +5906,23 @@
     document.getElementById('quickTeamModal').addEventListener('mousedown', (event) => {
       if (event.target.id === 'quickTeamModal') closeQuickTeamModal();
     });
+    document.getElementById('mobileMoveClose').addEventListener('click', closeMobileMoveSheet);
+    document.getElementById('mobileMoveSheet').addEventListener('click', (event) => {
+      if (event.target.id === 'mobileMoveSheet') closeMobileMoveSheet();
+    });
+    document.getElementById('mobileMoveOptions').addEventListener('click', (event) => {
+      const targetButton = event.target.closest('[data-mobile-move-target]');
+      if (!targetButton) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handleMobileMoveTarget(targetButton.dataset.mobileMoveTarget);
+    });
+    document.querySelectorAll('[data-editor-mobile-nav]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        openEditorMobileNavTarget(button.dataset.editorMobileNav);
+      });
+    });
     document.addEventListener('click', (event) => {
       const weaponSlot = event.target.closest('[data-action="web-weapon-slot"]');
       if (weaponSlot) {
@@ -5862,7 +5938,10 @@
       renderEditor();
     });
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeWebWeaponPicker();
+      if (event.key === 'Escape') {
+        closeWebWeaponPicker();
+        closeMobileMoveSheet();
+      }
     });
     window.addEventListener('resize', scheduleEditorResizeLayout);
 
@@ -5924,6 +6003,27 @@
     }
 
     // ═══ CHUYỂN TRANG VỚI ANIMATION ═══
+    function buildIndexMobileNavUrl(target) {
+      const params = new URLSearchParams(window.location.search);
+      const query = new URLSearchParams();
+      const day = params.get('day') || currentDay || '';
+      const session = params.get('session') || currentSessionId || '';
+      if (day) query.set('day', day);
+      if (session) query.set('session', session);
+      const hash = target === 'signup' ? 'signup' : 'teams';
+      const queryText = query.toString();
+      return `./index.html${queryText ? `?${queryText}` : ''}#${hash}`;
+    }
+
+    async function openEditorMobileNavTarget(target) {
+      if (!target || target === 'editor') return;
+      if (!(await flushPendingSyncBeforeNavigation())) {
+        await customAlert('Đội hình chưa đồng bộ xong. Vui lòng thử lại sau vài giây.');
+        return;
+      }
+      window.location.href = buildIndexMobileNavUrl(target);
+    }
+
     async function navigateTo(target) {
       const params = new URLSearchParams(window.location.search);
       const day = params.get('day') || currentDay || '';

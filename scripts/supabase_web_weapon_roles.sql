@@ -227,22 +227,22 @@ BEGIN
             FROM jsonb_array_elements(coalesce(p_web_weapon_roles, '[]'::jsonb)) WITH ORDINALITY AS item(value, ord)
             WHERE NULLIF(item.value #>> '{}', '') IS NOT NULL
               AND item.value #>> '{}' = ANY (ARRAY[
-                  'Chi_Mang_Tieu',
-                  'Cuu_Kiem',
-                  'Du_Nem',
-                  'Hoanh_Dao',
-                  'Hong_Phu_Dao',
-                  'Kinh_Than_Thuong',
-                  'Linh_Hon_Anh_Tan',
-                  'Mach_Dao',
-                  'Mac_Thuy_Phien',
-                  'Phong_Loi_Thuong',
-                  'Roi_Nem',
-                  'Song_Dao',
-                  'Van_Linh_Duoc_Phien',
                   'Vo_Danh_Kiem',
                   'Vo_Danh_Thuong',
-                  'Xuan_Sac_Tan'
+                  'Cuu_Kiem',
+                  'Kinh_Than_Thuong',
+                  'Van_Linh_Duoc_Phien',
+                  'Linh_Hon_Anh_Tan',
+                  'Mac_Thuy_Phien',
+                  'Xuan_Sac_Tan',
+                  'Song_Dao',
+                  'Chi_Mang_Tieu',
+                  'Phong_Loi_Thuong',
+                  'Mach_Dao',
+                  'Du_Nem',
+                  'Roi_Nem',
+                  'Hoanh_Dao',
+                  'Hong_Phu_Dao'
               ])
         ) valid
         GROUP BY role_id

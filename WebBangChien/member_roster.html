@@ -1279,22 +1279,25 @@
   const WEAPON_ROLES = ['QD', 'VD', 'SD', '9K', 'DR', 'HD'];
   const WEAPON_LABELS = { QD:'Quạt Đủ', VD:'Vô Danh', SD:'Song Đao', '9K':'Cửu Kiếm', DR:'Dù Rơi', HD:'Hoành Đao' };
   const WEB_WEAPON_CATALOG = [
-    { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
-    { id:'Cuu_Kiem', label:'Cửu Kiếm' },
-    { id:'Du_Nem', label:'Dù Ném' },
-    { id:'Hoanh_Dao', label:'Hoành Đao' },
-    { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' },
-    { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
-    { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
-    { id:'Mach_Dao', label:'Mạch Đao' },
-    { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
-    { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
-    { id:'Roi_Nem', label:'Roi Ném' },
-    { id:'Song_Dao', label:'Song Đao' },
-    { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+    // Global launch: 2025-11-14
     { id:'Vo_Danh_Kiem', label:'Vô Danh Kiếm' },
     { id:'Vo_Danh_Thuong', label:'Vô Danh Thương' },
-    { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' }
+    { id:'Cuu_Kiem', label:'Cửu Kiếm' },
+    { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
+    { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+    { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
+    { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
+    { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' },
+    { id:'Song_Dao', label:'Song Đao' },
+    { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
+    { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
+    { id:'Mach_Dao', label:'Mạch Đao' },
+    // Version 1.4 Home Afar: 2026-03-06
+    { id:'Du_Nem', label:'Dù Ném' },
+    { id:'Roi_Nem', label:'Roi Ném' },
+    // Version 1.5 As Snow Falls: 2026-04-02
+    { id:'Hoanh_Dao', label:'Hoành Đao' },
+    { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' }
   ];
   const WEB_WEAPON_BY_ID = Object.fromEntries(WEB_WEAPON_CATALOG.map((item) => [item.id, item]));
   const POSITION_LABELS = { owner:'Chủ guild', pbc:'Phó guild', kc:'Kỳ cựu', mem:'Thành viên' };

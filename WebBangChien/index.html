@@ -2474,7 +2474,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
     border-radius: 12px 12px 0 0;
   }
   
-  /* Thay vì ẩn signup-bar, hiển thị dạng nút Nổi (FAB) trên Mobile */
+  /* Mobile signup actions live in the bottom nav. */
   .day-bar-right .bc-signup-bar { display: none !important }
   .progress-chip { display: none }
 
@@ -2650,6 +2650,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .mob-tab.active { color: var(--gold) }
   .mob-tab.joined { color: #fbbf24 }
   .mob-tab.mob-action { color: var(--green-300) }
+  .mob-tab.mob-action.joined { color: #fbbf24 }
   /* Ẩn tab Đội Hình + Chiến Thuật theo quyền — JS sẽ thêm class */
   .mob-tab.hidden-for-member { display: none !important }
 
@@ -2711,9 +2712,14 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .mp-wrap.mp-mobile-docked .mp-list {
     position: static;
     width: auto;
-    max-height: 160px;
+    max-height: 0;
     transform: none !important;
+    margin: 0 8px;
+  }
+  .mp-wrap.mp-mobile-docked .mp-list.open {
+    max-height: 160px;
     margin: 6px 8px 8px;
+    padding: 4px 0;
   }
 
   /* Split button nhỏ lại */
@@ -3250,6 +3256,14 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 </style>
 </head>
 <body class="theme-dark" oncontextmenu="return false;">
+<script>
+(function enforceCanonicalProductionHost() {
+  const canonicalHost = 'langgiawar.vercel.app';
+  if (location.hostname.endsWith('.vercel.app') && location.hostname !== canonicalHost) {
+    location.replace('https://' + canonicalHost + location.pathname + location.search + location.hash);
+  }
+})();
+</script>
 <div id="legacyDuplicateScreens" hidden>
 
 <!-- Hiệu ứng lửa bay toàn trang -->
@@ -3282,7 +3296,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       <div class="landing-sub">Where Winds Meet</div>
       <div class="landing-divider"></div>
       <div class="landing-welcome">Chào mừng bạn đến với Lang Gia</div>
-      <div class="landing-flavor">ă€Œ Vui lòng xuất trình giấy tờ nhà họ Lang ă€</div>
+      <div class="landing-flavor">“Vui lòng xuất trình giấy tờ nhà họ Lang”</div>
     </div>
     <!-- Nút đăng nhập: ĐỨNG IM, không có parallax -->
     <button class="login-btn" id="loginBtn" onclick="loginDiscord()">
@@ -3408,7 +3422,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
       <div class="landing-sub">Where Winds Meet</div>
       <div class="landing-divider"></div>
       <div class="landing-welcome">Chào mừng bạn đến với Lang Gia</div>
-      <div class="landing-flavor">ă€Œ Vui lòng xuất trình giấy tờ nhà họ Lang ă€</div>
+      <div class="landing-flavor">“Vui lòng xuất trình giấy tờ nhà họ Lang”</div>
     </div>
     <!-- Nút đăng nhập: ĐỨNG IM, không có parallax -->
     <button class="login-btn" id="loginBtn" onclick="loginDiscord()">
@@ -3787,22 +3801,25 @@ const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
 const GUILD_ID = '450633680000385036';
 const WEB_WEAPON_CATALOG = [
-    { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
-    { id:'Cuu_Kiem', label:'Cửu Kiếm' },
-    { id:'Du_Nem', label:'Dù Ném' },
-    { id:'Hoanh_Dao', label:'Hoành Đao' },
-    { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' },
-    { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
-    { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
-    { id:'Mach_Dao', label:'Mạch Đao' },
-    { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
-    { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
-    { id:'Roi_Nem', label:'Roi Ném' },
-    { id:'Song_Dao', label:'Song Đao' },
-    { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+    // Global launch: 2025-11-14
     { id:'Vo_Danh_Kiem', label:'Vô Danh Kiếm' },
     { id:'Vo_Danh_Thuong', label:'Vô Danh Thương' },
-    { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' }
+    { id:'Cuu_Kiem', label:'Cửu Kiếm' },
+    { id:'Kinh_Than_Thuong', label:'Kinh Thần Thương' },
+    { id:'Van_Linh_Duoc_Phien', label:'Vạn Linh Dược Phiến' },
+    { id:'Linh_Hon_Anh_Tan', label:'Linh Hồn Anh Tán' },
+    { id:'Mac_Thuy_Phien', label:'Mặc Thủy Phiến' },
+    { id:'Xuan_Sac_Tan', label:'Xuân Sắc Tán' },
+    { id:'Song_Dao', label:'Song Đao' },
+    { id:'Chi_Mang_Tieu', label:'Chí Mạng Tiêu' },
+    { id:'Phong_Loi_Thuong', label:'Phong Lôi Thương' },
+    { id:'Mach_Dao', label:'Mạch Đao' },
+    // Version 1.4 Home Afar: 2026-03-06
+    { id:'Du_Nem', label:'Dù Ném' },
+    { id:'Roi_Nem', label:'Roi Ném' },
+    // Version 1.5 As Snow Falls: 2026-04-02
+    { id:'Hoanh_Dao', label:'Hoành Đao' },
+    { id:'Hong_Phu_Dao', label:'Hồng Phù Đao' }
 ];
 const WEB_WEAPON_BY_ID = Object.fromEntries(WEB_WEAPON_CATALOG.map((item) => [item.id, item]));
 let indexWebWeaponPickerEl = null;
@@ -4080,6 +4097,7 @@ async function checkAuth() {
     // Thành viên LangGia → hiện app bang chiến
     document.getElementById('mainApp').classList.add('active');
     await loadAllSessions();
+    handleInitialMobileNavHash();
     setupRealtimeSubscription();
 }
 
@@ -9728,6 +9746,25 @@ function switchMobileTab(el) {
 
 // ═══ MOBILE NAV: Ẩn tab theo quyền ═══
 // Gọi sau khi window.currentUserPosition đã có giá trị
+function handleInitialMobileNavHash() {
+    const hash = String(window.location.hash || '').replace(/^#/, '').toLowerCase();
+    if (!['signup', 'mob-signup', 'teams', 'mob-teams'].includes(hash)) return;
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    requestAnimationFrame(() => {
+        if (hash === 'signup' || hash === 'mob-signup') {
+            const signupTab = document.getElementById('mobSignupTab');
+            if (signupTab && !signupTab.classList.contains('hidden-for-member')) {
+                switchMobileTab(signupTab);
+            } else if (window.currentDiscordId && getAllCachedSessions().length > 0) {
+                openSignupModal();
+            }
+            return;
+        }
+        const teamsTab = document.querySelector('.mob-tab[data-target="mob-teams"]');
+        if (teamsTab) switchMobileTab(teamsTab);
+    });
+}
+
 function updateMobileNavForRole(options = {}) {
     const canEditCurrentSession = canEditTeamRoster(currentSessionData);
     const hasSessions = getAllCachedSessions().length > 0;
@@ -9739,9 +9776,19 @@ function updateMobileNavForRole(options = {}) {
     const signupTab = document.getElementById('mobSignupTab');
     if (editorTab) editorTab.classList.toggle('hidden-for-member', !canEditCurrentSession);
     if (tacticsTab) tacticsTab.classList.toggle('hidden-for-member', !canEditCurrentSession);
-    // Ẩn tab Đăng ký khi chưa đăng nhập
-    const signupTab = document.getElementById('mobSignupTab');
-    if (signupTab) signupTab.style.display = window.currentDiscordId ? '' : 'none';
+    if (membersTab) membersTab.classList.toggle('hidden-for-member', !(isLoggedIn && hasSessions && hasElevatedRosterRole()));
+    if (signupTab) {
+        signupTab.classList.toggle('hidden-for-member', !(isLoggedIn && hasSessions));
+        signupTab.classList.toggle('joined', isRegistered);
+        const signupLabel = signupTab.querySelector('span');
+        if (signupLabel) signupLabel.textContent = isRegistered ? 'C\u1eadp nh\u1eadt' : '\u0110\u0103ng k\u00fd';
+    }
+    document.querySelectorAll('.mob-tab.hidden-for-member.active').forEach((tab) => tab.classList.remove('active'));
+    const activeVisibleTab = document.querySelector('.mob-tab.active:not(.hidden-for-member)');
+    if (!activeVisibleTab) document.querySelector('.mob-tab[data-target="mob-teams"]')?.classList.add('active');
+    if (options.schedule !== false && typeof scheduleMobileViewportSync === 'function') {
+        scheduleMobileViewportSync();
+    }
 }
 window.updateMobileNavForRole = updateMobileNavForRole;
 
@@ -11522,6 +11569,7 @@ document.addEventListener('keydown', (e) => {
     if (list) list.classList.toggle('open', listOpen);
     $('mpListArrow').innerHTML=listOpen?'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 14l5-5 5 5z"/></svg>':'<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>';
     if (listOpen) requestAnimationFrame(positionListFlyout);
+    if (typeof scheduleMobileViewportSync === 'function') scheduleMobileViewportSync();
   }
 
   // Public functions
@@ -11550,15 +11598,22 @@ document.addEventListener('keydown', (e) => {
   window.mpToggleCollapse = function() {
     const wrap = $('mpWrap');
     if (!wrap) return;
-    const rect = wrap.getBoundingClientRect();
-    wrap.style.left = rect.left + 'px';
-    wrap.style.top = rect.top + 'px';
-    wrap.style.bottom = 'auto';
-    wrap.style.right = 'auto';
+    const isMobileDocked = wrap.classList.contains('mp-mobile-docked');
+    if (!isMobileDocked) {
+      const rect = wrap.getBoundingClientRect();
+      wrap.style.left = rect.left + 'px';
+      wrap.style.top = rect.top + 'px';
+      wrap.style.bottom = 'auto';
+      wrap.style.right = 'auto';
+    }
     wrap.classList.toggle('collapsed');
     if (wrap.classList.contains('collapsed')) setListOpen(false);
     requestAnimationFrame(clampPlayerPosition);
     setTimeout(clampPlayerPosition, 320);
+    if (typeof scheduleMobileViewportSync === 'function') {
+      requestAnimationFrame(scheduleMobileViewportSync);
+      setTimeout(scheduleMobileViewportSync, 340);
+    }
   };
 
   // Đóng hẳn player (dừng nhạc, ẩn UI)
@@ -11585,6 +11640,7 @@ document.addEventListener('keydown', (e) => {
     const POINTER_DRAG_THRESHOLD = 6;
     const SAFE_MARGIN = 8;
     const POINTER_IGNORE_SELECTORS = 'button, input, label, .mp-autoplay, .mp-prog-track, .mp-list, .mp-tab, .mp-close-btn';
+    const isMobileDocked = () => wrap.classList.contains('mp-mobile-docked') || !!wrap.closest('#mobMusicDock');
 
     function viewportSize() {
       const vv = window.visualViewport;
@@ -11606,6 +11662,7 @@ document.addEventListener('keydown', (e) => {
     }
 
     function setWrapPosition(left, top) {
+      if (isMobileDocked()) return;
       const pos = clampCoords(left, top);
       wrap.style.left = pos.left + 'px';
       wrap.style.top = pos.top + 'px';
@@ -11615,12 +11672,13 @@ document.addEventListener('keydown', (e) => {
     }
 
     clampPlayerPosition = function() {
-      if (wrap.classList.contains('mp-closed')) return;
+      if (wrap.classList.contains('mp-closed') || isMobileDocked()) return;
       const rect = wrap.getBoundingClientRect();
       setWrapPosition(rect.left, rect.top);
     };
 
     function canStartPointerDragFrom(target) {
+      if (isMobileDocked()) return false;
       const interactive = target.closest(POINTER_IGNORE_SELECTORS);
       if (!interactive) return true;
       return wrap.classList.contains('collapsed') && !!target.closest('.mp-mini-bar');
@@ -11926,6 +11984,8 @@ document.addEventListener('keydown', (e) => {
   $('mpShuf').classList.add('on');
   $('mpRep').style.opacity='.4';
   syncAutoplayUI();
+  if (typeof syncMobileMusicDock === 'function') syncMobileMusicDock();
+  if (typeof scheduleMobileViewportSync === 'function') scheduleMobileViewportSync();
 
   // ── Autoplay: tự phát khi user tương tác lần đầu (bypass browser policy) ──
   let _mpAutoStarted = false;

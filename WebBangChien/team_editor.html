@@ -300,33 +300,50 @@
     .teams-grid.compact .member-row{padding:4px 6px;gap:5px}
     .teams-grid.compact .slot-badge{min-width:25px;height:23px;padding:0 6px}
     .teams-grid.compact .avatar{width:23px;height:23px;font-size:11px}
-    .teams-grid.compact .member-name{font-size:11px}
+    .teams-grid.compact .member-name{font-size:12px}
     .teams-grid.compact .member-sub{font-size:10px}
+    .teams-grid.compact .member-right{gap:1px;max-width:50%}
+    .teams-grid.compact .member-right-top{gap:4px}
+    .teams-grid.compact .member-role-sub{max-width:96px;font-size:9px}
+    .teams-grid.compact .web-weapon-slot{width:24px;height:24px}
+    .teams-grid.compact .web-weapon-slot img{width:19px;height:19px}
     .teams-grid.compact .role-tag{padding:4px 7px;font-size:10px}
     .teams-grid.compact .leader-btn,.teams-grid.compact .kick-btn{padding:6px 7px}
     .teams-grid.dense{gap:8px}
     .teams-grid.dense .panel-head{padding:5px 7px}
     .teams-grid.dense .panel-body{padding:3px 5px}
     .teams-grid.dense .member-row{padding:3px 5px}
+    .teams-grid.dense .member-role-sub{display:none}
     @media (min-width: 769px) {
       .teams-grid.fit-active-roster .team-card .panel-body{overflow:hidden}
       .teams-grid.fit-active-roster .member-row{
-        height:var(--editor-member-row-h,26px);
+        height:var(--editor-member-row-h,28px);
         min-height:0;
         padding-top:2px;
         padding-bottom:2px;
         gap:5px;
       }
       .teams-grid.fit-active-roster .slot-badge{
-        height:calc(var(--editor-member-row-h,26px) - 2px);
+        height:calc(var(--editor-member-row-h,28px) - 2px);
         min-width:24px;
         padding:0 6px;
       }
       .teams-grid.fit-active-roster .avatar{
-        width:calc(var(--editor-member-row-h,26px) - 4px);
-        height:calc(var(--editor-member-row-h,26px) - 4px);
+        width:calc(var(--editor-member-row-h,28px) - 4px);
+        height:calc(var(--editor-member-row-h,28px) - 4px);
       }
-      .teams-grid.fit-active-roster .member-sub{display:var(--editor-member-sub-display,block)}
+      .teams-grid.fit-active-roster .member-sub{display:none}
+      .teams-grid.fit-active-roster .member-role-sub{display:var(--editor-member-sub-display,block)}
+      .teams-grid.fit-active-roster .member-role-sub.is-empty{display:none}
+      .teams-grid.fit-active-roster .member-right{gap:1px;max-width:52%}
+      .teams-grid.fit-active-roster .web-weapon-slot{
+        width:calc(var(--editor-member-row-h,28px) - 4px);
+        height:calc(var(--editor-member-row-h,28px) - 4px);
+      }
+      .teams-grid.fit-active-roster .web-weapon-slot img{
+        width:calc(var(--editor-member-row-h,28px) - 9px);
+        height:calc(var(--editor-member-row-h,28px) - 9px);
+      }
       .teams-grid.fit-active-roster .leader-btn,
       .teams-grid.fit-active-roster .kick-btn{
         padding:4px 6px;
@@ -443,6 +460,7 @@
     .member-row{
       display:flex;
       align-items:center;
+      min-width:0;
       gap:6px;
       padding:5px 8px;
       border-radius:8px;
@@ -526,9 +544,16 @@
     .avatar.healer{background:rgba(97,232,155,.22);border-color:rgba(97,232,155,.5)}
     .avatar.tanker{background:rgba(255,173,77,.22);border-color:rgba(255,173,77,.5)}
     .member-main{min-width:0;flex:1}
-    .member-name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+    .member-name{font-size:14px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
     .member-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .member-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .member-sub{font-size:11px;line-height:1.15;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .member-right{margin-left:auto;display:flex;flex:0 0 auto;min-width:0;max-width:48%;flex-direction:column;align-items:flex-end;gap:2px}
+    .member-right-top{display:flex;align-items:center;justify-content:flex-end;min-width:0;gap:5px}
+    .member-role-sub{max-width:120px;font-size:10px;font-weight:800;line-height:1.1;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+    .member-role-sub.dps{color:rgba(159,204,255,.86)}
+    .member-role-sub.healer{color:rgba(191,246,210,.86)}
+    .member-role-sub.tanker{color:rgba(255,211,159,.86)}
+    .member-role-sub.is-empty{display:none}
     .web-weapon-slots{display:inline-flex;align-items:center;gap:3px;flex-shrink:0}
     .web-weapon-slot{position:relative;width:28px;height:28px;border-radius:5px;border:1.5px solid rgba(246,196,83,.35);background:rgba(246,196,83,.06);display:inline-flex;align-items:center;justify-content:center;padding:0;color:var(--muted);vertical-align:middle;transition:all .2s}
     .web-weapon-slot:not(.empty){box-shadow:0 0 8px rgba(246,196,83,.18),inset 0 0 6px rgba(246,196,83,.06);border-color:rgba(246,196,83,.5)}
@@ -559,6 +584,8 @@
       border-radius:999px;
       font-size:11px;
       font-weight:900;
+      white-space:nowrap;
+      flex-shrink:0;
     }
     .role-tag.dps{background:rgba(94,169,255,.14);color:#9fccff}
     .role-tag.healer{background:rgba(97,232,155,.14);color:#bff6d2}
@@ -2209,9 +2236,14 @@
 
     function getMemberRoleTagText(member) {
       const role = member?.role || 'DPS';
-      if (role !== 'DPS') return role;
+      return role;
+    }
+
+    function getMemberRoleSubText(member) {
+      const role = member?.role || 'DPS';
+      if (role !== 'DPS') return '';
       const subtypeKey = normalizeDpsSubtypeKey(member?.sub);
-      return subtypeKey ? `${role} [${subtypeKey}]` : role;
+      return subtypeKey ? getDpsSubtypeLabel(subtypeKey) : '';
     }
 
     function getTeamCapacityFor(teamKey, state = localState) {
@@ -3516,9 +3548,9 @@
       const headerHeight = firstHead?.getBoundingClientRect()?.height || (teamCount >= 5 ? 38 : 44);
       const bodyPadding = teamCount >= 7 ? 6 : 8;
       const rawHeight = Math.floor((cardHeight - headerHeight - bodyPadding) / maxCapacity);
-      const rowHeight = Math.max(18, Math.min(30, rawHeight || 22));
+      const rowHeight = Math.max(24, Math.min(30, rawHeight || 28));
       container.style.setProperty('--editor-member-row-h', `${rowHeight}px`);
-      container.style.setProperty('--editor-member-sub-display', rowHeight < 23 ? 'none' : 'block');
+      container.style.setProperty('--editor-member-sub-display', rowHeight < 28 ? 'none' : 'block');
     }
 
     function getVisibleTeams() {
@@ -4133,6 +4165,7 @@
       const displayName = escapeHtml(getMemberDisplayName(member));
       const secondaryName = escapeHtml(getMemberSecondaryName(member));
       const roleTag = escapeHtml(getMemberRoleTagText(member));
+      const roleSub = escapeHtml(getMemberRoleSubText(member));
       row.className = `member-row${(!canDragInCurrentView(teamKey) ? ' locked' : '')}`;
       row.draggable = false; // SortableJS quản lý kéo thả qua drag-handle
       row.dataset.userId = member.id;
@@ -4143,11 +4176,14 @@
         <div class="slot-badge">${slotNumber}</div>
         <div class="avatar ${cls}">${roleShort(member.role)}</div>
         <div class="member-main">
-          <div class="member-name"><span class="member-name-text">${displayName}</span>${renderWebWeaponSlots(member)}</div>
+          <div class="member-name"><span class="member-name-text">${displayName}</span></div>
           <div class="member-sub">${secondaryName}</div>
         </div>
         <button class="leader-btn ${(member.isTeamLeader || member.ld) ? 'active' : ''}" type="button">👑</button>
-        <div class="role-tag ${cls}">${roleTag}</div>
+        <div class="member-right">
+          <div class="member-right-top">${renderWebWeaponSlots(member)}<div class="role-tag ${cls}">${roleTag}</div></div>
+          <div class="member-role-sub ${cls}${roleSub ? '' : ' is-empty'}">${roleSub}</div>
+        </div>
         <button class="kick-btn" type="button">✕</button>
       `;
       const leaderBtn = row.querySelector('.leader-btn');

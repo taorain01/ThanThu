@@ -1810,7 +1810,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .m-name{font-weight:700;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
 .m-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-gn{font-size:11px;line-height:1.15;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.m-right{margin-left:auto;display:flex;flex:0 0 auto;min-width:0;max-width:48%;flex-direction:column;align-items:flex-end;gap:2px}
+.m-right{margin-left:auto;display:flex;flex:0 0 auto;min-width:0;max-width:48%;align-items:center;gap:5px}
 .m-right-top{display:flex;align-items:center;justify-content:flex-end;min-width:0;gap:5px}
 .m-sub{max-width:120px;font-size:10px;font-weight:700;line-height:1.1;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
 .m-sub.d{color:rgba(147,197,253,.85)}
@@ -1846,6 +1846,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .m-tag.d{background:rgba(96,165,250,.12);color:var(--dps)}
 .m-tag.h{background:rgba(74,222,128,.12);color:var(--healer)}
 .m-tag.t{background:rgba(251,146,60,.12);color:var(--tanker)}
+.m-tag-sub{font-weight:600;opacity:.7;font-size:9px}
 .slot-e{padding:6px 8px;color:var(--text3);font-style:italic;font-size:12px;opacity:.4;display:flex;align-items:center;gap:8px}
 .slot-e .m-num{border:1px dashed rgba(255,255,255,.08);background:none}
 
@@ -3673,14 +3674,18 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 
   <!-- Mobile Bottom Nav -->
   <div class="mobile-nav" id="mobileNav">
-    <div class="mob-tab active" data-target="mob-teams" onclick="switchMobileTab(this)">👥<span>Đội hình</span></div>
-    <div class="mob-tab" data-target="mob-signup" onclick="switchMobileTab(this)" id="mobSignupTab">⚔️<span>Đăng ký</span></div>
-    <div class="mob-tab" data-target="mob-map" onclick="switchMobileTab(this)">🗺️<span>Bản đồ</span></div>
-    <div class="mob-tab" data-target="mob-tasks" onclick="switchMobileTab(this)">📋<span>Nhiệm vụ</span></div>
-    <div class="mob-tab" data-target="mob-editor" onclick="switchMobileTab(this)">✏️<span>Đội Hình</span></div>
-    <div class="mob-tab" data-target="mob-tactics" onclick="switchMobileTab(this)">⚔️<span>Chiến Thuật</span></div>
-    <div class="mob-tab" data-target="mob-sketch" onclick="switchMobileTab(this)">✎<span>DLAM</span></div>
-    <div class="mob-tab" data-target="mob-timer" onclick="switchMobileTab(this);initTimerPane()">⏱<span>Timer</span></div>
+    <div class="mob-music-dock" id="mobMusicDock"></div>
+    <div class="mob-tab-row">
+      <div class="mob-tab active" data-target="mob-teams" onclick="switchMobileTab(this)">👥<span>Đội hình</span></div>
+      <div class="mob-tab mob-action hidden-for-member" data-target="mob-members" onclick="switchMobileTab(this)" id="mobMembersTab">👥<span>Thành viên</span></div>
+      <div class="mob-tab mob-action hidden-for-member" data-target="mob-signup" onclick="switchMobileTab(this)" id="mobSignupTab">⚔️<span>Đăng ký</span></div>
+      <div class="mob-tab" data-target="mob-map" onclick="switchMobileTab(this)">🗺️<span>Bản đồ</span></div>
+      <div class="mob-tab" data-target="mob-tasks" onclick="switchMobileTab(this)">📋<span>Nhiệm vụ</span></div>
+      <div class="mob-tab" data-target="mob-editor" onclick="switchMobileTab(this)">✏️<span>Đội Hình</span></div>
+      <div class="mob-tab" data-target="mob-tactics" onclick="switchMobileTab(this)">⚔️<span>Chiến Thuật</span></div>
+      <div class="mob-tab" data-target="mob-sketch" onclick="switchMobileTab(this)">✎<span>DLAM</span></div>
+      <div class="mob-tab" data-target="mob-timer" onclick="switchMobileTab(this);initTimerPane()">⏱<span>Timer</span></div>
+    </div>
   </div>
 </div>
 
@@ -6519,6 +6524,7 @@ function updateSignupBar(data) {
 
     if (!window.currentDiscordId || getAllCachedSessions().length === 0) {
         bar.style.display = 'none';
+        if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
         return;
     }
     data = data || getAllCachedSessions()[0];
@@ -6550,6 +6556,7 @@ function updateSignupBar(data) {
         <button class="bc-action-btn${isRegistered ? ' joined' : ''}" onclick="openSignupModal()">
             ${label}
         </button>`;
+    if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole();
 
 }
 
@@ -7157,7 +7164,7 @@ function buildTeamsHtml(data) {
                 const isMe = p.id === window.currentDiscordId;
                 const isLeader = p.ld || p.isLeader || p.isTeamLeader;
                 const actionBtn = isMe && !isLeader ? `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>` : '';
-                card += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span></div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-right"><div class="m-right-top">${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}<div class="m-tag ${rcls}">${escapeIndexHtml(p.role || 'DPS')}</div></div><div class="m-sub ${rcls}${sub ? '' : ' is-empty'}">${sub}</div></div></div>`;
+                card += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span></div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-right"><div class="m-right-top">${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}<div class="m-tag ${rcls}">${escapeIndexHtml(p.role || 'DPS')}${sub ? '<span class="m-tag-sub"> · ' + sub + '</span>' : ''}</div></div></div></div>`;
                 num++;
             });
             card += `</div></div>`;
@@ -7219,7 +7226,7 @@ function buildTeamsHtml(data) {
             const isMe = p.id === window.currentDiscordId;
             const isLeader = p.ld || p.isLeader || p.isTeamLeader;
             const actionBtn = isMe && !isLeader ? `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>` : '';
-            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span></div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-right"><div class="m-right-top">${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}<div class="m-tag ${rcls}">${escapeIndexHtml(p.role || 'DPS')}</div></div><div class="m-sub ${rcls}${sub ? '' : ' is-empty'}">${sub}</div></div></div>`;
+            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${isLeader ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span></div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-right"><div class="m-right-top">${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}<div class="m-tag ${rcls}">${escapeIndexHtml(p.role || 'DPS')}${sub ? '<span class="m-tag-sub"> · ' + sub + '</span>' : ''}</div></div></div></div>`;
             num++;
         });
 
@@ -7300,7 +7307,7 @@ function buildTeamsHtml(data) {
             const isMe = p.id === window.currentDiscordId;
             // Chỉ chặn team leader (isLeader/ld) — creator vẫn được tự hủy đăng ký
             if (isMe && !isLeader) actionBtn = `<div class="bc-leave-inline" onclick="leaveBC('${getSessionCacheKey(data)}')" title="Hủy đăng ký">× Hủy đăng ký</div>`;
-            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span></div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-right"><div class="m-right-top">${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}<div class="m-tag ${rcls}">${escapeIndexHtml(p.role || 'DPS')}</div></div><div class="m-sub ${rcls}${sub ? '' : ' is-empty'}">${sub}</div></div></div>`;
+            html += `<div class="m-row${isMe ? ' is-me' : ''}"><div class="m-num">${num}</div><div class="m-av role-${rcls}${p.ld ? ' ld' : ''}">${emo}</div><div class="m-det"><div class="m-name"><span class="m-name-text">${displayName}${ld}</span></div><div class="m-gn">${secondaryName}</div></div>${actionBtn}<div class="m-right"><div class="m-right-top">${renderIndexWebWeaponSlots(p, canEditTeamRoster(data))}<div class="m-tag ${rcls}">${escapeIndexHtml(p.role || 'DPS')}${sub ? '<span class="m-tag-sub"> · ' + sub + '</span>' : ''}</div></div></div></div>`;
             num++;
         });
 
@@ -8884,7 +8891,35 @@ function updateTimelineCaption(timeText, nameText) {
     caption.classList.toggle('is-empty', !timeText && !nameText);
 }
 
+let _mpDesktopAnchor = null;
+function syncMobileMusicDock() {
+    const wrap = document.getElementById('mpWrap');
+    if (!wrap) return;
+    const dock = document.getElementById('mobMusicDock');
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
+    if (!_mpDesktopAnchor && wrap.parentNode) {
+        _mpDesktopAnchor = document.createComment('mp-desktop-anchor');
+        wrap.parentNode.insertBefore(_mpDesktopAnchor, wrap);
+    }
+
+    if (isMobile && dock) {
+        if (wrap.parentNode !== dock) dock.appendChild(wrap);
+        wrap.classList.add('mp-mobile-docked');
+        wrap.classList.remove('mp-dragging');
+        return;
+    }
+
+    if (_mpDesktopAnchor?.parentNode && wrap.parentNode !== _mpDesktopAnchor.parentNode) {
+        _mpDesktopAnchor.parentNode.insertBefore(wrap, _mpDesktopAnchor.nextSibling);
+    }
+    wrap.classList.remove('mp-mobile-docked');
+}
+
 function syncMobileViewportLayout() {
+    syncMobileMusicDock();
+    if (typeof updateMobileNavForRole === 'function') updateMobileNavForRole({ schedule: false });
+
     const root = document.documentElement;
     const header = document.querySelector('.header');
     const dayBar = document.querySelector('.day-bar');
@@ -8922,7 +8957,7 @@ window.addEventListener('resize', scheduleMobileViewportSync, { passive: true })
 window.addEventListener('orientationchange', scheduleMobileViewportSync);
 if (window.ResizeObserver) {
     const mobileLayoutObserver = new ResizeObserver(() => scheduleMobileViewportSync());
-    ['.header', '.day-bar', '#mobileNav', '#tacticsControls', '#tacticsTimeline', '#mapContainer'].forEach((selector) => {
+    ['.header', '.day-bar', '#mobileNav', '#mobMusicDock', '#mpWrap', '#tacticsControls', '#tacticsTimeline', '#mapContainer'].forEach((selector) => {
         const el = document.querySelector(selector);
         if (el) mobileLayoutObserver.observe(el);
     });
@@ -9674,10 +9709,15 @@ function switchMobileTab(el) {
         document.querySelectorAll('.r-pane').forEach(p => p.classList.remove('active'));
         document.getElementById('pane-timer')?.classList.add('active');
         initTimerPane();
+    } else if (target === 'mob-members') {
+        if (left) left.classList.add('mob-active');
+        if (window.currentDiscordId && getAllCachedSessions().length > 0 && hasElevatedRosterRole()) {
+            openMemberRosterPopup('list');
+        }
     } else if (target === 'mob-signup') {
         // Đăng ký Bang Chiến — mở signup modal
         if (left) left.classList.add('mob-active');
-        if (window.currentDiscordId) {
+        if (window.currentDiscordId && getAllCachedSessions().length > 0) {
             openSignupModal();
         } else {
             customAlert('Bạn cần đăng nhập Discord trước khi đăng ký.');
@@ -9688,11 +9728,15 @@ function switchMobileTab(el) {
 
 // ═══ MOBILE NAV: Ẩn tab theo quyền ═══
 // Gọi sau khi window.currentUserPosition đã có giá trị
-function updateMobileNavForRole() {
-    if (!window.matchMedia('(max-width: 768px)').matches) return;
+function updateMobileNavForRole(options = {}) {
     const canEditCurrentSession = canEditTeamRoster(currentSessionData);
+    const hasSessions = getAllCachedSessions().length > 0;
+    const isLoggedIn = !!window.currentDiscordId;
+    const isRegistered = hasSessions && getAllCachedSessions().some(sessionContainsCurrentUser);
     const editorTab = document.querySelector('.mob-tab[data-target="mob-editor"]');
     const tacticsTab = document.querySelector('.mob-tab[data-target="mob-tactics"]');
+    const membersTab = document.getElementById('mobMembersTab');
+    const signupTab = document.getElementById('mobSignupTab');
     if (editorTab) editorTab.classList.toggle('hidden-for-member', !canEditCurrentSession);
     if (tacticsTab) tacticsTab.classList.toggle('hidden-for-member', !canEditCurrentSession);
     // Ẩn tab Đăng ký khi chưa đăng nhập

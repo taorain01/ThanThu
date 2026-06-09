@@ -516,7 +516,7 @@
     .member-name{font-size:14px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
     .member-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .member-sub{font-size:11px;line-height:1.15;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .member-right{margin-left:auto;display:flex;flex:0 0 auto;min-width:0;max-width:48%;flex-direction:column;align-items:flex-end;gap:2px}
+    .member-right{margin-left:auto;display:flex;flex:0 0 auto;min-width:0;max-width:48%;align-items:center;gap:5px}
     .member-right-top{display:flex;align-items:center;justify-content:flex-end;min-width:0;gap:5px}
     .member-role-sub{max-width:120px;font-size:10px;font-weight:800;line-height:1.1;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
     .member-role-sub.dps{color:rgba(159,204,255,.86)}
@@ -561,6 +561,7 @@
     .role-tag.dps{background:rgba(94,169,255,.14);color:#9fccff}
     .role-tag.healer{background:rgba(97,232,155,.14);color:#bff6d2}
     .role-tag.tanker{background:rgba(255,173,77,.14);color:#ffd39f}
+    .role-tag-sub{font-weight:600;opacity:.7;font-size:9px}
     .leader-btn,.kick-btn{
       border:none;
       cursor:pointer;
@@ -2396,6 +2397,143 @@
       if (teamKey === 'team_defense') return Number(sizes.defense ?? 5) || 0;
       if (teamKey === 'team_forest') return Number(sizes.forest ?? 5) || 0;
       return Number.POSITIVE_INFINITY;
+    }
+
+    function isMobileEditorView() {
+      return !!(window.matchMedia?.('(max-width: 768px)').matches || window.innerWidth <= 768);
+    }
+
+    function getMoveTeamTitle(teamKey) {
+      if (teamKey === 'waiting_list') return TEAM_META.waiting_list.title;
+      const visibleTeam = getVisibleTeams().find((team) => team.key === teamKey);
+      return visibleTeam?.title || TEAM_META[teamKey]?.title || teamKey;
+    }
+
+    function getMobileMoveTargets(sourceTeam) {
+      const targets = getVisibleTeams()
+        .map((team) => team.key)
+        .filter((teamKey) => teamKey && teamKey !== sourceTeam);
+      if (sourceTeam !== 'waiting_list') targets.push('waiting_list');
+      return targets;
+    }
+
+    function renderMobileMoveOptions(sourceTeam) {
+      const optionsEl = document.getElementById('mobileMoveOptions');
+      if (!optionsEl) return;
+      const targets = getMobileMoveTargets(sourceTeam);
+      if (!targets.length) {
+        optionsEl.innerHTML = '<div class="empty">Không có team đích khả dụng.</div>';
+        return;
+      }
+      optionsEl.innerHTML = targets.map((teamKey) => {
+        const count = (localState?.[teamKey] || []).length;
+        const cap = getTeamCapacityFor(teamKey);
+        const isWaiting = teamKey === 'waiting_list';
+        const isFull = !isWaiting && count >= cap;
+        const title = getMoveTeamTitle(teamKey);
+        const meta = isWaiting
+          ? `${count} người`
+          : (isFull ? 'Đã đầy · đẩy cuối xuống chờ' : `Còn ${Math.max(0, cap - count)} slot`);
+        const countText = isWaiting ? String(count) : `${count}/${cap}`;
+        return `
+          <button class="mobile-move-option" type="button" data-mobile-move-target="${escapeHtmlAttr(teamKey)}">
+            <span style="min-width:0">
+              <span class="mobile-move-team">${escapeHtml(title)}</span>
+              <span class="mobile-move-meta">${escapeHtml(meta)}</span>
+            </span>
+            <span class="mobile-move-count">${escapeHtml(countText)}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function closeMobileMoveSheet() {
+      const sheet = document.getElementById('mobileMoveSheet');
+      if (!sheet) return;
+      sheet.classList.remove('show');
+      sheet.setAttribute('aria-hidden', 'true');
+      mobileMoveContext = null;
+    }
+
+    function openMobileMoveSheet(userId, sourceTeam) {
+      if (!isMobileEditorView()) return;
+      if (!localState || !userId) return;
+      if (!isLeaderEditor) {
+        customAlert('Bạn không có quyền sửa đội hình.');
+        return;
+      }
+      if (localState.locked) {
+        customAlert('Danh sách đã chốt, không thể chuyển thành viên.');
+        return;
+      }
+      const location = findMemberLocation(userId);
+      if (!location) {
+        customAlert('Không tìm thấy thành viên để chuyển.');
+        return;
+      }
+      const actualSourceTeam = location.teamKey || sourceTeam;
+      if (isLeaderMember(location.member) && actualSourceTeam !== 'waiting_list') {
+        customAlert('Leader không thể rời team. Hãy đổi leader trước.');
+        return;
+      }
+
+      mobileMoveContext = { userId: String(userId), fromTeam: actualSourceTeam };
+      const sheet = document.getElementById('mobileMoveSheet');
+      const titleEl = document.getElementById('mobileMoveTitle');
+      const subEl = document.getElementById('mobileMoveSub');
+      if (titleEl) titleEl.textContent = `Chuyển ${getMemberDisplayName(location.member)}`;
+      if (subEl) subEl.textContent = `Đang ở ${getMoveTeamTitle(actualSourceTeam)}`;
+      renderMobileMoveOptions(actualSourceTeam);
+      sheet?.classList.add('show');
+      sheet?.setAttribute('aria-hidden', 'false');
+    }
+
+    async function quickMoveMember(userId, fromTeam, toTeam) {
+      if (!localState || !userId || !fromTeam || !toTeam || fromTeam === toTeam) return false;
+      if (!isLeaderEditor || localState.locked) return false;
+      const location = findMemberLocation(userId);
+      if (!location) {
+        await customAlert('Không tìm thấy thành viên để chuyển.');
+        return false;
+      }
+      const actualFromTeam = location.teamKey || fromTeam;
+      if (actualFromTeam === toTeam) return false;
+      const targetList = localState[toTeam] || [];
+      const targetCap = getTeamCapacityFor(toTeam);
+      const targetIsFull = toTeam !== 'waiting_list' && targetList.length >= targetCap;
+      const evaluation = simulateDropIntent({
+        userId,
+        fromTeam: actualFromTeam,
+        targetTeam: toTeam,
+        targetIndex: targetIsFull ? 0 : targetList.length - 1,
+        placement: targetIsFull ? 'before' : 'append'
+      });
+      if (!evaluation.ok) {
+        if (evaluation.reason && !evaluation.silent) await customAlert(evaluation.reason);
+        return false;
+      }
+
+      const movedName = getMemberDisplayName(location.member);
+      const targetName = getMoveTeamTitle(toTeam);
+      localState = evaluation.state;
+      normalizeLeaderState();
+      markLocalMutation();
+      if (evaluation.overflowMember) {
+        showCenterNotice(`${movedName} → ${targetName}; ${getMemberDisplayName(evaluation.overflowMember)} xuống Hàng Chờ`);
+      } else {
+        showCenterNotice(`${movedName} → ${targetName}`);
+      }
+      return true;
+    }
+
+    async function handleMobileMoveTarget(toTeam) {
+      if (!mobileMoveContext || !toTeam) return;
+      const { userId, fromTeam } = mobileMoveContext;
+      const moved = await quickMoveMember(userId, fromTeam, toTeam);
+      if (!moved) return;
+      closeMobileMoveSheet();
+      renderEditor();
+      scheduleSync('move', 'Đã chuyển thành viên trên web, đang gom thay đổi...');
     }
 
     function isFilterActive() {
@@ -4323,8 +4461,7 @@
         </div>
         <button class="leader-btn ${(member.isTeamLeader || member.ld) ? 'active' : ''}" type="button">👑</button>
         <div class="member-right">
-          <div class="member-right-top">${renderWebWeaponSlots(member)}<div class="role-tag ${cls}">${roleTag}</div></div>
-          <div class="member-role-sub ${cls}${roleSub ? '' : ' is-empty'}">${roleSub}</div>
+          <div class="member-right-top">${renderWebWeaponSlots(member)}<div class="role-tag ${cls}">${roleTag}${roleSub ? '<span class="role-tag-sub"> · ' + roleSub + '</span>' : ''}</div></div>
         </div>
         <button class="kick-btn" type="button">✕</button>
       `;
@@ -4341,6 +4478,14 @@
       kickBtn.addEventListener('click', (event) => {
         event.stopPropagation();
         kickToWaiting(member.id);
+      });
+
+      const memberMain = row.querySelector('.member-main');
+      memberMain?.addEventListener('click', (event) => {
+        if (!isMobileEditorView() || isDragging) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openMobileMoveSheet(member.id, teamKey);
       });
 
       // SortableJS quản lý drag events — không cần native listeners
@@ -4594,6 +4739,7 @@
 
     function handleEditorResize() {
       updateStickyOffset();
+      if (!isMobileEditorView()) closeMobileMoveSheet();
       const nextColumnCount = getTeamGridColumnCount();
       if (localState && !isDragging && nextColumnCount !== teamGridColumnCount) {
         renderEditor();

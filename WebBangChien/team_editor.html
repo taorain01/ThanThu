@@ -1449,10 +1449,15 @@
     const QUICK_HISTORY_LIMIT = 60;
     const ROSTER_HISTORY_LIMIT = 40;
     const LEADER_AUDIT_KEYS = new Set(['editor_id', 'editor_name', 'editor_action', 'edited_at']);
-    const KC_WEB_ACCESS_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
+    const KC_WEB_ACCESS_DISCORD_IDS = new Set(['395151484179841024']);
+    const LINEUP_EDITOR_DISCORD_IDS = new Set(['403644798667325440', '395151484179841024']);
 
     function hasKcWebAccess(discordId = currentDiscordId) {
       return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
+    }
+
+    function hasLineupEditorAccess(discordId = currentDiscordId) {
+      return LINEUP_EDITOR_DISCORD_IDS.has(String(discordId || ''));
     }
 
     function isUrlPrivilegeBypassAllowed(params, discordId = currentDiscordId) {
@@ -1568,7 +1573,17 @@
       img.hidden = true;
     }
 
-    function renderWebWeaponSlots(member, editable = isLeaderEditor && !localState?.locked) {
+    function hasLineupEditorOnlyAccess() {
+      return hasLineupEditorAccess()
+        && !hasElevatedEditorRole()
+        && !isCurrentUserSessionLeader();
+    }
+
+    function canEditWebWeaponRoles() {
+      return isLeaderEditor && !localState?.locked && !hasLineupEditorOnlyAccess();
+    }
+
+    function renderWebWeaponSlots(member, editable = canEditWebWeaponRoles()) {
       const roles = normalizeWebWeaponRoles(member?.web_weapon_roles || member?.webWeaponRoles);
       const memberId = escapeHtmlAttr(member?.id || member?.discord_id || '');
       return `<span class="web-weapon-slots" data-web-weapon-member="${memberId}">
@@ -2322,7 +2337,7 @@
 
     function refreshLeaderEditorPermission() {
       const params = new URLSearchParams(window.location.search);
-      let canEdit = hasElevatedEditorRole() || isCurrentUserSessionLeader();
+      let canEdit = hasLineupEditorAccess() || hasElevatedEditorRole() || isCurrentUserSessionLeader();
 
       if (hasKcWebAccess()) canEdit = true;
 
@@ -4883,6 +4898,30 @@
       return done;
     }
 
+    async function syncLineupPayloadViaApi(payload) {
+      const { data: { session } } = await sb.auth.getSession();
+      const token = session?.access_token || '';
+      if (!token) throw new Error('Chua dang nhap hoac phien Discord da het han.');
+
+      const response = await fetch('/api/bc-lineup-editor', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          guild_id: GUILD_ID,
+          session_id: currentSessionId,
+          payload
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.ok === false) {
+        throw new Error(body?.error || 'Khong luu duoc doi hinh qua API.');
+      }
+      return body.session || null;
+    }
+
     async function syncSessionState(force = false) {
       if (!localState || !currentDay) return;
       if (isSyncing) {
@@ -5028,6 +5067,18 @@
         error = retry3.error || null;
       }
 
+      if (error && hasLineupEditorAccess()) {
+        try {
+          const apiSession = await syncLineupPayloadViaApi(payload);
+          if (apiSession) {
+            currentSessionData = apiSession;
+            currentSessionId = apiSession.id || currentSessionId;
+          }
+          error = null;
+        } catch (apiError) {
+          error = apiError;
+        }
+      }
 
       isSyncing = false;
       if (error) {

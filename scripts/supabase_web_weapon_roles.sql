@@ -106,7 +106,7 @@ BEGIN
         RAISE EXCEPTION 'Discord identity not found';
     END IF;
 
-    v_has_web_access := v_actor_discord_id = ANY (ARRAY['403644798667325440', '395151484179841024']);
+    v_has_web_access := v_actor_discord_id = ANY (ARRAY['395151484179841024']);
 
     SELECT *
     INTO v_actor

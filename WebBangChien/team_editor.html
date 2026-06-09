@@ -315,7 +315,7 @@
     .teams-grid.dense .member-row{padding:3px 5px}
     .teams-grid.dense .member-role-sub{display:none}
     @media (min-width: 769px) {
-      .teams-grid.fit-active-roster .team-card .panel-body{overflow:hidden}
+      .teams-grid.fit-active-roster .team-card .panel-body{overflow:hidden auto}
       .teams-grid.fit-active-roster .member-row{
         height:var(--editor-member-row-h,28px);
         min-height:0;
@@ -335,15 +335,10 @@
       .teams-grid.fit-active-roster .member-sub{display:none}
       .teams-grid.fit-active-roster .member-role-sub{display:var(--editor-member-sub-display,block)}
       .teams-grid.fit-active-roster .member-role-sub.is-empty{display:none}
-      .teams-grid.fit-active-roster .member-right{gap:1px;max-width:52%}
-      .teams-grid.fit-active-roster .web-weapon-slot{
-        width:calc(var(--editor-member-row-h,28px) - 4px);
-        height:calc(var(--editor-member-row-h,28px) - 4px);
-      }
-      .teams-grid.fit-active-roster .web-weapon-slot img{
-        width:calc(var(--editor-member-row-h,28px) - 9px);
-        height:calc(var(--editor-member-row-h,28px) - 9px);
-      }
+      .teams-grid.fit-active-roster .member-main{flex:0 1 auto;min-width:40px}
+      .teams-grid.fit-active-roster .member-right{gap:1px;max-width:52%;margin-left:4px}
+      .teams-grid.fit-active-roster .web-weapon-slot{width:26px;height:26px}
+      .teams-grid.fit-active-roster .web-weapon-slot img{width:21px;height:21px}
       .teams-grid.fit-active-roster .leader-btn,
       .teams-grid.fit-active-roster .kick-btn{
         padding:4px 6px;
@@ -472,6 +467,7 @@
       position:relative;
       transition:border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s cubic-bezier(.25,.46,.45,.94), opacity .2s ease;
     }
+    .member-row:hover{z-index:20}
     .member-row:active{cursor:grabbing}
     /* Khi đang kéo: row gốc mờ + thu nhỏ nhẹ */
     .member-row.dragging{
@@ -565,6 +561,8 @@
     .web-weapon-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%) translateY(4px);min-width:max-content;max-width:220px;padding:7px 9px;border-radius:8px;border:1px solid rgba(246,196,83,.3);background:rgba(4,10,6,.96);box-shadow:0 12px 28px rgba(0,0,0,.5);color:var(--gold);font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;opacity:0;pointer-events:none;z-index:80;transition:opacity .12s,transform .12s}
     .web-weapon-tip img{width:24px;height:24px;object-fit:contain;border-radius:5px}
     .web-weapon-slot:hover .web-weapon-tip{opacity:1;transform:translateX(-50%) translateY(0)}
+    .panel-body > .member-row:first-child .web-weapon-tip{bottom:auto;top:calc(100% + 8px);transform:translateX(-50%) translateY(-4px)}
+    .panel-body > .member-row:first-child .web-weapon-slot:hover .web-weapon-tip{transform:translateX(-50%) translateY(0)}
     .web-weapon-picker{position:fixed;z-index:2000;width:min(340px,calc(100vw - 18px));max-height:min(440px,calc(100vh - 18px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(246,196,83,.35) transparent;padding:10px;border-radius:12px;border:1px solid rgba(246,196,83,.3);background:rgba(4,10,6,.98);box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 30px rgba(246,196,83,.08);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
     .web-weapon-picker::-webkit-scrollbar{width:6px;height:0}
     .web-weapon-picker::-webkit-scrollbar-track{background:transparent}
@@ -864,8 +862,38 @@
       .toolbar .badge { font-size: 11px; padding: 6px 10px }
 
       /* Content: 1 cột dọc thay vì 2 cột */
-      .content { grid-template-columns: 1fr !important; padding: 10px; gap: 10px }
-      .teams-grid { grid-template-columns: 1fr !important; gap: 10px }
+      .content {
+        display:block;
+        grid-template-columns: 1fr !important;
+        padding: 10px;
+        gap: 10px;
+        overflow-x:hidden;
+        overflow-y:auto;
+        -webkit-overflow-scrolling:touch;
+      }
+      .left-col,
+      .right-col{
+        height:auto;
+        min-height:0;
+        overflow:visible;
+      }
+      .left-col{margin-bottom:10px}
+      .teams-grid {
+        grid-template-columns: 1fr !important;
+        grid-auto-rows:auto;
+        height:auto;
+        max-height:none;
+        overflow:visible;
+        padding-right:0;
+        gap:10px;
+      }
+      .team-card{height:auto}
+      .team-card .panel-body,
+      .waiting-card .panel-body,
+      .stats-card .panel-body{
+        flex:0 0 auto;
+        overflow:visible;
+      }
 
       /* Panel body: padding thu nhỏ */
       .panel-head { padding: 10px 12px }
@@ -882,7 +910,7 @@
       .split-side > span { font-size: 11px; letter-spacing: 0.3px }
 
       /* Hàng chờ: đẩy xuống dưới */
-      .right-col { order: 2 }
+      .right-col { order: 2; overflow:visible }
       .sort-menu{right:0;left:auto;width:100%}
       .panel-actions{gap:8px}
       .stats-summary{grid-template-columns:1fr}
@@ -3512,6 +3540,7 @@
       if (window.matchMedia?.('(max-width: 1100px)').matches) return 1;
       if (teamCount >= 7) return 4;
       if (teamCount >= 5) return 3;
+      if (teamCount === 3) return 3;
       if (teamCount <= 1) return 1;
       return 2;
     }

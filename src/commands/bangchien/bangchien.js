@@ -392,10 +392,8 @@ function isUserInSession(session, userId) {
  * @param {Client} client - Discord client
  * @param {string} guildId - Guild ID
  */
-function refreshBcOverviewDebounced(client, guildId) {
+function refreshBcOverviewDebounced(client, guildId, channelOrId = null) {
     const db = require('../../database/db');
-    const overviewData = bangchienOverviews.get(guildId);
-    if (!overviewData) return;
 
     // Kiểm tra có session đang mở không (bất kỳ ngày nào)
     const allSessions = db.getActiveBangchienByGuild(guildId);
@@ -408,10 +406,7 @@ function refreshBcOverviewDebounced(client, guildId) {
     // Set timer mới (5 phút)
     const timeoutId = setTimeout(async () => {
         try {
-            const data = bangchienOverviews.get(guildId);
-            if (!data) return;
-
-            await refreshOverviewEmbed(client, guildId, data.channelId);
+            await refreshOverviewEmbed(client, guildId, channelOrId, { mode: 'resend' });
 
             console.log(`[bangchien] Debounced refresh overview guild ${guildId}`);
         } catch (e) {
@@ -463,7 +458,11 @@ module.exports = {
             // Xóa tin nhắn lệnh
             try { await message.delete(); } catch (e) { }
 
-            await upsertOverviewEmbed(client, guildId, message.channel);
+            const overviewMessage = await upsertOverviewEmbed(client, guildId, message.channel, { mode: 'resend' });
+            if (!overviewMessage) {
+                await message.channel.send('ERROR: Khong the gui overview BC. Hay kiem tra quyen bot hoac dung ?setbc lai.').catch(() => { });
+                return;
+            }
 
             console.log(`[bangchien] ${leaderName} hiển thị overview tại ${message.guild.name}`);
             return;

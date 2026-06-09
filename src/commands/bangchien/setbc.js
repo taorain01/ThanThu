@@ -28,6 +28,24 @@ module.exports = {
 
         // Lưu vào DB
         db.setConfig(`bc_channel_${message.guild.id}`, channelId);
+        try {
+            const { bangchienChannels, bangchienOverviews } = require('../../utils/bangchienState');
+            bangchienChannels.set(message.guild.id, channelId);
+
+            const oldOverview = bangchienOverviews.get(message.guild.id);
+            if (oldOverview?.channelId && oldOverview.channelId !== channelId) {
+                if (oldOverview.message) {
+                    await oldOverview.message.delete().catch(() => { });
+                } else if (client?.channels && oldOverview.messageId) {
+                    const oldChannel = await client.channels.fetch(oldOverview.channelId).catch(() => null);
+                    const oldMessage = oldChannel
+                        ? await oldChannel.messages.fetch(oldOverview.messageId).catch(() => null)
+                        : null;
+                    if (oldMessage) await oldMessage.delete().catch(() => { });
+                }
+                bangchienOverviews.delete(message.guild.id);
+            }
+        } catch (e) { }
 
         const embed = new EmbedBuilder()
             .setColor(0x2ECC71)

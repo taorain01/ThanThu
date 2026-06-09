@@ -435,6 +435,26 @@ module.exports = {
         // ============== DEBOUNCED SCHEDULE EMBED ==========================
         // Kiểm tra nếu tin nhắn trong kênh boss guild đã được đăng ký
         const channelId = message.channel.id;
+        const isPrefixCommandForRouting = message.content.startsWith(prefix);
+        const routingCommandName = isPrefixCommandForRouting
+            ? message.content.slice(prefix.length).trim().split(/ +/)[0]?.toLowerCase()
+            : '';
+        const isBangchienCommand = ['bangchien', 'bc', 'dangkybangchien'].includes(routingCommandName);
+
+        const {
+            bangchienOverviews: bcOverviews,
+            bangchienChannels: bcChannels
+        } = require('../../utils/bangchienState');
+        const bcOverviewData = bcOverviews.get(guildId);
+        const configuredBcChannelId = db.getConfig ? db.getConfig(`bc_channel_${guildId}`) : null;
+        const trackedBcChannelId = bcChannels.get(guildId);
+        if (
+            bcOverviewData?.channelId === channelId ||
+            configuredBcChannelId === channelId ||
+            trackedBcChannelId === channelId
+        ) {
+            bangchienCommand.refreshBcOverviewDebounced(client, guildId, channelId);
+        }
 
         if (bossChannels.has(guildId) && bossChannels.get(guildId) === channelId) {
             const { getGuildPartyKeys } = require('../../utils/bossState');
@@ -454,9 +474,9 @@ module.exports = {
             // Nếu có party đang mở, KHÔNG sử dụng timer để gửi schedule nữa (chỉ dùng refreshBossEmbed ở trên)
             // Nếu KHÔNG có party, mới dùng timer 60 phút để gửi lịch
             if (activeParties.length > 0) {
-                return;
-            }
-            const delay = SCHEDULE_DELAY_NORMAL;
+                if (!isBangchienCommand) return;
+            } else {
+                const delay = SCHEDULE_DELAY_NORMAL;
 
             // Đặt timer mới
             const timeoutId = setTimeout(async () => {
@@ -487,17 +507,12 @@ module.exports = {
                 }
             }, delay);
 
-            scheduleTimers.set(channelId, { timeoutId, lastActivity: Date.now(), delay });
+                scheduleTimers.set(channelId, { timeoutId, lastActivity: Date.now(), delay });
+            }
         }
 
         // ============== DEBOUNCED BC OVERVIEW REFRESH ==========================
         // Kiểm tra nếu tin nhắn trong kênh BC overview → debounce refresh 5 phút
-        const { bangchienOverviews: bcOverviews } = require('../../utils/bangchienState');
-        const bcOverviewData = bcOverviews.get(guildId);
-        if (bcOverviewData && bcOverviewData.channelId === channelId) {
-            bangchienCommand.refreshBcOverviewDebounced(client, guildId);
-        }
-
         // ============== REPLY TO TAG (Boss Guild) ==============
         // Kiểm tra nếu reply vào embed chốt danh sách boss
         if (message.reference && message.reference.messageId) {

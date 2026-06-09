@@ -317,8 +317,9 @@ function resolveOverviewChannelId(guildId, channelOrId = null) {
     }
 }
 
-async function upsertOverviewEmbed(client, guildId, channelOrId = null) {
+async function upsertOverviewEmbed(client, guildId, channelOrId = null, options = {}) {
     return enqueueOverviewWork(guildId, async () => {
+        const mode = options?.mode === 'resend' ? 'resend' : 'edit';
         const channelId = resolveOverviewChannelId(guildId, channelOrId);
         if (!channelId) return null;
 
@@ -344,7 +345,12 @@ async function upsertOverviewEmbed(client, guildId, channelOrId = null) {
         const overviewMessages = await fetchOverviewMessages(channel, knownMessage);
         let target = overviewMessages[0] || null;
 
-        if (target) {
+        if (mode === 'resend') {
+            for (const oldMessage of overviewMessages) {
+                try { await oldMessage.delete(); } catch (e) { }
+            }
+            target = await channel.send(editOptions);
+        } else if (target) {
             try {
                 await target.edit(editOptions);
             } catch (e) {
@@ -378,9 +384,9 @@ async function upsertOverviewEmbed(client, guildId, channelOrId = null) {
  * @param {Client} client - Discord client
  * @param {string} guildId - Guild ID
  */
-async function refreshOverviewEmbed(client, guildId, channelOrId = null) {
+async function refreshOverviewEmbed(client, guildId, channelOrId = null, options = {}) {
     try {
-        return await upsertOverviewEmbed(client, guildId, channelOrId);
+        return await upsertOverviewEmbed(client, guildId, channelOrId, options);
     } catch (e) {
         console.error('[bangchienState] Error refreshing overview:', e.message);
         return null;

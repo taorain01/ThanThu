@@ -2173,6 +2173,22 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .bc-session-title{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
 .bc-session-title strong{white-space:nowrap}
 .bc-session-meta{font-size:11px;color:var(--text3);font-weight:700}
+.bc-session-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.bc-copy-team-btn{
+  height:28px;padding:0 10px;border-radius:7px;border:1px solid rgba(34,197,94,.28);
+  background:rgba(34,197,94,.08);color:var(--green-300);font-family:'Inter',sans-serif;
+  font-size:11px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  cursor:pointer;white-space:nowrap;transition:all .2s ease
+}
+.bc-copy-team-btn:hover{border-color:rgba(34,197,94,.58);background:rgba(34,197,94,.14);box-shadow:0 0 12px rgba(34,197,94,.12)}
+.bc-copy-team-btn.copied{border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.12);color:var(--gold)}
+.bc-copy-team-btn svg{width:13px;height:13px;flex-shrink:0}
+.bc-session-actions .del-x{
+  width:24px;height:24px;border-radius:7px;font-size:12px;line-height:1;display:inline-flex;
+  align-items:center;justify-content:center;cursor:pointer;color:var(--text3);transition:all .2s;
+  background:rgba(255,255,255,.06);flex-shrink:0
+}
+.bc-session-actions .del-x:hover{color:#fca5a5;background:rgba(239,68,68,.2)}
 .bc-league-badge{font-size:10px;letter-spacing:.08em;color:#111827;background:linear-gradient(135deg,#facc15,#f59e0b);border-radius:999px;padding:3px 8px}
 .bc-time-pill{font-size:11px;color:var(--green-300);border:1px solid rgba(34,197,94,.25);border-radius:999px;padding:3px 8px;background:rgba(34,197,94,.08)}
 .bc-session-body{padding:14px;flex:1;min-height:0;overflow:hidden;display:block}
@@ -2222,6 +2238,11 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .bc-roster-layout{grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:12px}
   .bc-active-grid{gap:12px}
   .left{padding:14px}
+}
+@media (max-width: 520px) {
+  .bc-session-head{gap:7px;padding:9px 10px}
+  .bc-copy-team-btn{width:30px;padding:0}
+  .bc-copy-team-label{display:none}
 }
 @media (max-height: 820px) and (min-width: 769px) {
   .t-hdr{padding:8px 12px}
@@ -4837,6 +4858,11 @@ function escapeIndexHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function encodeIndexInlineArg(value) {
+    return encodeURIComponent(String(value ?? ''))
+        .replace(/[!'()*]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
 function normalizeWebWeaponRoles(value) {
     let source = value;
     if (typeof source === 'string') {
@@ -5354,6 +5380,68 @@ function getIndexActiveSlotLayout(session) {
 function getIndexFlatActiveRoster(session) {
     const roster = getIndexRosterState(session);
     return roster.layout.flatMap((team) => (roster.teams[team.id] || []).map((player) => ({ ...player, team: team.id })));
+}
+
+function getIndexSessionCopyNames(session) {
+    return getIndexFlatActiveRoster(session)
+        .map(getIndexRosterDisplayName)
+        .map((name) => String(name || '').trim())
+        .filter(Boolean);
+}
+
+async function copyIndexTextToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch (error) {}
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    if (!copied) throw new Error('copy_failed');
+}
+
+async function copyIndexSessionTeam(sessionKey, event) {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const session = getCachedSessionByKey(sessionKey) || currentSessionData;
+    if (!session) {
+        await customAlert('Không tìm thấy session để copy.');
+        return;
+    }
+    const names = getIndexSessionCopyNames(session);
+    if (!names.length) {
+        await customAlert('Session này chưa có thành viên để copy.');
+        return;
+    }
+    try {
+        await copyIndexTextToClipboard(names.join('\n'));
+        const button = event?.currentTarget || event?.target?.closest?.('.bc-copy-team-btn');
+        const label = button?.querySelector?.('.bc-copy-team-label');
+        if (button) {
+            const originalLabel = button.dataset.originalLabel || label?.textContent || 'Copy toàn đội';
+            button.dataset.originalLabel = originalLabel;
+            button.classList.add('copied');
+            if (label) label.textContent = 'Đã copy';
+            window.clearTimeout(button._copyResetTimer);
+            button._copyResetTimer = window.setTimeout(() => {
+                button.classList.remove('copied');
+                if (label) label.textContent = originalLabel;
+            }, 1400);
+        }
+    } catch (error) {
+        await customAlert('Không copy được danh sách. Hãy thử lại hoặc kiểm tra quyền clipboard của trình duyệt.');
+    }
 }
 
 function rebuildIndexSessionTeamsFromFlat(session, flatRoster, waitingList = []) {
@@ -7232,9 +7320,20 @@ function renderDaySessions(day, preferredKey = null) {
 
     const canDelete = hasElevatedRosterRole();
     const renderHeaderActions = (session) => {
-        if (!canDelete) return '';
         const key = getSessionCacheKey(session);
-        return `<span class="del-x" style="display:inline-flex" title="Xoa session" onclick="event.preventDefault();event.stopPropagation(); deleteSession('${key}', '${getSessionTitle(session).replace(/'/g, "\\'")}')">✕</span>`;
+        const encodedKey = encodeIndexInlineArg(key);
+        const encodedTitle = encodeIndexInlineArg(getSessionTitle(session));
+        const copyButton = `<button class="bc-copy-team-btn" type="button" title="Copy tên ingame toàn đội" onclick="copyIndexSessionTeam(decodeURIComponent('${encodedKey}'), event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span class="bc-copy-team-label">Copy toàn đội</span>
+        </button>`;
+        const deleteButton = canDelete
+            ? `<span class="del-x" title="Xoa session" onclick="event.preventDefault();event.stopPropagation(); deleteSession(decodeURIComponent('${encodedKey}'), decodeURIComponent('${encodedTitle}'))">&times;</span>`
+            : '';
+        return `<div class="bc-session-actions">${copyButton}${deleteButton}</div>`;
     };
     const renderHead = (session, featured = false) => {
         const total = getSessionTotalCount(session);

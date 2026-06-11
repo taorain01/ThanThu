@@ -35,6 +35,7 @@ anh/
 !WebBangChien/anh/
 WebBangChien/anh/*
 !WebBangChien/anh/map.png
+!WebBangChien/anh/LangGia2.png
 !WebBangChien/anh/iconvukhi/
 tools/dist/
 reports/

@@ -26,7 +26,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 /* ── Background layers ── */
 .landing-bg{position:absolute;inset:0;z-index:0}
 .landing-map{position:absolute;inset:-40px;z-index:0;
-  background:url('./anh/LangGiaGuild.jpg') center/cover no-repeat;
+  background:url('./anh/LangGia2.png') center/cover no-repeat;
   filter:blur(6px) brightness(0.25) saturate(1.3);
   transform:scale(1.08);
   animation:bgBreath 20s ease-in-out infinite}
@@ -174,10 +174,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
   background:linear-gradient(90deg,transparent,rgba(255,215,0,.35),rgba(255,255,255,.2),rgba(255,215,0,.35),transparent);
   border-radius:1px}
 
-.landing-welcome{font-size:clamp(16px,3vw,22px);color:var(--text);font-weight:600;
-  text-shadow:0 2px 8px rgba(0,0,0,.5);letter-spacing:.5px;margin-bottom:4px}
-.landing-flavor{font-size:clamp(12px,2vw,14px);color:var(--gold-glow);font-style:italic;margin-bottom:24px;
-  opacity:.5;line-height:1.6;font-family:'Playfair Display',serif;letter-spacing:1.5px}
+.landing-welcome{font-family:'Playfair Display',serif;font-size:clamp(16px,3vw,22px);font-weight:900;margin-bottom:4px;
+  background:linear-gradient(135deg,#fff3c4,#f5c453 50%,#c8961e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 8px rgba(200,150,30,0.3));letter-spacing:1px}
+.landing-flavor{font-family:'Playfair Display',serif;font-size:clamp(12px,2vw,14px);color:var(--gold-glow);font-style:italic;margin-bottom:24px;
+  opacity:.85;line-height:1.6;letter-spacing:1.5px;text-shadow:0 0 8px rgba(253,230,138,0.3)}
 
 /* ── Discord Login Button ── */
 .login-btn{display:inline-flex;align-items:center;gap:12px;padding:15px 44px;
@@ -297,8 +298,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
 
     <!-- Login card -->
     <div class="login-card" style="position:relative">
-      <div class="landing-welcome">Chào mừng bạn đến với Lang Gia</div>
-      <div class="landing-flavor">"Vui lòng xuất trình giấy tờ nhà họ Lang"</div>
+      <div class="landing-welcome">Thượng Sảnh Lang Gia</div>
+      <div class="landing-flavor">“Vui lòng xuất trình Lệnh Bài nhà họ Lang”</div>
 
       <!-- Discord Login -->
       <button class="login-btn" id="loginBtn" onclick="loginDiscord()">

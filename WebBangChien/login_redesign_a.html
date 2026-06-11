@@ -395,7 +395,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);
   window.addEventListener('mousemove',e=>{
     const cx=window.innerWidth/2, cy=window.innerHeight/2;
     const dx=(e.clientX-cx)/cx, dy=(e.clientY-cy)/cy;
-    const bx=50+dx*3, by=50+dy*3;
+    const baseX = window.basePosX !== undefined ? parseFloat(window.basePosX) : 50;
+    const baseY = window.basePosY !== undefined ? parseFloat(window.basePosY) : 50;
+    const bx=baseX+dx*3, by=baseY+dy*3;
     map.style.backgroundPosition=`${bx}% ${by}%`;
   });
 })();
@@ -660,6 +662,8 @@ function toggleEditor() {
     map.style.filter = `blur(${blur}px) brightness(${brightness}) saturate(1.15)`;
     map.style.transform = `scale(${scale})`;
     map.style.opacity = bgOpacity;
+    window.basePosX = posX;
+    window.basePosY = posY;
     map.style.backgroundPosition = `${posX}% ${posY}%`;
 
     card.style.backdropFilter = `blur(${cardBlur}px) saturate(1.3)`;

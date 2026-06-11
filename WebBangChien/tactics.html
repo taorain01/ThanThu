@@ -14453,14 +14453,30 @@ function navigateTo(target) {
   });
 }
 
-// ═══ MOBILE FULLSCREEN LANDSCAPE ═══
+// ═══ MOBILE FULLSCREEN ═══
+function releaseOrientationLock() {
+  try {
+    if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+      screen.orientation.unlock();
+    }
+  } catch(e) {}
+}
+
 function enterFullscreenLandscape() {
   const el = document.documentElement;
-  if (el.requestFullscreen) el.requestFullscreen();
-  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  // Thử ép xoay ngang
-  try { screen.orientation.lock('landscape').catch(() => {}); } catch(e) {}
+  const requestFullscreen = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (requestFullscreen) {
+    const result = requestFullscreen.call(el);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  }
+  releaseOrientationLock();
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
 }
+
+releaseOrientationLock();
+document.addEventListener('DOMContentLoaded', releaseOrientationLock);
+document.addEventListener('fullscreenchange', releaseOrientationLock);
+document.addEventListener('webkitfullscreenchange', releaseOrientationLock);
 
 // ═══ MOBILE TAB BAR SWITCHER ═══
 let _mobileActiveTab = 'map';

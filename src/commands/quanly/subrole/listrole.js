@@ -4,6 +4,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { getRoleMappings } = require('./addrole');
+const db = require('../../../database/db');
 
 async function execute(message, args) {
     const mappings = getRoleMappings();
@@ -31,10 +32,23 @@ async function execute(message, args) {
         return `${iconDisplay} \`${code}\` → **${name}**`;
     });
 
+    // Kênh cấp role (nơi user gửi tin nhắn/ảnh để xin role)
+    let caproleChannelId = null;
+    try {
+        caproleChannelId = db.getConfig('caprole_channel_id');
+    } catch (e) { }
+    const channelMention = caproleChannelId ? `<#${caproleChannelId}>` : 'kênh cấp role';
+
+    const tips =
+        `\n\n━━━━━━━━━━━━━━━\n` +
+        `💡 **Cách nhận role:**\n` +
+        `Gửi **tên** hoặc **mã** role (hoặc kèm **ảnh** chứng minh) vào ${channelMention}.\n` +
+        `Bot sẽ nhận diện và gửi yêu cầu cho Bang Chủ duyệt ✅`;
+
     const embed = new EmbedBuilder()
         .setColor(0x9B59B6)
         .setTitle('📋 DANH SÁCH ROLE PHỤ')
-        .setDescription(lines.join('\n'))
+        .setDescription(lines.join('\n') + tips)
         .setFooter({ text: `${codes.length} role • 📌 Bật phần ghim tin nhắn để xem hướng dẫn lấy role` })
         .setTimestamp();
 

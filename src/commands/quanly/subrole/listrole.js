@@ -35,7 +35,7 @@ async function execute(message, args) {
         .setColor(0x9B59B6)
         .setTitle('📋 DANH SÁCH ROLE PHỤ')
         .setDescription(lines.join('\n'))
-        .setFooter({ text: `${codes.length} role` })
+        .setFooter({ text: `${codes.length} role • 📌 Bật phần ghim tin nhắn để xem hướng dẫn lấy role` })
         .setTimestamp();
 
     await message.channel.send({ embeds: [embed] });

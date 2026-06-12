@@ -21,7 +21,7 @@
 :root{
   --green-300:#86efac;--green-400:#4ade80;--green-500:#22c55e;--green-600:#16a34a;--green-700:#15803d;--green-800:#166534;--green-900:#14532d;
   --gold:#fbbf24;--gold-deep:#f59e0b;--gold-dark:#d97706;--gold-glow:#fde68a;
-  --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.88);
+  --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.80);
   --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
   --dps:#60a5fa;--healer:#4ade80;--tanker:#fb923c;
   --mobile-header-height:64px;--mobile-daybar-height:52px;--mobile-nav-height:72px;
@@ -1550,6 +1550,33 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .app{display:none;flex-direction:column;height:100vh}
 .app.active{display:flex}
 
+/* ═══ APP BACKGROUND (nền editor nhiều tầng) ═══ */
+/* Tầng base: radial gradient xanh rêu sâu (sáng giữa, tối dần ra rìa) */
+.app-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+  background:radial-gradient(ellipse 120% 85% at 50% -8%, #103a22 0%, #0a2415 36%, #07160d 68%, #050d08 100%)}
+/* Tầng ảnh: LangGia2.png làm nền chủ đề, mờ + blur nhẹ, drift rất chậm */
+.app-bg-img{position:absolute;inset:-6%;
+  background:url('./anh/LangGia2.png?v=bg1') center 35%/cover no-repeat;
+  opacity:.17;filter:blur(3px) brightness(.72) saturate(1.12);
+  animation:appBgDrift 46s ease-in-out infinite}
+@keyframes appBgDrift{0%,100%{transform:scale(1.07) translateY(0)}50%{transform:scale(1.13) translateY(-1.6%)}}
+/* Tầng vignette: quầng sáng gold giữa + tối 4 mép + fade trên/dưới */
+.app-bg-vignette{position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 85% 65% at 50% 30%, rgba(217,160,54,.10) 0%, transparent 46%),
+    radial-gradient(ellipse 130% 105% at 50% 50%, transparent 34%, rgba(4,11,7,.55) 76%, rgba(2,7,4,.93) 100%),
+    linear-gradient(180deg, rgba(5,13,9,.55) 0%, transparent 22%, transparent 70%, rgba(4,10,7,.88) 100%)}
+/* Tầng noise: grain chống banding/loang */
+.app-bg-noise{position:absolute;inset:0;opacity:.04;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size:200px 200px}
+/* Theme sáng: nền dịu hơn */
+body:not(.theme-dark) .app-bg{background:radial-gradient(ellipse 120% 85% at 50% -8%, #eaf6ee 0%, #d8ecdd 45%, #c4e2cb 100%)}
+body:not(.theme-dark) .app-bg-img{opacity:.10;filter:blur(3px) brightness(1.05) saturate(1.05)}
+body:not(.theme-dark) .app-bg-vignette{background:
+  radial-gradient(ellipse 85% 65% at 50% 30%, rgba(245,200,90,.12) 0%, transparent 46%),
+  radial-gradient(ellipse 130% 105% at 50% 50%, transparent 40%, rgba(180,210,185,.25) 80%, rgba(150,190,160,.35) 100%)}
+
 /* ═══ DAY BAR ═══ */
 .day-bar{
   display:flex;align-items:center;padding:10px 16px;gap:8px;
@@ -1876,8 +1903,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 
 .team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(234,88,12,.12);margin-bottom:0;overflow:hidden;
   display:flex;flex-direction:column;min-height:0;
-  backdrop-filter:blur(10px);transition:all .3s;box-shadow:0 2px 10px rgba(0,0,0,.2)}
-.team-card:hover{border-color:rgba(234,88,12,.3);box-shadow:0 4px 20px rgba(234,88,12,.1)}
+  backdrop-filter:blur(13px);transition:all .3s;
+  box-shadow:0 8px 26px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.05)}
+.team-card:hover{border-color:rgba(234,88,12,.3);
+  box-shadow:0 10px 32px rgba(0,0,0,.42),0 0 28px rgba(234,88,12,.08),inset 0 1px 0 rgba(255,255,255,.06)}
 .t-hdr{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.04)}
 .t-hdr.a1{background:linear-gradient(90deg,rgba(239,68,68,.18),transparent)}
 .t-hdr.a2{background:linear-gradient(90deg,rgba(249,115,22,.18),transparent)}
@@ -1956,7 +1985,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .m-tag.h{background:rgba(74,222,128,.12);color:var(--healer)}
 .m-tag.t{background:rgba(251,146,60,.12);color:var(--tanker)}
 .m-tag-sub{font-weight:600;opacity:.7;font-size:9px}
-.slot-e{padding:6px 8px;color:var(--text3);font-style:italic;font-size:12px;opacity:.4;display:flex;align-items:center;gap:8px}
+.slot-e{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
+  margin:8px;padding:22px 14px;border:1.5px dashed rgba(251,191,36,.20);border-radius:12px;
+  color:var(--text3);font-style:normal;font-size:11.5px;text-align:center;line-height:1.5;opacity:.9;
+  background:linear-gradient(180deg,rgba(251,191,36,.03),transparent)}
+.slot-e::before{content:'🛡️';font-size:30px;opacity:.4;line-height:1}
 .slot-e .m-num{border:1px dashed rgba(255,255,255,.08);background:none}
 
 .bc-leave-inline{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:14px;
@@ -3645,6 +3678,12 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 
 <!-- ═══ APP (sau khi đăng nhập) ═══ -->
 <div class="app" id="mainApp">
+  <!-- ★ Nền editor nhiều tầng (redesign) -->
+  <div class="app-bg" id="appBg">
+    <div class="app-bg-img"></div>
+    <div class="app-bg-vignette"></div>
+    <div class="app-bg-noise"></div>
+  </div>
   <div class="header">
     <div class="header-fx"></div>
     <div class="header-coin">

@@ -21,19 +21,11 @@
 :root{
   --green-300:#86efac;--green-400:#4ade80;--green-500:#22c55e;--green-600:#16a34a;--green-700:#15803d;--green-800:#166534;--green-900:#14532d;
   --gold:#fbbf24;--gold-deep:#f59e0b;--gold-dark:#d97706;--gold-glow:#fde68a;
-  --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.80);
+  --bg:#0a1a0f;--bg-card:rgba(10,26,15,0.88);
   --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
   --dps:#60a5fa;--healer:#4ade80;--tanker:#fb923c;
   --mobile-header-height:64px;--mobile-daybar-height:52px;--mobile-nav-height:72px;
   --mobile-map-ui-gap:10px;--mobile-map-ui-height:118px;--mobile-timeline-height:54px;
-  /* ── Music Player redesign tokens ── */
-  --mp-radius:18px;--mp-radius-sm:10px;
-  --mp-glass-bg:linear-gradient(135deg,rgba(8,22,14,.90),rgba(10,24,16,.94));
-  --mp-border:rgba(200,162,44,.18);
-  --mp-gold-soft:rgba(200,162,44,.55);
-  --mp-text:#eef0e6;--mp-text-dim:rgba(238,240,230,.55);
-  --mp-shadow:0 18px 50px rgba(0,0,0,.6);
-  --mp-focus:0 0 0 2px rgba(200,162,44,.7);
 }
 body:not(.theme-dark) {
   --bg: #f4f8f6;
@@ -45,13 +37,6 @@ body:not(.theme-dark) {
   --gold-deep: #d97706;
   --gold-dark: #78350f;
   --gold-glow: #fdf2e9;
-  --mp-glass-bg: linear-gradient(135deg, rgba(255,255,255,.92), rgba(244,248,246,.95));
-  --mp-border: rgba(180,83,9,.25);
-  --mp-gold-soft: rgba(180,83,9,.5);
-  --mp-text: #1a2a1f;
-  --mp-text-dim: rgba(26,42,31,.6);
-  --mp-shadow: 0 16px 40px rgba(16,80,40,.18);
-  --mp-focus: 0 0 0 2px rgba(180,83,9,.6);
   --green-300: #14532d;
   --green-400: #166534;
   --green-500: #15803d;
@@ -264,15 +249,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   width:min(280px, calc(100vw - 16px));
   font-family:'Inter',sans-serif;
   user-select:none;
-  /* Glass card (redesign: 1 lớp glass + 1 viền mảnh) */
-  background:var(--mp-glass-bg);
-  border:1px solid var(--mp-border);
-  border-radius:var(--mp-radius);
+  /* Glass card */
+  background:linear-gradient(
+    135deg,
+    rgba(8,22,14,.88) 0%,
+    rgba(12,28,18,.92) 50%,
+    rgba(6,16,10,.88) 100%
+  );
+  border:1px solid rgba(200,162,44,.2);
+  border-radius:20px;
   box-shadow:
-    var(--mp-shadow),
-    inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter:blur(22px) saturate(1.25);
-  -webkit-backdrop-filter:blur(22px) saturate(1.25);
+    0 20px 60px rgba(0,0,0,.7),
+    0 0 0 1px rgba(255,255,255,.04),
+    inset 0 1px 0 rgba(255,255,255,.07),
+    0 0 40px rgba(200,162,44,.07);
+  backdrop-filter:blur(24px) saturate(1.3);
   overflow:hidden;
   touch-action:none;
   will-change:left,top;
@@ -309,7 +300,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .mp-close-btn {
   background: none; border: none; cursor: pointer;
   color: rgba(255,255,255,.3);
-  width: 28px; height: 28px;
+  width: 22px; height: 22px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
   transition: all .25s;
@@ -347,7 +338,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .mp-collapse-btn {
   background: none; border: none; cursor: pointer;
   color: rgba(200,162,44,.7);
-  width: 30px; height: 30px;
+  width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
   transition: background .2s, border-color .2s, color .2s, box-shadow .2s, filter .2s;
@@ -419,12 +410,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .mp-wrap:not(.collapsed) .mp-mini-autoplay { display: none; }
 /* Nút play mini */
 .mp-mini-play {
-  background: linear-gradient(135deg, rgba(200,162,44,.22), rgba(150,90,0,.16));
-  border: 1px solid var(--mp-gold-soft);
+  background: none; border: 1px solid rgba(200,162,44,.4);
   width: 32px; height: 32px;
   border-radius: 50%; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  color: rgba(255,245,210,.92);
+  color: rgba(255,245,210,.8);
   transition: background .2s, border-color .2s, color .2s, box-shadow .2s, filter .2s;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
@@ -448,12 +438,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .mp-wrap.mp-dragging .mp-mini-play.playing { animation: none; }
 @keyframes mpPlayGlow {
   0%, 100% {
-    box-shadow: 0 0 4px rgba(220,180,60,.35), 0 0 10px rgba(220,180,60,.14), inset 0 1px 2px rgba(255,255,255,.3);
-    filter: drop-shadow(0 0 3px rgba(220,180,60,.35));
+    box-shadow: 0 0 6px rgba(220,180,60,.5), 0 0 14px rgba(220,180,60,.2), inset 0 1px 2px rgba(255,255,255,.3);
+    filter: drop-shadow(0 0 4px rgba(220,180,60,.5));
   }
   50% {
-    box-shadow: 0 0 9px rgba(220,180,60,.6), 0 0 18px rgba(220,180,60,.32), inset 0 1px 2px rgba(255,255,255,.4);
-    filter: drop-shadow(0 0 6px rgba(220,180,60,.55)) drop-shadow(0 0 13px rgba(255,215,0,.28));
+    box-shadow: 0 0 14px rgba(220,180,60,.9), 0 0 28px rgba(220,180,60,.5), inset 0 1px 2px rgba(255,255,255,.4);
+    filter: drop-shadow(0 0 10px rgba(220,180,60,.8)) drop-shadow(0 0 20px rgba(255,215,0,.4));
   }
 }
 /* Stop mini btn */
@@ -482,44 +472,37 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   background:linear-gradient(90deg,transparent,rgba(255,215,0,.4),rgba(255,255,255,.3),rgba(255,215,0,.4),transparent);
   border-radius:1px;
 }
-/* Focus ring nhất quán cho mọi control trong player */
-.mp-wrap button:focus-visible,
-.mp-wrap input:focus-visible,
-.mp-wrap label:focus-visible,
-.mp-tab:focus-visible{
-  outline:none;
-  box-shadow:var(--mp-focus);
-}
 /* Playlist tabs */
 .mp-tabs{
   display:flex;
-  margin:12px 14px 2px;
-  gap:3px;
-  padding:3px;
-  border-radius:var(--mp-radius-sm);
-  background:rgba(0,0,0,.22);
-  border:1px solid rgba(255,255,255,.06);
+  padding:12px 12px 0;
+  gap:6px;
 }
 .mp-tab{
-  flex:1;padding:6px 4px;
-  border-radius:7px;
-  border:1px solid transparent;
-  background:transparent;
-  color:var(--mp-text-dim);
+  flex:1;padding:5px 4px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.05);
+  color:rgba(255,255,255,.6);
   font-size:10px;font-weight:700;
   cursor:pointer;text-align:center;
-  transition:background .22s,color .22s,box-shadow .22s;
+  transition:all .25s;
   letter-spacing:.3px;
+  box-shadow:0 2px 4px rgba(0,0,0,.3);
 }
 .mp-tab:hover{
   color:rgba(255,255,255,.9);
-  background:rgba(255,255,255,.06);
+  background:rgba(255,255,255,.08);
+  transform:translateY(-1px);
 }
 .mp-tab.active{
-  background:linear-gradient(135deg,rgba(200,162,44,.28),rgba(200,162,44,.16));
+  background:linear-gradient(135deg,rgba(200,162,44,.25),rgba(200,162,44,.15));
+  border-color:rgba(200,162,44,.6);
   color:var(--gold);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 1px 4px rgba(0,0,0,.3);
-  text-shadow:0 0 4px rgba(200,162,44,.35);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,.5),
+    0 0 12px rgba(200,162,44,.2);
+  text-shadow:0 0 4px rgba(200,162,44,.4);
 }
 /* Art + Now playing info */
 .mp-art-row{
@@ -556,29 +539,27 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 .mp-tinfo{flex:1;min-width:0}
 .mp-tname{
-  font-size:14px;font-weight:800;
-  color:var(--mp-text);
+  font-size:12.5px;font-weight:700;
+  color:#f0e8d0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   letter-spacing:.2px;
 }
 .mp-tpl{
-  font-size:10px;color:var(--mp-gold-soft);
-  margin-top:3px;
+  font-size:10px;color:rgba(200,162,44,.65);
+  margin-top:2px;
 }
 .mp-tidx{
-  font-size:10px;color:var(--mp-text-dim);
+  font-size:10px;color:rgba(255,255,255,.25);
   margin-top:1px;
 }
-/* Hỗ trợ ảnh bìa thật (tùy chọn): JS gắn <img> vào #mpDisc sẽ phủ kín đĩa */
-.mp-disc img{width:100%;height:100%;object-fit:cover;border-radius:50%;position:relative;z-index:1}
 /* EQ visualizer bars */
 .mp-eq{
   display:flex;align-items:flex-end;gap:2px;
   height:20px;padding:0 14px 4px;
 }
 .mp-eq-bar{
-  flex:1;border-radius:3px 3px 1px 1px;
-  background:linear-gradient(to top,rgba(200,136,10,.9),#ffe566);
+  flex:1;border-radius:2px 2px 0 0;
+  background:linear-gradient(to top,#c8880a,#ffe566);
   opacity:.35;height:3px;
 }
 .mp-eq-bar.on{
@@ -599,22 +580,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   background:linear-gradient(90deg,#c8880a,#ffe566,#f5c518);
   width:0%;pointer-events:none;
   box-shadow:0 0 6px rgba(200,162,44,.6);
-  position:relative;
 }
-/* Thumb tròn xuất hiện khi hover/tua */
-.mp-prog-fill::after{
-  content:'';position:absolute;right:-1px;top:50%;
-  width:10px;height:10px;border-radius:50%;
-  background:radial-gradient(circle at 35% 35%,#ffe566,#c8880a);
-  box-shadow:0 0 6px rgba(200,162,44,.7);
-  transform:translate(50%,-50%) scale(0);
-  transition:transform .15s ease;
-}
-.mp-prog-track:hover .mp-prog-fill::after{transform:translate(50%,-50%) scale(1)}
 .mp-time-row{
   display:flex;justify-content:space-between;
-  font-size:9.5px;color:var(--mp-text-dim);
-  margin-top:3px;font-variant-numeric:tabular-nums;
+  font-size:9.5px;color:rgba(255,255,255,.3);
+  margin-top:3px;
 }
 /* Controls */
 .mp-ctrls{
@@ -1515,10 +1485,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   background:url('./anh/header_bg.png?v=20260529_v3') center/cover no-repeat;
   flex-shrink:0;position:relative;z-index:100;}
 .header::before{content:'';position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse 72% 85% at 50% 34%, rgba(3,8,5,0.30) 0%, transparent 62%),
-    linear-gradient(90deg, rgba(6,12,8,0.85) 0%, rgba(10,24,15,0) 25%, rgba(10,24,15,0) 75%, rgba(6,12,8,0.85) 100%),
-    linear-gradient(180deg, rgba(4,9,6,0) 38%, rgba(4,9,6,0.42) 78%, rgba(3,8,5,0.66) 100%);
+  background:linear-gradient(90deg, rgba(6,12,8,0.85) 0%, rgba(10,24,15,0) 25%, rgba(10,24,15,0) 75%, rgba(6,12,8,0.85) 100%);
   pointer-events:none}
 .header-fx{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .header-fx::before{content:'';position:absolute;top:50%;left:90px;width:350px;height:120px;
@@ -1583,42 +1550,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 .app{display:none;flex-direction:column;height:100vh}
 .app.active{display:flex}
 
-/* ═══ APP BACKGROUND (nền editor nhiều tầng) ═══ */
-/* Tầng base: radial gradient xanh rêu sâu (sáng giữa, tối dần ra rìa) */
-.app-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
-  background:radial-gradient(ellipse 120% 85% at 50% -8%, #103a22 0%, #0a2415 36%, #07160d 68%, #050d08 100%)}
-/* Tầng ảnh: LangGia2.png làm nền chủ đề, mờ + blur nhẹ, drift rất chậm */
-.app-bg-img{position:absolute;inset:-6%;
-  background:url('./anh/LangGia2.png?v=bg1') center 35%/cover no-repeat;
-  opacity:.14;filter:blur(3px) brightness(.80) saturate(1.12);
-  animation:appBgDrift 46s ease-in-out infinite}
-@keyframes appBgDrift{0%,100%{transform:scale(1.07) translateY(0)}50%{transform:scale(1.13) translateY(-1.6%)}}
-/* Tầng vignette: quầng sáng gold giữa + đáy, tối mềm ra rìa */
-.app-bg-vignette{position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse 80% 45% at 50% 102%, rgba(217,160,54,.07) 0%, transparent 60%),
-    radial-gradient(ellipse 85% 65% at 50% 28%, rgba(217,160,54,.10) 0%, transparent 48%),
-    radial-gradient(ellipse 135% 110% at 50% 48%, transparent 42%, rgba(4,11,7,.42) 80%, rgba(3,9,5,.72) 100%),
-    linear-gradient(180deg, rgba(5,13,9,.48) 0%, transparent 26%, transparent 74%, rgba(4,10,7,.60) 100%)}
-/* Tầng noise: grain chống banding/loang */
-.app-bg-noise{position:absolute;inset:0;opacity:.04;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  background-size:200px 200px}
-/* Theme sáng: nền dịu hơn */
-body:not(.theme-dark) .app-bg{background:radial-gradient(ellipse 120% 85% at 50% -8%, #eaf6ee 0%, #d8ecdd 45%, #c4e2cb 100%)}
-body:not(.theme-dark) .app-bg-img{opacity:.10;filter:blur(3px) brightness(1.05) saturate(1.05)}
-body:not(.theme-dark) .app-bg-vignette{background:
-  radial-gradient(ellipse 85% 65% at 50% 30%, rgba(245,200,90,.12) 0%, transparent 46%),
-  radial-gradient(ellipse 130% 105% at 50% 50%, transparent 40%, rgba(180,210,185,.25) 80%, rgba(150,190,160,.35) 100%)}
-
 /* ═══ DAY BAR ═══ */
 .day-bar{
   display:flex;align-items:center;padding:10px 16px;gap:8px;
-  border-top:1px solid rgba(251,191,36,.16);
   border-bottom:1px solid rgba(251,191,36,.08);flex-shrink:0;
-  background:linear-gradient(180deg,rgba(8,12,8,.60),rgba(12,18,12,.80));
-  backdrop-filter:blur(10px) saturate(1.05);-webkit-backdrop-filter:blur(10px) saturate(1.05);
-  box-shadow:0 4px 20px rgba(0,0,0,.45),inset 0 1px 0 rgba(251,191,36,.07);position:relative;z-index:10;
+  background:linear-gradient(180deg,rgba(8,12,8,.88),rgba(12,18,12,.95));
+  box-shadow:0 4px 20px rgba(0,0,0,.55);position:relative;z-index:10;
   flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;
 }
 .day-bar::-webkit-scrollbar{height:3px}
@@ -1752,7 +1689,7 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .day-log-btn{
   position:fixed;
   right:18px;
-  bottom:6px;
+  bottom:52px;
   z-index:990;
   height:32px;
   min-width:58px;
@@ -1797,17 +1734,15 @@ body:not(.theme-dark) .app-bg-vignette{background:
 }
 .index-roster-log-panel.show { display: flex; }
 .index-roster-log-head {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 11px 12px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid rgba(34,197,94,.12);
-  background: rgba(7,18,10,.98);
 }
-.index-roster-log-title { color: var(--gold); font-size: 13px; font-weight: 900; line-height: 1.2; }
-.index-roster-log-sub { margin-top: 2px; color: var(--text3); font-size: 10.5px; line-height: 1.2; }
+.index-roster-log-title { color: var(--gold); font-size: 13px; font-weight: 900; }
+.index-roster-log-sub { margin-top: 1px; color: var(--text3); font-size: 10.5px; }
 .index-roster-log-close {
   width: 28px;
   height: 28px;
@@ -1825,12 +1760,11 @@ body:not(.theme-dark) .app-bg-vignette{background:
 }
 .index-roster-log-close:hover { border-color: rgba(251,191,36,.36); color: var(--gold); }
 .index-roster-log-filters {
-  flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
   gap: 5px;
   padding: 8px 10px;
   border-bottom: 1px solid rgba(34,197,94,.09);
+  overflow-x: auto;
 }
 .index-roster-log-filter {
   height: 26px;
@@ -1850,12 +1784,11 @@ body:not(.theme-dark) .app-bg-vignette{background:
   background: rgba(251,191,36,.1);
 }
 .index-roster-log-list {
-  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 0;
-  overflow-y: auto;
+  min-height: 120px;
+  overflow: auto;
   padding: 9px 10px 10px;
 }
 .index-roster-log-list::-webkit-scrollbar { width: 4px; }
@@ -1925,14 +1858,10 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .roster-toolbar{
   display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0
 }
-.roster-toolbar .header-info{margin-left:0;gap:0;flex-shrink:0;
-  padding:3px 6px;border-radius:10px;
-  background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-.roster-toolbar .h-stat{padding:2px 13px;border-right:1px solid rgba(251,191,36,.14);min-width:46px}
-.roster-toolbar .h-stat:last-child{border-right:none}
-.roster-toolbar .h-stat .val{font-size:16px;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:.3px}
-.roster-toolbar .h-stat .lbl{font-size:9px;margin-top:3px}
+.roster-toolbar .header-info{margin-left:0;gap:10px;flex-shrink:0}
+.roster-toolbar .h-stat{padding:0 12px}
+.roster-toolbar .h-stat .val{font-size:16px}
+.roster-toolbar .h-stat .lbl{font-size:9px}
 .roster-toolbar .split-btn{height:40px;margin-left:0;margin-bottom:0!important;flex-shrink:0}
 .roster-toolbar .split-side>span{font-size:12px}
 
@@ -1947,10 +1876,8 @@ body:not(.theme-dark) .app-bg-vignette{background:
 
 .team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(234,88,12,.12);margin-bottom:0;overflow:hidden;
   display:flex;flex-direction:column;min-height:0;
-  backdrop-filter:blur(13px);transition:all .3s;
-  box-shadow:0 8px 26px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.05)}
-.team-card:hover{border-color:rgba(234,88,12,.3);
-  box-shadow:0 10px 32px rgba(0,0,0,.42),0 0 28px rgba(234,88,12,.08),inset 0 1px 0 rgba(255,255,255,.06)}
+  backdrop-filter:blur(10px);transition:all .3s;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+.team-card:hover{border-color:rgba(234,88,12,.3);box-shadow:0 4px 20px rgba(234,88,12,.1)}
 .t-hdr{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.04)}
 .t-hdr.a1{background:linear-gradient(90deg,rgba(239,68,68,.18),transparent)}
 .t-hdr.a2{background:linear-gradient(90deg,rgba(249,115,22,.18),transparent)}
@@ -2029,11 +1956,7 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .m-tag.h{background:rgba(74,222,128,.12);color:var(--healer)}
 .m-tag.t{background:rgba(251,146,60,.12);color:var(--tanker)}
 .m-tag-sub{font-weight:600;opacity:.7;font-size:9px}
-.slot-e{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
-  margin:8px;padding:22px 14px;border:1.5px dashed rgba(251,191,36,.20);border-radius:12px;
-  color:var(--text3);font-style:normal;font-size:11.5px;text-align:center;line-height:1.5;opacity:.9;
-  background:linear-gradient(180deg,rgba(251,191,36,.03),transparent)}
-.slot-e::before{content:'🛡️';font-size:30px;opacity:.4;line-height:1}
+.slot-e{padding:6px 8px;color:var(--text3);font-style:italic;font-size:12px;opacity:.4;display:flex;align-items:center;gap:8px}
 .slot-e .m-num{border:1px dashed rgba(255,255,255,.08);background:none}
 
 .bc-leave-inline{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:14px;
@@ -2623,22 +2546,6 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
 .mobile-nav { display: none }
 
 @media (max-width: 768px) {
-  /* ═══ MOBILE PERF: tắt bớt hiệu ứng động cho đỡ lag ═══ */
-  /* Hạt lửa bay lên toàn trang — nặng nhất, ẩn hẳn trên mobile */
-  .fire-container { display: none !important; }
-  /* Hạt + sương + vầng sáng nền landing */
-  .particles { display: none !important; }
-  .landing-bg .fog,
-  .landing-glow,
-  .orbital-ring { animation: none !important; }
-  .orbital-ring { display: none !important; }
-  /* Tắt các animation lặp vô hạn không cần thiết khi cuộn */
-  .login-btn::before,
-  .hero-title::after,
-  .landing-divider { animation: none !important; }
-  .landing-bg.landing-bg-img { animation: none !important; }
-  .landing-map { animation: none !important; }
-
   /* Ẩn footer desktop, thay bằng bottom nav */
   .footer { display: none }
   .mobile-nav { display: flex !important; flex-direction: column; align-items: stretch }
@@ -3738,12 +3645,6 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 
 <!-- ═══ APP (sau khi đăng nhập) ═══ -->
 <div class="app" id="mainApp">
-  <!-- ★ Nền editor nhiều tầng (redesign) -->
-  <div class="app-bg" id="appBg">
-    <div class="app-bg-img"></div>
-    <div class="app-bg-vignette"></div>
-    <div class="app-bg-noise"></div>
-  </div>
   <div class="header">
     <div class="header-fx"></div>
     <div class="header-coin">
@@ -4080,11 +3981,8 @@ try {
 }
 
 // ═══ FIRE PARTICLES (hiệu ứng lửa bay nhẹ) ═══
-const IS_MOBILE_VIEW = window.matchMedia('(max-width: 768px)').matches;
 function createFireParticles() {
-    if (IS_MOBILE_VIEW) return; // Mobile: bỏ hạt lửa cho đỡ lag
     const fc = document.getElementById('fireContainer');
-    if (!fc) return;
     // Chỉ tạo một số lượng hạt cố định 1 lần duy nhất để tối ưu hiệu suất (DOM Pooling)
     for (let i = 0; i < 20; i++) {
         const p = document.createElement('div');
@@ -4105,9 +4003,7 @@ createFireParticles();
 
 // ═══ LANDING PARTICLES ═══
 function createParticles() {
-    if (IS_MOBILE_VIEW) return; // Mobile: bỏ hạt landing cho đỡ lag
     const c = document.getElementById('particles');
-    if (!c) return;
     for (let i = 0; i < 30; i++) {
         const p = document.createElement('div');
         p.className = 'particle';
@@ -11330,7 +11226,7 @@ document.addEventListener('keydown', (e) => {
   <!-- ── Mini Bar (luôn hiện, kể cả khi thu gọn) ── -->
   <div class="mp-mini-bar" id="mpMiniBar">
     <!-- Nút collapse: mũi tên lên/xuống -->
-    <button class="mp-collapse-btn" id="mpCollapseBtn" onclick="mpToggleCollapse()" title="Mở/thu gọn player" aria-label="Mở hoặc thu gọn trình phát" aria-expanded="false">
+    <button class="mp-collapse-btn" id="mpCollapseBtn" onclick="mpToggleCollapse()" title="Mở/thu gọn player">
       <span class="mp-arrow">▲</span>
     </button>
     <!-- Tên bài (ẩn khi collapsed) -->
@@ -11340,7 +11236,7 @@ document.addEventListener('keydown', (e) => {
     <!-- Nút tự động phát nhạc mini (hiện khi thu gọn) -->
     <button class="mp-mini-autoplay" id="mpMiniAutoplay" onclick="mpToggleAutoplayMini(event)" title="Tự động phát nhạc" aria-label="Tự động phát nhạc" aria-pressed="true"></button>
     <!-- Nút Play mini (luôn hiện kể cả thu gọn) - Click = toggle play/pause -->
-    <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay(); event.stopPropagation();" title="Play / Pause" aria-label="Phát hoặc tạm dừng">
+    <button class="mp-mini-play" id="mpMiniPlay" onclick="mpTogglePlay(); event.stopPropagation();" title="Play / Pause">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
     </button>
     <!-- Nút mở full player (chỉ xuất hiện khi collapsed) -->
@@ -11395,7 +11291,7 @@ document.addEventListener('keydown', (e) => {
       <button class="mp-cbtn" onclick="mpPrev()" title="Bài trước">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
       </button>
-      <button class="mp-cbtn mp-play" id="mpPlayBtn" onclick="mpTogglePlay()" title="Play / Pause" aria-label="Phát hoặc tạm dừng">
+      <button class="mp-cbtn mp-play" id="mpPlayBtn" onclick="mpTogglePlay()">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       </button>
       <button class="mp-cbtn" onclick="mpNext()" title="Bài tiếp">
@@ -11845,8 +11741,6 @@ document.addEventListener('keydown', (e) => {
       wrap.style.right = 'auto';
     }
     wrap.classList.toggle('collapsed');
-    const collapseBtn = $('mpCollapseBtn');
-    if (collapseBtn) collapseBtn.setAttribute('aria-expanded', wrap.classList.contains('collapsed') ? 'false' : 'true');
     if (wrap.classList.contains('collapsed')) setListOpen(false);
     requestAnimationFrame(clampPlayerPosition);
     setTimeout(clampPlayerPosition, 320);

@@ -2,7 +2,6 @@ const { EmbedBuilder } = require('discord.js');
 
 // Lưu danh sách args theo channelId để ?rrteam dùng lại
 const lastTeamArgs = new Map();
-const TEAM_SIZE = 10;
 
 /**
  * Shuffle array (Fisher-Yates)
@@ -22,38 +21,31 @@ function shuffle(array) {
  */
 function buildTeamEmbed(players, requester, isReroll = false) {
     const shuffledPlayers = shuffle([...players]);
-    const team1 = shuffledPlayers.slice(0, 5);
-    const team2 = shuffledPlayers.slice(5, 10);
-    const omitted = shuffledPlayers.slice(TEAM_SIZE);
+    // Chia cân bằng theo số người thực tế: 10 -> 5/5, 9 -> 5/4, 7 -> 4/3...
+    const half = Math.ceil(shuffledPlayers.length / 2);
+    const team1 = shuffledPlayers.slice(0, half);
+    const team2 = shuffledPlayers.slice(half);
 
     const embed = new EmbedBuilder()
         .setColor(isReroll ? 0xFFA500 : 0x00FFFF)
         .setTitle(isReroll ? '🔄 RANDOM LẠI CHIA ĐỘI' : '🎲 KẾT QUẢ RANDOM CHIA ĐỘI')
         .setDescription(isReroll
-            ? 'Đã random lại 2 đội từ danh sách trước đó!'
-            : 'Đã chia 10 người thành 2 đội ngẫu nhiên hoàn toàn!')
+            ? `Đã random lại 2 đội (${team1.length} vs ${team2.length}) từ danh sách trước đó!`
+            : `Đã chia ${shuffledPlayers.length} người thành 2 đội ngẫu nhiên (${team1.length} vs ${team2.length})!`)
         .addFields(
             {
-                name: '⚔️ ĐỘI 1',
+                name: `⚔️ ĐỘI 1 (${team1.length})`,
                 value: team1.map((p, i) => `**${i + 1}.** ${p}`).join('\n'),
                 inline: true
             },
             {
-                name: '🛡️ ĐỘI 2',
+                name: `🛡️ ĐỘI 2 (${team2.length})`,
                 value: team2.map((p, i) => `**${i + 1}.** ${p}`).join('\n'),
                 inline: true
             }
         )
         .setTimestamp()
         .setFooter({ text: `Yêu cầu bởi ${requester.username}`, iconURL: requester.displayAvatarURL() });
-
-    if (omitted.length > 0) {
-        embed.addFields({
-            name: 'Không vào đội',
-            value: omitted.map((p, i) => `**${i + 1}.** ${p}`).join('\n'),
-            inline: false
-        });
-    }
 
     return embed;
 }
@@ -101,8 +93,8 @@ function getVoicePlayerIds(message) {
 
 async function sendTeamFromPool(message, playerIds) {
     const players = unique(playerIds).map(formatMention);
-    if (players.length < TEAM_SIZE) {
-        return message.reply(`❌ Cần ít nhất **${TEAM_SIZE}** người để random, hiện chỉ có **${players.length}** người.`);
+    if (players.length < 2) {
+        return message.reply(`❌ Cần ít nhất **2** người để random, hiện chỉ có **${players.length}** người.`);
     }
 
     lastTeamArgs.set(message.channel.id, [...players]);
@@ -127,12 +119,12 @@ async function execute(message, args) {
         // === CHẾ ĐỘ 1: Auto-detect toàn bộ voice ===
         const voiceChannel = message.member?.voice?.channel;
         if (!voiceChannel) {
-            return message.reply('❌ Bạn cần ở trong **voice channel** hoặc nhập thủ công 10 người!\nVí dụ: `?rteam @A @B @C @D @E @F @G @H @I @J`');
+            return message.reply('❌ Bạn cần ở trong **voice channel** hoặc nhập thủ công người chơi!\nVí dụ: `?rteam @A @B @C @D ...`');
         }
 
         const members = voiceChannel.members.filter(m => !m.user.bot);
-        if (members.size !== 10) {
-            return message.reply(`❌ Voice channel hiện có **${members.size}** người (không tính bot), cần đúng **10** người!`);
+        if (members.size < 2) {
+            return message.reply(`❌ Voice channel cần ít nhất **2** người (không tính bot) để chia đội, hiện có **${members.size}**!`);
         }
 
         players = members.map(m => `<@${m.id}>`);
@@ -141,8 +133,8 @@ async function execute(message, args) {
         // === CHẾ ĐỘ 2: Chọn theo số thứ tự trong voice ===
         const positions = args.map(Number);
 
-        if (positions.length !== 10) {
-            return message.reply('❌ Cần nhập đúng **10** số thứ tự!\nVí dụ: `?rteam 1 2 3 4 5 7 8 9 10 11`');
+        if (positions.length < 2) {
+            return message.reply('❌ Cần nhập ít nhất **2** số thứ tự!\nVí dụ: `?rteam 1 2 3 4 5 7 8 9 10`');
         }
 
         const voiceChannel = message.member?.voice?.channel;
@@ -185,8 +177,8 @@ async function execute(message, args) {
 
     } else {
         // === CHẾ ĐỘ 3: Nhập thủ công tên/tag ===
-        if (args.length !== 10) {
-            return message.reply('❌ Vui lòng nhập đúng **10** người!\nVí dụ: `?rteam @A @B @C @D @E @F @G @H @I @J`');
+        if (args.length < 2) {
+            return message.reply('❌ Vui lòng nhập ít nhất **2** người!\nVí dụ: `?rteam @A @B @C @D ...`');
         }
     }
 

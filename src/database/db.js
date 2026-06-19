@@ -66,6 +66,14 @@ function initializeDatabase() {
 
     createConfigTable.run();
 
+    db.prepare(`
+        CREATE TABLE IF NOT EXISTS muted_channels (
+            channel_id TEXT PRIMARY KEY,
+            guild_id TEXT,
+            muted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `).run();
+
     // Add position column if not exists (for existing databases)
     try {
         db.prepare('ALTER TABLE users ADD COLUMN position TEXT DEFAULT "mem"').run();
@@ -2471,6 +2479,10 @@ module.exports = {
     isBoosterRoomMember,
     getBoostCategoryId,
     setBoostCategoryId,
+    getMutedChannels,
+    isChannelMuted,
+    addMutedChannel,
+    removeMutedChannel,
     // Level Up Channel
     setLevelUpChannelId,
     getLevelUpChannelId
@@ -2899,6 +2911,28 @@ function setBoostCategoryId(guildId, categoryId) {
  */
 function setBoosterRoomListMode(userId, listMode) {
     const result = db.prepare("UPDATE booster_rooms SET list_mode = ? WHERE user_id = ?").run(listMode, userId);
+    return { success: result.changes > 0 };
+}
+
+function getMutedChannels() {
+    return db.prepare('SELECT channel_id FROM muted_channels').all().map(r => r.channel_id);
+}
+
+function isChannelMuted(channelId) {
+    const row = db.prepare('SELECT 1 FROM muted_channels WHERE channel_id = ?').get(channelId);
+    return !!row;
+}
+
+function addMutedChannel(channelId, guildId) {
+    db.prepare(`
+        INSERT OR REPLACE INTO muted_channels (channel_id, guild_id)
+        VALUES (?, ?)
+    `).run(channelId, guildId);
+    return { success: true };
+}
+
+function removeMutedChannel(channelId) {
+    const result = db.prepare('DELETE FROM muted_channels WHERE channel_id = ?').run(channelId);
     return { success: result.changes > 0 };
 }
 

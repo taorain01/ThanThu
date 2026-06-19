@@ -59,7 +59,7 @@ client.once("ready", async () => {
   initWeeklyScheduler(client);
 
   // Dọn dẹp EXP periodic (xóa chu kỳ cũ) - chạy mỗi giờ
-  const { cleanupExpiredPeriodic } = require('./database/economy');
+  const { cleanupExpiredPeriodic } = require('./database/exp');
   setInterval(() => {
     try { cleanupExpiredPeriodic(); } catch (e) { console.error('[EXP Periodic] Cleanup error:', e.message); }
   }, 3600000); // 1 giờ

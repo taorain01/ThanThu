@@ -1,4 +1,4 @@
-const { EmbedBuilder, MessageFlags } = require('discord.js');
+﻿const { EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../database/db');
 const { isAllowedGuildId } = require('../../config/guildAccess');
 const { hasLangGiaRole } = require('../../utils/langGiaRole');
@@ -22,29 +22,10 @@ const locmemCommand = require('../../commands/quanly/locmem');
 
 // Import admin commands
 const xoaAllCommand = require('../../commands/admin/thongbao/xoatoanbodanhsachthanhvien');
-const themtienCommand = require('../../commands/admin/minigame/themtien');
-const donedungCommand = require('../../commands/admin/minigame/donedung');
-const addnhuafullCommand = require('../../commands/admin/minigame/addnhuafull');
-const resetplayerCommand = require('../../commands/admin/minigame/resetplayer');
-const cleardungCommand = require('../../commands/admin/minigame/cleardung');
 
 // Import apps commands
 const randomCommand = require('../../commands/apps/random');
 const chonCommand = require('../../commands/apps/chon');
-
-// Import minigame commands
-const balanceCommand = require('../../commands/minigame/balance');
-const dailyCommand = require('../../commands/minigame/daily');
-const shopCommand = require('../../commands/minigame/shop');
-const buyCommand = require('../../commands/minigame/buy');
-const dismantleCommand = require('../../commands/minigame/dismantle');
-const inventoryCommand = require('../../commands/minigame/inventory');
-const tuneCommand = require('../../commands/minigame/tune');
-const equipCommand = require('../../commands/minigame/equip');
-const leaderboardCommand = require('../../commands/minigame/leaderboard');
-const dungeonCommand = require('../../commands/minigame/dungeon');
-const banCommand = require('../../commands/minigame/ban');
-const nhuaCommand = require('../../commands/minigame/nhua');
 
 // Import gieoque commands
 const gieoqueCommand = require('../../commands/gieoque/gieoque');
@@ -55,8 +36,8 @@ const checkapiCommand = require('../../commands/admin/checkapi');
 // State for timeouts/reminders
 // Map<channelId, timeoutId>
 const gieoqueReminders = new Map();
-const GIEOQUE_INACTIVITY_TIME = 60 * 60 * 1000; // 1 giờ
-// Dùng shared state từ weeklyState để cả inactivity timer và weekly scheduler cùng track
+const GIEOQUE_INACTIVITY_TIME = 60 * 60 * 1000; // 1 giá»
+// DĂ¹ng shared state tá»« weeklyState Ä‘á»ƒ cáº£ inactivity timer vĂ  weekly scheduler cĂ¹ng track
 const {
     lastGieoQueGuideWeekly: lastGieoQueGuide,
     gieoQueGuideSentWeek,
@@ -70,19 +51,19 @@ const bangchienCommand = require('../../commands/bangchien/bangchien');
 const { finalizedParties, scheduleTimers, bossChannels, lastScheduleEmbed, PRE_REGISTER_CHANNEL_ID, addPreRegistration, removePreRegistration, getPreRegistrations, clearPreRegistrations } = require('../../utils/bossState');
 const { bangchienFinalizedParties } = require('../../utils/bangchienState');
 const { createScheduleOnlyEmbed } = require('../../commands/thongbao/bossguild');
-// Thời gian chờ trước khi gửi schedule embed
-const SCHEDULE_DELAY_NORMAL = 60 * 60 * 1000; // 1 giờ khi không có party
-const SCHEDULE_DELAY_ACTIVE = 15 * 60 * 1000; // 15 phút khi có party đang mở
+// Thá»i gian chá» trÆ°á»›c khi gá»­i schedule embed
+const SCHEDULE_DELAY_NORMAL = 60 * 60 * 1000; // 1 giá» khi khĂ´ng cĂ³ party
+const SCHEDULE_DELAY_ACTIVE = 15 * 60 * 1000; // 15 phĂºt khi cĂ³ party Ä‘ang má»Ÿ
 
 
 module.exports = {
     name: 'messageCreate',
     async execute(message, client) {
-        // Bỏ qua nếu là bot
+        // Bá» qua náº¿u lĂ  bot
         if (message.author.bot) return;
         if (!isAllowedGuildId(message.guild?.id)) return;
 
-        // ============== BOOSTER VIP ROOM — Gọi tên/tag bot để mở bảng điều khiển ==============
+        // ============== BOOSTER VIP ROOM â€” Gá»i tĂªn/tag bot Ä‘á»ƒ má»Ÿ báº£ng Ä‘iá»u khiá»ƒn ==============
         const { handleBotMention } = require('../../utils/boosterVoiceHandlers');
         const botMentionHandled = await handleBotMention(message, client);
         if (botMentionHandled) return;
@@ -114,20 +95,20 @@ module.exports = {
             }
         }
 
-        // ============== TTS AUTO-READ (tin nhắn bắt đầu bằng .) ==============
+        // ============== TTS AUTO-READ (tin nháº¯n báº¯t Ä‘áº§u báº±ng .) ==============
         if (message.content.startsWith('.') && message.content.length > 1) {
             const ttsService = require('../../utils/ttsService');
 
             if (guildId && ttsService.isConnected(guildId)) {
-                // Kiểm tra xem có đang chơi loto trong kênh này không
+                // Kiá»ƒm tra xem cĂ³ Ä‘ang chÆ¡i loto trong kĂªnh nĂ y khĂ´ng
                 const lotoState = require('../../commands/loto/lotoState');
                 const activeLotoChannelId = lotoState.getActiveLotoChannelId(guildId);
 
                 if (activeLotoChannelId && message.channel.id === activeLotoChannelId) {
-                    // Kiểm tra có đang KINH check không → cho phép TTS
+                    // Kiá»ƒm tra cĂ³ Ä‘ang KINH check khĂ´ng â†’ cho phĂ©p TTS
                     const lotoHandlers = require('../../utils/lotoHandlers');
                     if (lotoHandlers.isKinhChecking(guildId)) {
-                        // Đang KINH check → cho phép TTS hoạt động
+                        // Äang KINH check â†’ cho phĂ©p TTS hoáº¡t Ä‘á»™ng
                         const botConnection = ttsService.getConnection(guildId);
                         const userVoiceChannel = message.member?.voice?.channel;
                         if (botConnection && userVoiceChannel && botConnection.joinConfig.channelId === userVoiceChannel.id) {
@@ -136,32 +117,32 @@ module.exports = {
                                 ttsService.speak(guildId, textToSpeak);
                             }
                         }
-                        return; // Không xử lý như command
+                        return; // KhĂ´ng xá»­ lĂ½ nhÆ° command
                     }
-                    // Không đang KINH → xoá lệnh TTS, không đọc
+                    // KhĂ´ng Ä‘ang KINH â†’ xoĂ¡ lá»‡nh TTS, khĂ´ng Ä‘á»c
                     return message.delete().catch(() => { });
                 }
 
-                // Kiểm tra user có trong cùng voice channel với bot không
+                // Kiá»ƒm tra user cĂ³ trong cĂ¹ng voice channel vá»›i bot khĂ´ng
                 const botConnection = ttsService.getConnection(guildId);
                 const userVoiceChannel = message.member?.voice?.channel;
 
-                // Chỉ đọc nếu user đang ở cùng voice channel với bot
+                // Chá»‰ Ä‘á»c náº¿u user Ä‘ang á»Ÿ cĂ¹ng voice channel vá»›i bot
                 if (botConnection && userVoiceChannel && botConnection.joinConfig.channelId === userVoiceChannel.id) {
                     const textToSpeak = message.content.slice(1).trim();
                     if (textToSpeak) {
                         ttsService.speak(guildId, textToSpeak);
-                        // Không react nữa theo yêu cầu
+                        // KhĂ´ng react ná»¯a theo yĂªu cáº§u
                     }
                 }
-                return; // Không xử lý như command
+                return; // KhĂ´ng xá»­ lĂ½ nhÆ° command
             }
         }
 
 
         // ============== TIKTOK LINK CONVERTER (fxTikTok) ==============
-        // Tự động chuyển link TikTok sang fxTikTok để embed tốt hơn
-        // Gửi 2 link (tnktok + tfxktok) để đảm bảo ít nhất 1 cái embed được
+        // Tá»± Ä‘á»™ng chuyá»ƒn link TikTok sang fxTikTok Ä‘á»ƒ embed tá»‘t hÆ¡n
+        // Gá»­i 2 link (tnktok + tfxktok) Ä‘á»ƒ Ä‘áº£m báº£o Ă­t nháº¥t 1 cĂ¡i embed Ä‘Æ°á»£c
         const tiktokRegex = /https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\/[^\s]+/gi;
         const tiktokMatches = message.content.match(tiktokRegex);
 
@@ -170,10 +151,10 @@ module.exports = {
                 let convertedLinks = [];
 
                 for (const link of tiktokMatches) {
-                    // Xóa query parameters để link gọn hơn
+                    // XĂ³a query parameters Ä‘á»ƒ link gá»n hÆ¡n
                     const cleanLink = link.split('?')[0];
 
-                    // Link live thì giữ nguyên domain, chỉ rút gọn
+                    // Link live thĂ¬ giá»¯ nguyĂªn domain, chá»‰ rĂºt gá»n
                     if (cleanLink.includes('/live')) {
                         convertedLinks.push(cleanLink);
                     } else {
@@ -182,33 +163,33 @@ module.exports = {
                     }
                 }
 
-                // Lấy nội dung text (không phải link) mà user đã gửi kèm
+                // Láº¥y ná»™i dung text (khĂ´ng pháº£i link) mĂ  user Ä‘Ă£ gá»­i kĂ¨m
                 let extraContent = message.content;
                 for (const link of tiktokMatches) {
                     extraContent = extraContent.replace(link, '');
                 }
                 extraContent = extraContent.trim();
 
-                // Gửi link đã convert + tag user gửi + nội dung kèm theo
+                // Gá»­i link Ä‘Ă£ convert + tag user gá»­i + ná»™i dung kĂ¨m theo
                 const userTag = `(${message.author})`;
                 const replyContent = extraContent
                     ? `${userTag} ${extraContent}\n${convertedLinks.join('\n')}`
                     : `${userTag}\n${convertedLinks.join('\n')}`;
 
-                // Xóa tin nhắn gốc và gửi tin mới
+                // XĂ³a tin nháº¯n gá»‘c vĂ  gá»­i tin má»›i
                 await message.delete().catch(() => { });
                 await message.channel.send(replyContent);
 
                 console.log(`[TikTok] Converted ${tiktokMatches.length} link(s) for ${message.author.username}`);
-                return; // Không xử lý thêm
+                return; // KhĂ´ng xá»­ lĂ½ thĂªm
             } catch (e) {
                 console.error('[TikTok] Error converting link:', e.message);
             }
         }
 
         // ============== YOUTUBE LINK CONVERTER (Koutube) ==============
-        // Tự động chuyển link YouTube sang koutube.com để embed tốt hơn trên Discord
-        // Gửi 2 link (koutube + youtu.be) để đảm bảo ít nhất 1 cái embed được
+        // Tá»± Ä‘á»™ng chuyá»ƒn link YouTube sang koutube.com Ä‘á»ƒ embed tá»‘t hÆ¡n trĂªn Discord
+        // Gá»­i 2 link (koutube + youtu.be) Ä‘á»ƒ Ä‘áº£m báº£o Ă­t nháº¥t 1 cĂ¡i embed Ä‘Æ°á»£c
         /*
         const youtubeRegex = /https?:\/\/(www\.)?(youtube\.com\/watch\?[^\s]+|youtube\.com\/shorts\/[^\s]+|youtu\.be\/[^\s]+)/gi;
         const youtubeMatches = message.content.match(youtubeRegex);
@@ -225,11 +206,11 @@ module.exports = {
                     convertedLinks.push(koutubeLink);
                 }
 
-                // Gửi link đã convert + tag user gửi
+                // Gá»­i link Ä‘Ă£ convert + tag user gá»­i
                 const userTag = `(${message.author})`;
                 const replyContent = `${userTag}\n${convertedLinks.join('\n')}`;
 
-                // Xóa tin nhắn gốc và gửi tin mới
+                // XĂ³a tin nháº¯n gá»‘c vĂ  gá»­i tin má»›i
                 await message.delete().catch(() => { });
                 await message.channel.send(replyContent);
 
@@ -242,14 +223,14 @@ module.exports = {
         */
 
         // ============== BOSS PRE-REGISTRATION (+1) ==============
-        // Kiểm tra tin nhắn +1/-1 trong kênh đăng ký trước
+        // Kiá»ƒm tra tin nháº¯n +1/-1 trong kĂªnh Ä‘Äƒng kĂ½ trÆ°á»›c
 
         if (guildId && (message.channel.id === PRE_REGISTER_CHANNEL_ID || (bossChannels.has(guildId) && bossChannels.get(guildId) === message.channel.id))) {
             const content = message.content.trim();
             const contentLower = content.toLowerCase();
 
-            // Kiểm tra các cách đăng ký: +1 (có thể kèm text), xin slot, xin 1 slot, cho slot, cho 1 slot
-            // Match: "+1", "+1 với", "+1 boss guild tối nay", "xin slot", "cho slot", etc.
+            // Kiá»ƒm tra cĂ¡c cĂ¡ch Ä‘Äƒng kĂ½: +1 (cĂ³ thá»ƒ kĂ¨m text), xin slot, xin 1 slot, cho slot, cho 1 slot
+            // Match: "+1", "+1 vá»›i", "+1 boss guild tá»‘i nay", "xin slot", "cho slot", etc.
             const isRegistration = content.startsWith('+1') ||
                 contentLower.includes('xin slot') ||
                 contentLower.includes('xin 1 slot') ||
@@ -257,28 +238,28 @@ module.exports = {
                 contentLower.includes('cho 1 slot');
 
             if (isRegistration) {
-                // Kiểm tra role LangGia
+                // Kiá»ƒm tra role LangGia
                 if (!hasLangGiaRole(message.member)) {
-                    try { await message.react('❓'); } catch (e) { }
+                    try { await message.react('â“'); } catch (e) { }
                     return;
                 }
 
-                // Kiểm tra có party đang mở không
+                // Kiá»ƒm tra cĂ³ party Ä‘ang má»Ÿ khĂ´ng
                 const { getGuildPartyKeys, bossNotifications, bossRegistrations } = require('../../utils/bossState');
                 const partyKeys = getGuildPartyKeys(guildId);
 
                 if (partyKeys.length > 0) {
-                    // Có party đang mở - thêm trực tiếp vào party
-                    const partyKey = partyKeys[0]; // Lấy party đầu tiên
+                    // CĂ³ party Ä‘ang má»Ÿ - thĂªm trá»±c tiáº¿p vĂ o party
+                    const partyKey = partyKeys[0]; // Láº¥y party Ä‘áº§u tiĂªn
                     let registrations = bossRegistrations.get(partyKey) || [];
 
-                    // Kiểm tra đã đăng ký chưa
+                    // Kiá»ƒm tra Ä‘Ă£ Ä‘Äƒng kĂ½ chÆ°a
                     if (registrations.some(r => r.id === message.author.id)) {
-                        try { await message.react('⚠️'); } catch (e) { }
+                        try { await message.react('â ï¸'); } catch (e) { }
                         return;
                     }
 
-                    // Thêm vào party
+                    // ThĂªm vĂ o party
                     registrations.push({
                         id: message.author.id,
                         username: message.author.username,
@@ -287,71 +268,71 @@ module.exports = {
                     });
                     bossRegistrations.set(partyKey, registrations);
 
-                    try { await message.react('✅'); } catch (e) { }
+                    try { await message.react('âœ…'); } catch (e) { }
 
-                    // Cập nhật embed ngay lập tức (xóa cũ, gửi mới)
+                    // Cáº­p nháº­t embed ngay láº­p tá»©c (xĂ³a cÅ©, gá»­i má»›i)
                     const notifData = bossNotifications.get(partyKey);
                     if (notifData) {
                         try {
-                            // Xóa embed cũ
+                            // XĂ³a embed cÅ©
                             if (notifData.message) await notifData.message.delete();
                         } catch (e) { }
 
-                        // Gửi embed mới
+                        // Gá»­i embed má»›i
                         const newEmbed = bossguildCommand.createBossEmbed(partyKey, notifData.leaderName);
                         const newRow = bossguildCommand.createButtons(partyKey);
                         const newMessage = await message.channel.send({ embeds: [newEmbed], components: [newRow] });
 
-                        // Cập nhật reference
+                        // Cáº­p nháº­t reference
                         notifData.messageId = newMessage.id;
                         notifData.message = newMessage;
                     }
                     return;
                 }
 
-                // Không có party đang mở - thêm vào danh sách chờ
+                // KhĂ´ng cĂ³ party Ä‘ang má»Ÿ - thĂªm vĂ o danh sĂ¡ch chá»
                 const added = addPreRegistration(guildId, message.author.id, message.author.username);
                 try {
                     if (added) {
-                        await message.react('👍');
+                        await message.react('đŸ‘');
                     } else {
-                        // Đã đăng ký rồi
-                        await message.react('⚠️');
+                        // ÄĂ£ Ä‘Äƒng kĂ½ rá»“i
+                        await message.react('â ï¸');
                     }
                 } catch (e) {
-                    // Lỗi react - bỏ qua
+                    // Lá»—i react - bá» qua
                 }
-                return; // Không xử lý như command
+                return; // KhĂ´ng xá»­ lĂ½ nhÆ° command
             }
 
             if (content === '-1') {
-                // Kiểm tra role LangGia
+                // Kiá»ƒm tra role LangGia
                 if (!hasLangGiaRole(message.member)) {
-                    try { await message.react('❓'); } catch (e) { }
+                    try { await message.react('â“'); } catch (e) { }
                     return;
                 }
 
-                // Kiểm tra có party đang mở không
+                // Kiá»ƒm tra cĂ³ party Ä‘ang má»Ÿ khĂ´ng
                 const { getGuildPartyKeys, bossRegistrations } = require('../../utils/bossState');
                 const partyKeys = getGuildPartyKeys(guildId);
 
                 if (partyKeys.length > 0) {
-                    // Có party đang mở - xóa khỏi party
+                    // CĂ³ party Ä‘ang má»Ÿ - xĂ³a khá»i party
                     const partyKey = partyKeys[0];
                     let registrations = bossRegistrations.get(partyKey) || [];
                     const user = registrations.find(r => r.id === message.author.id);
 
                     if (user) {
-                        // Không cho leader hủy
+                        // KhĂ´ng cho leader há»§y
                         if (user.isLeader) {
-                            try { await message.react('🚫'); } catch (e) { }
+                            try { await message.react('đŸ«'); } catch (e) { }
                             return;
                         }
                         registrations = registrations.filter(r => r.id !== message.author.id);
                         bossRegistrations.set(partyKey, registrations);
-                        try { await message.react('❌'); } catch (e) { }
+                        try { await message.react('âŒ'); } catch (e) { }
 
-                        // Cập nhật embed ngay lập tức (xóa cũ, gửi mới)
+                        // Cáº­p nháº­t embed ngay láº­p tá»©c (xĂ³a cÅ©, gá»­i má»›i)
                         const notifData = bossNotifications.get(partyKey);
                         if (notifData) {
                             try {
@@ -366,36 +347,36 @@ module.exports = {
                             notifData.message = newMessage;
                         }
                     } else {
-                        try { await message.react('❓'); } catch (e) { }
+                        try { await message.react('â“'); } catch (e) { }
                     }
                     return;
                 }
 
-                // Không có party - xóa khỏi danh sách chờ
+                // KhĂ´ng cĂ³ party - xĂ³a khá»i danh sĂ¡ch chá»
                 const removed = removePreRegistration(guildId, message.author.id);
                 try {
                     if (removed) {
-                        await message.react('❌');
+                        await message.react('âŒ');
                     } else {
-                        // Không có trong danh sách
-                        await message.react('❓');
+                        // KhĂ´ng cĂ³ trong danh sĂ¡ch
+                        await message.react('â“');
                     }
                 } catch (e) {
-                    // Lỗi react - bỏ qua
+                    // Lá»—i react - bá» qua
                 }
-                return; // Không xử lý như command
+                return; // KhĂ´ng xá»­ lĂ½ nhÆ° command
             }
         }
 
-        // ============== ALBUM AUTO-SAVE (với Cloudinary + ImgBB fallback) ==============
-        // Tự động lưu ảnh khi gửi vào Phòng Ảnh
+        // ============== ALBUM AUTO-SAVE (vá»›i Cloudinary + ImgBB fallback) ==============
+        // Tá»± Ä‘á»™ng lÆ°u áº£nh khi gá»­i vĂ o PhĂ²ng áº¢nh
 
         const albumChannelId = db.getAlbumChannelId();
         if (albumChannelId && message.channel.id === albumChannelId && message.attachments.size > 0) {
             const imageService = require('../../utils/imageService');
 
             for (const attachment of message.attachments.values()) {
-                // Bỏ qua ảnh spoiler
+                // Bá» qua áº£nh spoiler
                 if (attachment.spoiler) {
                     console.log(`[Album] Skipping spoiler image: ${attachment.name}`);
                     continue;
@@ -404,10 +385,10 @@ module.exports = {
                 if (attachment.contentType?.startsWith('image/')) {
                     let imageUrl = attachment.url;
 
-                    // Upload lên cloud để có link vĩnh viễn (Cloudinary → ImgBB fallback)
+                    // Upload lĂªn cloud Ä‘á»ƒ cĂ³ link vÄ©nh viá»…n (Cloudinary â†’ ImgBB fallback)
                     if (imageService.isConfigured()) {
                         try {
-                            await message.react('⏳'); // Đang upload
+                            await message.react('â³'); // Äang upload
                             const uploadResult = await imageService.uploadFromUrl(attachment.url);
                             if (uploadResult.success) {
                                 imageUrl = uploadResult.url;
@@ -415,8 +396,8 @@ module.exports = {
                             } else {
                                 console.warn(`[Album] Upload failed, using Discord URL: ${uploadResult.error}`);
                             }
-                            // Xóa reaction ⏳
-                            try { await message.reactions.cache.get('⏳')?.remove(); } catch (e) { }
+                            // XĂ³a reaction â³
+                            try { await message.reactions.cache.get('â³')?.remove(); } catch (e) { }
                         } catch (e) {
                             console.error('[Album] Upload error:', e.message);
                         }
@@ -424,16 +405,16 @@ module.exports = {
 
                     const result = db.addAlbumImage(message.author.id, imageUrl, message.id);
                     if (result.success) {
-                        try { await message.react('📸'); } catch (e) { }
+                        try { await message.react('đŸ“¸'); } catch (e) { }
                     } else if (result.error === 'limit') {
-                        try { await message.react('⚠️'); } catch (e) { }
+                        try { await message.react('â ï¸'); } catch (e) { }
                     }
                 }
             }
         }
 
         // ============== DEBOUNCED SCHEDULE EMBED ==========================
-        // Kiểm tra nếu tin nhắn trong kênh boss guild đã được đăng ký
+        // Kiá»ƒm tra náº¿u tin nháº¯n trong kĂªnh boss guild Ä‘Ă£ Ä‘Æ°á»£c Ä‘Äƒng kĂ½
         const channelId = message.channel.id;
         const isPrefixCommandForRouting = message.content.startsWith(prefix);
         const routingCommandName = isPrefixCommandForRouting
@@ -459,51 +440,51 @@ module.exports = {
         if (bossChannels.has(guildId) && bossChannels.get(guildId) === channelId) {
             const { getGuildPartyKeys } = require('../../utils/bossState');
 
-            // Refresh boss embed nếu có party đang mở (debounced 5 phút)
+            // Refresh boss embed náº¿u cĂ³ party Ä‘ang má»Ÿ (debounced 5 phĂºt)
             const activeParties = getGuildPartyKeys(guildId);
             if (activeParties.length > 0) {
                 bossguildCommand.refreshBossEmbed(client, channelId);
             }
 
-            // Xóa timer cũ nếu có
+            // XĂ³a timer cÅ© náº¿u cĂ³
             const existingTimer = scheduleTimers.get(channelId);
             if (existingTimer) {
                 clearTimeout(existingTimer.timeoutId);
             }
 
-            // Nếu có party đang mở, KHÔNG sử dụng timer để gửi schedule nữa (chỉ dùng refreshBossEmbed ở trên)
-            // Nếu KHÔNG có party, mới dùng timer 60 phút để gửi lịch
+            // Náº¿u cĂ³ party Ä‘ang má»Ÿ, KHĂ”NG sá»­ dá»¥ng timer Ä‘á»ƒ gá»­i schedule ná»¯a (chá»‰ dĂ¹ng refreshBossEmbed á»Ÿ trĂªn)
+            // Náº¿u KHĂ”NG cĂ³ party, má»›i dĂ¹ng timer 60 phĂºt Ä‘á»ƒ gá»­i lá»‹ch
             if (activeParties.length > 0) {
                 if (!isBangchienCommand) return;
             } else {
                 const delay = SCHEDULE_DELAY_NORMAL;
 
-            // Đặt timer mới
+            // Äáº·t timer má»›i
             const timeoutId = setTimeout(async () => {
                 try {
                     const channel = await client.channels.fetch(channelId);
                     if (channel) {
-                        // Xóa embed lịch cũ nếu có
+                        // XĂ³a embed lá»‹ch cÅ© náº¿u cĂ³
                         const oldEmbedId = lastScheduleEmbed.get(channelId);
                         if (oldEmbedId) {
                             try {
                                 const oldMessage = await channel.messages.fetch(oldEmbedId);
                                 if (oldMessage) await oldMessage.delete();
-                            } catch (e) { /* Embed cũ có thể đã bị xóa */ }
+                            } catch (e) { /* Embed cÅ© cĂ³ thá»ƒ Ä‘Ă£ bá»‹ xĂ³a */ }
                         }
 
-                        // Gửi embed lịch mới
+                        // Gá»­i embed lá»‹ch má»›i
                         const scheduleEmbed = createScheduleOnlyEmbed();
                         const newMessage = await channel.send({ embeds: [scheduleEmbed] });
 
-                        // Lưu message ID mới
+                        // LÆ°u message ID má»›i
                         lastScheduleEmbed.set(channelId, newMessage.id);
 
-                        console.log(`[Schedule] Gửi embed lịch sau ${delay / 60000} phút tại ${channel.name}`);
+                        console.log(`[Schedule] Gá»­i embed lá»‹ch sau ${delay / 60000} phĂºt táº¡i ${channel.name}`);
                     }
                     scheduleTimers.delete(channelId);
                 } catch (e) {
-                    console.error('[Schedule] Lỗi khi gửi embed:', e);
+                    console.error('[Schedule] Lá»—i khi gá»­i embed:', e);
                 }
             }, delay);
 
@@ -512,19 +493,19 @@ module.exports = {
         }
 
         // ============== DEBOUNCED BC OVERVIEW REFRESH ==========================
-        // Kiểm tra nếu tin nhắn trong kênh BC overview → debounce refresh 5 phút
+        // Kiá»ƒm tra náº¿u tin nháº¯n trong kĂªnh BC overview â†’ debounce refresh 5 phĂºt
         // ============== REPLY TO TAG (Boss Guild) ==============
-        // Kiểm tra nếu reply vào embed chốt danh sách boss
+        // Kiá»ƒm tra náº¿u reply vĂ o embed chá»‘t danh sĂ¡ch boss
         if (message.reference && message.reference.messageId) {
             const refMessageId = message.reference.messageId;
             const partyData = finalizedParties.get(refMessageId);
 
             if (partyData) {
-                // Chỉ leader mới được tag
+                // Chá»‰ leader má»›i Ä‘Æ°á»£c tag
                 if (message.author.id === partyData.leaderId) {
 
 
-                    // Tạo danh sách tag với tên in-game
+                    // Táº¡o danh sĂ¡ch tag vá»›i tĂªn in-game
                     const mentionList = partyData.participants.map(p => {
                         const userData = db.getUserByDiscordId(p.id);
                         const gameName = userData?.game_username || null;
@@ -533,12 +514,12 @@ module.exports = {
 
                     const mentions = mentionList.join('\n');
 
-                    // Gửi tin nhắn tag
+                    // Gá»­i tin nháº¯n tag
                     await message.channel.send({
-                        content: `${mentions}\n\n🔔 **${message.content || 'Vào game đi!'}**`
+                        content: `${mentions}\n\nđŸ”” **${message.content || 'VĂ o game Ä‘i!'}**`
                     });
 
-                    // Xóa tin nhắn reply của leader (tùy chọn)
+                    // XĂ³a tin nháº¯n reply cá»§a leader (tĂ¹y chá»n)
                     try { await message.delete(); } catch (e) { }
 
                     return;
@@ -546,16 +527,16 @@ module.exports = {
             }
         }
 
-        // ============== REPLY TO TAG (Bang Chiến) ==============
-        // Kiểm tra nếu reply vào embed chốt danh sách bang chiến
+        // ============== REPLY TO TAG (Bang Chiáº¿n) ==============
+        // Kiá»ƒm tra náº¿u reply vĂ o embed chá»‘t danh sĂ¡ch bang chiáº¿n
         if (message.reference && message.reference.messageId) {
             const refMessageId = message.reference.messageId;
 
-            // Tìm trong memory trước, nếu không có thì tìm database
+            // TĂ¬m trong memory trÆ°á»›c, náº¿u khĂ´ng cĂ³ thĂ¬ tĂ¬m database
             let partyData = bangchienFinalizedParties.get(refMessageId);
 
             if (!partyData) {
-                // Fallback: tìm trong database
+                // Fallback: tĂ¬m trong database
                 const { getBangchienHistoryById } = require('../../database/db');
                 const dbData = getBangchienHistoryById(refMessageId);
                 if (dbData) {
@@ -568,11 +549,11 @@ module.exports = {
             }
 
             if (partyData) {
-                // Chỉ leader mới được tag
+                // Chá»‰ leader má»›i Ä‘Æ°á»£c tag
                 if (message.author.id === partyData.leaderId) {
 
 
-                    // Tạo danh sách tag với tên in-game
+                    // Táº¡o danh sĂ¡ch tag vá»›i tĂªn in-game
                     const mentionList = partyData.participants.map(p => {
                         const userData = db.getUserByDiscordId(p.id);
                         const gameName = userData?.game_username || null;
@@ -581,12 +562,12 @@ module.exports = {
 
                     const mentions = mentionList.join('\n');
 
-                    // Gửi tin nhắn tag
+                    // Gá»­i tin nháº¯n tag
                     await message.channel.send({
-                        content: `${mentions}\n\n⚔️ **${message.content || 'Vào game đi bang chiến!'}**`
+                        content: `${mentions}\n\nâ”ï¸ **${message.content || 'VĂ o game Ä‘i bang chiáº¿n!'}**`
                     });
 
-                    // Xóa tin nhắn reply của leader
+                    // XĂ³a tin nháº¯n reply cá»§a leader
                     try { await message.delete(); } catch (e) { }
 
                     return;
@@ -595,18 +576,18 @@ module.exports = {
         }
 
         // ============== LOTO CHANNEL AUTO-DELETE ==============
-        // Khi đang chơi loto trong kênh, xoá tất cả tin nhắn không phải lệnh loto
+        // Khi Ä‘ang chÆ¡i loto trong kĂªnh, xoĂ¡ táº¥t cáº£ tin nháº¯n khĂ´ng pháº£i lá»‡nh loto
         const lotoState = require('../../commands/loto/lotoState');
         if (guildId) {
             const activeLotoChannelId = lotoState.getActiveLotoChannelId(guildId);
             if (activeLotoChannelId && message.channel.id === activeLotoChannelId) {
-                // Cho phép tin nhắn có ảnh đính kèm (để gửi ảnh lá đã đánh dấu)
+                // Cho phĂ©p tin nháº¯n cĂ³ áº£nh Ä‘Ă­nh kĂ¨m (Ä‘á»ƒ gá»­i áº£nh lĂ¡ Ä‘Ă£ Ä‘Ă¡nh dáº¥u)
                 if (message.attachments.size > 0) {
-                    // Có ảnh → cho phép
+                    // CĂ³ áº£nh â†’ cho phĂ©p
                     return;
                 }
 
-                // Danh sách lệnh loto được phép
+                // Danh sĂ¡ch lá»‡nh loto Ä‘Æ°á»£c phĂ©p
                 const lotoCommands = ['loto', 'lt', 'lotocheck', 'ltc', 'lotoend', 'lte',
                     'lotorollback', 'ltrb', 'lotothem', 'ltt', 'lotobo', 'ltb',
                     'lotoalbum', 'lta', 'lotohelp', 'lth'];
@@ -615,38 +596,36 @@ module.exports = {
                     const tempArgs = message.content.slice(prefix.length).trim().split(/ +/);
                     const tempCmd = tempArgs[0]?.toLowerCase();
                     if (!lotoCommands.includes(tempCmd)) {
-                        // Không phải lệnh loto → xoá
+                        // KhĂ´ng pháº£i lá»‡nh loto â†’ xoĂ¡
                         return message.delete().catch(() => { });
                     }
                 } else {
-                    // Không phải command và không có ảnh → xoá
+                    // KhĂ´ng pháº£i command vĂ  khĂ´ng cĂ³ áº£nh â†’ xoĂ¡
                     return message.delete().catch(() => { });
                 }
             }
         }
 
-        // ============== CẤP ROLE THÔNG MINH ==============
-        // Phân tích tin nhắn trong kênh cấp role (so khớp text)
+        // ============== Cáº¤P ROLE THĂ”NG MINH ==============
+        // PhĂ¢n tĂ­ch tin nháº¯n trong kĂªnh cáº¥p role (so khá»›p text)
         const { handleCaproleMessage } = require('../../utils/caproleHandler');
         const caproleHandled = await handleCaproleMessage(message, client);
         if (caproleHandled) return;
 
         // ============== EXP TEXT CHAT ==============
-        // Cộng EXP mỗi tin nhắn (≥3 ký tự, không phải command, cooldown 60s)
+        // Cá»™ng EXP má»—i tin nháº¯n (â‰¥3 kĂ½ tá»±, khĂ´ng pháº£i command, cooldown 60s)
         if (message.content.length >= 3 && !message.content.startsWith(prefix)) {
             try {
-                const { addTextExp, getLevelReward, addHat } = require('../../database/economy');
+                const { addTextExp, getLevelReward, LEVEL_REWARDS } = require('../../database/exp');
                 const { EmbedBuilder } = require('discord.js');
                 const expResult = addTextExp(message.author.id);
 
                 if (expResult.success && expResult.levelUp) {
                     const reward = getLevelReward(expResult.newLevel);
 
-                    // Gán role thưởng nếu có
+                    // GĂ¡n role thÆ°á»Ÿng náº¿u cĂ³
                     if (reward) {
-                        addHat(message.author.id, reward.hat);
                         try {
-                            const { LEVEL_REWARDS } = require('../../database/economy');
                             let role = message.guild.roles.cache.find(r => r.name === reward.roleName);
                             if (!role) {
                                 role = await message.guild.roles.create({
@@ -656,7 +635,7 @@ module.exports = {
                             }
                             await message.member.roles.add(role);
 
-                            // Xóa role level cũ (thấp hơn)
+                            // XĂ³a role level cÅ© (tháº¥p hÆ¡n)
                             const levelKeys = Object.keys(LEVEL_REWARDS).map(Number).sort((a, b) => a - b);
                             for (const lv of levelKeys) {
                                 if (lv < expResult.newLevel && LEVEL_REWARDS[lv]) {
@@ -667,17 +646,17 @@ module.exports = {
                                 }
                             }
                         } catch (e) {
-                            console.error('[EXP] Lỗi gán role:', e.message);
+                            console.error('[EXP] Lá»—i gĂ¡n role:', e.message);
                         }
                     }
 
-                    // Gửi thông báo vào kênh đã set (nếu có)
+                    // Gá»­i thĂ´ng bĂ¡o vĂ o kĂªnh Ä‘Ă£ set (náº¿u cĂ³)
                     const levelUpChannelId = db.getLevelUpChannelId();
                     if (levelUpChannelId) {
                         try {
                             const levelUpChannel = await client.channels.fetch(levelUpChannelId);
                             if (levelUpChannel) {
-                                const levelEmojis = ['🌱', '⚔️', '🗡️', '🛡️', '👑', '🌟', '💎', '🔥'];
+                                const levelEmojis = ['đŸŒ±', 'â”ï¸', 'đŸ—¡ï¸', 'đŸ›¡ï¸', 'đŸ‘‘', 'đŸŒŸ', 'đŸ’', 'đŸ”¥'];
                                 const emoji = levelEmojis[Math.min(Math.floor(expResult.newLevel / 10), levelEmojis.length - 1)];
                                 const displayName = message.member?.displayName || message.author.username;
 
@@ -687,65 +666,65 @@ module.exports = {
                                         name: displayName,
                                         iconURL: message.author.displayAvatarURL({ size: 64 })
                                     })
-                                    .setTitle(`${emoji} Lên Cấp!`)
-                                    .setDescription(`**${displayName}** đã đạt **Level ${expResult.newLevel}**! 🎉`)
+                                    .setTitle(`${emoji} LĂªn Cáº¥p!`)
+                                    .setDescription(`**${displayName}** Ä‘Ă£ Ä‘áº¡t **Level ${expResult.newLevel}**! đŸ‰`)
                                     .addFields(
-                                        { name: '📊 Level', value: `${expResult.oldLevel} → **${expResult.newLevel}**`, inline: true },
-                                        { name: '🏷️ Loại', value: '💬 Chat', inline: true }
+                                        { name: 'đŸ“ Level', value: `${expResult.oldLevel} â†’ **${expResult.newLevel}**`, inline: true },
+                                        { name: 'đŸ·ï¸ Loáº¡i', value: 'đŸ’¬ Chat', inline: true }
                                     )
                                     .setTimestamp()
-                                    .setFooter({ text: 'Lang Gia Các • Hệ thống EXP' });
+                                    .setFooter({ text: 'Lang Gia CĂ¡c â€¢ Há»‡ thá»‘ng EXP' });
 
                                 if (reward) {
                                     embed.addFields({
-                                        name: '🎁 Phần thưởng',
-                                        value: `+**${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`,
+                                        name: 'đŸ Pháº§n thÆ°á»Ÿng',
+                                        value: `Role **${reward.roleName}**`,
                                         inline: false
                                     });
-                                    embed.setColor(0xFFD700); // Vàng cho milestone
+                                    embed.setColor(0xFFD700); // VĂ ng cho milestone
                                 }
 
                                 await levelUpChannel.send({ embeds: [embed] });
                             }
                         } catch (e) {
-                            console.error('[EXP] Lỗi gửi thông báo level up:', e.message);
+                            console.error('[EXP] Lá»—i gá»­i thĂ´ng bĂ¡o level up:', e.message);
                         }
                     }
                 }
             } catch (e) {
-                // Không log lỗi EXP để tránh spam console
+                // KhĂ´ng log lá»—i EXP Ä‘á»ƒ trĂ¡nh spam console
             }
         }
 
-        // Kiểm tra có bắt đầu với prefix không
+        // Kiá»ƒm tra cĂ³ báº¯t Ä‘áº§u vá»›i prefix khĂ´ng
         if (!message.content.startsWith(prefix)) return;
 
-        // Parse command và args
+        // Parse command vĂ  args
         const args = message.content.slice(prefix.length).trim().split(/ +/);
         const commandName = args.shift().toLowerCase();
 
-        // ============== MUTE CHECK (Đặt ở đây để chặn TẤT CẢ lệnh trừ muteall) ==============
-        // ?muteall - Block/unblock ALL commands in channel (luôn cho phép để có thể unmute)
+        // ============== MUTE CHECK (Äáº·t á»Ÿ Ä‘Ă¢y Ä‘á»ƒ cháº·n Táº¤T Cáº¢ lá»‡nh trá»« muteall) ==============
+        // ?muteall - Block/unblock ALL commands in channel (luĂ´n cho phĂ©p Ä‘á»ƒ cĂ³ thá»ƒ unmute)
         if (commandName === 'muteall') {
             const muteallCommand = require('../../commands/admin/muteall');
             return muteallCommand.execute(message, args);
         }
 
-        // ?serverbot - Danh sách server bot đang ở (owner only)
+        // ?serverbot - Danh sĂ¡ch server bot Ä‘ang á»Ÿ (owner only)
         if (commandName === 'serverbot') {
             const serverbotCommand = require('../../commands/admin/serverbot');
             return serverbotCommand.execute(message, args);
         }
 
-        // Check if channel is muted (chặn TẤT CẢ lệnh khác)
+        // Check if channel is muted (cháº·n Táº¤T Cáº¢ lá»‡nh khĂ¡c)
         const { isChannelMuted } = require('../../commands/admin/muteall');
         if (isChannelMuted(message.channel.id)) {
-            return; // Không phản hồi bất kỳ lệnh nào trong kênh bị mute
+            return; // KhĂ´ng pháº£n há»“i báº¥t ká»³ lá»‡nh nĂ o trong kĂªnh bá»‹ mute
         }
 
         // ============== MEMBER MANAGEMENT COMMANDS ==============
 
-        // ?tongrole - Xem tổng số role trong server (Owner only)
+        // ?tongrole - Xem tá»•ng sá»‘ role trong server (Owner only)
         if (commandName === 'tongrole') {
             const tongroleCommand = require('../../commands/quanly/tongrole');
             return tongroleCommand.execute(message, args);
@@ -756,7 +735,7 @@ module.exports = {
             return addhelpCommand.execute(message, args);
         }
 
-        // ?lenhquanly, ?qlcmd, ?admincmd - Danh sách lệnh quản lý
+        // ?lenhquanly, ?qlcmd, ?admincmd - Danh sĂ¡ch lá»‡nh quáº£n lĂ½
         if (['lenhquanly', 'qlcmd', 'admincmd', 'hiddencommands'].includes(commandName)) {
             const lenhquanlyCommand = require('../../commands/quanly/lenhquanly');
             return lenhquanlyCommand.execute(message, args);
@@ -782,10 +761,10 @@ module.exports = {
             return checkapiCommand.execute(message, args);
         }
 
-        // ============== GIEO QUE INACTIVITY REMINDER (1 lần/tuần, reset 8h sáng thứ 2) ==============
-        // Sau 8h sáng thứ Hai: tin nhắn cuối cùng trong kênh → 1 giờ không hoạt động → gửi hướng dẫn
-        // Mỗi tin nhắn mới sẽ RESET timer (debounce), chỉ gửi sau tin nhắn CUỐI CÙNG
-        // Sau khi đã gửi, không gửi lại cho đến 8h sáng thứ Hai tuần sau
+        // ============== GIEO QUE INACTIVITY REMINDER (1 láº§n/tuáº§n, reset 8h sĂ¡ng thá»© 2) ==============
+        // Sau 8h sĂ¡ng thá»© Hai: tin nháº¯n cuá»‘i cĂ¹ng trong kĂªnh â†’ 1 giá» khĂ´ng hoáº¡t Ä‘á»™ng â†’ gá»­i hÆ°á»›ng dáº«n
+        // Má»—i tin nháº¯n má»›i sáº½ RESET timer (debounce), chá»‰ gá»­i sau tin nháº¯n CUá»I CĂ™NG
+        // Sau khi Ä‘Ă£ gá»­i, khĂ´ng gá»­i láº¡i cho Ä‘áº¿n 8h sĂ¡ng thá»© Hai tuáº§n sau
 
         const gieoQueChannelId = db.getGieoQueChannelId();
 
@@ -798,20 +777,20 @@ module.exports = {
             }
             const lastSentWeekGQ = gieoQueGuideSentWeek.get(gieoQueChannelId);
 
-            // Chỉ đặt/reset timer nếu chưa gửi tuần này
+            // Chá»‰ Ä‘áº·t/reset timer náº¿u chÆ°a gá»­i tuáº§n nĂ y
             if (lastSentWeekGQ !== currentWeekGQ) {
-                // Xóa timer cũ nếu có (debounce - reset timer mỗi tin nhắn mới)
+                // XĂ³a timer cÅ© náº¿u cĂ³ (debounce - reset timer má»—i tin nháº¯n má»›i)
                 if (gieoqueReminders.has(gieoQueChannelId)) {
                     clearTimeout(gieoqueReminders.get(gieoQueChannelId));
                     gieoqueReminders.delete(gieoQueChannelId);
                 }
 
-                // Hàm thực thi gửi nhắc nhở
+                // HĂ m thá»±c thi gá»­i nháº¯c nhá»Ÿ
                 const sendReminder = async () => {
                     try {
                         const channel = await client.channels.fetch(gieoQueChannelId);
                         if (channel) {
-                            // Xóa embed hướng dẫn cũ nếu có
+                            // XĂ³a embed hÆ°á»›ng dáº«n cÅ© náº¿u cĂ³
                             const dbGuideId = db.getConfig(`gq_guide_msg_${gieoQueChannelId}`);
                             if (dbGuideId && !lastGieoQueGuide.has(gieoQueChannelId)) {
                                 lastGieoQueGuide.set(gieoQueChannelId, dbGuideId);
@@ -821,22 +800,22 @@ module.exports = {
                                 try {
                                     const oldMsg = await channel.messages.fetch(oldGuideId).catch(() => null);
                                     if (oldMsg) await oldMsg.delete();
-                                } catch (e) { /* Embed cũ có thể đã bị xóa */ }
+                                } catch (e) { /* Embed cÅ© cĂ³ thá»ƒ Ä‘Ă£ bá»‹ xĂ³a */ }
                             }
 
                             const guideEmbed = {
                                 color: 0xFFD700, // Gold
-                                title: '🔮 Gieo Quẻ & Cầu Duyên Mỗi Ngày 🔮',
-                                description: `Kênh ${channel} đã được thiết lập để gieo quẻ mỗi ngày!\n\n` +
-                                    `👉 **\`?gieoque [câu hỏi]\`**: Xin quẻ tổng quan (công việc, tài lộc, sự nghiệp...).\n` +
-                                    `👉 **\`?cauduyen [câu hỏi]\`**: Xin quẻ tình duyên (cho nam thanh nữ tú).\n\n` +
-                                    `*Ví dụ: \`?gieoque hôm nay có may mắn không?\`*\n\n` +
-                                    `⚠️ **Lưu ý:**\n` +
-                                    `- Mỗi người có **1 quẻ công danh** và **1 quẻ tình duyên** chính mỗi ngày; hỏi lại trong ngày sẽ phán lại theo quẻ cũ.\n` +
-                                    `- Nếu có câu hỏi cụ thể, bot sẽ bám sát câu hỏi đó.\n` +
-                                    `- Core/Bát Âm chỉ hiện khi hỏi về core/roll/nổ vàng; không hỏi thì không nhắc.\n` +
-                                    `- Kết quả core của WWM giữ cố định trong tháng.`,
-                                footer: { text: '🔮 Mỗi ngày một quẻ, vận may tự đến! 🔮' }
+                                title: 'đŸ”® Gieo Quáº» & Cáº§u DuyĂªn Má»—i NgĂ y đŸ”®',
+                                description: `KĂªnh ${channel} Ä‘Ă£ Ä‘Æ°á»£c thiáº¿t láº­p Ä‘á»ƒ gieo quáº» má»—i ngĂ y!\n\n` +
+                                    `đŸ‘‰ **\`?gieoque [cĂ¢u há»i]\`**: Xin quáº» tá»•ng quan (cĂ´ng viá»‡c, tĂ i lá»™c, sá»± nghiá»‡p...).\n` +
+                                    `đŸ‘‰ **\`?cauduyen [cĂ¢u há»i]\`**: Xin quáº» tĂ¬nh duyĂªn (cho nam thanh ná»¯ tĂº).\n\n` +
+                                    `*VĂ­ dá»¥: \`?gieoque hĂ´m nay cĂ³ may máº¯n khĂ´ng?\`*\n\n` +
+                                    `â ï¸ **LÆ°u Ă½:**\n` +
+                                    `- Má»—i ngÆ°á»i cĂ³ **1 quáº» cĂ´ng danh** vĂ  **1 quáº» tĂ¬nh duyĂªn** chĂ­nh má»—i ngĂ y; há»i láº¡i trong ngĂ y sáº½ phĂ¡n láº¡i theo quáº» cÅ©.\n` +
+                                    `- Náº¿u cĂ³ cĂ¢u há»i cá»¥ thá»ƒ, bot sáº½ bĂ¡m sĂ¡t cĂ¢u há»i Ä‘Ă³.\n` +
+                                    `- Core/BĂ¡t Ă‚m chá»‰ hiá»‡n khi há»i vá» core/roll/ná»• vĂ ng; khĂ´ng há»i thĂ¬ khĂ´ng nháº¯c.\n` +
+                                    `- Káº¿t quáº£ core cá»§a WWM giá»¯ cá»‘ Ä‘á»‹nh trong thĂ¡ng.`,
+                                footer: { text: 'đŸ”® Má»—i ngĂ y má»™t quáº», váº­n may tá»± Ä‘áº¿n! đŸ”®' }
                             };
 
                             const sentMsg = await channel.send({ embeds: [guideEmbed] });
@@ -844,7 +823,7 @@ module.exports = {
                             gieoQueGuideSentWeek.set(gieoQueChannelId, currentWeekGQ);
                             db.setConfig(`gq_guide_week_${gieoQueChannelId}`, currentWeekGQ);
                             db.setConfig(`gq_guide_msg_${gieoQueChannelId}`, sentMsg.id);
-                            console.log(`[GieoQue] Sent reminder in ${channel.name} (tuần ${currentWeekGQ})`);
+                            console.log(`[GieoQue] Sent reminder in ${channel.name} (tuáº§n ${currentWeekGQ})`);
 
                             gieoqueReminders.delete(gieoQueChannelId);
                         }
@@ -853,7 +832,7 @@ module.exports = {
                     }
                 };
 
-                // Set timeout mới: 1 giờ sau tin nhắn cuối cùng
+                // Set timeout má»›i: 1 giá» sau tin nháº¯n cuá»‘i cĂ¹ng
                 const timeoutId = setTimeout(sendReminder, GIEOQUE_INACTIVITY_TIME);
                 gieoqueReminders.set(gieoQueChannelId, timeoutId);
             }
@@ -879,19 +858,19 @@ module.exports = {
             return unsetroleCommand.execute(message, args);
         }
 
-        // ?addrole - Add sub-role (Bang Chủ)
+        // ?addrole - Add sub-role (Bang Chá»§)
         if (commandName === 'addrole') {
             const addroleCommand = require('../../commands/quanly/subrole/addrole');
             return addroleCommand.execute(message, args);
         }
 
-        // ?editrole, ?doirole - Edit sub-role (Bang Chủ)
+        // ?editrole, ?doirole - Edit sub-role (Bang Chá»§)
         if (['editrole', 'doirole'].includes(commandName)) {
             const editroleCommand = require('../../commands/quanly/subrole/editrole');
             return editroleCommand.execute(message, args);
         }
 
-        // ?delrole - Delete sub-role (Bang Chủ)
+        // ?delrole - Delete sub-role (Bang Chá»§)
         if (commandName === 'delrole') {
             const delroleCommand = require('../../commands/quanly/subrole/delrole');
             return delroleCommand.execute(message, args);
@@ -915,54 +894,54 @@ module.exports = {
             return helproleCommand.execute(message, args);
         }
 
-        // ?role, ?show - Đổi display role
+        // ?role, ?show - Äá»•i display role
         if (['role', 'show'].includes(commandName)) {
             const showCommand = require('../../commands/quanly/subrole/show');
             return showCommand.execute(message, args);
         }
 
-        // ?hideicon, ?anicon - Ẩn display icon
+        // ?hideicon, ?anicon - áº¨n display icon
         if (['hideicon', 'anicon'].includes(commandName)) {
             const hideiconCommand = require('../../commands/quanly/subrole/hideicon');
             return hideiconCommand.execute(message, args);
         }
 
-        // ?setroomcaprole - Thiết lập kênh cấp role thông minh
+        // ?setroomcaprole - Thiáº¿t láº­p kĂªnh cáº¥p role thĂ´ng minh
         if (commandName === 'setroomcaprole') {
             const setroomcaproleCommand = require('../../commands/quanly/subrole/setroomcaprole');
             return setroomcaproleCommand.execute(message, args);
         }
 
-        // ?mem, ?me - Xem thông tin thành viên (quản lý)
+        // ?mem, ?me - Xem thĂ´ng tin thĂ nh viĂªn (quáº£n lĂ½)
         if (['mem', 'me'].includes(commandName)) {
-            // Chỉ role LangGia trở lên mới được dùng
+            // Chá»‰ role LangGia trá»Ÿ lĂªn má»›i Ä‘Æ°á»£c dĂ¹ng
             if (!hasLangGiaRole(message.member)) {
-                return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
+                return message.reply('âŒ Chá»‰ thĂ nh viĂªn **LangGia** má»›i Ä‘Æ°á»£c sá»­ dá»¥ng lá»‡nh nĂ y!');
             }
             return memCommand.execute(message, args);
         }
 
         // ============== EXP COMMANDS ==============
 
-        // ?rank, ?level, ?xp, ?exp - Xem EXP/level cá nhân
+        // ?rank, ?level, ?xp, ?exp - Xem EXP/level cĂ¡ nhĂ¢n
         if (['rank', 'level', 'xp', 'exp'].includes(commandName)) {
             const rankCommand = require('../../commands/exp/rank');
             return rankCommand.execute(message, args);
         }
 
-        // ?top, ?leaderboard, ?lb, ?bxh - Bảng xếp hạng
+        // ?top, ?leaderboard, ?lb, ?bxh - Báº£ng xáº¿p háº¡ng
         if (['top', 'leaderboard', 'lb', 'bxh'].includes(commandName)) {
             const topCommand = require('../../commands/exp/top');
             return topCommand.execute(message, args);
         }
 
-        // ?randomavt, ?rda - Random avatar từ album
+        // ?randomavt, ?rda - Random avatar tá»« album
         if (['randomavt', 'rda'].includes(commandName)) {
             const randomavtCommand = require('../../commands/apps/randomavt');
             return randomavtCommand.execute(message, args);
         }
 
-        // ?dich, ?translate, ?dichtiengviet - Dịch tin nhắn phía trên sang tiếng Việt
+        // ?dich, ?translate, ?dichtiengviet - Dá»‹ch tin nháº¯n phĂ­a trĂªn sang tiáº¿ng Viá»‡t
         if (['dich', 'translate', 'dichtiengviet'].includes(commandName)) {
             const dichCommand = require('../../commands/apps/dich');
             return dichCommand.execute(message, args);
@@ -970,72 +949,72 @@ module.exports = {
 
         // ?setavt, ?setavatar, ?avatar, ?avt - Set custom avatar
         if (['setavt', 'setavatar', 'avatar', 'avt'].includes(commandName)) {
-            // Chỉ role LangGia trở lên mới được dùng
+            // Chá»‰ role LangGia trá»Ÿ lĂªn má»›i Ä‘Æ°á»£c dĂ¹ng
             if (!hasLangGiaRole(message.member)) {
-                return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
+                return message.reply('âŒ Chá»‰ thĂ nh viĂªn **LangGia** má»›i Ä‘Æ°á»£c sá»­ dá»¥ng lá»‡nh nĂ y!');
             }
             const setavtCommand = require('../../commands/quanly/setavt');
             return setavtCommand.execute(message, args);
         }
 
-        // ?delavt, ?delavatar, ?removeavt, ?clearavt - Xóa custom avatar
+        // ?delavt, ?delavatar, ?removeavt, ?clearavt - XĂ³a custom avatar
         if (['delavt', 'delavatar', 'removeavt', 'removeavatar', 'clearavt'].includes(commandName)) {
             const delavtCommand = require('../../commands/quanly/delavt');
             return delavtCommand.execute(message, args);
         }
 
-        // ?clearallavt, ?xoahetatv, ?delavtall - Xóa TẤT CẢ custom avatar (Owner only)
+        // ?clearallavt, ?xoahetatv, ?delavtall - XĂ³a Táº¤T Cáº¢ custom avatar (Owner only)
         if (['clearallavt', 'xoahetatv', 'delavtall'].includes(commandName)) {
             const clearallavtCommand = require('../../commands/quanly/clearallavt');
             return clearallavtCommand.execute(message, args, client);
         }
 
-        // ?banavt @user - Ban user không được set avatar (Kỳ Cựu trở lên)
+        // ?banavt @user - Ban user khĂ´ng Ä‘Æ°á»£c set avatar (Ká»³ Cá»±u trá»Ÿ lĂªn)
         if (commandName === 'banavt') {
-            // Kiểm tra quyền Kỳ Cựu
-            if (!message.member.roles.cache.some(r => r.name.includes('Kỳ Cựu'))) {
-                return message.reply('❌ Chỉ **Kỳ Cựu** mới được sử dụng lệnh này!');
+            // Kiá»ƒm tra quyá»n Ká»³ Cá»±u
+            if (!message.member.roles.cache.some(r => r.name.includes('Ká»³ Cá»±u'))) {
+                return message.reply('âŒ Chá»‰ **Ká»³ Cá»±u** má»›i Ä‘Æ°á»£c sá»­ dá»¥ng lá»‡nh nĂ y!');
             }
 
             const targetUser = message.mentions.users.first();
             if (!targetUser) {
-                return message.reply('❌ Vui lòng mention user! VD: `?banavt @user`');
+                return message.reply('âŒ Vui lĂ²ng mention user! VD: `?banavt @user`');
             }
 
             const result = db.banAvatarUser(targetUser.id);
             if (result.success) {
-                return message.reply(`✅ Đã **cấm** ${targetUser} đặt avatar tùy chỉnh và xóa avatar hiện tại!`);
+                return message.reply(`âœ… ÄĂ£ **cáº¥m** ${targetUser} Ä‘áº·t avatar tĂ¹y chá»‰nh vĂ  xĂ³a avatar hiá»‡n táº¡i!`);
             } else {
-                return message.reply(`❌ Không tìm thấy user trong database!`);
+                return message.reply(`âŒ KhĂ´ng tĂ¬m tháº¥y user trong database!`);
             }
         }
 
-        // ?unbanavt @user - Gỡ ban avatar cho user
+        // ?unbanavt @user - Gá»¡ ban avatar cho user
         if (commandName === 'unbanavt') {
-            // Kiểm tra quyền Kỳ Cựu
-            if (!message.member.roles.cache.some(r => r.name.includes('Kỳ Cựu'))) {
-                return message.reply('❌ Chỉ **Kỳ Cựu** mới được sử dụng lệnh này!');
+            // Kiá»ƒm tra quyá»n Ká»³ Cá»±u
+            if (!message.member.roles.cache.some(r => r.name.includes('Ká»³ Cá»±u'))) {
+                return message.reply('âŒ Chá»‰ **Ká»³ Cá»±u** má»›i Ä‘Æ°á»£c sá»­ dá»¥ng lá»‡nh nĂ y!');
             }
 
             const targetUser = message.mentions.users.first();
             if (!targetUser) {
-                return message.reply('❌ Vui lòng mention user! VD: `?unbanavt @user`');
+                return message.reply('âŒ Vui lĂ²ng mention user! VD: `?unbanavt @user`');
             }
 
             const result = db.unbanAvatarUser(targetUser.id);
             if (result.success) {
-                return message.reply(`✅ Đã **gỡ cấm** ${targetUser} - có thể đặt avatar lại!`);
+                return message.reply(`âœ… ÄĂ£ **gá»¡ cáº¥m** ${targetUser} - cĂ³ thá»ƒ Ä‘áº·t avatar láº¡i!`);
             } else {
-                return message.reply(`❌ Không tìm thấy user trong database!`);
+                return message.reply(`âŒ KhĂ´ng tĂ¬m tháº¥y user trong database!`);
             }
         }
 
-        // ?xoabc - Delete Bang Chủ
+        // ?xoabc - Delete Bang Chá»§
         if (commandName === 'xoabc') {
             return xoabcCommand.execute(message, args);
         }
 
-        // ?xoapbc - Delete Phó Bang Chủ
+        // ?xoapbc - Delete PhĂ³ Bang Chá»§
         if (commandName === 'xoapbc') {
             return xoapbcCommand.execute(message, args);
         }
@@ -1045,7 +1024,7 @@ module.exports = {
             return listmemCommand.execute(message, args);
         }
 
-        // ?checkmem, ?kiemtramem - Kiểm tra thành viên đã rời server
+        // ?checkmem, ?kiemtramem - Kiá»ƒm tra thĂ nh viĂªn Ä‘Ă£ rá»i server
         if (['checkmem', 'kiemtramem', 'checkroi'].includes(commandName)) {
             const checkmemCommand = require('../../commands/quanly/checkmem');
             return checkmemCommand.execute(message, args);
@@ -1066,12 +1045,12 @@ module.exports = {
             return roiguildCommand.execute(message, args);
         }
 
-        // ?rsrejoin, ?rsrj - Reset rejoin count (Quản Lý only)
+        // ?rsrejoin, ?rsrj - Reset rejoin count (Quáº£n LĂ½ only)
         if (['rsrejoin', 'rsrj'].includes(commandName)) {
             return rsrejoinCommand.execute(message, args);
         }
 
-        // ?xoamem - Xóa thành viên khỏi database (BC/PBC/KC)
+        // ?xoamem - XĂ³a thĂ nh viĂªn khá»i database (BC/PBC/KC)
         if (commandName === 'xoamem') {
             return xoamemCommand.execute(message, args);
         }
@@ -1080,7 +1059,7 @@ module.exports = {
             return xoamemNgoaiServerCommand.execute(message, args);
         }
 
-        // ?locmem - Lọc thành viên có role LangGia nhưng không trong database
+        // ?locmem - Lá»c thĂ nh viĂªn cĂ³ role LangGia nhÆ°ng khĂ´ng trong database
         if (['syncngayvao', 'dongbongayvao', 'ghidengayvao', 'fixngayvao'].includes(commandName)) {
             return syncNgayVaoCommand.execute(message, args);
         }
@@ -1089,67 +1068,24 @@ module.exports = {
             return locmemCommand.execute(message, args);
         }
 
-        // ?themtien - Add Hạt to user (Quản Lý only)
-        if (commandName === 'themtien') {
-            return themtienCommand.execute(message, args);
-        }
-
-        // ?gieoque, ?xinque, ?xq - Gieo quẻ mỗi ngày
+        // ?gieoque, ?xinque, ?xq - Gieo quáº» má»—i ngĂ y
         if (['gieoque', 'xinque', 'xq', 'buxu'].includes(commandName)) {
-            // Chỉ cho phép trong kênh đã setgieoque
+            // Chá»‰ cho phĂ©p trong kĂªnh Ä‘Ă£ setgieoque
             const gqChannelId = db.getGieoQueChannelId();
             if (gqChannelId && message.channel.id !== gqChannelId) {
-                return message.reply(`❌ Lệnh này chỉ dùng được trong kênh <#${gqChannelId}>!`);
+                return message.reply(`âŒ Lá»‡nh nĂ y chá»‰ dĂ¹ng Ä‘Æ°á»£c trong kĂªnh <#${gqChannelId}>!`);
             }
             return gieoqueCommand.execute(message, args);
         }
 
-        // ?cauduyen, ?cd - Cầu duyên (tình yêu)
+        // ?cauduyen, ?cd - Cáº§u duyĂªn (tĂ¬nh yĂªu)
         if (['cauduyen', 'cd'].includes(commandName)) {
             const gqChannelId = db.getGieoQueChannelId();
             if (gqChannelId && message.channel.id !== gqChannelId) {
-                return message.reply(`❌ Lệnh này chỉ dùng được trong kênh <#${gqChannelId}>!`);
+                return message.reply(`âŒ Lá»‡nh nĂ y chá»‰ dĂ¹ng Ä‘Æ°á»£c trong kĂªnh <#${gqChannelId}>!`);
             }
             const cauduyenCommand = require('../../commands/gieoque/cauduyen');
             return cauduyenCommand.execute(message, args);
-        }
-
-        // ?xoahet - Delete all equipment, items and currency (Quản Lý only)
-        if (commandName === 'xoahet') {
-            return xoahetCommand.execute(message, args);
-        }
-
-        // ?add - Add items to user (owner only)
-        if (commandName === 'add') {
-            const addItemCommand = require('../../commands/admin/minigame/additem');
-            return addItemCommand.execute(message, args);
-        }
-
-        // ?resetplayer - Reset all minigame data (owner only)
-        if (commandName === 'resetplayer') {
-            const resetPlayerCommand = require('../../commands/admin/minigame/resetplayer');
-            return resetPlayerCommand.execute(message, args);
-        }
-
-        // ?reset - Reset your own minigame data (owner only)
-        if (commandName === 'reset') {
-            return resetplayerCommand.execute(message, args, 'reset');
-        }
-
-        // ?resetplayer @user - Reset a player's minigame data (owner only)
-        if (commandName === 'resetplayer') {
-            return resetplayerCommand.execute(message, args, 'resetplayer');
-        }
-
-        // ?resetallplayer - Reset ALL players' minigame data (owner only)
-        if (commandName === 'resetallplayer') {
-            const resetAllPlayerCommand = require('../../commands/admin/minigame/resetallplayer');
-            return resetAllPlayerCommand.execute(message, args);
-        }
-
-        // ?cleardung - Clear dungeon sessions (owner only)
-        if (['cleardung', 'dungclear', 'resetdung'].includes(commandName)) {
-            return cleardungCommand.execute(message, args);
         }
 
         // ?xoatoanbodanhsachthanhvien - Delete all members (owner only)
@@ -1163,64 +1099,58 @@ module.exports = {
             return gonahCommand.execute(message, args);
         }
 
-        // ?nominigame - Block/unblock minigame in channel
-        if (commandName === 'nominigame') {
-            const nominigameCommand = require('../../commands/admin/nominigame');
-            return nominigameCommand.execute(message, args);
-        }
-
-        // [DISABLED] Các lệnh cũ đã thay bằng ?setbooster panel
+        // [DISABLED] CĂ¡c lá»‡nh cÅ© Ä‘Ă£ thay báº±ng ?setbooster panel
         // ?boostroom / ?br / ?myroom
         // ?delboostroom / ?dbr
         // ?setboostcategory
 
-        // ?setbooster <Category ID> - Thiết lập Booster Panel + category
+        // ?setbooster <Category ID> - Thiáº¿t láº­p Booster Panel + category
         if (commandName === 'setbooster') {
             const setboosterCommand = require('../../commands/booster/setbooster');
             return setboosterCommand.execute(message, args);
         }
 
-        // ?addvip - Thêm người dùng vào danh sách VIP Booster Room
+        // ?addvip - ThĂªm ngÆ°á»i dĂ¹ng vĂ o danh sĂ¡ch VIP Booster Room
         if (commandName === 'addvip') {
             const addvipCommand = require('../../commands/booster/addvip');
             return addvipCommand.execute(message, args, client);
         }
 
-        // ?rmvip - Gỡ người dùng khỏi danh sách VIP Booster Room
+        // ?rmvip - Gá»¡ ngÆ°á»i dĂ¹ng khá»i danh sĂ¡ch VIP Booster Room
         if (commandName === 'rmvip') {
             const rmvipCommand = require('../../commands/booster/rmvip');
             return rmvipCommand.execute(message, args, client);
         }
 
-        // ?setchannelanh - Set channel làm Phòng Ảnh (Quản Lý only)
+        // ?setchannelanh - Set channel lĂ m PhĂ²ng áº¢nh (Quáº£n LĂ½ only)
         if (['setchannelanh', 'setchannelphonganh', 'phonganh'].includes(commandName)) {
             const setchannelanhCommand = require('../../commands/admin/setchannelanh');
             return setchannelanhCommand.execute(message, args);
         }
 
-        // ?setlevelup - Set kênh nhận thông báo Level Up (Quản Lý only)
+        // ?setlevelup - Set kĂªnh nháº­n thĂ´ng bĂ¡o Level Up (Quáº£n LĂ½ only)
         if (['setlevelup', 'setlvup', 'setlvl'].includes(commandName)) {
             const setlevelupCommand = require('../../commands/admin/setlevelup');
             return setlevelupCommand.execute(message, args);
         }
 
-        // ?album - Xem album ảnh của bạn
+        // ?album - Xem album áº£nh cá»§a báº¡n
         if (['album', 'xemanh', 'myalbum', 'anh'].includes(commandName)) {
-            // Chỉ role LangGia trở lên mới được dùng
+            // Chá»‰ role LangGia trá»Ÿ lĂªn má»›i Ä‘Æ°á»£c dĂ¹ng
             if (!hasLangGiaRole(message.member)) {
-                return message.reply('❌ Chỉ thành viên **LangGia** mới được sử dụng lệnh này!');
+                return message.reply('âŒ Chá»‰ thĂ nh viĂªn **LangGia** má»›i Ä‘Æ°á»£c sá»­ dá»¥ng lá»‡nh nĂ y!');
             }
             const albumCommand = require('../../commands/apps/album');
             return albumCommand.execute(message, args);
         }
 
-        // ?helpphonganh - Hướng dẫn sử dụng Phòng Ảnh
+        // ?helpphonganh - HÆ°á»›ng dáº«n sá»­ dá»¥ng PhĂ²ng áº¢nh
         if (['helpphonganh', 'helppa', 'hdphonganh', 'albumhelp'].includes(commandName)) {
             const helpphonganhCommand = require('../../commands/quanly/helpphonganh');
             return helpphonganhCommand.execute(message, args);
         }
 
-        // ?clearallalbum, ?xoahetalbum, ?delallalbum - Xoá TẤT CẢ ảnh trong Album (Owner only)
+        // ?clearallalbum, ?xoahetalbum, ?delallalbum - XoĂ¡ Táº¤T Cáº¢ áº£nh trong Album (Owner only)
         if (['clearallalbum', 'xoahetalbum', 'delallalbum', 'clearalbum'].includes(commandName)) {
             const clearallalbumCommand = require('../../commands/admin/clearallalbum');
             return clearallalbumCommand.execute(message, args);
@@ -1229,49 +1159,49 @@ module.exports = {
 
         // ============== LOTO COMMANDS ==============
 
-        // ?loto, ?lt - Random số lô tô
+        // ?loto, ?lt - Random sá»‘ lĂ´ tĂ´
         if (['loto', 'lt'].includes(commandName)) {
             const lotoCommand = require('../../commands/loto/loto');
             return lotoCommand.execute(message, args);
         }
 
-        // ?lotocheck, ?ltc - Check số đã/chưa đọc
+        // ?lotocheck, ?ltc - Check sá»‘ Ä‘Ă£/chÆ°a Ä‘á»c
         if (['lotocheck', 'ltc'].includes(commandName)) {
             const lotocheckCommand = require('../../commands/loto/lotocheck');
             return lotocheckCommand.execute(message, args);
         }
 
-        // ?lotoend, ?lte - Kết thúc ván
+        // ?lotoend, ?lte - Káº¿t thĂºc vĂ¡n
         if (['lotoend', 'lte'].includes(commandName)) {
             const lotoendCommand = require('../../commands/loto/lotoend');
             return lotoendCommand.execute(message, args);
         }
 
-        // ?lotorollback, ?ltrb - Rollback ván đã end
+        // ?lotorollback, ?ltrb - Rollback vĂ¡n Ä‘Ă£ end
         if (['lotorollback', 'ltrb'].includes(commandName)) {
             const lotorollbackCommand = require('../../commands/loto/lotorollback');
             return lotorollbackCommand.execute(message, args);
         }
 
-        // ?lotothem, ?ltt - Thêm số vào sàn
+        // ?lotothem, ?ltt - ThĂªm sá»‘ vĂ o sĂ n
         if (['lotothem', 'ltt'].includes(commandName)) {
             const lotothemCommand = require('../../commands/loto/lotothem');
             return lotothemCommand.execute(message, args);
         }
 
-        // ?lotobo, ?ltb - Bỏ số khỏi sàn
+        // ?lotobo, ?ltb - Bá» sá»‘ khá»i sĂ n
         if (['lotobo', 'ltb'].includes(commandName)) {
             const lotoboCommand = require('../../commands/loto/lotobo');
             return lotoboCommand.execute(message, args);
         }
 
-        // ?lotoalbum, ?lta - Xem album lá Loto
+        // ?lotoalbum, ?lta - Xem album lĂ¡ Loto
         if (['lotoalbum', 'lta'].includes(commandName)) {
             const lotoalbumCommand = require('../../commands/loto/lotoalbum');
             return lotoalbumCommand.execute(message, args);
         }
 
-        // ?lotohelp, ?lth - Hướng dẫn chơi Loto
+        // ?lotohelp, ?lth - HÆ°á»›ng dáº«n chÆ¡i Loto
         if (['lotohelp', 'lth'].includes(commandName)) {
             const lotohelpCommand = require('../../commands/loto/lotohelp');
             return lotohelpCommand.execute(message, args);
@@ -1290,19 +1220,19 @@ module.exports = {
             return rteamCommand.execute(message, args);
         }
 
-        // ?rt-, ?rteam- - Random chia 2 team sau khi loại người khỏi voice pool
+        // ?rt-, ?rteam- - Random chia 2 team sau khi loáº¡i ngÆ°á»i khá»i voice pool
         if (['rt-', 'rteam-', 'randomteam-'].includes(commandName)) {
             const rteamCommand = require('../../commands/apps/rteam');
             return rteamCommand.executeMinus(message, args);
         }
 
-        // ?rt+, ?rteam+ - Random chia 2 team sau khi thêm người vào voice pool
+        // ?rt+, ?rteam+ - Random chia 2 team sau khi thĂªm ngÆ°á»i vĂ o voice pool
         if (['rt+', 'rteam+', 'randomteam+'].includes(commandName)) {
             const rteamCommand = require('../../commands/apps/rteam');
             return rteamCommand.executePlus(message, args);
         }
 
-        // ?rrteam, ?rrt - Random lại kết quả chia đội trước đó
+        // ?rrteam, ?rrt - Random láº¡i káº¿t quáº£ chia Ä‘á»™i trÆ°á»›c Ä‘Ă³
         if (['rrteam', 'rrt'].includes(commandName)) {
             const rteamCommand = require('../../commands/apps/rteam');
             return rteamCommand.reroll(message);
@@ -1319,16 +1249,16 @@ module.exports = {
             return ttsCommand.execute(message, args);
         }
 
-        // ?spam - Tạo chủ đề mới để spam lệnh (hoặc tag vào chủ đề cũ)
+        // ?spam - Táº¡o chá»§ Ä‘á» má»›i Ä‘á»ƒ spam lá»‡nh (hoáº·c tag vĂ o chá»§ Ä‘á» cÅ©)
         if (commandName === 'spam') {
             try {
-                // Xóa tin nhắn ?spam của user
+                // XĂ³a tin nháº¯n ?spam cá»§a user
                 await message.delete().catch(() => { });
 
                 const { ChannelType } = require('discord.js');
-                const threadName = `🔒 ${message.author.username}'s Private Zone`;
+                const threadName = `đŸ”’ ${message.author.username}'s Private Zone`;
 
-                // === Kiểm tra thread cũ còn tồn tại không ===
+                // === Kiá»ƒm tra thread cÅ© cĂ²n tá»“n táº¡i khĂ´ng ===
                 let existingThread = null;
 
                 // Fetch active threads
@@ -1337,7 +1267,7 @@ module.exports = {
                     existingThread = activeThreads.threads.find(t => t.name === threadName) || null;
                 }
 
-                // Nếu không tìm thấy trong active → tìm trong archived
+                // Náº¿u khĂ´ng tĂ¬m tháº¥y trong active â†’ tĂ¬m trong archived
                 if (!existingThread) {
                     const archivedThreads = await message.channel.threads.fetchArchived({ type: 'private', fetchAll: true }).catch(() => null);
                     if (archivedThreads) {
@@ -1345,26 +1275,26 @@ module.exports = {
                     }
                 }
 
-                // === Đã có thread cũ ===
+                // === ÄĂ£ cĂ³ thread cÅ© ===
                 if (existingThread) {
-                    // Un-archive nếu đang archived
+                    // Un-archive náº¿u Ä‘ang archived
                     if (existingThread.archived) {
                         await existingThread.setArchived(false).catch(() => { });
                     }
 
-                    // Đảm bảo user vẫn còn trong thread
+                    // Äáº£m báº£o user váº«n cĂ²n trong thread
                     await existingThread.members.add(message.author.id).catch(() => { });
 
-                    // Tag user vào thread cũ
+                    // Tag user vĂ o thread cÅ©
                     await existingThread.send({
-                        content: `👋 ${message.author} Chủ đề riêng của bạn nè~\n` +
-                            `🎮 Thoải mái dùng lệnh bot ở đây nhé!`
+                        content: `đŸ‘‹ ${message.author} Chá»§ Ä‘á» riĂªng cá»§a báº¡n nĂ¨~\n` +
+                            `đŸ® Thoáº£i mĂ¡i dĂ¹ng lá»‡nh bot á»Ÿ Ä‘Ă¢y nhĂ©!`
                     });
 
                     return;
                 }
 
-                // === Chưa có → Tạo thread mới ===
+                // === ChÆ°a cĂ³ â†’ Táº¡o thread má»›i ===
                 const thread = await message.channel.threads.create({
                     name: threadName,
                     autoArchiveDuration: 60,
@@ -1373,18 +1303,18 @@ module.exports = {
                     reason: `Private spam thread requested by ${message.author.tag}`
                 });
 
-                // Thêm user vào thread
+                // ThĂªm user vĂ o thread
                 await thread.members.add(message.author.id);
 
-                // Gửi tin nhắn hướng dẫn vào thread
+                // Gá»­i tin nháº¯n hÆ°á»›ng dáº«n vĂ o thread
                 await thread.send({
-                    content: `🔒 **Chủ đề riêng tư của ${message.author}**\n\n` +
-                        `✨ Chỉ có bạn và bot thấy được chủ đề này!\n` +
-                        `🎮 Thoải mái sử dụng các lệnh bot ở đây nhé~\n` +
-                        `⏰ Chủ đề sẽ tự **xóa** sau **1 giờ** không hoạt động.`
+                    content: `đŸ”’ **Chá»§ Ä‘á» riĂªng tÆ° cá»§a ${message.author}**\n\n` +
+                        `âœ¨ Chá»‰ cĂ³ báº¡n vĂ  bot tháº¥y Ä‘Æ°á»£c chá»§ Ä‘á» nĂ y!\n` +
+                        `đŸ® Thoáº£i mĂ¡i sá»­ dá»¥ng cĂ¡c lá»‡nh bot á»Ÿ Ä‘Ă¢y nhĂ©~\n` +
+                        `â° Chá»§ Ä‘á» sáº½ tá»± **xĂ³a** sau **1 giá»** khĂ´ng hoáº¡t Ä‘á»™ng.`
                 });
 
-                // Set timeout để xóa thread sau 1 giờ không hoạt động
+                // Set timeout Ä‘á»ƒ xĂ³a thread sau 1 giá» khĂ´ng hoáº¡t Ä‘á»™ng
                 setTimeout(async () => {
                     try {
                         const fetchedThread = await message.channel.threads.fetch(thread.id).catch(() => null);
@@ -1393,57 +1323,57 @@ module.exports = {
                             console.log(`[spam] Deleted inactive thread: ${thread.name}`);
                         }
                     } catch (e) {
-                        // Thread có thể đã bị xóa
+                        // Thread cĂ³ thá»ƒ Ä‘Ă£ bá»‹ xĂ³a
                     }
-                }, 60 * 60 * 1000); // 1 giờ
+                }, 60 * 60 * 1000); // 1 giá»
 
                 return;
             } catch (error) {
                 console.error('[spam] Error creating thread:', error);
-                const errMsg = await message.channel.send('❌ Không thể tạo chủ đề riêng tư!');
+                const errMsg = await message.channel.send('âŒ KhĂ´ng thá»ƒ táº¡o chá»§ Ä‘á» riĂªng tÆ°!');
                 setTimeout(() => errMsg.delete().catch(() => { }), 3000);
                 return;
             }
         }
 
 
-        // ?vote, ?poll, ?binhchon - Bình chọn tùy chỉnh
+        // ?vote, ?poll, ?binhchon - BĂ¬nh chá»n tĂ¹y chá»‰nh
         if (['vote', 'poll', 'binhchon'].includes(commandName)) {
             const voteCommand = require('../../commands/apps/vote');
             return voteCommand.execute(message, args);
         }
 
-        // ?voteevent, ?votesukien - Bình chọn lịch sự kiện Guild (legacy)
+        // ?voteevent, ?votesukien - BĂ¬nh chá»n lá»‹ch sá»± kiá»‡n Guild (legacy)
         if (['voteevent', 'votesukien', 'votelich'].includes(commandName)) {
             const voteeventCommand = require('../../commands/apps/voteevent');
             return voteeventCommand.execute(message, args);
         }
 
-        // ?voteyentiec - Bình chọn giờ Yến Tiệc
+        // ?voteyentiec - BĂ¬nh chá»n giá» Yáº¿n Tiá»‡c
         if (commandName === 'voteyentiec') {
             const cmd = require('../../commands/apps/voteyentiec');
             return cmd.execute(message, args);
         }
 
-        // ?votebosssolo, ?voteboss - Bình chọn lịch Boss Solo
+        // ?votebosssolo, ?voteboss - BĂ¬nh chá»n lá»‹ch Boss Solo
         if (['votebosssolo', 'voteboss'].includes(commandName)) {
             const cmd = require('../../commands/apps/votebosssolo');
             return cmd.execute(message, args);
         }
 
-        // ?votepvpsolo, ?votepvp - Bình chọn lịch PvP Solo
+        // ?votepvpsolo, ?votepvp - BĂ¬nh chá»n lá»‹ch PvP Solo
         if (['votepvpsolo', 'votepvp'].includes(commandName)) {
             const cmd = require('../../commands/apps/votepvpsolo');
             return cmd.execute(message, args);
         }
 
-        // ?votegioevent, ?votegio - Bình chọn GIỜ sự kiện (legacy)
+        // ?votegioevent, ?votegio - BĂ¬nh chá»n GIá»œ sá»± kiá»‡n (legacy)
         if (['votegioevent', 'votegio'].includes(commandName)) {
             const votegioeventCommand = require('../../commands/apps/votegioevent');
             return votegioeventCommand.execute(message, args);
         }
 
-        // ?votengayevent, ?votengay - Bình chọn NGÀY sự kiện (legacy)
+        // ?votengayevent, ?votengay - BĂ¬nh chá»n NGĂ€Y sá»± kiá»‡n (legacy)
         if (['votengayevent', 'votengay'].includes(commandName)) {
             const votengayeventCommand = require('../../commands/apps/votengayevent');
             return votengayeventCommand.execute(message, args);
@@ -1451,13 +1381,13 @@ module.exports = {
 
         // ============== BOSS GUILD COMMANDS ==============
 
-        // ?dsdk, ?dsdangky - Xem danh sách đăng ký trước (+1)
+        // ?dsdk, ?dsdangky - Xem danh sĂ¡ch Ä‘Äƒng kĂ½ trÆ°á»›c (+1)
         if (['dsdk', 'dsdangky', 'prereg'].includes(commandName)) {
             const guildId = message.guild.id;
             const preRegs = getPreRegistrations(guildId);
 
             if (preRegs.length === 0) {
-                return message.reply('📭 Chưa có ai đăng ký trước (+1)!');
+                return message.reply('đŸ“­ ChÆ°a cĂ³ ai Ä‘Äƒng kĂ½ trÆ°á»›c (+1)!');
             }
 
 
@@ -1465,85 +1395,85 @@ module.exports = {
                 const userData = db.getUserByDiscordId(r.id);
                 const gameName = userData?.game_username || null;
                 const timeAgo = Math.floor((Date.now() - r.registeredAt) / 60000);
-                return `${i + 1}. <@${r.id}>${gameName ? ` (${gameName})` : ''} - ${timeAgo} phút trước`;
+                return `${i + 1}. <@${r.id}>${gameName ? ` (${gameName})` : ''} - ${timeAgo} phĂºt trÆ°á»›c`;
             });
 
             const { EmbedBuilder } = require('discord.js');
             const embed = new EmbedBuilder()
                 .setColor(0x3498DB)
-                .setTitle('📋 DANH SÁCH ĐĂNG KÝ TRƯỚC (+1)')
+                .setTitle('đŸ“‹ DANH SĂCH ÄÄ‚NG KĂ TRÆ¯á»C (+1)')
                 .setDescription(lines.join('\n'))
-                .setFooter({ text: `${preRegs.length} người • Danh sách sẽ được clear khi PT chốt` })
+                .setFooter({ text: `${preRegs.length} ngÆ°á»i â€¢ Danh sĂ¡ch sáº½ Ä‘Æ°á»£c clear khi PT chá»‘t` })
                 .setTimestamp();
 
             return message.reply({ embeds: [embed] });
         }
 
-        // ?bossguild, ?bg, ?dkboss, ?dangkyboss - Bắt đầu thông báo Boss Guild
+        // ?bossguild, ?bg, ?dkboss, ?dangkyboss - Báº¯t Ä‘áº§u thĂ´ng bĂ¡o Boss Guild
         if (['bossguild', 'bg', 'dkboss', 'dangkyboss'].includes(commandName)) {
             return bossguildCommand.execute(message, args, client);
         }
 
-        // ?lichboss, ?lichguild - Gửi embed lịch Boss Guild
+        // ?lichboss, ?lichguild - Gá»­i embed lá»‹ch Boss Guild
         if (['lichboss', 'lichguild', 'bosschedule'].includes(commandName)) {
             const lichbossCommand = require('../../commands/thongbao/lichboss');
             return lichbossCommand.execute(message, args, client);
         }
 
-        // ?doilichbossguild, ?doilich - Chỉnh sửa lịch Boss Guild
+        // ?doilichbossguild, ?doilich - Chá»‰nh sá»­a lá»‹ch Boss Guild
         if (['doilichbossguild', 'doilich', 'editbossschedule'].includes(commandName)) {
             const doilichCommand = require('../../commands/thongbao/doilichbossguild');
             return doilichCommand.execute(message, args, client);
         }
 
-        // ?bgrs, ?bgreset, ?bossguildreset - Reset danh sách đăng ký trước (+1)
+        // ?bgrs, ?bgreset, ?bossguildreset - Reset danh sĂ¡ch Ä‘Äƒng kĂ½ trÆ°á»›c (+1)
         if (['bgrs', 'bgreset', 'bossguildreset'].includes(commandName)) {
-            // Chỉ Kỳ Cựu được reset
-            if (!message.member.roles.cache.some(r => r.name === 'Kỳ Cựu')) {
-                return message.reply('❌ Chỉ **Kỳ Cựu** mới được reset danh sách!');
+            // Chá»‰ Ká»³ Cá»±u Ä‘Æ°á»£c reset
+            if (!message.member.roles.cache.some(r => r.name === 'Ká»³ Cá»±u')) {
+                return message.reply('âŒ Chá»‰ **Ká»³ Cá»±u** má»›i Ä‘Æ°á»£c reset danh sĂ¡ch!');
             }
             const preRegs = getPreRegistrations(guildId);
             const count = preRegs.length;
             clearPreRegistrations(guildId);
-            return message.reply(`✅ Đã reset danh sách đăng ký trước! (${count} người đã bị xóa)`);
+            return message.reply(`âœ… ÄĂ£ reset danh sĂ¡ch Ä‘Äƒng kĂ½ trÆ°á»›c! (${count} ngÆ°á»i Ä‘Ă£ bá»‹ xĂ³a)`);
         }
 
-        // ?lenhbossguild, ?lenhbg, ?lbg - Xem lệnh Boss Guild
+        // ?lenhbossguild, ?lenhbg, ?lbg - Xem lá»‡nh Boss Guild
         if (['lenhbossguild', 'lenhbg', 'lbg'].includes(commandName)) {
             const { EmbedBuilder } = require('discord.js');
             const prefix = process.env.PREFIX || '?';
             const embed = new EmbedBuilder()
                 .setColor(0xE74C3C)
-                .setTitle('👑 LỆNH BOSS GUILD')
-                .setDescription('Danh sách lệnh liên quan đến Boss Guild')
+                .setTitle('đŸ‘‘ Lá»†NH BOSS GUILD')
+                .setDescription('Danh sĂ¡ch lá»‡nh liĂªn quan Ä‘áº¿n Boss Guild')
                 .addFields(
                     {
-                        name: '📋 Quản lý Party', value:
-                            `\`${prefix}bg\` - Tạo party Boss Guild\n` +
-                            `\`${prefix}lichboss\` - Xem lịch Boss\n` +
-                            `\`${prefix}doilich\` - Đổi lịch Boss`, inline: false
+                        name: 'đŸ“‹ Quáº£n lĂ½ Party', value:
+                            `\`${prefix}bg\` - Táº¡o party Boss Guild\n` +
+                            `\`${prefix}lichboss\` - Xem lá»‹ch Boss\n` +
+                            `\`${prefix}doilich\` - Äá»•i lá»‹ch Boss`, inline: false
                     },
                     {
-                        name: '📝 Đăng ký trước', value:
-                            `\`+1\` - Đăng ký trước (trong kênh)\n` +
-                            `\`-1\` - Hủy đăng ký trước\n` +
-                            `\`${prefix}dsdk\` - Xem DS đăng ký trước\n` +
-                            `\`${prefix}bgrs\` - Reset DS đăng ký`, inline: false
+                        name: 'đŸ“ ÄÄƒng kĂ½ trÆ°á»›c', value:
+                            `\`+1\` - ÄÄƒng kĂ½ trÆ°á»›c (trong kĂªnh)\n` +
+                            `\`-1\` - Há»§y Ä‘Äƒng kĂ½ trÆ°á»›c\n` +
+                            `\`${prefix}dsdk\` - Xem DS Ä‘Äƒng kĂ½ trÆ°á»›c\n` +
+                            `\`${prefix}bgrs\` - Reset DS Ä‘Äƒng kĂ½`, inline: false
                     }
                 )
-                .setFooter({ text: 'Lang Gia Các' })
+                .setFooter({ text: 'Lang Gia CĂ¡c' })
                 .setTimestamp();
             return message.reply({ embeds: [embed] });
         }
 
         // ============== BANG CHIEN COMMANDS ==============
 
-        // ?bangchien, ?bc, ?dangkybangchien - Đăng ký Bang Chiến
+        // ?bangchien, ?bc, ?dangkybangchien - ÄÄƒng kĂ½ Bang Chiáº¿n
         if (['bangchien', 'bc', 'dangkybangchien'].includes(commandName)) {
             return bangchienCommand.execute(message, args, client);
         }
 
-        // ?xemds - Xem danh sách đăng ký đầy đủ (tạm thời, không bị cắt)
+        // ?xemds - Xem danh sĂ¡ch Ä‘Äƒng kĂ½ Ä‘áº§y Ä‘á»§ (táº¡m thá»i, khĂ´ng bá»‹ cáº¯t)
         if (commandName === 'xemds') {
             const { bangchienRegistrations, getGuildBangchienKeys } = require('../../utils/bangchienState');
 
@@ -1551,125 +1481,125 @@ module.exports = {
             const partyKeys = getGuildBangchienKeys(guildId);
 
             if (partyKeys.length === 0) {
-                return message.reply('❌ Không có party bang chiến nào đang chạy!');
+                return message.reply('âŒ KhĂ´ng cĂ³ party bang chiáº¿n nĂ o Ä‘ang cháº¡y!');
             }
 
             const partyKey = partyKeys[0];
             const registrations = bangchienRegistrations.get(partyKey) || [];
 
             if (registrations.length === 0) {
-                return message.reply('📭 Chưa có ai đăng ký!');
+                return message.reply('đŸ“­ ChÆ°a cĂ³ ai Ä‘Äƒng kĂ½!');
             }
 
-            // Chia thành nhiều tin nhắn nếu cần
+            // Chia thĂ nh nhiá»u tin nháº¯n náº¿u cáº§n
             const lines = registrations.map((r, i) => {
                 const userData = db.getUserByDiscordId(r.id);
                 const gameName = userData?.game_username || null;
-                return `${i + 1}. <@${r.id}>${gameName ? ` (${gameName})` : ''}${r.isLeader ? ' 👑' : ''}`;
+                return `${i + 1}. <@${r.id}>${gameName ? ` (${gameName})` : ''}${r.isLeader ? ' đŸ‘‘' : ''}`;
             });
 
-            // Gửi theo batch 15 người mỗi tin
+            // Gá»­i theo batch 15 ngÆ°á»i má»—i tin
             const batchSize = 15;
             for (let i = 0; i < lines.length; i += batchSize) {
                 const batch = lines.slice(i, i + batchSize);
-                const header = i === 0 ? `📋 **DANH SÁCH ĐĂNG KÝ ĐẦY ĐỦ (${registrations.length} người):**\n\n` : '';
+                const header = i === 0 ? `đŸ“‹ **DANH SĂCH ÄÄ‚NG KĂ Äáº¦Y Äá»¦ (${registrations.length} ngÆ°á»i):**\n\n` : '';
                 await message.channel.send(header + batch.join('\n'));
             }
             return;
         }
 
-        // ?listbangchien, ?listbc - Đã đóng, giữ renderer nội bộ cho các message cũ
+        // ?listbangchien, ?listbc - ÄĂ£ Ä‘Ă³ng, giá»¯ renderer ná»™i bá»™ cho cĂ¡c message cÅ©
         if (['listbangchien', 'listbc'].includes(commandName)) {
             return message.reply({
-                content: '❌ Lệnh `?listbc` đã đóng. Dùng `?bc` để xem/đăng ký hoặc `?bcql` để quản lý Bang Chiến.',
+                content: 'âŒ Lá»‡nh `?listbc` Ä‘Ă£ Ä‘Ă³ng. DĂ¹ng `?bc` Ä‘á»ƒ xem/Ä‘Äƒng kĂ½ hoáº·c `?bcql` Ä‘á»ƒ quáº£n lĂ½ Bang Chiáº¿n.',
                 allowedMentions: { repliedUser: false }
             });
         }
 
-        // ?bcend, ?ketthucbc - Kết thúc BC (thay thế bcwin/bcthua)
+        // ?bcend, ?ketthucbc - Káº¿t thĂºc BC (thay tháº¿ bcwin/bcthua)
         if (['bcend', 'ketthucbc', 'endbc'].includes(commandName)) {
             const bcendCommand = require('../../commands/bangchien/bcend');
             return bcendCommand.execute(message, args, client);
         }
 
-        // ?bcql, ?bcquanly - Panel quản lý Bang Chiến (chỉ Leader)
+        // ?bcql, ?bcquanly - Panel quáº£n lĂ½ Bang Chiáº¿n (chá»‰ Leader)
         if (['bcql', 'bcquanly', 'bangchienquanly'].includes(commandName)) {
             const bcquanlyCommand = require('../../commands/bangchien/bcquanly');
             return bcquanlyCommand.execute(message, args, client);
         }
 
-        // ?resetque, ?rsq - Reset lượt gieo quẻ
+        // ?resetque, ?rsq - Reset lÆ°á»£t gieo quáº»
         if (['resetque', 'rsq'].includes(commandName)) {
             return resetqueCommand.execute(message, args, client);
         }
 
-        // ?huybangchien, ?huybc - Huỷ phiên đăng ký Bang Chiến
+        // ?huybangchien, ?huybc - Huá»· phiĂªn Ä‘Äƒng kĂ½ Bang Chiáº¿n
         if (['huybangchien', 'huybc'].includes(commandName)) {
             const huybangchienCommand = require('../../commands/bangchien/huybangchien');
             return huybangchienCommand.execute(message, args, client);
         }
 
-        // ?bcswap, ?bcdoi, ?doiteam - Đổi người giữa các team
+        // ?bcswap, ?bcdoi, ?doiteam - Äá»•i ngÆ°á»i giá»¯a cĂ¡c team
         if (['bcswap', 'bcdoi', 'doiteam'].includes(commandName)) {
             const bcswapCommand = require('../../commands/bangchien/bcswap');
             return bcswapCommand.execute(message, args, client);
         }
 
-        // ?bcchihuy, ?bcch - Đặt chỉ huy
+        // ?bcchihuy, ?bcch - Äáº·t chá»‰ huy
         if (['bcchihuy', 'bcch', 'setchihuy'].includes(commandName)) {
             const bcchihuyCommand = require('../../commands/bangchien/bcchihuy');
             return bcchihuyCommand.execute(message, args, client);
         }
 
-        // ?bcleader, ?bcld - Đặt leader team
+        // ?bcleader, ?bcld - Äáº·t leader team
         if (['bcleader', 'bcld', 'setleader'].includes(commandName)) {
             const bcleaderCommand = require('../../commands/bangchien/bcleader');
             return bcleaderCommand.execute(message, args, client);
         }
 
-        // ?bcadd - Thêm người vào danh sách BC
+        // ?bcadd - ThĂªm ngÆ°á»i vĂ o danh sĂ¡ch BC
         if (['bcadd', 'bcaddmem', 'thembc'].includes(commandName)) {
             const bcaddCommand = require('../../commands/bangchien/bcadd');
             return bcaddCommand.execute(message, args, client);
         }
 
-        // ?lenhbangchien, ?lenhbc, ?lbc - Xem lệnh bang chiến
+        // ?lenhbangchien, ?lenhbc, ?lbc - Xem lá»‡nh bang chiáº¿n
         if (['lenhbangchien', 'lenhbc', 'lbc', 'bchelp', 'helpbc'].includes(commandName)) {
             const lenhbcCommand = require('../../commands/bangchien/lenhbangchien');
             return lenhbcCommand.execute(message, args, client);
         }
 
-        // ?bcsize, ?teamsize, ?bcsoluong - Thay đổi số người của các Team BC
+        // ?bcsize, ?teamsize, ?bcsoluong - Thay Ä‘á»•i sá»‘ ngÆ°á»i cá»§a cĂ¡c Team BC
         if (['bcsize', 'teamsize', 'bcsoluong'].includes(commandName)) {
             const bcsizeCommand = require('../../commands/bangchien/bcsize');
             return bcsizeCommand.execute(message, args, client);
         }
 
-        // ?setbc, ?setbangchien, ?bcchannel - Set kênh BC mặc định
+        // ?setbc, ?setbangchien, ?bcchannel - Set kĂªnh BC máº·c Ä‘á»‹nh
         if (['setbc', 'setbangchien', 'bcchannel'].includes(commandName)) {
             const setbcCommand = require('../../commands/bangchien/setbc');
             return setbcCommand.execute(message, args, client);
         }
 
-        // ?bcrole, ?bctanker, ?bcdps, ?bchealer - Xem thành viên theo role
+        // ?bcrole, ?bctanker, ?bcdps, ?bchealer - Xem thĂ nh viĂªn theo role
         if (['bcrole', 'bctanker', 'bcdps', 'bchealer'].includes(commandName)) {
             const bcroleCommand = require('../../commands/bangchien/bcrole');
             return bcroleCommand.execute(message, args, client);
         }
 
-        // ?chotbc, ?bcchot - Thêm role Bang Chiến cho mọi người trong danh sách
+        // ?chotbc, ?bcchot - ThĂªm role Bang Chiáº¿n cho má»i ngÆ°á»i trong danh sĂ¡ch
         if (['chotbc', 'bcchot', 'chotbangchien', 'addbcrole', 'finalize'].includes(commandName)) {
             const bchotCommand = require('../../commands/bangchien/bcchot');
             return bchotCommand.execute(message, args, client);
         }
 
-        // ?tatmic, ?bcmicoff - Tắt mic trong voice BC (giữ mic Leader/Chỉ Huy khi all)
+        // ?tatmic, ?bcmicoff - Táº¯t mic trong voice BC (giá»¯ mic Leader/Chá»‰ Huy khi all)
         if (['tatmic', 'bcmicoff', 'bcmute', 'bcnomic'].includes(commandName)) {
             const bcmicoffCommand = require('../../commands/bangchien/bcmicoff');
             return bcmicoffCommand.execute(message, args, client);
         }
 
-        // ?momic, ?bcmicon - Bật mic trong voice BC
+        // ?momic, ?bcmicon - Báº­t mic trong voice BC
         if (['momic', 'bcmicon', 'bcmic', 'bcspeak'].includes(commandName)) {
             const bcmiconCommand = require('../../commands/bangchien/bcmicon');
             return bcmiconCommand.execute(message, args, client);
@@ -1681,19 +1611,19 @@ module.exports = {
             return bcmicresetCommand.execute(message, args, client);
         }
 
-        // ?bcmove, ?bcdoi - Di chuyển người giữa các team
+        // ?bcmove, ?bcdoi - Di chuyá»ƒn ngÆ°á»i giá»¯a cĂ¡c team
         if (['bcmove', 'bcdoi', 'dichuyen'].includes(commandName)) {
             const bcmoveCommand = require('../../commands/bangchien/bcmove');
             return bcmoveCommand.execute(message, args, client);
         }
 
-        // ?nhacnho, ?nn, ?remind - Đăng ký nhận nhắc nhở event
+        // ?nhacnho, ?nn, ?remind - ÄÄƒng kĂ½ nháº­n nháº¯c nhá»Ÿ event
         if (['nhacnho', 'nn', 'remind'].includes(commandName)) {
             const nhacnhoCommand = require('../../commands/thongbao/nhacnho');
             return nhacnhoCommand.execute(message, args, client);
         }
 
-        // ?listthongbao, ?lichguild, ?tgb - Xem lịch sự kiện guild dạng thời gian biểu
+        // ?listthongbao, ?lichguild, ?tgb - Xem lá»‹ch sá»± kiá»‡n guild dáº¡ng thá»i gian biá»ƒu
         if (['listthongbao', 'lichguild', 'tgb', 'lichsk'].includes(commandName)) {
             const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
             const { getWeeklySchedule } = require('../../commands/thongbao/thongbaoguild');
@@ -1702,233 +1632,28 @@ module.exports = {
             const weeklySchedule = getWeeklySchedule(guildId, true);
 
             if (!weeklySchedule) {
-                return message.reply('📭 Chưa có lịch sự kiện Guild nào!');
+                return message.reply('đŸ“­ ChÆ°a cĂ³ lá»‹ch sá»± kiá»‡n Guild nĂ o!');
             }
 
             const embed = new EmbedBuilder()
                 .setColor(0x3498DB)
-                .setTitle('📅 LỊCH SỰ KIỆN TUẦN NÀY')
+                .setTitle('đŸ“… Lá»CH Sá»° KIá»†N TUáº¦N NĂ€Y')
                 .setDescription(weeklySchedule)
                 .setTimestamp()
-                .setFooter({ text: 'Lang Gia Các' });
+                .setFooter({ text: 'Lang Gia CĂ¡c' });
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('schedule_english')
                     .setLabel('English')
-                    .setEmoji('🇬🇧')
+                    .setEmoji('đŸ‡¬đŸ‡§')
                     .setStyle(ButtonStyle.Secondary)
             );
 
             return message.reply({ embeds: [embed], components: [row] });
         }
 
-        // ============== MINIGAME COMMANDS ==============
-
-        // Check if channel is blocked for minigame
-        const { isChannelBlocked } = require('../../commands/admin/nominigame');
-        if (isChannelBlocked(message.channel.id)) {
-            return; // Không phản hồi minigame trong kênh bị chặn
-        }
-
-        // ?bal, ?balance, ?tien, ?hat - Xem số dư
-        if (['bal', 'balance', 'tien', 'hat'].includes(commandName)) {
-            return balanceCommand.execute(message, args);
-        }
-
-        // ?nhua, ?item, ?vatpham - Xem tất cả vật phẩm
-        if (['nhua', 'item', 'vatpham'].includes(commandName)) {
-            return nhuaCommand.execute(message, args);
-        }
-
-        // ?daily - Nhận thưởng hàng ngày
-        if (commandName === 'daily') {
-            return dailyCommand.executeDaily(message, args);
-        }
-
-        // ?weekly - Nhận thưởng hàng tuần
-        if (commandName === 'weekly') {
-            return dailyCommand.executeWeekly(message, args);
-        }
-
-        // ?shop, ?cuahang - Hiển thị shop
-        if (['shop', 'cuahang'].includes(commandName)) {
-            return shopCommand.execute(message, args);
-        }
-
-        // ?buy, ?mua - Mua item
-        if (['buy', 'mua'].includes(commandName)) {
-            return buyCommand.execute(message, args);
-        }
-
-        // ?sell, ?ban - Bán item
-        if (commandName === 'sell') {
-            const sellCommand = require('../../commands/minigame/sell');
-            return sellCommand.execute(message, args);
-        }
-
-        // ?nv, ?q, ?quest, ?nhiemvu - Nhiệm vụ
-        if (['nv', 'q', 'quest', 'nhiemvu'].includes(commandName)) {
-            const questCommand = require('../../commands/minigame/quest');
-            return questCommand.execute(message, args);
-        }
-
-        // ?info, ?i, ?thongtin, ?tt - Thông tin người chơi
-        if (['info', 'i', 'thongtin'].includes(commandName)) {
-            const infoCommand = require('../../commands/minigame/info');
-            return infoCommand.execute(message, args);
-        }
-
-        // ?thanhtuu, ?tt, ?achievements - Thành tựu
-        if (['thanhtuu', 'tt', 'achievements', 'ach'].includes(commandName)) {
-            const achCommand = require('../../commands/minigame/achievement');
-            return achCommand.execute(message, args);
-        }
-
-        // ?settitle, ?danhieu - Danh hiệu
-        if (['settitle', 'danhieu'].includes(commandName)) {
-            const titleCommand = require('../../commands/minigame/title');
-            return titleCommand.execute(message, args);
-        }
-
-        // ?box, ?hom - Xem và mở box
-        if (['box', 'hom'].includes(commandName)) {
-            const boxCommand = require('../../commands/minigame/box');
-            return boxCommand.execute(message, args);
-        }
-
-        // ?dismantle, ?phantach - Phân tách đồ tím
-        // ?dismantleall, ?phantachhet, ?pth - Phân tách hết
-        if (['dismantle', 'phantach'].includes(commandName)) {
-            return dismantleCommand.execute(message, args);
-        }
-        if (['dismantleall', 'phantachhet', 'pth'].includes(commandName)) {
-            return dismantleCommand.execute(message, ['all']);
-        }
-
-        // ?inv, ?inventory, ?tuido, ?kho, ?tui, ?bag - Xem kho đồ
-        if (['inv', 'inventory', 'tuido', 'kho', 'tui', 'bag'].includes(commandName)) {
-            return inventoryCommand.execute(message, args);
-        }
-
-        // ?tune, ?nangcap, ?nc - Tune trang bị
-        if (['tune', 'nangcap', 'nc'].includes(commandName)) {
-            return tuneCommand.execute(message, args);
-        }
-
-
-        // ?buy, ?b - Mua vật phẩm
-        if (['buy', 'b'].includes(commandName)) {
-            const buyCommand = require('../../commands/minigame/buy');
-            return buyCommand.execute(message, args);
-        }
-
-        // ?equip, ?gan, ?eq - Gắn trang bị
-        if (['equip', 'gan', 'eq'].includes(commandName)) {
-            return equipCommand.execute(message, args);
-        }
-
-        // ?unequip, ?ue, ?go - Gỡ trang bị
-        if (['unequip', 'ue', 'go'].includes(commandName)) {
-            const unequipCommand = require('../../commands/minigame/unequip');
-            return unequipCommand.execute(message, args);
-        }
-
-        // ?lock - Khóa trang bị
-        if (commandName === 'lock') {
-            const lockCommand = require('../../commands/minigame/lock');
-            return lockCommand.execute(message, args);
-        }
-
-        // ?ban - Bán đồ (select menu)
-        if (commandName === 'ban') {
-            return banCommand.execute(message, args);
-        }
-
-        // ?trangbi - Xem trang bị đang mặc
-        if (commandName === 'trangbi') {
-            return equipCommand.executeView(message, args);
-        }
-
-        // ?top, ?lb, ?leaderboard, ?bxh - Bảng xếp hạng
-        if (['top', 'lb', 'leaderboard', 'bxh'].includes(commandName)) {
-            return leaderboardCommand.execute(message, args);
-        }
-
-        // ?dungeon, ?dung, ?bicanh - Hệ thống Dungeon
-        if (['dungeon', 'dung', 'bicanh'].includes(commandName)) {
-            return dungeonCommand.execute(message, args);
-        }
-
-        // ?huydung, ?huybicanh, ?roidung - Hủy/Rời dungeon đang chạy
-        if (['huydung', 'huybicanh', 'roidung'].includes(commandName)) {
-            return dungeonCommand.executeCancel(message, args);
-        }
-
-        // ?xem, ?item, ?it - Xem chi tiết item hoặc player
-        if (['item', 'it'].includes(commandName)) {
-            const xemMinigameCommand = require('../../commands/minigame/xem');
-            return xemMinigameCommand.execute(message, args, client);
-        }
-
-        // ?xem - Smart command: @user -> info, số -> item
-        if (commandName === 'xem') {
-            const xemMinigameCommand = require('../../commands/minigame/xem');
-            return xemMinigameCommand.execute(message, args, client);
-        }
-
-        // ?huongdan, ?hd, ?guide - Hướng dẫn chơi
-        if (['huongdan', 'hd', 'guide'].includes(commandName)) {
-            const huongdanCommand = require('../../commands/minigame/huongdan');
-            return huongdanCommand.execute(message, args);
-        }
-
-        // ?lenh, ?cmd, ?commands - Danh sách lệnh ngắn gọn
-        if (['lenh', 'cmd', 'commands'].includes(commandName)) {
-            const lenhCommand = require('../../commands/minigame/lenh');
-            return lenhCommand.execute(message, args);
-        }
-
-        // ?look - Xem thông tin item
-        if (commandName === 'look') {
-            const lookCommand = require('../../commands/minigame/look');
-            return lookCommand.execute(message, args);
-        }
-
-        // ?use, ?u, ?sudung - Sử dụng item
-        if (['use', 'u', 'sudung'].includes(commandName)) {
-            const useCommand = require('../../commands/minigame/use');
-            return useCommand.execute(message, args);
-        }
-
-        // ?daden, ?dd, ?truyen - Chuyển dòng trang bị
-        if (['daden', 'dd', 'truyen'].includes(commandName)) {
-            const dadenCommand = require('../../commands/minigame/daden');
-            return dadenCommand.execute(message, args);
-        }
-
-        // ?update - Xem các cập nhật mới
-        if (commandName === 'update') {
-            const updateCommand = require('../../commands/minigame/update');
-            return updateCommand.execute(message, args);
-        }
-
-        // ?reset, ?resetplayer - Reset player data (Owner only)
-        if (['reset', 'resetplayer'].includes(commandName)) {
-            return resetplayerCommand.execute(message, args, commandName);
-        }
-
-        // ?donedung - Force complete dungeon (owner only)
-        if (commandName === 'donedung') {
-            return donedungCommand.execute(message, args);
-        }
-
-        // ?addnhuafull - Fill nhựa to max (owner only)
-        if (commandName === 'addnhuafull') {
-            return addnhuafullCommand.execute(message, args);
-        }
-
-        // Xử lý pickrole command (alias: pr)
+        // Xá»­ lĂ½ pickrole command (alias: pr)
         if (commandName === 'pickrole' || commandName === 'pr') {
             const { dpsSubTypes, findDpsSubType, getAllDpsRoleNames } = require('../../commands/quanly/pickrole');
             const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -1936,45 +1661,45 @@ module.exports = {
             const guild = message.guild;
             const validRoles = ['dps', 'healer', 'tanker'];
             const roleConfig = {
-                'dps': { name: 'DPS', color: 0x0099FF, emoji: '🔵' },
-                'healer': { name: 'Healer', color: 0x00FF00, emoji: '🟢' },
-                'tanker': { name: 'Tanker', color: 0xFF9900, emoji: '🟠' }
+                'dps': { name: 'DPS', color: 0x0099FF, emoji: 'đŸ”µ' },
+                'healer': { name: 'Healer', color: 0x00FF00, emoji: 'đŸŸ¢' },
+                'tanker': { name: 'Tanker', color: 0xFF9900, emoji: 'đŸŸ ' }
             };
 
-            // Kiểm tra có mention không (pick cho người khác)
+            // Kiá»ƒm tra cĂ³ mention khĂ´ng (pick cho ngÆ°á»i khĂ¡c)
             const mentionedUser = message.mentions.members.first();
 
             if (mentionedUser) {
-                // Pick role cho người khác - chỉ Quản Lý được dùng
-                const quanLyRole = guild.roles.cache.find(r => r.name === 'Quản Lý');
+                // Pick role cho ngÆ°á»i khĂ¡c - chá»‰ Quáº£n LĂ½ Ä‘Æ°á»£c dĂ¹ng
+                const quanLyRole = guild.roles.cache.find(r => r.name === 'Quáº£n LĂ½');
                 if (!quanLyRole || !message.member.roles.cache.has(quanLyRole.id)) {
                     return message.reply({
-                        content: '❌ Chỉ **Quản Lý** mới được pick role cho người khác!',
+                        content: 'âŒ Chá»‰ **Quáº£n LĂ½** má»›i Ä‘Æ°á»£c pick role cho ngÆ°á»i khĂ¡c!',
                         allowedMentions: { repliedUser: false }
                     });
                 }
 
-                // Lấy role từ arg thứ 2 và dpsType từ arg thứ 3 (nếu có)
+                // Láº¥y role tá»« arg thá»© 2 vĂ  dpsType tá»« arg thá»© 3 (náº¿u cĂ³)
                 const roleArg = args[1]?.toLowerCase();
                 const dpsTypeArg = args[2]?.toLowerCase();
 
                 if (!roleArg || !validRoles.includes(roleArg)) {
-                    const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  • **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
+                    const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  â€¢ **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
                     return message.reply({
-                        content: `❌ Cú pháp: \`${prefix}pickrole @user <dps|healer|tanker> [loại_dps]\`\n\n**Ví dụ:**\n\`${prefix}pickrole @Rain healer\`\n\`${prefix}pickrole @Rain dps qd\`\n\n**Loại DPS:**\n${dpsTypesHelp}`,
+                        content: `âŒ CĂº phĂ¡p: \`${prefix}pickrole @user <dps|healer|tanker> [loáº¡i_dps]\`\n\n**VĂ­ dá»¥:**\n\`${prefix}pickrole @Rain healer\`\n\`${prefix}pickrole @Rain dps qd\`\n\n**Loáº¡i DPS:**\n${dpsTypesHelp}`,
                         allowedMentions: { repliedUser: false }
                     });
                 }
 
                 let selectedRoleConfig = roleConfig[roleArg];
 
-                // Xử lý DPS sub-type nếu có - cấp CẢ DPS + sub-type role
+                // Xá»­ lĂ½ DPS sub-type náº¿u cĂ³ - cáº¥p Cáº¢ DPS + sub-type role
                 if (roleArg === 'dps' && dpsTypeArg) {
                     const dpsSubConfig = findDpsSubType(dpsTypeArg);
                     if (!dpsSubConfig) {
-                        const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  • **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
+                        const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  â€¢ **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
                         return message.reply({
-                            content: `❌ Loại DPS không hợp lệ!\n\n**Các loại DPS:**\n${dpsTypesHelp}`,
+                            content: `âŒ Loáº¡i DPS khĂ´ng há»£p lá»‡!\n\n**CĂ¡c loáº¡i DPS:**\n${dpsTypesHelp}`,
                             allowedMentions: { repliedUser: false }
                         });
                     }
@@ -1989,26 +1714,26 @@ module.exports = {
                         }
                     }
 
-                    // Chỉ xóa sub-types, không xóa DPS
+                    // Chá»‰ xĂ³a sub-types, khĂ´ng xĂ³a DPS
                     const subTypesToRemove = rolesToRemove.filter(r => r.name !== 'DPS');
 
-                    // Tìm hoặc tạo role DPS chính
+                    // TĂ¬m hoáº·c táº¡o role DPS chĂ­nh
                     let dpsRole = guild.roles.cache.find(r => r.name === 'DPS');
                     if (!dpsRole) {
                         dpsRole = await guild.roles.create({
                             name: 'DPS',
                             color: 0x0099FF,
-                            reason: 'Tạo role DPS cho hệ thống pickrole'
+                            reason: 'Táº¡o role DPS cho há»‡ thá»‘ng pickrole'
                         });
                     }
 
-                    // Tìm hoặc tạo role sub-type
+                    // TĂ¬m hoáº·c táº¡o role sub-type
                     let subTypeRole = guild.roles.cache.find(r => r.name === dpsSubConfig.name);
                     if (!subTypeRole) {
                         subTypeRole = await guild.roles.create({
                             name: dpsSubConfig.name,
                             color: dpsSubConfig.color,
-                            reason: `Tạo role ${dpsSubConfig.name} cho hệ thống pickrole`
+                            reason: `Táº¡o role ${dpsSubConfig.name} cho há»‡ thá»‘ng pickrole`
                         });
                     }
 
@@ -2019,15 +1744,15 @@ module.exports = {
 
                     const successEmbed = new EmbedBuilder()
                         .setColor(dpsSubConfig.color)
-                        .setTitle(`🔵 Đã set role thành công!`)
-                        .setDescription(`Đã set **DPS** + **${dpsSubConfig.name}** cho ${targetMember}!` +
-                            (subTypesToRemove.length > 0 ? `\n\n*Đã xóa role cũ: ${subTypesToRemove.map(r => r.name).join(', ')}*` : ''))
+                        .setTitle(`đŸ”µ ÄĂ£ set role thĂ nh cĂ´ng!`)
+                        .setDescription(`ÄĂ£ set **DPS** + **${dpsSubConfig.name}** cho ${targetMember}!` +
+                            (subTypesToRemove.length > 0 ? `\n\n*ÄĂ£ xĂ³a role cÅ©: ${subTypesToRemove.map(r => r.name).join(', ')}*` : ''))
                         .setTimestamp();
 
                     return message.reply({ embeds: [successEmbed], allowedMentions: { repliedUser: false } });
                 }
 
-                // Xử lý Healer/Tanker cho người khác
+                // Xá»­ lĂ½ Healer/Tanker cho ngÆ°á»i khĂ¡c
                 const targetMember = mentionedUser;
 
                 try {
@@ -2045,7 +1770,7 @@ module.exports = {
                         targetRole = await guild.roles.create({
                             name: selectedRoleConfig.name,
                             color: selectedRoleConfig.color,
-                            reason: `Tạo role ${selectedRoleConfig.name} cho hệ thống pickrole`
+                            reason: `Táº¡o role ${selectedRoleConfig.name} cho há»‡ thá»‘ng pickrole`
                         });
                     }
 
@@ -2056,37 +1781,37 @@ module.exports = {
 
                     const successEmbed = new EmbedBuilder()
                         .setColor(selectedRoleConfig.color)
-                        .setTitle(`${selectedRoleConfig.emoji} Đã set role thành công!`)
-                        .setDescription(`Đã set **${selectedRoleConfig.name}** cho ${targetMember}!` +
-                            (rolesToRemove.length > 0 ? `\n\n*Đã xóa role cũ: ${rolesToRemove.map(r => r.name).join(', ')}*` : ''))
+                        .setTitle(`${selectedRoleConfig.emoji} ÄĂ£ set role thĂ nh cĂ´ng!`)
+                        .setDescription(`ÄĂ£ set **${selectedRoleConfig.name}** cho ${targetMember}!` +
+                            (rolesToRemove.length > 0 ? `\n\n*ÄĂ£ xĂ³a role cÅ©: ${rolesToRemove.map(r => r.name).join(', ')}*` : ''))
                         .setTimestamp();
 
                     return message.reply({ embeds: [successEmbed], allowedMentions: { repliedUser: false } });
 
                 } catch (error) {
-                    console.error('[pickrole] Lỗi khi set role cho người khác:', error);
-                    return message.reply('❌ Có lỗi xảy ra khi xử lý role!');
+                    console.error('[pickrole] Lá»—i khi set role cho ngÆ°á»i khĂ¡c:', error);
+                    return message.reply('âŒ CĂ³ lá»—i xáº£y ra khi xá»­ lĂ½ role!');
                 }
             }
 
-            // Pick role cho chính mình
+            // Pick role cho chĂ­nh mĂ¬nh
             const roleArg = args[0]?.toLowerCase();
             const dpsTypeArg = args[1]?.toLowerCase();
 
-            // Nếu không có argument → hiển thị buttons để chọn
+            // Náº¿u khĂ´ng cĂ³ argument â†’ hiá»ƒn thá»‹ buttons Ä‘á»ƒ chá»n
             if (!roleArg) {
                 const embed = new EmbedBuilder()
                     .setColor(0x5865F2)
-                    .setTitle('🎮 Chọn Role Của Bạn')
-                    .setDescription('Chọn một trong các role dưới đây:\n\n' +
-                        '🟢 **Healer** - Hỗ trợ và hồi máu\n' +
-                        '🟠 **Tanker** - Chịu đòn và bảo vệ đồng đội\n\n' +
-                        '**🔵 DPS - Sát thương chính:**\n' +
-                        '🪭 **Quạt Dù** │ 🗡️ **Vô Danh** │ ⚔️ **Song Đao** │ 🔱 **Cửu Kiếm** │ 🌂 **Dù Roi**\n' +
-                        '🔪 **Hoành Đao/Mđ**\n\n' +
-                        'ℹ️ *Chọn lại role khác sẽ tự động thay đổi role hiện tại*')
+                    .setTitle('đŸ® Chá»n Role Cá»§a Báº¡n')
+                    .setDescription('Chá»n má»™t trong cĂ¡c role dÆ°á»›i Ä‘Ă¢y:\n\n' +
+                        'đŸŸ¢ **Healer** - Há»— trá»£ vĂ  há»“i mĂ¡u\n' +
+                        'đŸŸ  **Tanker** - Chá»‹u Ä‘Ă²n vĂ  báº£o vá»‡ Ä‘á»“ng Ä‘á»™i\n\n' +
+                        '**đŸ”µ DPS - SĂ¡t thÆ°Æ¡ng chĂ­nh:**\n' +
+                        'đŸª­ **Quáº¡t DĂ¹** â”‚ đŸ—¡ï¸ **VĂ´ Danh** â”‚ â”ï¸ **Song Äao** â”‚ đŸ”± **Cá»­u Kiáº¿m** â”‚ đŸŒ‚ **DĂ¹ Roi**\n' +
+                        'đŸ”ª **HoĂ nh Äao/MÄ‘**\n\n' +
+                        'â„¹ï¸ *Chá»n láº¡i role khĂ¡c sáº½ tá»± Ä‘á»™ng thay Ä‘á»•i role hiá»‡n táº¡i*')
                     .setTimestamp()
-                    .setFooter({ text: 'Chọn role trong game của bạn!' });
+                    .setFooter({ text: 'Chá»n role trong game cá»§a báº¡n!' });
 
                 // Row 1: DPS sub-types
                 const userId = message.author.id;
@@ -2094,38 +1819,38 @@ module.exports = {
                     .addComponents(
                         new ButtonBuilder()
                             .setCustomId(`pickrole_dps_quatdu_${userId}`)
-                            .setLabel('Quạt Dù')
-                            .setEmoji('🪭')
+                            .setLabel('Quáº¡t DĂ¹')
+                            .setEmoji('đŸª­')
                             .setStyle(ButtonStyle.Primary),
                         new ButtonBuilder()
                             .setCustomId(`pickrole_dps_vodanh_${userId}`)
-                            .setLabel('Vô Danh')
-                            .setEmoji('🗡️')
+                            .setLabel('VĂ´ Danh')
+                            .setEmoji('đŸ—¡ï¸')
                             .setStyle(ButtonStyle.Primary),
                         new ButtonBuilder()
                             .setCustomId(`pickrole_dps_songdao_${userId}`)
-                            .setLabel('Song Đao')
-                            .setEmoji('⚔️')
+                            .setLabel('Song Äao')
+                            .setEmoji('â”ï¸')
                             .setStyle(ButtonStyle.Primary),
                         new ButtonBuilder()
                             .setCustomId(`pickrole_dps_cuukiem_${userId}`)
-                            .setLabel('Cửu Kiếm')
-                            .setEmoji('🔱')
+                            .setLabel('Cá»­u Kiáº¿m')
+                            .setEmoji('đŸ”±')
                             .setStyle(ButtonStyle.Primary),
                         new ButtonBuilder()
                             .setCustomId(`pickrole_dps_duroi_${userId}`)
-                            .setLabel('Dù Roi')
-                            .setEmoji('🌂')
+                            .setLabel('DĂ¹ Roi')
+                            .setEmoji('đŸŒ‚')
                             .setStyle(ButtonStyle.Primary)
                     );
 
-                // Row 2: DPS sub-types tiếp (Hoành Đao/Mđ)
+                // Row 2: DPS sub-types tiáº¿p (HoĂ nh Äao/MÄ‘)
                 const dpsRow2 = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
                             .setCustomId(`pickrole_dps_hoanhdao_${userId}`)
-                            .setLabel('Hoành Đao/Mđ')
-                            .setEmoji('🔪')
+                            .setLabel('HoĂ nh Äao/MÄ‘')
+                            .setEmoji('đŸ”ª')
                             .setStyle(ButtonStyle.Primary)
                     );
 
@@ -2135,22 +1860,22 @@ module.exports = {
                         new ButtonBuilder()
                             .setCustomId(`pickrole_healer_${userId}`)
                             .setLabel('Healer')
-                            .setEmoji('🟢')
+                            .setEmoji('đŸŸ¢')
                             .setStyle(ButtonStyle.Success),
                         new ButtonBuilder()
                             .setCustomId(`pickrole_tanker_${userId}`)
                             .setLabel('Tanker')
-                            .setEmoji('🟠')
+                            .setEmoji('đŸŸ ')
                             .setStyle(ButtonStyle.Secondary)
                     );
 
                 return message.reply({ embeds: [embed], components: [dpsRow, dpsRow2, otherRow] });
             }
 
-            // Kiểm tra nếu roleArg là alias của DPS sub-type (ví dụ: ?pickrole sd)
+            // Kiá»ƒm tra náº¿u roleArg lĂ  alias cá»§a DPS sub-type (vĂ­ dá»¥: ?pickrole sd)
             const directDpsSubType = findDpsSubType(roleArg);
             if (directDpsSubType) {
-                // Coi như user gõ: ?pickrole dps <roleArg>
+                // Coi nhÆ° user gĂµ: ?pickrole dps <roleArg>
                 const member = message.member;
                 const dpsSubConfig = directDpsSubType;
 
@@ -2171,7 +1896,7 @@ module.exports = {
                         dpsRole = await guild.roles.create({
                             name: 'DPS',
                             color: 0x0099FF,
-                            reason: 'Tạo role DPS cho hệ thống pickrole'
+                            reason: 'Táº¡o role DPS cho há»‡ thá»‘ng pickrole'
                         });
                     }
 
@@ -2180,15 +1905,15 @@ module.exports = {
                         subTypeRole = await guild.roles.create({
                             name: dpsSubConfig.name,
                             color: dpsSubConfig.color,
-                            reason: `Tạo role ${dpsSubConfig.name} cho hệ thống pickrole`
+                            reason: `Táº¡o role ${dpsSubConfig.name} cho há»‡ thá»‘ng pickrole`
                         });
                     }
 
                     if (member.roles.cache.has(dpsRole.id) && member.roles.cache.has(subTypeRole.id)) {
                         const embed = new EmbedBuilder()
                             .setColor(dpsSubConfig.color)
-                            .setTitle(`🔵 Bạn đã có role này rồi!`)
-                            .setDescription(`Bạn đã là **DPS ${dpsSubConfig.name}** rồi!`)
+                            .setTitle(`đŸ”µ Báº¡n Ä‘Ă£ cĂ³ role nĂ y rá»“i!`)
+                            .setDescription(`Báº¡n Ä‘Ă£ lĂ  **DPS ${dpsSubConfig.name}** rá»“i!`)
                             .setTimestamp();
                         return message.reply({ embeds: [embed] });
                     }
@@ -2200,9 +1925,9 @@ module.exports = {
 
                     const successEmbed = new EmbedBuilder()
                         .setColor(dpsSubConfig.color)
-                        .setTitle(`🔵 Đã chọn role thành công!`)
-                        .setDescription(`Bạn đã chọn role **DPS** + **${dpsSubConfig.name}**!` +
-                            (subTypesToRemove.length > 0 ? `\n\n*Đã xóa role cũ: ${subTypesToRemove.map(r => r.name).join(', ')}*` : ''))
+                        .setTitle(`đŸ”µ ÄĂ£ chá»n role thĂ nh cĂ´ng!`)
+                        .setDescription(`Báº¡n Ä‘Ă£ chá»n role **DPS** + **${dpsSubConfig.name}**!` +
+                            (subTypesToRemove.length > 0 ? `\n\n*ÄĂ£ xĂ³a role cÅ©: ${subTypesToRemove.map(r => r.name).join(', ')}*` : ''))
                         .setTimestamp();
 
                     await message.reply({ embeds: [successEmbed] });
@@ -2241,42 +1966,42 @@ module.exports = {
                         const ovd = bangchienOverviews.get(guildId);
                         if (ovd && ovd.message) { try { await ovd.message.edit({ embeds: [createOverviewEmbed(guildId, message.guild)], components: [createOverviewButton(guildId)].filter(Boolean) }); } catch(e){} }
                     } catch (e) {
-                        console.error('[pickrole alias] Lỗi khi refresh bangchien:', e);
+                        console.error('[pickrole alias] Lá»—i khi refresh bangchien:', e);
                     }
                     return;
                 } catch (error) {
-                    console.error('Lỗi khi xử lý pickrole direct DPS:', error);
+                    console.error('Lá»—i khi xá»­ lĂ½ pickrole direct DPS:', error);
                     if (error.code === 50013) {
-                        return message.reply('❌ Bot không có quyền quản lý roles! Liên hệ admin.');
+                        return message.reply('âŒ Bot khĂ´ng cĂ³ quyá»n quáº£n lĂ½ roles! LiĂªn há»‡ admin.');
                     }
-                    return message.reply('❌ Có lỗi xảy ra khi xử lý role!');
+                    return message.reply('âŒ CĂ³ lá»—i xáº£y ra khi xá»­ lĂ½ role!');
                 }
             }
 
-            // Kiểm tra role hợp lệ
+            // Kiá»ƒm tra role há»£p lá»‡
             if (!validRoles.includes(roleArg)) {
-                const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  • **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
+                const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  â€¢ **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
                 return message.reply({
-                    content: `❌ Role không hợp lệ! Chọn: \`dps\`, \`healer\`, hoặc \`tanker\`.\n\n**Hoặc dùng lệnh tắt:**\n\`${prefix}pickrole qd\` - DPS Quạt Dù\n\`${prefix}pickrole vd\` - DPS Vô Danh\n\`${prefix}pickrole sd\` - DPS Song Đao\n\`${prefix}pickrole 9k\` - DPS Cửu Kiếm\n\`${prefix}pickrole dr\` - DPS Dù Roi\n\`${prefix}pickrole hd\` - DPS Hoành Đao/Mđ`
+                    content: `âŒ Role khĂ´ng há»£p lá»‡! Chá»n: \`dps\`, \`healer\`, hoáº·c \`tanker\`.\n\n**Hoáº·c dĂ¹ng lá»‡nh táº¯t:**\n\`${prefix}pickrole qd\` - DPS Quáº¡t DĂ¹\n\`${prefix}pickrole vd\` - DPS VĂ´ Danh\n\`${prefix}pickrole sd\` - DPS Song Äao\n\`${prefix}pickrole 9k\` - DPS Cá»­u Kiáº¿m\n\`${prefix}pickrole dr\` - DPS DĂ¹ Roi\n\`${prefix}pickrole hd\` - DPS HoĂ nh Äao/MÄ‘`
                 });
             }
 
-            // Xử lý role selection
+            // Xá»­ lĂ½ role selection
             const member = message.member;
             let selectedRoleConfig = roleConfig[roleArg];
 
-            // Xử lý DPS sub-type nếu có - cấp CẢ DPS + sub-type role
+            // Xá»­ lĂ½ DPS sub-type náº¿u cĂ³ - cáº¥p Cáº¢ DPS + sub-type role
             if (roleArg === 'dps') {
                 if (dpsTypeArg) {
                     const dpsSubConfig = findDpsSubType(dpsTypeArg);
                     if (!dpsSubConfig) {
-                        const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  • **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
+                        const dpsTypesHelp = Object.values(dpsSubTypes).map(c => `  â€¢ **${c.name}**: \`${c.aliases.join(', ')}\``).join('\n');
                         return message.reply({
-                            content: `❌ Loại DPS không hợp lệ!\n\n**Các loại DPS:**\n${dpsTypesHelp}\n\n**Ví dụ:** \`${prefix}pickrole dps qd\``
+                            content: `âŒ Loáº¡i DPS khĂ´ng há»£p lá»‡!\n\n**CĂ¡c loáº¡i DPS:**\n${dpsTypesHelp}\n\n**VĂ­ dá»¥:** \`${prefix}pickrole dps qd\``
                         });
                     }
 
-                    // Cấp cả DPS + sub-type role
+                    // Cáº¥p cáº£ DPS + sub-type role
                     try {
                         const allRoleNames = ['DPS', 'Healer', 'Tanker', ...getAllDpsRoleNames()];
                         const rolesToRemove = [];
@@ -2287,35 +2012,35 @@ module.exports = {
                             }
                         }
 
-                        // Chỉ xóa sub-types, không xóa DPS
+                        // Chá»‰ xĂ³a sub-types, khĂ´ng xĂ³a DPS
                         const subTypesToRemove = rolesToRemove.filter(r => r.name !== 'DPS');
 
-                        // Tìm hoặc tạo role DPS chính
+                        // TĂ¬m hoáº·c táº¡o role DPS chĂ­nh
                         let dpsRole = guild.roles.cache.find(r => r.name === 'DPS');
                         if (!dpsRole) {
                             dpsRole = await guild.roles.create({
                                 name: 'DPS',
                                 color: 0x0099FF,
-                                reason: 'Tạo role DPS cho hệ thống pickrole'
+                                reason: 'Táº¡o role DPS cho há»‡ thá»‘ng pickrole'
                             });
                         }
 
-                        // Tìm hoặc tạo role sub-type
+                        // TĂ¬m hoáº·c táº¡o role sub-type
                         let subTypeRole = guild.roles.cache.find(r => r.name === dpsSubConfig.name);
                         if (!subTypeRole) {
                             subTypeRole = await guild.roles.create({
                                 name: dpsSubConfig.name,
                                 color: dpsSubConfig.color,
-                                reason: `Tạo role ${dpsSubConfig.name} cho hệ thống pickrole`
+                                reason: `Táº¡o role ${dpsSubConfig.name} cho há»‡ thá»‘ng pickrole`
                             });
                         }
 
-                        // Kiểm tra đã có cả 2 chưa
+                        // Kiá»ƒm tra Ä‘Ă£ cĂ³ cáº£ 2 chÆ°a
                         if (member.roles.cache.has(dpsRole.id) && member.roles.cache.has(subTypeRole.id)) {
                             const embed = new EmbedBuilder()
                                 .setColor(dpsSubConfig.color)
-                                .setTitle(`🔵 Bạn đã có role này rồi!`)
-                                .setDescription(`Bạn đã là **DPS ${dpsSubConfig.name}** rồi!`)
+                                .setTitle(`đŸ”µ Báº¡n Ä‘Ă£ cĂ³ role nĂ y rá»“i!`)
+                                .setDescription(`Báº¡n Ä‘Ă£ lĂ  **DPS ${dpsSubConfig.name}** rá»“i!`)
                                 .setTimestamp();
                             return message.reply({ embeds: [embed] });
                         }
@@ -2327,9 +2052,9 @@ module.exports = {
 
                         const successEmbed = new EmbedBuilder()
                             .setColor(dpsSubConfig.color)
-                            .setTitle(`🔵 Đã chọn role thành công!`)
-                            .setDescription(`Bạn đã chọn role **DPS** + **${dpsSubConfig.name}**!` +
-                                (subTypesToRemove.length > 0 ? `\n\n*Đã xóa role cũ: ${subTypesToRemove.map(r => r.name).join(', ')}*` : ''))
+                            .setTitle(`đŸ”µ ÄĂ£ chá»n role thĂ nh cĂ´ng!`)
+                            .setDescription(`Báº¡n Ä‘Ă£ chá»n role **DPS** + **${dpsSubConfig.name}**!` +
+                                (subTypesToRemove.length > 0 ? `\n\n*ÄĂ£ xĂ³a role cÅ©: ${subTypesToRemove.map(r => r.name).join(', ')}*` : ''))
                             .setTimestamp();
 
                         await message.reply({ embeds: [successEmbed] });
@@ -2368,52 +2093,52 @@ module.exports = {
                             const ovd = bangchienOverviews.get(guildId);
                             if (ovd && ovd.message) { try { await ovd.message.edit({ embeds: [createOverviewEmbed(guildId, message.guild)], components: [createOverviewButton(guildId)].filter(Boolean) }); } catch(e){} }
                         } catch (e) {
-                            console.error('[pickrole prefix DPS] Lỗi khi refresh bangchien:', e);
+                            console.error('[pickrole prefix DPS] Lá»—i khi refresh bangchien:', e);
                         }
                         return;
                     } catch (error) {
-                        console.error('Lỗi khi xử lý pickrole DPS:', error);
+                        console.error('Lá»—i khi xá»­ lĂ½ pickrole DPS:', error);
                         if (error.code === 50013) {
-                            return message.reply('❌ Bot không có quyền quản lý roles! Liên hệ admin.');
+                            return message.reply('âŒ Bot khĂ´ng cĂ³ quyá»n quáº£n lĂ½ roles! LiĂªn há»‡ admin.');
                         }
-                        return message.reply('❌ Có lỗi xảy ra khi xử lý role!');
+                        return message.reply('âŒ CĂ³ lá»—i xáº£y ra khi xá»­ lĂ½ role!');
                     }
                 } else {
-                    // DPS không có sub-type → hiển thị 4 nút để chọn
+                    // DPS khĂ´ng cĂ³ sub-type â†’ hiá»ƒn thá»‹ 4 nĂºt Ä‘á»ƒ chá»n
                     const userId = message.author.id;
                     const dpsEmbed = new EmbedBuilder()
                         .setColor(0x0099FF)
-                        .setTitle('🔵 Chọn Loại DPS')
-                        .setDescription('Chọn một trong các loại DPS dưới đây:')
+                        .setTitle('đŸ”µ Chá»n Loáº¡i DPS')
+                        .setDescription('Chá»n má»™t trong cĂ¡c loáº¡i DPS dÆ°á»›i Ä‘Ă¢y:')
                         .setTimestamp()
-                        .setFooter({ text: 'Chọn role DPS của bạn!' });
+                        .setFooter({ text: 'Chá»n role DPS cá»§a báº¡n!' });
 
                     const dpsRow = new ActionRowBuilder()
                         .addComponents(
                             new ButtonBuilder()
                                 .setCustomId(`pickrole_dps_quatdu_${userId}`)
-                                .setLabel('Quạt Dù')
-                                .setEmoji('🪭')
+                                .setLabel('Quáº¡t DĂ¹')
+                                .setEmoji('đŸª­')
                                 .setStyle(ButtonStyle.Primary),
                             new ButtonBuilder()
                                 .setCustomId(`pickrole_dps_vodanh_${userId}`)
-                                .setLabel('Vô Danh')
-                                .setEmoji('🗡️')
+                                .setLabel('VĂ´ Danh')
+                                .setEmoji('đŸ—¡ï¸')
                                 .setStyle(ButtonStyle.Primary),
                             new ButtonBuilder()
                                 .setCustomId(`pickrole_dps_songdao_${userId}`)
-                                .setLabel('Song Đao')
-                                .setEmoji('⚔️')
+                                .setLabel('Song Äao')
+                                .setEmoji('â”ï¸')
                                 .setStyle(ButtonStyle.Primary),
                             new ButtonBuilder()
                                 .setCustomId(`pickrole_dps_cuukiem_${userId}`)
-                                .setLabel('Cửu Kiếm')
-                                .setEmoji('🔱')
+                                .setLabel('Cá»­u Kiáº¿m')
+                                .setEmoji('đŸ”±')
                                 .setStyle(ButtonStyle.Primary),
                             new ButtonBuilder()
                                 .setCustomId(`pickrole_dps_duroi_${userId}`)
-                                .setLabel('Dù Roi')
-                                .setEmoji('🌂')
+                                .setLabel('DĂ¹ Roi')
+                                .setEmoji('đŸŒ‚')
                                 .setStyle(ButtonStyle.Primary)
                         );
 
@@ -2424,7 +2149,7 @@ module.exports = {
             try {
                 const allRoleNames = ['DPS', 'Healer', 'Tanker', ...getAllDpsRoleNames()];
 
-                // Tìm và xóa roles cũ
+                // TĂ¬m vĂ  xĂ³a roles cÅ©
                 const rolesToRemove = [];
                 for (const roleName of allRoleNames) {
                     const role = guild.roles.cache.find(r => r.name === roleName);
@@ -2433,39 +2158,39 @@ module.exports = {
                     }
                 }
 
-                // Tìm hoặc tạo role mới
+                // TĂ¬m hoáº·c táº¡o role má»›i
                 let targetRole = guild.roles.cache.find(r => r.name === selectedRoleConfig.name);
                 if (!targetRole) {
                     targetRole = await guild.roles.create({
                         name: selectedRoleConfig.name,
                         color: selectedRoleConfig.color,
-                        reason: `Tạo role ${selectedRoleConfig.name} cho hệ thống pickrole`
+                        reason: `Táº¡o role ${selectedRoleConfig.name} cho há»‡ thá»‘ng pickrole`
                     });
                 }
 
-                // Kiểm tra nếu đã có role
+                // Kiá»ƒm tra náº¿u Ä‘Ă£ cĂ³ role
                 if (member.roles.cache.has(targetRole.id)) {
                     const embed = new EmbedBuilder()
                         .setColor(selectedRoleConfig.color)
-                        .setTitle(`${selectedRoleConfig.emoji} Bạn đã có role này rồi!`)
-                        .setDescription(`Bạn đã là **${selectedRoleConfig.name}** rồi!`)
+                        .setTitle(`${selectedRoleConfig.emoji} Báº¡n Ä‘Ă£ cĂ³ role nĂ y rá»“i!`)
+                        .setDescription(`Báº¡n Ä‘Ă£ lĂ  **${selectedRoleConfig.name}** rá»“i!`)
                         .setTimestamp();
 
                     return message.reply({ embeds: [embed] });
                 }
 
-                // Xóa roles cũ và cấp role mới
+                // XĂ³a roles cÅ© vĂ  cáº¥p role má»›i
                 if (rolesToRemove.length > 0) {
                     await member.roles.remove(rolesToRemove);
                 }
                 await member.roles.add(targetRole);
 
-                // Thông báo thành công
+                // ThĂ´ng bĂ¡o thĂ nh cĂ´ng
                 const successEmbed = new EmbedBuilder()
                     .setColor(selectedRoleConfig.color)
-                    .setTitle(`${selectedRoleConfig.emoji} Đã chọn role thành công!`)
-                    .setDescription(`Bạn đã chọn role **${selectedRoleConfig.name}**!` +
-                        (rolesToRemove.length > 0 ? `\n\n*Đã xóa role cũ: ${rolesToRemove.map(r => r.name).join(', ')}*` : ''))
+                    .setTitle(`${selectedRoleConfig.emoji} ÄĂ£ chá»n role thĂ nh cĂ´ng!`)
+                    .setDescription(`Báº¡n Ä‘Ă£ chá»n role **${selectedRoleConfig.name}**!` +
+                        (rolesToRemove.length > 0 ? `\n\n*ÄĂ£ xĂ³a role cÅ©: ${rolesToRemove.map(r => r.name).join(', ')}*` : ''))
                     .setTimestamp();
 
                 await message.reply({ embeds: [successEmbed] });
@@ -2479,17 +2204,17 @@ module.exports = {
                     const guildId = message.guild.id;
                     const odUserId = message.author.id;
 
-                    // Force-fetch member mới từ Discord API
+                    // Force-fetch member má»›i tá»« Discord API
                     await message.guild.members.fetch(odUserId).catch(() => null);
 
-                    // Thử từ runtime Map trước
+                    // Thá»­ tá»« runtime Map trÆ°á»›c
                     const partyKeys = getGuildBangchienKeys(guildId);
                     let synced = false;
 
                     for (const partyKey of partyKeys) {
                         const registrations = bangchienRegistrations.get(partyKey) || [];
                         if (registrations.some(r => r.id === odUserId)) {
-                            // Refresh embed từng ngày
+                            // Refresh embed tá»«ng ngĂ y
                             const notifData = bangchienNotifications.get(partyKey);
                             if (notifData && notifData.message) {
                                 try { await notifData.message.delete(); } catch (e) { }
@@ -2513,18 +2238,18 @@ module.exports = {
                         }
                     }
 
-                    // DB FALLBACK: nếu runtime Map rỗng (sau bot restart), query DB trực tiếp
+                    // DB FALLBACK: náº¿u runtime Map rá»—ng (sau bot restart), query DB trá»±c tiáº¿p
                     if (!synced && supaSync.isReady()) {
                         const allSessions = db.getActiveBangchienByGuild(guildId);
                         for (const session of allSessions) {
-                            // Kiểm tra user có trong session này không
+                            // Kiá»ƒm tra user cĂ³ trong session nĂ y khĂ´ng
                             const allTeams = [...(session.team_attack1||[]), ...(session.team_attack2||[]), ...(session.team_defense||[]), ...(session.team_forest||[])];
                             if (allTeams.some(m => m.id === odUserId)) {
                                 const f = supaSync.formatActiveSession(session, db, message.guild);
                                 if (f) { await supaSync.syncBCSession(guildId, session.day, f); synced = true; }
                             }
                         }
-                        if (synced) console.log(`[pickrole text] ✅ DB fallback: synced Supabase`);
+                        if (synced) console.log(`[pickrole text] âœ… DB fallback: synced Supabase`);
                     }
 
                     // Refresh overview embed
@@ -2535,17 +2260,17 @@ module.exports = {
                         } catch(e) { }
                     }
                 } catch (e) {
-                    console.error('[pickrole prefix] Lỗi khi refresh bangchien:', e);
+                    console.error('[pickrole prefix] Lá»—i khi refresh bangchien:', e);
                 }
 
             } catch (error) {
-                console.error('Lỗi khi xử lý pickrole:', error);
+                console.error('Lá»—i khi xá»­ lĂ½ pickrole:', error);
 
                 if (error.code === 50013) {
-                    return message.reply('❌ Bot không có quyền quản lý roles! Liên hệ admin.');
+                    return message.reply('âŒ Bot khĂ´ng cĂ³ quyá»n quáº£n lĂ½ roles! LiĂªn há»‡ admin.');
                 }
 
-                return message.reply('❌ Có lỗi xảy ra khi xử lý role!');
+                return message.reply('âŒ CĂ³ lá»—i xáº£y ra khi xá»­ lĂ½ role!');
             }
         }
     }

@@ -3,7 +3,7 @@
  * Theo dõi thời gian voice chat và cộng EXP tự động mỗi 60s
  */
 
-const { addVoiceExp, getLevelReward, addHat } = require('../database/economy');
+const { addVoiceExp, getLevelReward, LEVEL_REWARDS } = require('../database/exp');
 const { EmbedBuilder } = require('discord.js');
 const { isAllowedGuildId } = require('../config/guildAccess');
 
@@ -80,13 +80,10 @@ async function handleLevelUp(discordId, result, channel) {
 
         const reward = getLevelReward(result.newLevel);
 
-        // Thưởng Hạt nếu có
+        // Gan role milestone neu co
         if (reward) {
-            addHat(discordId, reward.hat);
-
             // Tự động gán role thưởng + xóa role level cũ
             try {
-                const { LEVEL_REWARDS } = require('../database/economy');
                 let role = guild.roles.cache.find(r => r.name === reward.roleName);
                 if (!role) {
                     // Tạo role nếu chưa có
@@ -143,7 +140,7 @@ async function handleLevelUp(discordId, result, channel) {
             if (reward) {
                 embed.addFields({
                     name: '🎁 Phần thưởng',
-                    value: `+**${reward.hat.toLocaleString()} Hạt** + Role **${reward.roleName}**`,
+                    value: `Role **${reward.roleName}**`,
                     inline: false
                 });
                 embed.setColor(0xFFD700); // Vàng cho milestone

@@ -21,6 +21,7 @@ data/
 logs/
 
 # === Thư mục không cần thiết ===
+rac/
 backup bot/
 backup data/
 backup*/

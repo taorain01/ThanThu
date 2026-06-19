@@ -601,8 +601,8 @@ module.exports = {
 
         // Sync exp_levels lên Supabase (cho tab Level trên web profile)
         try {
-          const economy = require('../../database/economy');
-          await supaSync.syncExpLevels(economy);
+          const expDb = require('../../database/exp');
+          await supaSync.syncExpLevels(expDb);
         } catch (expSyncErr) {
           console.error('[Supabase] Lỗi sync exp_levels:', expSyncErr.message);
         }

@@ -7,7 +7,7 @@
 
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
-const { getAllExpLevels, getExpInfo, getPeriodicLeaderboard, getPeriodicExpInfo, getCurrentPeriodKeys } = require('../../database/economy');
+const { getAllExpLevels, getExpInfo, getPeriodicLeaderboard, getPeriodicExpInfo, getCurrentPeriodKeys } = require('../../database/exp');
 
 // Cấu hình các loại chu kỳ
 const PERIOD_CONFIG = {

@@ -5,7 +5,7 @@
 
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
-const { getExpInfo, getExpForLevel, getAllExpLevels } = require('../../database/economy');
+const { getExpInfo, getExpForLevel, getAllExpLevels } = require('../../database/exp');
 const path = require('path');
 
 // Đăng ký font (nếu có)

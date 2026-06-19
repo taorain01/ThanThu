@@ -112,25 +112,12 @@ async function handleCaproleMessage(message, client) {
     // Bỏ qua tin nhắn trống (không có text lẫn ảnh)
     const hasText = message.content.trim().length > 0;
     const images = [...message.attachments.values()].filter(a => a.contentType?.startsWith('image/'));
-    if (!hasText && images.length === 0) return false;
-
-    // Cooldown check
-    const now = Date.now();
-    const lastUsed = cooldowns.get(message.author.id);
-    if (lastUsed && now - lastUsed < COOLDOWN_MS) {
-        try { await message.react('⏳'); } catch (e) { }
-        return true;
-    }
+    if (!hasText && images.length === 0) return true;
 
     // Lấy danh sách roles
     const mappings = getRoleMappings();
     const codes = Object.keys(mappings);
-    if (codes.length === 0) return false;
-
-    // Set cooldown
-    cooldowns.set(message.author.id, Date.now());
-
-
+    if (codes.length === 0) return true;
 
     // So khớp text để tìm role phù hợp
     let parsed = null;
@@ -140,20 +127,26 @@ async function handleCaproleMessage(message, client) {
         console.log(`[CapRole] Text match: ${textMatchResult.role_code} (${textMatchResult.confidence}%)`);
     }
 
+    // Không phải yêu cầu cấp role: im lặng để chat thường không bị bot tương tác.
+    if (!parsed || !parsed.role_code || parsed.confidence < 30) return true;
+
+    // Cooldown chỉ áp dụng cho yêu cầu cấp role hợp lệ.
+    const now = Date.now();
+    const lastUsed = cooldowns.get(message.author.id);
+    if (lastUsed && now - lastUsed < COOLDOWN_MS) {
+        try { await message.react('⏳'); } catch (e) { }
+        return true;
+    }
+
+    cooldowns.set(message.author.id, Date.now());
+
     // === BƯỚC 3: Xử lý kết quả (chung cho cả Gemini và fallback) ===
     try {
-        // Không có kết quả từ cả Gemini lẫn fallback
-        if (!parsed || !parsed.role_code || parsed.confidence < 30) {
-            try { await message.react('❌'); } catch (e) { }
-            return true;
-        }
-
         const { role_code, confidence, reason } = parsed;
 
         // Tìm thông tin role
         const roleEntry = mappings[role_code];
         if (!roleEntry) {
-            try { await message.react('❌'); } catch (e) { }
             return true;
         }
 

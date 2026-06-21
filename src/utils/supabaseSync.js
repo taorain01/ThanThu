@@ -12,10 +12,12 @@ const { findLangGiaRole, hasLangGiaRole } = require('./langGiaRole');
 // Khởi tạo Supabase client với service_role key (full quyền)
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const ROSTER_TEMPLATE_LOOKBACK_DAYS = 14;
 
 let supabase = null;
 let supportsBcSessionsLockedColumn = true;
 let supportsBcSessionsTeamNamesColumn = true; // Flag auto-fallback cho cột team_names
+let supportsBcSessionsChannelIdColumn = true;
 let supportsBcSessionsDynamicRosterColumns = true;
 let supportsBcSessionsTeamsJsonColumn = true;
 let supportsBcTacticsSessionIdColumn = true;
@@ -192,6 +194,138 @@ async function saveRosterSnapshot(guildId, session, source = 'bot') {
     }
 }
 
+function getRosterTemplateCutoffIso(lookbackDays = ROSTER_TEMPLATE_LOOKBACK_DAYS) {
+    const days = Math.max(1, Number(lookbackDays) || ROSTER_TEMPLATE_LOOKBACK_DAYS);
+    return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function getRosterTemplateUpdatedMs(value) {
+    const ms = value ? new Date(value).getTime() : 0;
+    return Number.isFinite(ms) ? ms : 0;
+}
+
+function normalizeRosterTemplateCandidate(raw, source = 'unknown') {
+    if (!raw || typeof raw !== 'object') return null;
+    const time = normalizeBcTime(raw.time || LEAGUE_TIME);
+    if (time !== LEAGUE_TIME) return null;
+    const roster = bangchienRoster.normalizeRoster({
+        team_layout: raw.team_layout || null,
+        teams: raw.teams || raw.teams_json || null,
+        team_attack1: raw.team_attack1 || [],
+        team_attack2: raw.team_attack2 || [],
+        team_defense: raw.team_defense || [],
+        team_forest: raw.team_forest || [],
+        waiting_list: raw.waiting_list || []
+    });
+    if (!roster.layout.length || bangchienRoster.getTotalCapacity(roster) !== bangchienRoster.MAX_ACTIVE_MEMBERS) return null;
+    const storage = bangchienRoster.serializeRosterForStorage(roster);
+    return {
+        source,
+        source_session_id: raw.source_session_id || raw.id || null,
+        day: raw.day || null,
+        time,
+        updated_at: raw.captured_at || raw.source_updated_at || raw.updated_at || raw.created_at || null,
+        team_layout: roster.layout.map((team) => ({ ...team })),
+        team_names: storage.team_names || {},
+        team_sizes: storage.team_sizes || {}
+    };
+}
+
+function parseRosterTemplateLogRow(row) {
+    const details = parseJsonObject(row?.details, {});
+    const snapshot = bangchienRoster.parseJson(
+        details.after_fingerprint || details.snapshot || details.roster_snapshot,
+        null
+    );
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return null;
+    return normalizeRosterTemplateCandidate({
+        ...snapshot,
+        source_session_id: details.session_id || snapshot.id || null,
+        day: details.day || snapshot.day || null,
+        time: snapshot.time || LEAGUE_TIME,
+        captured_at: details.edited_at || row.created_at || null
+    }, 'bc_logs');
+}
+
+function compareRosterTemplateCandidates(a, b, options = {}) {
+    const targetDay = String(options.day || '');
+    const sameDayDiff = Number(String(b.day || '') === targetDay) - Number(String(a.day || '') === targetDay);
+    if (sameDayDiff !== 0) return sameDayDiff;
+    const timeDiff = getRosterTemplateUpdatedMs(b.updated_at) - getRosterTemplateUpdatedMs(a.updated_at);
+    if (timeDiff !== 0) return timeDiff;
+    const sourceDiff = Number(b.source === 'bc_roster_snapshots') - Number(a.source === 'bc_roster_snapshots');
+    if (sourceDiff !== 0) return sourceDiff;
+    return String(a.source_session_id || '').localeCompare(String(b.source_session_id || ''));
+}
+
+async function fetchLatestBcRosterTemplate(guildId, options = {}) {
+    if (!isReady() || !guildId) return null;
+    const targetTime = normalizeBcTime(options.time || LEAGUE_TIME);
+    if (targetTime !== LEAGUE_TIME) return null;
+
+    const cutoffIso = getRosterTemplateCutoffIso(options.lookbackDays);
+    const limit = Math.max(10, Math.min(100, Number(options.limit) || 80));
+    const candidates = [];
+
+    if (supportsBcRosterSnapshotsTable) {
+        try {
+            const { data, error } = await supabase
+                .from('bc_roster_snapshots')
+                .select('id,source_session_id,day,time,label,captured_at,source_updated_at,team_layout,teams,team_attack1,team_attack2,team_defense,team_forest,waiting_list,team_sizes,team_names,leader_ids,source')
+                .eq('guild_id', guildId)
+                .gte('captured_at', cutoffIso)
+                .order('captured_at', { ascending: false })
+                .limit(limit);
+            if (error) {
+                if (isMissingRosterSnapshotTableError(error)) {
+                    supportsBcRosterSnapshotsTable = false;
+                    if (!warnedBcRosterSnapshotsMissing) {
+                        warnedBcRosterSnapshotsMissing = true;
+                        console.warn('[Supabase] bc_roster_snapshots chua san sang, fallback sang bc_logs.');
+                    }
+                } else {
+                    handleSyncError('fetchLatestBcRosterTemplate snapshots', error);
+                }
+            } else {
+                (data || []).forEach((row) => {
+                    const candidate = normalizeRosterTemplateCandidate(row, 'bc_roster_snapshots');
+                    if (candidate) candidates.push(candidate);
+                });
+            }
+        } catch (error) {
+            if (isMissingRosterSnapshotTableError(error)) {
+                supportsBcRosterSnapshotsTable = false;
+            } else {
+                handleSyncError('fetchLatestBcRosterTemplate snapshots exception', error);
+            }
+        }
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('bc_logs')
+            .select('id,created_at,details')
+            .eq('guild_id', guildId)
+            .in('action', ['roster_sync', 'quick_team'])
+            .gte('created_at', cutoffIso)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+        if (error) {
+            handleSyncError('fetchLatestBcRosterTemplate logs', error);
+        } else {
+            (data || []).forEach((row) => {
+                const candidate = parseRosterTemplateLogRow(row);
+                if (candidate) candidates.push(candidate);
+            });
+        }
+    } catch (error) {
+        handleSyncError('fetchLatestBcRosterTemplate logs exception', error);
+    }
+
+    candidates.sort((a, b) => compareRosterTemplateCandidates(a, b, options));
+    return candidates[0] || null;
+}
+
 // SYNC BANG CHIẾN SESSIONS
 // ═══════════════════════════════════════════════════════════════
 
@@ -219,7 +353,8 @@ async function syncBCSession(guildId, day, sessionData) {
             status = 'active',
             time = LEAGUE_TIME,
             note = '',
-            locked = false
+            locked = false,
+            channel_id = null
         } = sessionData;
         const normalizedTime = normalizeBcTime(time || LEAGUE_TIME);
 
@@ -239,6 +374,9 @@ async function syncBCSession(guildId, day, sessionData) {
         };
         if (supportsBcSessionsLockedColumn) {
             payload.locked = !!locked;
+        }
+        if (supportsBcSessionsChannelIdColumn && channel_id) {
+            payload.channel_id = String(channel_id);
         }
         // team_names: auto-fallback nếu cột chưa tồn tại
         if (supportsBcSessionsTeamNamesColumn) {
@@ -280,6 +418,12 @@ async function syncBCSession(guildId, day, sessionData) {
             if (/locked/i.test(message) && Object.prototype.hasOwnProperty.call(payload, 'locked')) {
                 supportsBcSessionsLockedColumn = false;
                 delete payload.locked;
+                removedUnsupportedField = true;
+            }
+
+            if (/channel_id/i.test(message) && Object.prototype.hasOwnProperty.call(payload, 'channel_id')) {
+                supportsBcSessionsChannelIdColumn = false;
+                delete payload.channel_id;
                 removedUnsupportedField = true;
             }
 
@@ -1520,6 +1664,7 @@ function listenForWebChanges(guildId, onSessionChange) {
             team_layout: normalizedRoster.layout,
             teams: normalizedRoster.teams,
             leader_ids: leaderIds,
+            channel_id: session.channel_id || null,
             time: session.time || '19:30',
             note: session.note || '',
             locked: !!session.locked,
@@ -1812,7 +1957,8 @@ function formatActiveSession(activeSession, db, guild = null) {
             status: 'active',
             time: activeSession.time || '19:30',
             note: activeSession.note || '',
-            locked: !!activeSession.locked
+            locked: !!activeSession.locked,
+            channel_id: activeSession.channel_id || null
         };
     } catch (err) {
         console.error('[Supabase] ❌ formatActiveSession lỗi:', err.message, err.stack);
@@ -2104,6 +2250,7 @@ module.exports = {
     getSupabaseClient: () => supabase,
     syncBCSession,
     saveRosterSnapshot,
+    fetchLatestBcRosterTemplate,
     deleteBCSession,
     deleteAllBCSessions,
     saveBattleTacticsHistorySnapshot,

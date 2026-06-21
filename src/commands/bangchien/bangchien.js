@@ -599,6 +599,22 @@ module.exports = {
 
         // Tạo party key mới với day
         const partyKey = createPartyKey(guildId, day, leaderId, bcTime);
+        let rosterTemplate = null;
+        try {
+            const supaSync = require('../../utils/supabaseSync');
+            if (supaSync.isReady() && typeof supaSync.fetchLatestBcRosterTemplate === 'function') {
+                rosterTemplate = await supaSync.fetchLatestBcRosterTemplate(guildId, {
+                    day,
+                    time: bcTime,
+                    lookbackDays: 14
+                });
+                if (rosterTemplate?.team_layout?.length) {
+                    console.log(`[bangchien] Dùng roster template ${rosterTemplate.team_layout.length} team cho ${day} ${bcTime} từ ${rosterTemplate.source}`);
+                }
+            }
+        } catch (templateErr) {
+            console.log('[bangchien] Không lấy được roster template tuần trước:', templateErr.message);
+        }
 
         // Khởi tạo trong memory
         bangchienRegistrations.set(partyKey, [{
@@ -620,7 +636,8 @@ module.exports = {
             messageId: null,
             day: day,
             time: bcTime,
-            note: bcNote || null
+            note: bcNote || null,
+            team_layout: rosterTemplate?.team_layout || null
         });
 
         // Recurring signup is temporarily disabled; keep existing data untouched.

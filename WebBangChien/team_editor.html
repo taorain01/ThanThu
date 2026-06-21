@@ -1186,8 +1186,7 @@
         <span class="badge open" id="lockBadge">📂 Chưa chốt</span>
         <button class="btn primary" id="btnMemberRoster">+ Thành viên</button>
         <button class="btn warn" id="btnQuickTeam">L&#7853;p Team Nhanh</button>
-        <button class="btn" id="btnRefresh">📡 Fetch Bot</button>
-        <button class="btn" id="btnValidateRoster">✅ Kiểm tra</button>
+        <button class="btn" id="btnLeagueReminder">🏷️ Tag nhắc nhở</button>
         <button class="btn" id="btnHistory">🕘 Lịch sử</button>
         <button class="btn warn" id="btnResize">Resize</button>
         <button class="btn primary" id="btnLockToggle">📋 Chốt danh sách</button>
@@ -1445,7 +1444,7 @@
     let teamLayoutResizeTimer = null;
     let mobileMoveContext = null;
     const ROSTER_DRAFT_VERSION = 1;
-    const QUICK_HISTORY_DAYS = 7;
+    const QUICK_HISTORY_DAYS = 14;
     const QUICK_HISTORY_LIMIT = 60;
     const ROSTER_HISTORY_LIMIT = 40;
     const LEADER_AUDIT_KEYS = new Set(['editor_id', 'editor_name', 'editor_action', 'edited_at']);
@@ -2391,7 +2390,7 @@
         const team = Array.isArray(state[teamKey]) ? state[teamKey] : [];
         let leaderId = state.leader_ids.teams[teamKey] || (leaderKey ? state.leader_ids[leaderKey] : null) || null;
 
-        const explicitLeader = team.find((member) => member?.isTeamLeader || member?.ld);
+        const explicitLeader = team.find((member) => member?.isTeamLeader || member?.ld || member?.isLeader);
         if (explicitLeader) leaderId = explicitLeader.id;
         if (leaderId && !team.some((member) => member?.id === leaderId)) leaderId = null;
 
@@ -3132,14 +3131,30 @@
       return Number.isFinite(time) ? time : 0;
     }
 
+    function isQuickSourceSameDay(source) {
+      return !!currentDay && String(source?.session?.day || source?.day || '') === String(currentDay);
+    }
+
+    function isQuickSourceValidCapacity(source) {
+      return Number(source?.capacity || 0) === DEFAULT_ACTIVE_SLOT_TOTAL;
+    }
+
+    function compareQuickSourcePriority(a, b) {
+      const validDiff = Number(isQuickSourceValidCapacity(b)) - Number(isQuickSourceValidCapacity(a));
+      if (validDiff !== 0) return validDiff;
+      const leagueDiff = Number(b?.isLeague) - Number(a?.isLeague);
+      if (leagueDiff !== 0) return leagueDiff;
+      const sameDayDiff = Number(isQuickSourceSameDay(b)) - Number(isQuickSourceSameDay(a));
+      if (sameDayDiff !== 0) return sameDayDiff;
+      const historyDiff = Number(b?.group === 'history') - Number(a?.group === 'history');
+      if (historyDiff !== 0) return historyDiff;
+      const timeDiff = getQuickSourceUpdatedMs(b) - getQuickSourceUpdatedMs(a);
+      if (timeDiff !== 0) return timeDiff;
+      return String(a?.label || '').localeCompare(String(b?.label || ''), 'vi', { sensitivity: 'base' });
+    }
+
     function sortQuickSourceList(list) {
-      return [...(list || [])].sort((a, b) => {
-        const leagueDiff = Number(b.isLeague) - Number(a.isLeague);
-        if (leagueDiff !== 0) return leagueDiff;
-        const timeDiff = getQuickSourceUpdatedMs(b) - getQuickSourceUpdatedMs(a);
-        if (timeDiff !== 0) return timeDiff;
-        return String(a.label || '').localeCompare(String(b.label || ''), 'vi', { sensitivity: 'base' });
-      });
+      return [...(list || [])].sort(compareQuickSourcePriority);
     }
 
     function getQuickHistoryCutoffIso() {
@@ -3227,14 +3242,10 @@
       };
     }
 
-    function getQuickSourceLayoutCount(source) {
-      return normalizeTeamLayout(source?.session || {}).length;
-    }
-
     function isBetterQuickHistorySource(candidate, existing) {
       if (!existing) return true;
-      const layoutDiff = getQuickSourceLayoutCount(candidate) - getQuickSourceLayoutCount(existing);
-      if (layoutDiff !== 0) return layoutDiff > 0;
+      const priorityDiff = compareQuickSourcePriority(candidate, existing);
+      if (priorityDiff !== 0) return priorityDiff < 0;
       const activeDiff = Number(candidate?.activeCount || 0) - Number(existing?.activeCount || 0);
       if (activeDiff !== 0) return activeDiff > 0;
       return getQuickSourceUpdatedMs(candidate) > getQuickSourceUpdatedMs(existing);
@@ -3307,24 +3318,28 @@
       const activeSources = (activeResult.data || [])
         .filter((session) => String(session.id || '') !== currentId)
         .map(buildQuickSourceFromSession);
-      const activeSourceIds = new Set(activeSources.map((source) => source.sourceSessionId).filter(Boolean));
-      const activeBySourceId = new Map(activeSources.map((source) => [source.sourceSessionId, source]));
       const snapshotRows = await fetchQuickRosterSnapshots();
       const logRows = await fetchQuickRosterLogSnapshots();
       const historyBySourceId = new Map();
       [...snapshotRows, ...logRows].forEach((row) => {
         const sourceId = String(row.source_session_id || row.id || '');
         if (!sourceId) return;
+        if (sourceId === currentId) return;
         const source = buildQuickSourceFromSnapshot(row);
-        const activeSource = activeBySourceId.get(sourceId);
-        if (activeSource && !isBetterQuickHistorySource(source, activeSource)) return;
-        if (sourceId === currentId && getQuickSourceLayoutCount(source) <= getQuickSourceLayoutCount({ session: localState || currentSessionData || {} })) return;
         if (isBetterQuickHistorySource(source, historyBySourceId.get(sourceId))) historyBySourceId.set(sourceId, source);
       });
-      const snapshotSources = [...historyBySourceId.values()]
-        .filter((source) => !activeSourceIds.has(source.sourceSessionId) || getQuickSourceLayoutCount(source) > getQuickSourceLayoutCount(activeBySourceId.get(source.sourceSessionId)));
+      const snapshotSources = [...historyBySourceId.values()];
 
-      return [...sortQuickSourceList(activeSources), ...sortQuickSourceList(snapshotSources)];
+      return sortQuickSourceList([...activeSources, ...snapshotSources]);
+    }
+
+    function getPreferredQuickTeamSourceIndex(sources) {
+      const ranked = sortQuickSourceList(sources || []);
+      const preferred = ranked.find((source) => isQuickSourceValidCapacity(source) && source.isLeague && isQuickSourceSameDay(source))
+        || ranked.find((source) => isQuickSourceValidCapacity(source) && source.isLeague)
+        || ranked[0];
+      if (!preferred) return -1;
+      return (sources || []).findIndex((source) => source.key === preferred.key);
     }
 
     function renderQuickTeamSources() {
@@ -3682,7 +3697,8 @@
       try {
         quickTeamSources = await fetchQuickTeamSources();
         renderQuickTeamSources();
-        if (quickTeamSources.length) await selectQuickTeamSource(0);
+        const preferredIndex = getPreferredQuickTeamSourceIndex(quickTeamSources);
+        if (preferredIndex >= 0) await selectQuickTeamSource(preferredIndex);
         else renderQuickTeamPreview();
       } catch (error) {
         console.warn('[TeamEditor] Load quick team sources failed:', error);
@@ -4002,6 +4018,13 @@
       document.getElementById('btnResize').disabled = !isLeaderEditor || locked;
       const quickTeamBtn = document.getElementById('btnQuickTeam');
       if (quickTeamBtn) quickTeamBtn.disabled = !isLeaderEditor || locked;
+      const reminderBtn = document.getElementById('btnLeagueReminder');
+      if (reminderBtn) {
+        reminderBtn.disabled = !isLeaderEditor || isSyncing || isDragging || !currentSessionId || !localState;
+        reminderBtn.title = isLeaderEditor
+          ? 'Tag 30 member active để nhắc đăng ký League ingame'
+          : 'Bạn cần quyền leader/editor để gửi nhắc nhở';
+      }
     }
 
     function updateSyncBadge(text, isBusy = false) {
@@ -4011,7 +4034,15 @@
     }
 
     function isLeaderMember(member) {
-      return !!(member?.isTeamLeader || member?.ld);
+      return !!(member?.isTeamLeader || member?.ld || member?.isLeader);
+    }
+
+    function isDiscordSnowflake(value) {
+      return /^\d{15,25}$/.test(String(value || '').trim());
+    }
+
+    function isReminderPlaceholderId(value) {
+      return /^(bot_|slotbot_|slot_tmp_|idx_slot_tmp_|svc_slot_tmp_)/.test(String(value || '').trim());
     }
 
     function clearLeaderFlag(member) {
@@ -4510,6 +4541,159 @@
         if (warnings.length) lines.push(`⚠️ Cảnh báo:\n- ${warnings.join('\n- ')}`);
       }
       await customAlert(lines.join('\n\n'));
+    }
+
+    function buildLeagueReminderPreflightReport() {
+      const errors = [];
+      if (!localState) {
+        errors.push('Chưa có dữ liệu đội hình.');
+        return { errors };
+      }
+
+      normalizeLeaderState(localState);
+      const time = normalizeSessionTime(localState.time || currentSessionData?.time || '19:30');
+      if (time !== '19:30') {
+        errors.push('Chỉ gửi tag nhắc nhở cho trận League lúc 19h30.');
+      }
+
+      const activeTeamKeys = getActiveTeamKeys(localState)
+        .filter((teamKey) => getTeamCapacityFor(teamKey, localState) > 0);
+      const totalCapacity = activeTeamKeys.reduce((sum, teamKey) => sum + getTeamCapacityFor(teamKey, localState), 0);
+      if (totalCapacity !== DEFAULT_ACTIVE_SLOT_TOTAL) {
+        errors.push(`Tổng slot active phải đúng ${DEFAULT_ACTIVE_SLOT_TOTAL}, hiện tại ${totalCapacity}.`);
+      }
+
+      const seen = new Map();
+      let activeCount = 0;
+      activeTeamKeys.forEach((teamKey) => {
+        const teamName = getValidationTeamName(teamKey);
+        const members = localState[teamKey] || [];
+        const cap = getTeamCapacityFor(teamKey, localState);
+        activeCount += members.length;
+
+        if (members.length > cap) {
+          errors.push(`${teamName} vượt slot: ${members.length}/${cap}.`);
+        }
+
+        const leaders = members.filter(isLeaderMember);
+        if (leaders.length !== 1) {
+          errors.push(`${teamName} phải có đúng 1 leader, hiện tại ${leaders.length}.`);
+        }
+
+        members.forEach((member) => {
+          const id = String(member?.id || '').trim();
+          if (!id) {
+            errors.push(`${teamName} có thành viên thiếu Discord ID.`);
+            return;
+          }
+          if (isReminderPlaceholderId(id)) {
+            errors.push(`${teamName} còn slot bot/placeholder (${id}).`);
+            return;
+          }
+          if (!isDiscordSnowflake(id)) {
+            errors.push(`${teamName} có Discord ID không hợp lệ (${id}).`);
+            return;
+          }
+          if (seen.has(id)) {
+            errors.push(`${getMemberDisplayName(member)} bị trùng ở ${seen.get(id)} và ${teamName}.`);
+            return;
+          }
+          seen.set(id, teamName);
+        });
+      });
+
+      if (activeCount !== DEFAULT_ACTIVE_SLOT_TOTAL) {
+        errors.push(`Cần đúng ${DEFAULT_ACTIVE_SLOT_TOTAL} member active để tag nhắc nhở, hiện tại ${activeCount}.`);
+      }
+
+      return { errors };
+    }
+
+    async function flushPendingSyncForReminder() {
+      if (!hasPendingSyncWork()) return true;
+      updateSyncBadge('Đang lưu thay đổi trước khi gửi tag nhắc nhở...', true);
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      if (isSyncing) await waitForSyncIdle(8000);
+      if (pendingSyncActions.size || pendingEditorAction) {
+        await syncSessionState(true);
+      }
+      if (isSyncing) await waitForSyncIdle(8000);
+      const done = !debounceTimer && !pendingSyncActions.size && !pendingEditorAction && !isSyncing;
+      if (!done) updateSyncBadge('Chưa đồng bộ xong, vui lòng thử lại', true);
+      return done;
+    }
+
+    async function sendLeagueReminderViaApi() {
+      const { data: { session } } = await sb.auth.getSession();
+      const token = session?.access_token || '';
+      if (!token) throw new Error('Chưa đăng nhập hoặc phiên Discord đã hết hạn.');
+
+      const response = await fetch('/api/bc-league-reminder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          guild_id: GUILD_ID,
+          session_id: currentSessionId
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.ok === false) {
+        throw new Error(body?.error || 'Không gửi được tag nhắc nhở.');
+      }
+      return body;
+    }
+
+    async function handleLeagueReminderClick() {
+      const btn = document.getElementById('btnLeagueReminder');
+      if (!isLeaderEditor) {
+        await customAlert('Bạn cần quyền leader/editor để gửi tag nhắc nhở.');
+        return;
+      }
+      if (!currentSessionId) {
+        await customAlert('Chưa xác định được session hiện tại.');
+        return;
+      }
+
+      const originalText = btn?.textContent || '🏷️ Tag nhắc nhở';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Đang gửi...';
+      }
+
+      try {
+        if (!(await flushPendingSyncForReminder())) {
+          await customAlert('Đội hình chưa đồng bộ xong. Vui lòng thử lại sau vài giây.');
+          return;
+        }
+
+        updateSyncBadge('Đang tải lại đội hình mới nhất...', true);
+        await loadSession();
+
+        const report = buildLeagueReminderPreflightReport();
+        if (report.errors.length) {
+          await customAlert(`Không thể gửi tag nhắc nhở:\n- ${report.errors.join('\n- ')}`);
+          return;
+        }
+
+        updateSyncBadge('Đang gửi tag nhắc nhở lên Discord...', true);
+        const result = await sendLeagueReminderViaApi();
+        updateSyncBadge(`Đã gửi tag nhắc nhở (${result.tagged_count || DEFAULT_ACTIVE_SLOT_TOTAL}/${DEFAULT_ACTIVE_SLOT_TOTAL})`);
+        showCenterNotice('Đã gửi tag nhắc nhở đăng ký League.');
+      } catch (error) {
+        updateSyncBadge('Lỗi gửi tag nhắc nhở');
+        await customAlert('Không gửi được tag nhắc nhở: ' + (error.message || error));
+      } finally {
+        if (btn) {
+          btn.textContent = originalText;
+        }
+        updateHeader();
+      }
     }
 
     function renderMemberRow(member, teamKey, index) {
@@ -5847,8 +6031,8 @@
           if (!nextFingerprint || nextFingerprint === lastRemoteFingerprint) return;
           if (shouldDeferRemoteHydrate()) {
             console.log('[Realtime] Bỏ qua vì đang có pending changes (drag/sync/debounce)');
-            updateSyncBadge('Có cập nhật mới; hãy đồng bộ xong rồi Fetch Bot', true);
-            showCenterNotice('Có cập nhật mới từ bot/web. Đồng bộ xong hãy Fetch Bot.');
+            updateSyncBadge('Có cập nhật mới; đồng bộ xong dữ liệu sẽ tự cập nhật', true);
+            showCenterNotice('Có cập nhật mới từ bot/web. Đồng bộ xong dữ liệu sẽ tự cập nhật; tải lại trang nếu cần.');
             return;
           }
           hydrateFromRealtime(payload.new);
@@ -5918,26 +6102,11 @@
       setupRealtime();
     }
 
-    document.getElementById('btnRefresh').addEventListener('click', async () => {
-      const btn = document.getElementById('btnRefresh');
-      btn.disabled = true;
-      btn.textContent = '⏳ Đang fetch...';
-      try {
-        await loadSession();
-        btn.textContent = '✅ Đã cập nhật!';
-        updateSyncBadge('Đã fetch dữ liệu mới nhất');
-      } catch (e) {
-        btn.textContent = '❌ Lỗi fetch';
-        updateSyncBadge('Lỗi fetch: ' + (e.message || e));
-      }
-      btn.disabled = false;
-      setTimeout(() => { btn.textContent = '📡 Fetch Bot'; }, 3000);
-    });
+    document.getElementById('btnLeagueReminder').addEventListener('click', handleLeagueReminderClick);
     document.getElementById('btnMemberRoster').addEventListener('click', () => openMemberRosterPopup('add'));
     document.getElementById('btnQuickTeam').addEventListener('click', openQuickTeamModal);
     document.getElementById('sessionSelect').addEventListener('change', (event) => changeEditorSession(event.target.value));
     document.getElementById('btnResize').addEventListener('click', openResizeModal);
-    document.getElementById('btnValidateRoster').addEventListener('click', runRosterValidation);
     document.getElementById('btnHistory').addEventListener('click', openRosterHistoryModal);
     document.getElementById('btnResizeCancel').addEventListener('click', closeResizeModal);
     document.getElementById('btnResizeSave').addEventListener('click', applyResize);

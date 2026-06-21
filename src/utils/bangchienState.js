@@ -763,6 +763,19 @@ async function ensureWeekendDefaultSessions(guild, options = {}) {
 
             const leaderId = `auto_${day}_${timeToPartyKeyPart(normalizedTime)}`;
             const partyKey = createPartyKey(guild.id, day, leaderId, normalizedTime);
+            let rosterTemplate = null;
+            try {
+                const supaSync = require('./supabaseSync');
+                if (supaSync.isReady() && typeof supaSync.fetchLatestBcRosterTemplate === 'function') {
+                    rosterTemplate = await supaSync.fetchLatestBcRosterTemplate(guild.id, {
+                        day,
+                        time: normalizedTime,
+                        lookbackDays: 14
+                    });
+                }
+            } catch (templateError) {
+                console.warn('[bangchien] Không lấy được roster template cho session mặc định:', templateError.message);
+            }
             db.createActiveBangchien({
                 guildId: guild.id,
                 partyKey,
@@ -772,11 +785,14 @@ async function ensureWeekendDefaultSessions(guild, options = {}) {
                 messageId: null,
                 day,
                 time: normalizedTime,
-                note: isLeagueSession(normalizedTime) ? 'LEAGUE' : ''
+                note: isLeagueSession(normalizedTime) ? 'LEAGUE' : '',
+                team_layout: rosterTemplate?.team_layout || null
             });
             try {
                 const roster = require('./bangchienRoster');
-                const emptyRoster = roster.serializeRosterForStorage(roster.normalizeRoster({}));
+                const emptyRoster = roster.serializeRosterForStorage(roster.normalizeRoster({
+                    team_layout: rosterTemplate?.team_layout || null
+                }));
                 db.db.prepare('UPDATE bangchien_active SET team_attack1=?, team_attack2=?, team_defense=?, team_forest=?, waiting_list=?, team_layout=?, teams_json=? WHERE party_key=?')
                     .run('[]', '[]', '[]', '[]', '[]', emptyRoster.team_layout, emptyRoster.teams_json, partyKey);
             } catch (error) {

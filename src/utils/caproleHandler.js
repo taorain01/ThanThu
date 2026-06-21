@@ -16,6 +16,7 @@
 const { EmbedBuilder } = require('discord.js');
 const db = require('../database/db');
 const { getRoleMappings } = require('../commands/quanly/subrole/addrole');
+const { assignDisplayRole } = require('../commands/quanly/subrole/setrole');
 
 // ============== CONFIG ==============
 const OWNER_ID = '395151484179841024';
@@ -293,6 +294,23 @@ async function handleCaproleReaction(reaction, user, client) {
 
         // Cấp role
         await member.roles.add(discordRole, `Cấp role bởi owner qua hệ thống AI - ${pending.reason}`);
+
+        try {
+            const displayAssigned = await assignDisplayRole(member, guild.id, pending.roleCode);
+            if (displayAssigned) {
+                console.log(`[CapRole] Display role assigned: ${member.user.username} <- ${pending.roleCode}`);
+                try {
+                    const cardCache = require('./memberCardCache');
+                    cardCache.invalidateUser(member.id);
+                } catch (e) {
+                    console.warn('[CapRole] Could not invalidate member card cache:', e.message);
+                }
+            } else {
+                console.warn(`[CapRole] Display role not assigned for ${member.user.username}: ${pending.roleCode}`);
+            }
+        } catch (e) {
+            console.warn(`[CapRole] Display role assignment failed for ${member.user.username}:`, e.message);
+        }
 
         // Tìm emoji role (nếu có) - dùng để react
         const mappings = getRoleMappings();

@@ -189,10 +189,10 @@ function countAlbumImagesForIds(userIds) {
     return count;
 }
 
-async function cleanupAlbumsForIds(userIds, reason, client = null) {
+async function cleanupAlbumsForIds(userIds, reason, client = null, guildId = null) {
     const result = { users: 0, images: 0, cloudinaryDeleted: 0, cloudinaryFailed: 0, discordMessagesDeleted: 0, discordMessagesFailed: 0 };
     for (const userId of userIds) {
-        const cleanup = await cleanupAlbumForUser(userId, reason, { client });
+        const cleanup = await cleanupAlbumForUser(userId, reason, { client, guildId });
         if (cleanup.deleted > 0 || cleanup.cloudinaryDeleted > 0 || cleanup.cloudinaryFailed > 0 || cleanup.discordMessagesDeleted > 0 || cleanup.discordMessagesFailed > 0) {
             result.users++;
         }
@@ -349,7 +349,7 @@ async function execute(message, args) {
     }
 
     try {
-        const albumCleanupResult = await cleanupAlbumsForIds(albumCleanupIds, 'xoamemngoaiserver', message.client);
+        const albumCleanupResult = await cleanupAlbumsForIds(albumCleanupIds, 'xoamemngoaiserver', message.client, message.guild.id);
         const localResult = deleteLocalRows(localPlan.deleteUsers, localPlan.deletePending);
         const supabaseResult = await deleteSupabaseRows(supabasePlan.supabase, supabasePlan.deleteUsers);
         void logMemberRosterAction(ALLOWED_GUILD_ID, 'member_bulk_cleanup', {

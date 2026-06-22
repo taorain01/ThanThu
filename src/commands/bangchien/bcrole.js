@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 
 module.exports = {
     name: 'bcrole',
@@ -65,7 +65,7 @@ module.exports = {
                 // Fallback to history
                 const history = db.getBangchienHistory(guildId, 1);
                 if (history.length === 0) {
-                    return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name}!`);
+                    return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`}!`);
                 }
                 session = history[0];
             }
@@ -162,10 +162,11 @@ module.exports = {
             return `${p.originalIndex}. ${p.team} ${nameDisplay}${leaderIcon}`;
         }).join('\n');
 
+        const sessionLabel = formatSessionDateTimeLabel(session);
         const embed = new EmbedBuilder()
             .setColor(roleColor)
             .setTitle(`${roleEmoji} DANH SÁCH ${targetRole.toUpperCase()} - BANG CHIẾN`)
-            .setDescription(`**Tổng: ${filteredMembers.length} người**\n\n${memberList}`)
+            .setDescription(`${sessionLabel ? `**Phiên:** ${sessionLabel}\n` : ''}**Tổng: ${filteredMembers.length} người**\n\n${memberList}`)
             .setFooter({ text: `Lần BC gần nhất • Leader: ${session.leader_name || 'Unknown'}` })
             .setTimestamp();
 

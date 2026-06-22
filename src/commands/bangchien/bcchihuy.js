@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 
 module.exports = {
     name: 'bcchihuy',
@@ -28,7 +28,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             isActiveSession = true;
         } else {
@@ -114,10 +114,11 @@ module.exports = {
             console.error('[bcchihuy] Lỗi cấp quyền voice:', e.message);
         }
 
+        const sessionLabel = formatSessionDateTimeLabel(session);
         const embed = new EmbedBuilder()
             .setColor(0xFFD700)
             .setTitle('🎖️ ĐÃ ĐẶT CHỈ HUY!')
-            .setDescription(`**${commanderName}** (<@${commanderId}>) là Chỉ Huy BC.${voicePermResult}`)
+            .setDescription(`${sessionLabel ? `Phiên: ${sessionLabel}\n` : ''}**${commanderName}** (<@${commanderId}>) là Chỉ Huy BC.${voicePermResult}`)
             .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
         return message.reply({ embeds: [embed] });

@@ -18,6 +18,8 @@ const {
     createPartyKey,
     getDayFromPartyKey,
     getDayNameWithDate,
+    formatSessionDateLabel,
+    formatSessionDateTimeLabel,
     normalizeBcTime,
     isLeagueSession,
     compareSessionsBySchedule,
@@ -188,7 +190,10 @@ function createBangchienEmbed(partyKey, leaderName, guild = null) {
     // Lấy màu và tên ngày từ partyKey
     const day = getDayFromPartyKey(partyKey);
     const dayConfig = day ? DAY_CONFIG[day] : { name: '', color: 0x9B59B6 };
-    const dayTitle = day ? ` - ${getDayNameWithDate(day)}` : '';
+    const sessionLabel = activeSession
+        ? formatSessionDateTimeLabel(activeSession)
+        : (day ? getDayNameWithDate(day) : '');
+    const dayTitle = sessionLabel ? ` - ${sessionLabel}` : '';
 
     const embed = new EmbedBuilder()
         .setColor(dayConfig.color)
@@ -343,7 +348,7 @@ function createOverviewEmbed(guildId, guild = null, userId = null) {
                 ? `✅ **${timeStr}**${league}  \`${total}/30\`${waitStr}  ← _Đã đăng ký_`
                 : `▫️ **${timeStr}**${league}  \`${total}/30\`${waitStr}`;
         });
-        const name = `${isNextDay ? '⭐ ' : '\ud83d\udcc5 '}${getDayNameWithDate(day)}${isNextDay ? '  · SẮP TỚI' : ''}`;
+        const name = `${isNextDay ? '⭐ ' : '\ud83d\udcc5 '}${formatSessionDateLabel(byDay[day][0]) || getDayNameWithDate(day)}${isNextDay ? '  · SẮP TỚI' : ''}`;
         const value = isNextDay ? lines.map(line => `> ${line}`).join('\n') : lines.join('\n');
         embed.addFields({ name, value, inline: false });
     }
@@ -472,6 +477,7 @@ module.exports = {
         // CASE 2: ?bc t7 / ?bc t2 21h ... → Tạo hoặc hiển thị session
         // ═══════════════════════════════════════════════════════════════════
         const dayConfig = DAY_CONFIG[day];
+        const requestedSessionLabel = formatSessionDateTimeLabel({ day, time: bcTime });
 
         // Kiểm tra session hiện có trong DB
         const existingSession = db.getActiveBangchienByDayTime
@@ -527,7 +533,7 @@ module.exports = {
 
             // Reply ngắn cho user biết
             const reply = await message.reply({
-                content: `✅ Session **${dayConfig.name}** đang mở. Xem tại kênh ?bc overview.`,
+                content: `✅ Session **${formatSessionDateTimeLabel(existingSession) || requestedSessionLabel || dayConfig.name}** đang mở. Xem tại kênh ?bc overview.`,
                 allowedMentions: { repliedUser: false }
             });
             setTimeout(() => { try { reply.delete(); } catch (e) { } }, 5000);
@@ -560,8 +566,8 @@ module.exports = {
 
         const confirmEmbed = new EmbedBuilder()
             .setColor(dayConfig.color)
-            .setTitle(`⚔️ XÁC NHẬN TẠO BANG CHIẾN - ${dayConfig.name}`)
-            .setDescription(`**${leaderName}** muốn mở đăng ký Bang Chiến cho **${dayConfig.name}**.\n\n` +
+            .setTitle(`⚔️ XÁC NHẬN TẠO BANG CHIẾN - ${requestedSessionLabel || dayConfig.name}`)
+            .setDescription(`**${leaderName}** muốn mở đăng ký Bang Chiến cho **${requestedSessionLabel || dayConfig.name}**.\n\n` +
                 `📋 Sau khi xác nhận, mọi người có thể đăng ký.\n` +
                 `⏰ Bạn có 30 giây để xác nhận.`)
             .setFooter({ text: 'Nhấn Xác Nhận để tiếp tục' });
@@ -663,7 +669,7 @@ module.exports = {
         await refreshOverviewEmbed(client, guildId, message.channel.id);
 
         // Thông báo ngắn
-        const reply = await message.channel.send(`✅ Đã mở đăng ký BC **${dayConfig.name}**! Xem tại kênh ?bc overview.`);
+        const reply = await message.channel.send(`✅ Đã mở đăng ký BC **${requestedSessionLabel || dayConfig.name}**! Xem tại kênh ?bc overview.`);
         setTimeout(() => { try { reply.delete(); } catch (e) { } }, 8000);
 
         // Đăng ký kênh
@@ -755,10 +761,10 @@ module.exports = {
             };
 
             // Tag lúc 19:00 (30 phút trước BC)
-            scheduleTag(19, 0, '⏰ Còn **30 phút** nữa là đến giờ Bang Chiến! Chuẩn bị tập trung!');
+            scheduleTag(19, 0, `⏰ Còn **30 phút** nữa là đến giờ Bang Chiến **${requestedSessionLabel || dayConfig.name}**! Chuẩn bị tập trung!`);
 
             // Tag lúc 19:15 (15 phút trước BC)
-            scheduleTag(19, 15, '⚔️ Còn **15 phút** nữa là đến giờ Bang Chiến! Tập trung ngay!');
+            scheduleTag(19, 15, `⚔️ Còn **15 phút** nữa là đến giờ Bang Chiến **${requestedSessionLabel || dayConfig.name}**! Tập trung ngay!`);
 
             // Auto-end dùng scheduler chung: 1 timer cho mỗi guild/ngày, gom tất cả phiên.
             scheduleBangchienAutoEnd(client, guildId, day, channelId);

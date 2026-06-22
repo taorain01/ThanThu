@@ -9,7 +9,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const supaSync = require('../../utils/supabaseSync');
 
@@ -59,7 +59,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             isActiveSession = true;
         } else {
@@ -78,6 +78,7 @@ module.exports = {
         }
 
         const sessionDay = session.day || null;
+        const sessionLabel = formatSessionDateTimeLabel(session);
 
 
         // Kiểm tra quyền
@@ -184,7 +185,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
                 .setTitle('THEM NGUOI THANH CONG')
-                .setDescription(`Da them **${mention.username}** vao **${addedTeamName}**`)
+                .setDescription(`${sessionLabel ? `Phien: ${sessionLabel}\n` : ''}Da them **${mention.username}** vao **${addedTeamName}**`)
                 .addFields(
                     ...roster.layout.map((team) => ({
                         name: `${team.icon || '*'} ${team.name}`,
@@ -361,7 +362,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
             .setTitle('✅ THÊM NGƯỜI THÀNH CÔNG!')
-            .setDescription(resultText)
+            .setDescription(`${sessionLabel ? `Phiên: ${sessionLabel}\n` : ''}${resultText}`)
             .addFields(
                 { name: '⚔️ Công 1', value: `${teams.attack1.length}/${TEAM_SIZES.attack1}`, inline: true },
                 { name: '🗡️ Công 2', value: `${teams.attack2.length}/${TEAM_SIZES.attack2}`, inline: true },

@@ -11,6 +11,7 @@ const {
     getGuildBangchienKeys,
     DAY_CONFIG,
     parseDayArg,
+    formatSessionDateTimeLabel,
     LEAGUE_TIME,
     normalizeBcTime
 } = require('../../utils/bangchienState');
@@ -49,7 +50,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             sessionsToCancel.push({ session, day });
         } else {
@@ -112,12 +113,12 @@ module.exports = {
             db.deleteActiveBangchien(partyKey);
             try {
                 const { deleteBCSession } = require('../../utils/supabaseSync');
-                await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME);
+                await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME, session.supabase_session_id || null);
             } catch (e) { }
 
             results.push({
                 day: sessionDay,
-                dayName: dayConfig.name,
+                dayName: formatSessionDateTimeLabel(session) || dayConfig.name,
                 leaderName: session.leader_name,
                 count: registrationCount
             });

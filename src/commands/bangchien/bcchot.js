@@ -6,7 +6,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg, getDayNameWithDate, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, getDayNameWithDate, formatSessionDateTimeLabel, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 
 const BC_ROLE_NAME = 'bc';
 
@@ -55,7 +55,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             sessionsToProcess.push({ session, day });
         } else {
@@ -97,7 +97,7 @@ module.exports = {
             const allParticipants = [...teamAttack1, ...teamAttack2, ...teamDefense, ...teamForest, ...waitingList];
 
             if (totalParticipants === 0) {
-                results.push({ day: sessionDay, dayName: getDayNameWithDate(sessionDay), status: 'empty', count: 0 });
+                results.push({ day: sessionDay, dayName: formatSessionDateTimeLabel(session) || getDayNameWithDate(sessionDay), status: 'empty', count: 0 });
                 continue;
             }
 
@@ -124,7 +124,7 @@ module.exports = {
 
             results.push({
                 day: sessionDay,
-                dayName: getDayNameWithDate(sessionDay),
+                dayName: formatSessionDateTimeLabel(session) || getDayNameWithDate(sessionDay),
                 status: 'success',
                 count: totalParticipants
             });

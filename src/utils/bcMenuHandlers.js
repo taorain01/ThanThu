@@ -16,6 +16,8 @@ const {
     normalizeBcTime,
     isLeagueSession,
     getDayNameWithDate,
+    formatSessionDateLabel,
+    formatSessionDateTimeLabel,
     compareSessionsBySchedule
 } = require('./bangchienState');
 const bangchienRoster = require('./bangchienRoster');
@@ -45,11 +47,10 @@ function isUserInAnyActiveSession(guildId, userId) {
 }
 
 function getSessionLabel(session) {
-    const dayLabel = getDayNameWithDate(session.day) || DAY_CONFIG[session.day]?.name || session.day || '?';
-    const time = normalizeBcTime(session.time || LEAGUE_TIME);
+    const dayLabel = formatSessionDateTimeLabel(session) || getDayNameWithDate(session.day) || DAY_CONFIG[session.day]?.name || session.day || '?';
     const badge = isLeagueSession(session) ? ' LEAGUE' : '';
     const note = session.note && !/^league$/i.test(String(session.note)) ? ` - ${session.note}` : '';
-    return `${dayLabel} ${time}${badge}${note}`;
+    return `${dayLabel}${badge}${note}`;
 }
 
 function sortSessionsForMenu(sessions) {
@@ -89,7 +90,7 @@ function createBcMenu(guildId, userId) {
         }
 
         for (const day of dayOrder) {
-            const dayHeader = getDayNameWithDate(day);
+            const dayHeader = formatSessionDateLabel(byDay[day][0]) || getDayNameWithDate(day);
             const lines = byDay[day].map(s => {
                 const total   = getSessionTotal(s);
                 const joined  = isUserInSession(s, userId);
@@ -132,7 +133,7 @@ function createBcMenu(guildId, userId) {
         const options = sessions.slice(0, 25).map(session => ({
             label: getSessionLabel(session).slice(0, 100),
             value: session.party_key,
-            description: `${getDayNameWithDate(session.day)} — ${getSessionTotal(session)}/30 người`.slice(0, 100),
+            description: `${formatSessionDateLabel(session) || getDayNameWithDate(session.day)} — ${getSessionTotal(session)}/30 người`.slice(0, 100),
             default: selected.has(session.party_key)
         }));
 

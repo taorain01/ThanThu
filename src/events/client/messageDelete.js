@@ -14,7 +14,7 @@ module.exports = {
         if (!isAllowedGuildId(message.guild.id)) return;
 
         // Kiểm tra nếu message từ kênh Phòng Ảnh
-        const albumChannelId = db.getAlbumChannelId();
+        const albumChannelId = db.getAlbumChannelId(message.guild.id);
         if (!albumChannelId || message.channel.id !== albumChannelId) return;
 
         // Xóa ảnh khỏi album nếu có

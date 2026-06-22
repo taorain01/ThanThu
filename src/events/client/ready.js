@@ -5,7 +5,7 @@ const { DISPLAY_ROLE_NAME, OLD_DISPLAY_ROLE_NAMES } = require('../../commands/qu
 const db = require('../../database/db');
 const supaSync = require('../../utils/supabaseSync');
 const memberRosterSync = require('../../utils/memberRosterSync');
-const { DAY_CONFIG, LEAGUE_TIME, normalizeBcTime, isLeagueSession } = require('../../utils/bangchienState');
+const { DAY_CONFIG, LEAGUE_TIME, normalizeBcTime, isLeagueSession, formatSessionDateLabel, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
@@ -52,23 +52,26 @@ async function flushWebOpenNotice(bufferKey) {
 
   const grouped = new Map();
   for (const entry of buffer.entries) {
-    if (!grouped.has(entry.day)) grouped.set(entry.day, []);
-    grouped.get(entry.day).push(entry);
+    const label = formatSessionDateLabel(entry) || DAY_CONFIG[entry.day]?.name || entry.day;
+    if (!grouped.has(label)) grouped.set(label, []);
+    grouped.get(label).push(entry);
   }
 
   const embed = new EmbedBuilder()
     .setColor(0x87CEEB)
     .setTitle('💀 BANG CHIẾN ĐÃ MỞ!')
-    .setDescription('Các phiên mới đã được tạo từ web. Dùng `?bc` hoặc web để đăng ký.')
+    .setDescription('Các phiên mới đã được tạo từ web/tự động. Dùng `?bc` hoặc web để đăng ký.')
     .setTimestamp();
 
-  for (const [day, entries] of grouped) {
-    const label = DAY_CONFIG[day]?.name || day;
+  for (const [label, entries] of grouped) {
     const lines = entries
       .sort((a, b) => String(a.time).localeCompare(String(b.time)))
       .map((item) => {
-        const note = item.note ? ` _${item.note}_` : (isLeagueSession(item.time) ? ' `LEAGUE`' : '');
-        return `• **${item.time}**${note}`;
+        const time = normalizeBcTime(item.time || LEAGUE_TIME);
+        const note = item.note && !/^league$/i.test(String(item.note))
+          ? ` _${item.note}_`
+          : (isLeagueSession(item) ? ' `LEAGUE`' : '');
+        return `• **${time}**${note}`;
       });
     embed.addFields({ name: `📅 ${label}`, value: lines.join('\n'), inline: false });
   }
@@ -462,6 +465,7 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           day: remoteSession.day,
           time: remoteTime,
           note: remoteSession.note || null,
+          createdAt: remoteSession.created_at || null,
           supabaseSessionId: remoteSession.id || null,
           team_layout: remoteSession.team_layout || null,
           teams: remoteSession.teams || remoteSession.teams_json || null,
@@ -492,7 +496,9 @@ async function pullMissingSessionsFromSupabase(supabaseClient, db, guild) {
           leaderId: leaderIds.creator_id || 'web',
           leaderName: leaderIds.creator_name || 'Web',
           messageId: null, message: null,
-          startTime: Date.now(), day: remoteSession.day, time: remoteTime
+          startTime: remoteSession.created_at ? new Date(remoteSession.created_at).getTime() : Date.now(),
+          day: remoteSession.day,
+          time: remoteTime
         });
         bangchienChannels.set(guild.id, bcChannelId);
         pulledCount++;
@@ -528,7 +534,7 @@ async function sendTacticsSaveNotice(client, guild, historyEntry) {
   );
   const strategyName = normalizeTacticsStrategyName(meta.strategy_name || historyEntry?.markers?.strategy_name);
   const dayLabel = TACTICS_DAY_LABELS[historyEntry.day] || historyEntry.day;
-  const sessionLabel = `${dayLabel} ${session.time || '19:30'}`;
+  const sessionLabel = formatSessionDateTimeLabel(session) || `${dayLabel} ${session.time || '19:30'}`;
   const content = strategyName
     ? `${actorName} đã lưu chiến thuật "${strategyName}" cho ${sessionLabel}.`
     : `${actorName} đã lưu chiến thuật cho ${sessionLabel}.`;
@@ -577,11 +583,30 @@ module.exports = {
         await clearRosterSummaryEmbedsForGuild(client, guild);
 
         try {
-          const { ensureWeekendDefaultSessions, refreshOverviewEmbed, scheduleBangchienAutoEndsForGuild } = require('../../utils/bangchienState');
+          const { ensureWeekendDefaultSessions, refreshOverviewEmbed, scheduleBangchienAutoEndsForGuild, autoCleanupExpiredSessions } = require('../../utils/bangchienState');
+          const cleanedBeforeDefaults = await autoCleanupExpiredSessions(client, guild.id);
+          if (cleanedBeforeDefaults > 0) {
+            console.log(`[Supabase] Cleaned ${cleanedBeforeDefaults} expired BC sessions before default sync`);
+          }
           const createdDefaults = await ensureWeekendDefaultSessions(guild);
           if (createdDefaults.length > 0) {
             console.log(`[Supabase] Created ${createdDefaults.length} default weekend BC sessions`);
+            for (const session of createdDefaults) {
+              const noticeChannelId = session.channel_id || db.getConfig(`bc_channel_${guild.id}`);
+              if (!noticeChannelId) continue;
+              queueWebOpenNotice(client, guild, noticeChannelId, {
+                day: session.day,
+                time: session.time || LEAGUE_TIME,
+                note: session.note || null,
+                created_at: session.created_at || session.createdAt || null,
+                creatorName: 'Bot'
+              });
+            }
             await refreshOverviewEmbed(client, guild.id);
+          }
+          const cleanedAfterSync = await autoCleanupExpiredSessions(client, guild.id);
+          if (cleanedAfterSync > 0) {
+            console.log(`[Supabase] Cleaned ${cleanedAfterSync} expired BC sessions after Supabase/default sync`);
           }
           scheduleBangchienAutoEndsForGuild(client, guild.id);
         } catch (defaultSessionErr) {
@@ -684,6 +709,7 @@ module.exports = {
                 day: day,
                 time,
                 note: newData.note || null,
+                createdAt: newData.created_at || null,
                 supabaseSessionId: newData.id || null,
                 team_layout: newData.team_layout || null,
                 teams: newData.teams || newData.teams_json || null,
@@ -714,6 +740,7 @@ module.exports = {
                 day,
                 time,
                 note: newData.note || null,
+                created_at: newData.created_at || null,
                 creatorName
               });
 

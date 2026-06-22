@@ -7,7 +7,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 const { deleteBCSession, deleteAllBCSessions } = require('../../utils/supabaseSync');
 const bangchienRoster = require('../../utils/bangchienRoster');
 
@@ -156,7 +156,7 @@ module.exports = {
                 // Xóa từ DB
                 db.deleteActiveBangchien(partyKey);
 
-                sessionsEnded.push(`${DAY_CONFIG[sessionDay]?.name || 'Unknown'} ${session.time || LEAGUE_TIME}`);
+                sessionsEnded.push(formatSessionDateTimeLabel(session) || `${DAY_CONFIG[sessionDay]?.name || 'Unknown'} ${session.time || LEAGUE_TIME}`);
                 console.log(`[bcend] Owner đã xóa session: ${partyKey}`);
             }
 
@@ -214,7 +214,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} ${requestedTime} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             isActive = true;
         } else {
@@ -235,7 +235,7 @@ module.exports = {
 
         const sessionDay = session.day || null;
         const sessionTime = normalizeBcTime(session.time || requestedTime || LEAGUE_TIME);
-        const dayName = sessionDay ? `${DAY_CONFIG[sessionDay]?.name} ${sessionTime}` : 'BC';
+        const dayName = sessionDay ? (formatSessionDateTimeLabel(session) || `${DAY_CONFIG[sessionDay]?.name} ${sessionTime}`) : 'BC';
 
         // ===== BƯỚC XÁC NHẬN CHO 1 SESSION =====
         const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -378,7 +378,7 @@ module.exports = {
             console.log(`[bcend] Đã xóa session: ${targetPartyKey}`);
 
             // Sync xóa trên Supabase → web realtime DELETE
-            if (sessionDay) await deleteBCSession(guildId, sessionDay, sessionTime);
+            if (sessionDay) await deleteBCSession(guildId, sessionDay, sessionTime, session.supabase_session_id || null);
         }
         if (session && session.id && !isActive) {
             db.deleteBangchienSession(session.id);
@@ -388,7 +388,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(0x2ECC71)
             .setTitle('✅ BANG CHIẾN ĐÃ KẾT THÚC!')
-            .setDescription(`⚔️ Bang Chiến của **${session.leader_name}** đã kết thúc.`)
+            .setDescription(`⚔️ Bang Chiến **${dayName}** của **${session.leader_name}** đã kết thúc.`)
             .addFields(
                 { name: '👥 Số người đã đi', value: `${participants.length} người`, inline: true },
                 { name: '🔴 Đã xóa role', value: `${removedCount} người`, inline: true }

@@ -6,7 +6,7 @@
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../database/db');
 const bangchienRoster = require('./bangchienRoster');
-const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed, getListbcDetailKey } = require('./bangchienState');
+const { bangchienNotifications, bangchienRegistrations, bangchienChannels, DAY_CONFIG, listbcDetailMessages, refreshOverviewEmbed, getListbcDetailKey, formatSessionDateTimeLabel } = require('./bangchienState');
 const { createBangchienEmbed, createBangchienButtons } = require('../commands/bangchien/bangchien');
 
 // Helper: Lấy tên team dynamic từ DB
@@ -466,6 +466,7 @@ async function handleBcqlButton(interaction) {
         const roster = getRoster(session);
         const waitingList = roster.waitingList || [];
         const total = bangchienRoster.getRosterCounts(roster).active;
+        const sessionLabel = formatSessionDateTimeLabel(session) || `${DAY_CONFIG[session.day || day]?.name || 'BC'} ${session.time || ''}`.trim();
 
         if (total === 0) {
             await interaction.editReply({ content: '⚠️ Chưa có ai đăng ký!' });
@@ -531,7 +532,7 @@ async function handleBcqlButton(interaction) {
             const embed = new EmbedBuilder()
                 .setColor(0x9B59B6)
                 .setTitle('CHOT DS BANG CHIEN LANG GIA')
-                .setDescription(`Leader: ${session.leader_name} | Tong: **${total}** nguoi`);
+                .setDescription(`Phien: ${sessionLabel}\nLeader: ${session.leader_name} | Tong: **${total}** nguoi`);
 
             for (const team of roster.layout) {
                 const list = roster.teams[team.id] || [];
@@ -552,7 +553,7 @@ async function handleBcqlButton(interaction) {
 
             embed.setTimestamp();
             await interaction.channel.send({ embeds: [embed] });
-            await interaction.editReply({ content: `Da chot danh sach! (${total} nguoi)\nMoi nguoi van co the dang ky nhung se vao hang cho.\nDung Team Editor tren web de mo khoa.` });
+            await interaction.editReply({ content: `Da chot danh sach ${sessionLabel}! (${total} nguoi)\nMoi nguoi van co the dang ky nhung se vao hang cho.\nDung Team Editor tren web de mo khoa.` });
             return true;
         }
 
@@ -568,7 +569,7 @@ async function handleBcqlButton(interaction) {
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
             .setTitle('📋 CHỐT DS BANG CHIẾN LANG GIA!')
-            .setDescription(`Leader: ${session.leader_name} | Tổng: **${total}** người`)
+            .setDescription(`Phiên: ${sessionLabel}\nLeader: ${session.leader_name} | Tổng: **${total}** người`)
             .addFields(
                 ...(() => { const n = db.getTeamNames ? db.getTeamNames() : { attack1: 'CÔNG 1', attack2: 'CÔNG 2' }; return [
                     { name: `⚔️ ${n.attack1} (${teamAttack1.length}/${attack1Size}) [${getStats(teamAttack1)}]`, value: formatTeam(teamAttack1, 1), inline: false },
@@ -594,7 +595,7 @@ async function handleBcqlButton(interaction) {
 
         // Role BC đã được cấp ngay khi bấm Tham gia, không cần cấp lại ở đây
 
-        await interaction.editReply({ content: `📝 Đã chốt danh sách! (${total} người)\n🔔 Mọi người vẫn có thể đăng ký nhưng sẽ vào hàng chờ.\n🔓 Dùng Team Editor trên web để mở khóa.` });
+        await interaction.editReply({ content: `📝 Đã chốt danh sách ${sessionLabel}! (${total} người)\n🔔 Mọi người vẫn có thể đăng ký nhưng sẽ vào hàng chờ.\n🔓 Dùng Team Editor trên web để mở khóa.` });
         return true;
     }
 

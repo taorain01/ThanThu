@@ -8,7 +8,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const supaSync = require('../../utils/supabaseSync');
 
@@ -50,7 +50,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             isActiveSession = true;
         } else {
@@ -68,6 +68,7 @@ module.exports = {
         }
 
         const sessionDay = session.day || null;
+        const sessionLabel = formatSessionDateTimeLabel(session);
 
         // Kiểm tra quyền
         if (message.author.id !== session.leader_id && !isQuanLy && !isKyCuu) {
@@ -175,7 +176,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0x00FF00)
                 .setTitle('DI CHUYEN THANH CONG')
-                .setDescription(`**${person.username || mention.username}** da duoc di chuyen tu **${fromTeamName}** sang **${targetTeam.name}**`)
+                .setDescription(`${sessionLabel ? `Phien: ${sessionLabel}\n` : ''}**${person.username || mention.username}** da duoc di chuyen tu **${fromTeamName}** sang **${targetTeam.name}**`)
                 .addFields(
                     ...roster.layout.map((team) => ({
                         name: `${team.icon || '*'} ${team.name}`,
@@ -304,7 +305,7 @@ module.exports = {
         }
 
         const fromTeamName = Object.values(TEAM_CONFIG).find(t => t.field === foundIn)?.name || foundIn;
-        let description = `**${person.username}** đã được di chuyển từ **${fromTeamName}** sang **${targetConfig.emoji} ${targetConfig.name}**`;
+        let description = `${sessionLabel ? `Phiên: ${sessionLabel}\n` : ''}**${person.username}** đã được di chuyển từ **${fromTeamName}** sang **${targetConfig.emoji} ${targetConfig.name}**`;
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)

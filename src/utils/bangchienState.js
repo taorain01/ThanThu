@@ -34,6 +34,7 @@ const DAY_CONFIG = {
 const PRIMARY_DAYS = ['sat', 'sun'];
 const LEAGUE_TIME = '19:30';
 const WEEKEND_DEFAULT_TIMES = ['19:30', '20:00', '20:30', '21:00', '21:30'];
+const VN_OFFSET_MINUTES = 7 * 60;
 
 /**
  * Tính ngày Thứ 7 hoặc Chủ Nhật của tuần này (hoặc tuần tới nếu đã qua)
@@ -43,24 +44,103 @@ const WEEKEND_DEFAULT_TIMES = ['19:30', '20:00', '20:30', '21:00', '21:30'];
 // Map day key → getDay() value
 const DAY_NUM = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
-function getNextDayDate(day) {
+function parseSessionTimestamp(value, fallback = new Date()) {
+    if (!value) return fallback;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? fallback : value;
+
+    const raw = String(value).trim();
+    if (!raw) return fallback;
+
+    // SQLite CURRENT_TIMESTAMP is UTC but stored without timezone.
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw)
+        ? raw.replace(' ', 'T') + 'Z'
+        : raw;
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function toVnWallDate(date = new Date()) {
+    const source = parseSessionTimestamp(date, new Date());
+    return new Date(source.getTime() + (VN_OFFSET_MINUTES + source.getTimezoneOffset()) * 60 * 1000);
+}
+
+function fromVnWallDate(vnWallDate) {
+    return new Date(Date.UTC(
+        vnWallDate.getFullYear(),
+        vnWallDate.getMonth(),
+        vnWallDate.getDate(),
+        vnWallDate.getHours() - 7,
+        vnWallDate.getMinutes(),
+        vnWallDate.getSeconds(),
+        vnWallDate.getMilliseconds()
+    ));
+}
+
+function formatDateVi(date) {
+    const vnDate = toVnWallDate(date);
+    const dd = String(vnDate.getDate()).padStart(2, '0');
+    const mm = String(vnDate.getMonth() + 1).padStart(2, '0');
+    const yyyy = vnDate.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+}
+
+function getSessionBattleDate(sessionOrDay, time = LEAGUE_TIME) {
+    const isSession = sessionOrDay && typeof sessionOrDay === 'object';
+    const day = isSession ? sessionOrDay.day : sessionOrDay;
     if (!DAY_NUM.hasOwnProperty(day)) return new Date();
-    const now = new Date();
-    const vnOffset = 7 * 60;
-    const localOffset = now.getTimezoneOffset();
-    const vnNow = new Date(now.getTime() + (vnOffset + localOffset) * 60 * 1000);
 
-    const currentDay = vnNow.getDay();
+    const normalizedTime = normalizeBcTime(isSession ? (sessionOrDay.time || time) : time);
+    const [hour, minute] = normalizedTime.split(':').map(Number);
+    const createdAt = parseSessionTimestamp(
+        isSession ? (sessionOrDay.created_at || sessionOrDay.createdAt) : null,
+        new Date()
+    );
+    const vnCreated = toVnWallDate(createdAt);
     const targetDay = DAY_NUM[day];
+    let daysUntilTarget = (targetDay - vnCreated.getDay() + 7) % 7;
 
-    let daysUntilTarget = (targetDay - currentDay + 7) % 7;
-    if (daysUntilTarget === 0 && vnNow.getHours() >= 23) {
+    // A session opened after the 23:00 VN auto-end cutoff belongs to next week.
+    if (daysUntilTarget === 0 && vnCreated.getHours() >= 23) {
         daysUntilTarget = 7;
     }
 
-    const targetDate = new Date(vnNow);
-    targetDate.setDate(vnNow.getDate() + daysUntilTarget);
-    return targetDate;
+    const battleVn = new Date(vnCreated);
+    battleVn.setDate(vnCreated.getDate() + daysUntilTarget);
+    battleVn.setHours(hour, minute, 0, 0);
+    return fromVnWallDate(battleVn);
+}
+
+function getSessionEndDate(sessionOrDay, time = LEAGUE_TIME) {
+    const battleDate = getSessionBattleDate(sessionOrDay, time);
+    const endVn = toVnWallDate(battleDate);
+    endVn.setHours(23, 0, 0, 0);
+    return fromVnWallDate(endVn);
+}
+
+function formatSessionDateLabel(sessionOrDay, time = LEAGUE_TIME) {
+    const isSession = sessionOrDay && typeof sessionOrDay === 'object';
+    const day = isSession ? sessionOrDay.day : sessionOrDay;
+    if (!day || !DAY_CONFIG[day]) return '';
+    return `${DAY_CONFIG[day].name} ${formatDateVi(getSessionBattleDate(sessionOrDay, time))}`;
+}
+
+function formatSessionDateTimeLabel(sessionOrDay, time = LEAGUE_TIME) {
+    const isSession = sessionOrDay && typeof sessionOrDay === 'object';
+    const sessionTime = normalizeBcTime(isSession ? (sessionOrDay.time || time) : time);
+    const dateLabel = formatSessionDateLabel(sessionOrDay, sessionTime);
+    return dateLabel ? `${dateLabel} lúc ${sessionTime} (GMT+7)` : '';
+}
+
+function formatSessionEndLabel(sessionOrDay, time = LEAGUE_TIME) {
+    const isSession = sessionOrDay && typeof sessionOrDay === 'object';
+    const day = isSession ? sessionOrDay.day : sessionOrDay;
+    if (!day || !DAY_CONFIG[day]) return '';
+    return `${DAY_CONFIG[day].name} ${formatDateVi(getSessionEndDate(sessionOrDay, time))} lúc 23:00 (GMT+7)`;
+}
+
+function getNextDayDate(day) {
+    if (!DAY_NUM.hasOwnProperty(day)) return new Date();
+    return toVnWallDate(getSessionBattleDate(day, LEAGUE_TIME));
 }
 
 /**
@@ -70,13 +150,7 @@ function getNextDayDate(day) {
  */
 function getDayNameWithDate(day) {
     if (!day || !DAY_CONFIG[day]) return '';
-
-    const targetDate = getNextDayDate(day);
-    const dd = String(targetDate.getDate()).padStart(2, '0');
-    const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-    const yyyy = targetDate.getFullYear();
-
-    return `${DAY_CONFIG[day].name} (${dd}/${mm}/${yyyy})`;
+    return `${DAY_CONFIG[day].name} (${formatDateVi(getSessionBattleDate(day, LEAGUE_TIME))})`;
 }
 
 // Aliases cho ngày (để parse từ args)
@@ -146,13 +220,7 @@ function isLeagueSession(sessionOrTime) {
 }
 
 function getSessionScheduleDate(sessionOrDay, time = LEAGUE_TIME) {
-    const isSession = sessionOrDay && typeof sessionOrDay === 'object';
-    const day = isSession ? sessionOrDay.day : sessionOrDay;
-    const targetDate = getNextDayDate(day);
-    const normalizedTime = normalizeBcTime(isSession ? sessionOrDay.time : time);
-    const [hour, minute] = normalizedTime.split(':').map(Number);
-    targetDate.setHours(hour, minute, 0, 0);
-    return targetDate;
+    return getSessionBattleDate(sessionOrDay, time);
 }
 
 function compareSessionsBySchedule(a, b) {
@@ -399,38 +467,8 @@ async function refreshOverviewEmbed(client, guildId, channelOrId = null, options
  * @returns {boolean} true nếu hết hạn
  */
 function isSessionExpired(session) {
-    if (!session || !session.created_at) return false;
-
-    const day = session.day;
-    if (!day || !DAY_CONFIG[day]) return false;
-
-    // ═══ Tất cả ngày: tính theo 23:00 VN ngày BC ═══
-    const vnOffset = 7 * 60; // phút
-    const localOffset = new Date().getTimezoneOffset();
-    const now = new Date();
-
-    // Lấy ngày tạo session
-    const createdAt = new Date(session.created_at);
-
-    // Tìm ngày T7/CN tính từ ngày tạo session
-    const targetDayOfWeek = DAY_NUM[day] ?? 0; // Dùng DAY_NUM map cho tất cả ngày
-
-    // Convert createdAt sang VN timezone
-    const vnCreated = new Date(createdAt.getTime() + (vnOffset + localOffset) * 60 * 1000);
-    const createdDayOfWeek = vnCreated.getDay();
-
-    let daysUntilTarget = targetDayOfWeek - createdDayOfWeek;
-    if (daysUntilTarget < 0) daysUntilTarget += 7;
-
-    // Ngày BC target (VN timezone)
-    const bcDate = new Date(vnCreated);
-    bcDate.setDate(vnCreated.getDate() + daysUntilTarget);
-    bcDate.setHours(23, 0, 0, 0);
-
-    // Convert thời điểm 23:00 VN sang UTC để so sánh
-    const bcDeadlineUTC = new Date(bcDate.getTime() - (vnOffset + localOffset) * 60 * 1000);
-
-    return now > bcDeadlineUTC;
+    if (!session || !session.day || !DAY_CONFIG[session.day]) return false;
+    return Date.now() >= getSessionEndDate(session).getTime();
 }
 
 /**
@@ -553,7 +591,7 @@ async function autoCleanupExpiredSessions(client, guildId, options = {}) {
                             defense: session.team_defense || [],
                             forest: session.team_forest || []
                         },
-                        resultNote: `Auto-end ${DAY_CONFIG[sessionDay]?.name || sessionDay} 23:00`
+                        resultNote: `Auto-end ${formatSessionEndLabel(session)}`
                     });
                 }
             } catch (e) {
@@ -563,14 +601,16 @@ async function autoCleanupExpiredSessions(client, guildId, options = {}) {
             // 6. SYNC XÓA TRÊN SUPABASE → web realtime DELETE
             try {
                 const { deleteBCSession } = require('./supabaseSync');
-                await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME);
+                await deleteBCSession(guildId, sessionDay, session.time || LEAGUE_TIME, session.supabase_session_id || null);
             } catch (e) { /* bỏ qua nếu supabase chưa init */ }
 
             cleanupResults.push({
                 guildId,
                 partyKey,
                 day: sessionDay,
-                dayName: DAY_CONFIG[sessionDay]?.name || sessionDay,
+                dayName: formatSessionDateLabel(session) || DAY_CONFIG[sessionDay]?.name || sessionDay,
+                dateTimeLabel: formatSessionDateTimeLabel(session),
+                endLabel: formatSessionEndLabel(session),
                 time: normalizeBcTime(session.time || LEAGUE_TIME),
                 channelId: session.channel_id,
                 participants: participants.length,
@@ -604,23 +644,7 @@ async function autoCleanupExpiredSessions(client, guildId, options = {}) {
 
 function getMsUntilBangchienAutoEnd(day) {
     if (!DAY_CONFIG[day]) return null;
-
-    const vnOffset = 7 * 60;
-    const localOffset = new Date().getTimezoneOffset();
-    const now = new Date();
-    const vnNow = new Date(now.getTime() + (localOffset + vnOffset) * 60 * 1000);
-    const targetDayOfWeek = DAY_NUM[day] ?? 0;
-    const todayDayOfWeek = vnNow.getDay();
-
-    let daysUntilTarget = targetDayOfWeek - todayDayOfWeek;
-    if (daysUntilTarget < 0) daysUntilTarget += 7;
-
-    const cleanupDate = new Date(vnNow);
-    cleanupDate.setDate(cleanupDate.getDate() + daysUntilTarget);
-    cleanupDate.setHours(23, 0, 0, 0);
-
-    const cleanupUTC = new Date(cleanupDate.getTime() - (localOffset + vnOffset) * 60 * 1000);
-    return cleanupUTC.getTime() - Date.now();
+    return getSessionEndDate({ day, time: LEAGUE_TIME, created_at: new Date() }).getTime() - Date.now();
 }
 
 async function sendBangchienAutoEndSummary(client, guildId, channelId, results) {
@@ -635,7 +659,7 @@ async function sendBangchienAutoEndSummary(client, guildId, channelId, results) 
     let totalRolesRemoved = 0;
 
     for (const result of results) {
-        const key = result.dayName || result.day || 'Unknown';
+        const key = result.endLabel || result.dayName || result.day || 'Unknown';
         if (!byDay[key]) byDay[key] = { participants: 0, removed: 0, presetThu: 0, presetRung: 0, times: [] };
         byDay[key].participants += result.participants || 0;
         byDay[key].removed += result.removed || 0;
@@ -649,7 +673,7 @@ async function sendBangchienAutoEndSummary(client, guildId, channelId, results) 
     const embed = new EmbedBuilder()
         .setColor(0x2ECC71)
         .setTitle('✅ BANG CHIẾN ĐÃ TỰ ĐỘNG KẾT THÚC!')
-        .setDescription('⏰ Đã 23:00 - các phiên Bang Chiến hôm nay đã tự động kết thúc.');
+        .setDescription('⏰ Đã tới mốc 23:00 (GMT+7) - các phiên Bang Chiến dưới đây đã tự động kết thúc.');
 
     for (const [dayName, info] of Object.entries(byDay)) {
         const times = [...new Set(info.times)].sort().join(', ');
@@ -874,6 +898,10 @@ module.exports = {
     getUserBangchienParty,
     getNextDayDate,
     getDayNameWithDate,
+    getSessionBattleDate,
+    formatSessionDateLabel,
+    formatSessionDateTimeLabel,
+    formatSessionEndLabel,
     upsertOverviewEmbed,
     refreshOverviewEmbed,
     // Auto-cleanup

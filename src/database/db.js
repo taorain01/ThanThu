@@ -1082,6 +1082,13 @@ function normalizeBangchienTime(value, fallback = '19:30') {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+function normalizeSqlTimestamp(value) {
+    if (!value) return null;
+    const parsed = value instanceof Date ? value : new Date(String(value).trim());
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 function hydrateBangchienSession(result) {
     if (!result) return null;
     result.team_defense = JSON.parse(result.team_defense || '[]');
@@ -1110,9 +1117,9 @@ function createActiveBangchien(data) {
         INSERT INTO bangchien_active (
             guild_id, party_key, leader_id, leader_name, channel_id, message_id,
             team_attack1, team_attack2, team_defense, team_forest, waiting_list,
-            team_layout, teams_json, day, time, note, supabase_session_id
+            team_layout, teams_json, day, time, note, supabase_session_id, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
     `);
     // Leader starts in team_attack1 (4-TEAM SYSTEM)
     // Lookup tên ingame từ DB users
@@ -1158,7 +1165,8 @@ function createActiveBangchien(data) {
         data.day || null,
         normalizeBangchienTime(data.time || '19:30'),
         data.note || null,
-        data.supabaseSessionId || data.supabase_session_id || null
+        data.supabaseSessionId || data.supabase_session_id || null,
+        normalizeSqlTimestamp(data.createdAt || data.created_at)
     );
     return { success: true, id: result.lastInsertRowid };
 }
@@ -2103,19 +2111,29 @@ function isAvatarBanned(discordId) {
 const ALBUM_MAX_IMAGES = 100; // Giới hạn 100 ảnh/người
 
 /**
- * Get album channel ID from config
+ * Get album channel ID from config.
+ * Guild-scoped config is preferred, then the legacy global key is used.
+ * @param {string|null} guildId - Discord guild ID
  * @returns {string|null} Channel ID or null
  */
-function getAlbumChannelId() {
+function getAlbumChannelId(guildId = null) {
+    if (guildId) {
+        const guildValue = getConfig(`album_channel_${guildId}`);
+        if (guildValue) return guildValue;
+    }
     return getConfig('album_channel_id');
 }
 
 /**
  * Set album channel ID
  * @param {string} channelId - Discord channel ID
+ * @param {string|null} guildId - Discord guild ID
  * @returns {Object} Result object
  */
-function setAlbumChannelId(channelId) {
+function setAlbumChannelId(channelId, guildId = null) {
+    if (guildId) {
+        return setConfig(`album_channel_${guildId}`, channelId);
+    }
     return setConfig('album_channel_id', channelId);
 }
 

@@ -371,11 +371,12 @@ module.exports = {
         // ============== ALBUM AUTO-SAVE (với Cloudinary + ImgBB fallback) ==============
         // Tự động lưu ảnh khi gửi vào Phòng Ảnh
 
-        const albumChannelId = db.getAlbumChannelId();
+        const albumChannelId = db.getAlbumChannelId(guildId);
         if (albumChannelId && message.channel.id === albumChannelId && message.attachments.size > 0) {
             const imageService = require('../../utils/imageService');
 
             for (const attachment of message.attachments.values()) {
+                try {
                 // Bỏ qua ảnh spoiler
                 if (attachment.spoiler) {
                     console.log(`[Album] Skipping spoiler image: ${attachment.name}`);
@@ -409,6 +410,10 @@ module.exports = {
                     } else if (result.error === 'limit') {
                         try { await message.react('⚠️'); } catch (e) { }
                     }
+                }
+                } catch (e) {
+                    console.error(`[Album] Save failed for message ${message.id}:`, e.message);
+                    try { await message.react('❌'); } catch (reactError) { }
                 }
             }
         }
@@ -718,7 +723,8 @@ module.exports = {
 
         // Check if channel is muted (chặn TẤT CẢ lệnh khác)
         const { isChannelMuted } = require('../../commands/admin/muteall');
-        if (isChannelMuted(message.channel.id)) {
+        const mutedBypassCommands = new Set(['setchannelanh', 'setchannelphonganh', 'phonganh']);
+        if (isChannelMuted(message.channel.id) && !mutedBypassCommands.has(commandName)) {
             return; // Không phản hồi bất kỳ lệnh nào trong kênh bị mute
         }
 

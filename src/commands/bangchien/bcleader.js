@@ -4,7 +4,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 const supaSync = require('../../utils/supabaseSync');
 
@@ -58,7 +58,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             isActiveSession = true;
         } else {
@@ -83,6 +83,7 @@ module.exports = {
         // Lấy tất cả mentions
         const mentions = [...message.mentions.users.values()];
         const activeRosterForLeader = isActiveSession ? bangchienRoster.normalizeRoster(session) : null;
+        const sessionLabel = formatSessionDateTimeLabel(session);
         const expectedLeaderCount = activeRosterForLeader?.layout?.length || 4;
 
         // ========== TÍNH NĂNG MỚI: SET TẤT CẢ 4 LEADER CÙNG LÚC ==========
@@ -210,7 +211,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0x9B59B6)
                 .setTitle(`DA DAT LEADER ${targetTeam.icon || ''} ${targetTeam.name}!`)
-                .setDescription(`**${leaderName}** (<@${leaderId}>) la Leader cua ${targetTeam.name}.\nDa di chuyen len vi tri dau team.${voicePermResult}`)
+                .setDescription(`${sessionLabel ? `Phien: ${sessionLabel}\n` : ''}**${leaderName}** (<@${leaderId}>) la Leader cua ${targetTeam.name}.\nDa di chuyen len vi tri dau team.${voicePermResult}`)
                 .setFooter({ text: 'Dung ?bc de xem' });
 
             console.log(`[bcleader] ${message.author.username} set leader team ${teamNum}: ${leaderName}`);
@@ -344,7 +345,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor(teamConfig.color)
             .setTitle(`🎯 ĐÃ ĐẶT LEADER ${teamConfig.emoji} ${teamConfig.name}!`)
-            .setDescription(`**${leaderName}** (<@${leaderId}>) là Leader của ${teamConfig.emoji} ${teamConfig.name}.\nĐã di chuyển lên vị trí đầu team.${voicePermResult}`)
+            .setDescription(`${sessionLabel ? `Phiên: ${sessionLabel}\n` : ''}**${leaderName}** (<@${leaderId}>) là Leader của ${teamConfig.emoji} ${teamConfig.name}.\nĐã di chuyển lên vị trí đầu team.${voicePermResult}`)
             .setFooter({ text: isActiveSession ? 'Dùng ?bc để xem' : 'Dùng ?bcql để quản lý' });
 
         console.log(`[bcleader] ${message.author.username} set leader team ${teamNum}: ${leaderName}`);
@@ -413,7 +414,7 @@ module.exports = {
                 await supaSync.syncBCSession(message.guild.id, fresh.day || session.day || 'sat', formatted || fresh).catch(() => {});
             }
 
-            const dayName = day ? DAY_CONFIG[day].name : '';
+            const dayName = sessionLabel || (day ? DAY_CONFIG[day].name : '');
             const embed = new EmbedBuilder()
                 .setColor(0x9B59B6)
                 .setTitle(`DA DAT LEADER ${dayName}`)
@@ -512,7 +513,7 @@ module.exports = {
             );
         }
 
-        const dayName = day ? DAY_CONFIG[day].name : '';
+        const dayName = sessionLabel || (day ? DAY_CONFIG[day].name : '');
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
             .setTitle(`🎯 ĐÃ ĐẶT TẤT CẢ LEADER ${dayName}!`)
@@ -620,7 +621,7 @@ module.exports = {
                 await supaSync.syncBCSession(message.guild.id, fresh.day || session.day || 'sat', formatted || fresh).catch(() => {});
             }
 
-            const dayName = day ? DAY_CONFIG[day].name : '';
+            const dayName = sessionLabel || (day ? DAY_CONFIG[day].name : '');
             const embed = new EmbedBuilder()
                 .setColor(0x9B59B6)
                 .setTitle(`DA DAT LEADER THEO SLOT ${dayName}`)
@@ -743,7 +744,7 @@ module.exports = {
             );
         }
 
-        const dayName = day ? DAY_CONFIG[day].name : '';
+        const dayName = sessionLabel || (day ? DAY_CONFIG[day].name : '');
         const embed = new EmbedBuilder()
             .setColor(0x9B59B6)
             .setTitle(`🎯 ĐÃ ĐẶT TẤT CẢ LEADER ${dayName}!`)

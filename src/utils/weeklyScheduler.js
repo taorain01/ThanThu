@@ -16,7 +16,7 @@ const {
     getCurrentMonth1st8AM
 } = require('./weeklyState');
 const { sendTacticsStorageReport } = require('./tacticsStorageReport');
-const { isAllowedGuildId } = require('../config/guildAccess');
+const { ALLOWED_GUILD_IDS, isAllowedGuildId } = require('../config/guildAccess');
 
 const WEEKLY_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 ngày
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
@@ -68,9 +68,9 @@ async function sendBossScheduleEmbed(client) {
 /**
  * Gửi embed Hướng dẫn Phòng Ảnh (xóa cũ trước)
  */
-async function sendPhongAnhHelp(client, monthKey = null) {
+async function sendPhongAnhHelp(client, monthKey = null, guildId = null) {
     try {
-        const albumChannelId = db.getAlbumChannelId();
+        const albumChannelId = db.getAlbumChannelId(guildId);
         if (!albumChannelId) {
             console.log('[WeeklyScheduler] ⚠️ Chưa set kênh Phòng Ảnh');
             return null;
@@ -126,28 +126,41 @@ function isBeforeMonthlyPhongAnhSendTime() {
     return vnTime.getUTCDate() === 1 && vnTime.getUTCHours() < 8;
 }
 
+async function sendMonthlyPhongAnhHelpForAllowedGuilds(client) {
+    let hasAlbumChannel = false;
+    let sentMessage = null;
+    const checkedChannelIds = new Set();
+
+    for (const guildId of ALLOWED_GUILD_IDS) {
+        const albumChannelId = db.getAlbumChannelId(guildId);
+        if (!albumChannelId || checkedChannelIds.has(albumChannelId)) continue;
+
+        checkedChannelIds.add(albumChannelId);
+        hasAlbumChannel = true;
+
+        if (isBeforeMonthlyPhongAnhSendTime()) continue;
+
+        const monthKey = getCurrentMonth1st8AM();
+        const dbMonth = db.getConfig(`pa_guide_month_${albumChannelId}`);
+        if (dbMonth && !phongAnhGuideSentMonth.has(albumChannelId)) {
+            phongAnhGuideSentMonth.set(albumChannelId, dbMonth);
+        }
+
+        if (phongAnhGuideSentMonth.get(albumChannelId) === monthKey) continue;
+
+        const result = await sendPhongAnhHelp(client, monthKey, guildId);
+        if (result && !sentMessage) sentMessage = result;
+    }
+
+    if (!hasAlbumChannel) {
+        console.log('[MonthlyScheduler] Chua set kenh Phong Anh');
+    }
+
+    return sentMessage;
+}
+
 async function sendMonthlyPhongAnhHelpIfDue(client) {
-    const albumChannelId = db.getAlbumChannelId();
-    if (!albumChannelId) {
-        console.log('[MonthlyScheduler] ⚠️ Chưa set kênh Phòng Ảnh');
-        return null;
-    }
-
-    if (isBeforeMonthlyPhongAnhSendTime()) {
-        return null;
-    }
-
-    const monthKey = getCurrentMonth1st8AM();
-    const dbMonth = db.getConfig(`pa_guide_month_${albumChannelId}`);
-    if (dbMonth && !phongAnhGuideSentMonth.has(albumChannelId)) {
-        phongAnhGuideSentMonth.set(albumChannelId, dbMonth);
-    }
-
-    if (phongAnhGuideSentMonth.get(albumChannelId) === monthKey) {
-        return null;
-    }
-
-    return sendPhongAnhHelp(client, monthKey);
+    return sendMonthlyPhongAnhHelpForAllowedGuilds(client);
 }
 
 function getTimeUntilNextMonth1st8AM() {

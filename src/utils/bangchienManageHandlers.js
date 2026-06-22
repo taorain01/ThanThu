@@ -21,7 +21,8 @@ const {
     bangchienRegistrations,
     bangchienFinalizedParties,
     BANGCHIEN_MAX_MEMBERS,
-    getDayFromPartyKey
+    getDayFromPartyKey,
+    formatSessionDateTimeLabel
 } = require('./bangchienState');
 const {
     addBcRegularIfEligible,
@@ -341,6 +342,8 @@ async function handleButton(interaction, client) {
 
             // Lookup tên in-game - Áp dụng logic ưu tiên (isPrioritized bypass MAX_MEMBERS)
             const db = require('../database/db');
+            const session = db.getActiveBangchien ? db.getActiveBangchien(partyKey) : null;
+            const sessionLabel = session ? formatSessionDateTimeLabel(session) : '';
 
             // Tách danh sách chính và chờ với logic ưu tiên
             const baseSelected = registrations.slice(0, BANGCHIEN_MAX_MEMBERS);
@@ -432,6 +435,7 @@ async function handleButton(interaction, client) {
             const finalEmbed = new EmbedBuilder()
                 .setColor(0x9B59B6)
                 .setTitle('📋 CHỐT DANH SÁCH BANG CHIẾN LANG GIA!');
+            if (sessionLabel) finalEmbed.setDescription(`Phiên: ${sessionLabel}`);
 
             // Thêm Team Phòng Thủ
             const defenseChunks = splitListIntoChunks(defenseList);
@@ -523,7 +527,7 @@ async function handleButton(interaction, client) {
             bangchienRegistrations.delete(partyKey);
 
             await interaction.reply({
-                content: `✅ Đã chốt và chia team cho ${selectedParticipants.length} người!\n🛡️ Phòng Thủ: ${teamResult.defense.length} | ⚔️ Tấn Công: ${teamResult.offense.length}\n**Reply tin chốt danh sách để tag tất cả.**`,
+                content: `✅ Đã chốt${sessionLabel ? ` ${sessionLabel}` : ''} và chia team cho ${selectedParticipants.length} người!\n🛡️ Phòng Thủ: ${teamResult.defense.length} | ⚔️ Tấn Công: ${teamResult.offense.length}\n**Reply tin chốt danh sách để tag tất cả.**`,
                 flags: MessageFlags.Ephemeral
             });
 

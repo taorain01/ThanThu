@@ -248,7 +248,7 @@ async function execute(message, args) {
     try {
         albumImageCount = db.getAllAlbumImagesByUser(targetDiscordId).length;
     } catch (e) { }
-    runBackground('album cleanup', () => cleanupAlbumForUser(targetDiscordId, 'roiguild', { client: message.client }));
+    runBackground('album cleanup', () => cleanupAlbumForUser(targetDiscordId, 'roiguild', { client: message.client, guildId: message.guild.id }));
 
     // === XÓA KHỎI HỆ THỐNG BANG CHIẾN ===
     // 1. Xóa "Luôn tham gia" cho cả 2 ngày

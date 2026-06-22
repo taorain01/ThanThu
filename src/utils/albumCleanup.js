@@ -5,7 +5,7 @@ async function resolveAlbumChannel(options = {}) {
     if (options.channel) return options.channel;
     if (!options.client) return null;
 
-    const albumChannelId = db.getAlbumChannelId();
+    const albumChannelId = db.getAlbumChannelId(options.guildId);
     if (!albumChannelId) return null;
     return options.client.channels.fetch(albumChannelId).catch(() => null);
 }

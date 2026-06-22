@@ -489,46 +489,51 @@ async function syncBCSession(guildId, day, sessionData) {
  * @param {string} guildId - Guild ID
  * @param {string} day - 'sat', 'sun', 'mon'...
  */
-async function deleteBCSession(guildId, day, time = LEAGUE_TIME) {
+async function deleteBCSession(guildId, day, time = LEAGUE_TIME, sessionId = null) {
     const normalizedTime = normalizeBcTime(time || LEAGUE_TIME);
-    console.log(`[Supabase] deleteBCSession called: guild=${guildId}, day=${day}, time=${normalizedTime}, ready=${isReady()}`);
+    console.log(`[Supabase] deleteBCSession called: guild=${guildId}, day=${day}, time=${normalizedTime}, id=${sessionId || '-'}, ready=${isReady()}`);
     if (!isReady()) {
         console.log('[Supabase] ⚠️ deleteBCSession: Supabase chưa sẵn sàng, bỏ qua!');
         return;
     }
     try {
         // STEP 1: UPDATE status='ended' → web nhận Realtime UPDATE event
-        const { data: existingSession, error: snapshotLookupError } = await supabase
+        let lookupQuery = supabase
             .from('bc_sessions')
             .select('*')
-            .eq('guild_id', guildId)
-            .eq('day', day)
-            .eq('time', normalizedTime)
-            .maybeSingle();
+            .eq('guild_id', guildId);
+        lookupQuery = sessionId
+            ? lookupQuery.eq('id', sessionId)
+            : lookupQuery.eq('day', day).eq('time', normalizedTime);
+        const { data: existingSession, error: snapshotLookupError } = await lookupQuery.maybeSingle();
         if (snapshotLookupError) {
             handleSyncError('deleteBCSession snapshot lookup', snapshotLookupError);
         } else if (existingSession?.id) {
             await saveRosterSnapshot(guildId, existingSession, 'bot_delete');
         }
 
-        await supabase
+        let updateQuery = supabase
             .from('bc_sessions')
             .update({ status: 'ended' })
-            .eq('guild_id', guildId)
-            .eq('day', day)
-            .eq('time', normalizedTime);
+            .eq('guild_id', guildId);
+        updateQuery = sessionId
+            ? updateQuery.eq('id', sessionId)
+            : updateQuery.eq('day', day).eq('time', normalizedTime);
+        await updateQuery;
         console.log(`[Supabase] Signal ended for ${day} ${normalizedTime}`);
 
         // Chờ 500ms để web kịp nhận event
         await new Promise(r => setTimeout(r, 500));
 
         // STEP 2: DELETE hẳn row
-        let { error } = await supabase
+        let deleteQuery = supabase
             .from('bc_sessions')
             .delete()
-            .eq('guild_id', guildId)
-            .eq('day', day)
-            .eq('time', normalizedTime);
+            .eq('guild_id', guildId);
+        deleteQuery = sessionId
+            ? deleteQuery.eq('id', sessionId)
+            : deleteQuery.eq('day', day).eq('time', normalizedTime);
+        let { error } = await deleteQuery;
 
         if (error) {
             console.error('[Supabase] ❌ Xóa BC session lỗi:', error.message);

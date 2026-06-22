@@ -12,6 +12,7 @@ const {
     DAY_CONFIG,
     parseDayArg,
     getDayNameWithDate,
+    formatSessionDateTimeLabel,
     LEAGUE_TIME,
     normalizeBcTime
 } = require('../../utils/bangchienState');
@@ -47,7 +48,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
         } else {
             // Không chỉ định ngày → lấy session đầu tiên
@@ -86,14 +87,14 @@ module.exports = {
         let dayTitle = '';
         if (sessionDay && DAY_CONFIG[sessionDay]) {
             embedColor = DAY_CONFIG[sessionDay].color;
-            dayTitle = ` - ${getDayNameWithDate(sessionDay)}`;  // Sử dụng ngày cụ thể
+            dayTitle = ` - ${formatSessionDateTimeLabel(session) || getDayNameWithDate(sessionDay)}`;  // Sử dụng ngày cụ thể
         }
 
         // Tạo embed thống kê
         const embed = new EmbedBuilder()
             .setColor(embedColor)
             .setTitle(`🔧 QUẢN LÝ BANG CHIẾN${dayTitle}`)
-            .setDescription(`**Leader:** ${session.leader_name}`)
+            .setDescription(`**Phiên:** ${formatSessionDateTimeLabel(session) || dayTitle.replace(/^ - /, '')}\n**Leader:** ${session.leader_name}`)
             .addFields(
                 { name: '⚔️ Công 1', value: `${teamAttack1.length}/10`, inline: true },
                 { name: '🗡️ Công 2', value: `${teamAttack2.length}/10`, inline: true },

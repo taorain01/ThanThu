@@ -5,7 +5,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, DAY_ALIASES, parseDayArg, LEAGUE_TIME, normalizeBcTime, formatSessionDateTimeLabel } = require('../../utils/bangchienState');
 
 // Team config
 const TEAM_EMOJI = {
@@ -48,7 +48,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`❌ Không có phiên BC ${DAY_CONFIG[day].name} đang chạy!`);
+                return message.reply(`❌ Không có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             isActiveSession = true;
         } else {
@@ -66,6 +66,7 @@ module.exports = {
         }
 
         const sessionDay = session.day || null;
+        const sessionLabel = formatSessionDateTimeLabel(session);
 
         // Kiểm tra quyền
         if (message.author.id !== session.leader_id && !isQuanLy && !isKyCuu) {
@@ -241,7 +242,7 @@ module.exports = {
                 const team1Display = TEAM_EMOJI[slot1.team] || slot1.team;
                 const team2Display = TEAM_EMOJI[slot2.team] || slot2.team;
 
-                let description = `**${num1}. ${team1Display} ${name1}** ⇄ **${num2}. ${team2Display} ${name2}**`;
+                let description = `${sessionLabel ? `Phiên: ${sessionLabel}\n` : ''}**${num1}. ${team1Display} ${name1}** ⇄ **${num2}. ${team2Display} ${name2}**`;
                 if (presetUpdates.length > 0) description += '\n\n' + presetUpdates.join('\n');
 
                 const resultEmbed = new EmbedBuilder()
@@ -334,7 +335,7 @@ module.exports = {
                     );
                 }
 
-                let description = `**${movedPerson.username}** → ${TEAM_EMOJI[slot2.team]}`;
+                let description = `${sessionLabel ? `Phiên: ${sessionLabel}\n` : ''}**${movedPerson.username}** → ${TEAM_EMOJI[slot2.team]}`;
                 if (presetUpdates.length > 0) description += '\n\n' + presetUpdates.join('\n');
 
                 const resultEmbed = new EmbedBuilder()

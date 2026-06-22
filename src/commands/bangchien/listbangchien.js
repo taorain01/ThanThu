@@ -6,7 +6,7 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { DAY_CONFIG, parseDayArg, getDayNameWithDate, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
+const { DAY_CONFIG, parseDayArg, getDayNameWithDate, formatSessionDateLabel, formatSessionDateTimeLabel, LEAGUE_TIME, normalizeBcTime } = require('../../utils/bangchienState');
 const bangchienRoster = require('../../utils/bangchienRoster');
 
 // Helper: Lấy team config từ DB (size + tên tùy chỉnh, đồng bộ với bcsize và bcql_resize)
@@ -66,7 +66,7 @@ module.exports = {
                 ? db.getActiveBangchienByDayTime(guildId, day, requestedTime)
                 : db.getActiveBangchienByDay(guildId, day);
             if (!session) {
-                return message.reply(`📭 Chưa có phiên BC ${DAY_CONFIG[day].name} ${requestedTime} đang chạy!`);
+                return message.reply(`📭 Chưa có phiên BC ${formatSessionDateTimeLabel({ day, time: requestedTime }) || `${DAY_CONFIG[day].name} ${requestedTime}`} đang chạy!`);
             }
             return this.showDetailedSession(message, session, true, day, true); // showButtons = true
         }
@@ -95,7 +95,7 @@ module.exports = {
         } else {
             for (const sessionItem of allSessions) {
                 const stats = getStats(sessionItem);
-                const dateStr = getDayNameWithDate(sessionItem.day).toUpperCase();
+                const dateStr = (formatSessionDateTimeLabel(sessionItem) || getDayNameWithDate(sessionItem.day)).toUpperCase();
                 const teamLine = stats.layout
                     .map((team) => `${team.icon || '*'} ${team.name}: ${stats.byTeam[team.id] || 0}`)
                     .join(' | ');
@@ -156,7 +156,7 @@ module.exports = {
         let dayTitle = '';
         if (day && DAY_CONFIG[day]) {
             embedColor = DAY_CONFIG[day].color;
-            dayTitle = ` - ${getDayNameWithDate(day)}`;  // Sử dụng ngày cụ thể
+            dayTitle = ` - ${formatSessionDateTimeLabel(session) || getDayNameWithDate(day)}`;  // Sử dụng ngày cụ thể
         }
 
         // Role emojis
@@ -276,10 +276,7 @@ module.exports = {
             return chunks;
         }
 
-        const date = new Date(session.created_at).toLocaleString('vi-VN', {
-            weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit'
-        });
+        const date = formatSessionDateTimeLabel(session) || formatSessionDateLabel(session) || session.created_at;
 
         const totalInTeams = bangchienRoster.getRosterCounts(roster).active;
 

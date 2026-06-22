@@ -2565,7 +2565,7 @@
 
       z-index: 50;
 
-      background: #000 url("anh/bg_derby_racetrack_old.png") no-repeat center 24%;
+      background: #000 url("anh/bg_derby_sky.png") no-repeat center center;
 
       background-size: cover;
 
@@ -2690,6 +2690,39 @@
       height: 100%;
 
       position: relative;
+
+      overflow: hidden;
+
+      background: #000 url("anh/bg_derby_sky.png") no-repeat center center;
+
+      background-size: cover;
+
+    }
+
+    .webgl-canvas-container::before {
+
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+
+      left: 0;
+
+      right: 0;
+
+      height: min(30vh, 230px);
+
+      pointer-events: none;
+
+      z-index: 1;
+
+      background:
+        radial-gradient(ellipse at 42% 72%, rgba(52, 211, 153, 0.28), rgba(52, 211, 153, 0.08) 38%, transparent 72%),
+        radial-gradient(ellipse at 70% 45%, rgba(94, 234, 212, 0.18), transparent 58%),
+        linear-gradient(180deg, rgba(6, 78, 59, 0.3), rgba(2, 6, 4, 0));
+
+      mix-blend-mode: screen;
 
     }
 
@@ -7731,40 +7764,42 @@
     let sharedMaterials = {};
 
     let materialCache = {};
+    let derbyTrackDecorations = [];
+    let derbySpaceDecorations = [];
 
 
 
     function initSharedThreeResources() {
 
-      if (sharedGeometries.spark) return; // Đã khởi tạo
+      if (!sharedGeometries.spark) {
+        sharedGeometries.spark = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+        sharedGeometries.burn = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+        sharedGeometries.trail = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+      }
 
-      sharedGeometries.spark = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+      if (!sharedGeometries.trackDash) {
+        sharedGeometries.trackDash = new THREE.BoxGeometry(1, 0.035, 0.075);
+        sharedGeometries.speedPad = new THREE.BoxGeometry(0.72, 0.028, 0.72);
+        sharedGeometries.trackPylon = new THREE.CylinderGeometry(0.055, 0.085, 0.42, 10);
+        sharedGeometries.hoverDisc = new THREE.CylinderGeometry(0.42, 0.62, 0.075, 30);
+        sharedGeometries.hoverRing = new THREE.TorusGeometry(0.64, 0.026, 8, 40);
+      }
 
-      sharedGeometries.burn = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+      if (!sharedMaterials.burn) {
+        sharedMaterials.burn = new THREE.MeshBasicMaterial({
+          color: "#ef4444",
+          transparent: true,
+          opacity: 0.8
+        });
+      }
 
-      sharedGeometries.trail = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-
-      
-
-      sharedMaterials.burn = new THREE.MeshBasicMaterial({
-
-        color: "#ef4444",
-
-        transparent: true,
-
-        opacity: 0.8
-
-      });
-
-      sharedMaterials.lightningBolt = new THREE.LineBasicMaterial({
-
-        color: "#60a5fa",
-
-        transparent: true,
-
-        opacity: 0.95
-
-      });
+      if (!sharedMaterials.lightningBolt) {
+        sharedMaterials.lightningBolt = new THREE.LineBasicMaterial({
+          color: "#60a5fa",
+          transparent: true,
+          opacity: 0.95
+        });
+      }
 
     }
 
@@ -8002,6 +8037,14 @@
       threeCamera.position.set(derbyTrackWidth / 2 - 1, 10, trackLength + 18);
 
       updateDerbyCameraFrame(trackLength, false);
+      updateDerbyNameplateScales();
+
+      const firstFrameNow = performance.now();
+      animateDerbyTrackDecorations(firstFrameNow);
+      animateDerbySpaceDecorations(firstFrameNow);
+      if (threeRenderer && threeScene && threeCamera) {
+        threeRenderer.render(threeScene, threeCamera);
+      }
 
       
 
@@ -8068,6 +8111,323 @@
       });
     }
 
+    function createDerbyHoverDisc(color, scale = 1) {
+      initSharedThreeResources();
+      const group = new THREE.Group();
+      const discMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const disc = new THREE.Mesh(sharedGeometries.hoverDisc, discMat);
+      disc.scale.set(scale, scale * 0.7, scale);
+      group.add(disc);
+
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: "#fbbf24",
+        transparent: true,
+        opacity: 0.48,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const ring = new THREE.Mesh(sharedGeometries.hoverRing, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.scale.set(scale, scale, scale);
+      group.add(ring);
+      group.userData.disc = disc;
+      group.userData.ring = ring;
+      return group;
+    }
+
+    function addDerbyTrackDecorations(roadW, laneSpacing, numLanes, roadMinZ, roadMaxZ) {
+      if (!threeScene) return;
+      initSharedThreeResources();
+      derbyTrackDecorations = [];
+
+      const centerX = roadW / 2 - 1;
+      const roadLength = roadMaxZ - roadMinZ;
+      const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
+      const dashMat = new THREE.MeshBasicMaterial({
+        color: "#2ff29b",
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const padMats = ["#34d399", "#fbbf24", "#38bdf8"].map((color) => new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }));
+      const pylonMat = new THREE.MeshBasicMaterial({
+        color: "#fbbf24",
+        transparent: true,
+        opacity: 0.58,
+        depthWrite: false
+      });
+      const edgeMat = new THREE.MeshBasicMaterial({
+        color: "#fbbf24",
+        transparent: true,
+        opacity: 0.38,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+      const edgeGeo = new THREE.BoxGeometry(0.045, 0.04, roadLength);
+
+      [-1, roadW - 1].forEach((x, idx) => {
+        const edge = new THREE.Mesh(edgeGeo, edgeMat.clone());
+        edge.position.set(x, 0.018, roadCenterZ);
+        threeScene.add(edge);
+        derbyTrackDecorations.push({
+          type: "edge",
+          mesh: edge,
+          baseOpacity: idx === 0 ? 0.34 : 0.4,
+          phase: idx * 1.4
+        });
+      });
+
+      for (let z = 18; z <= trackLength + 8; z += 12) {
+        const dash = new THREE.Mesh(sharedGeometries.trackDash, dashMat.clone());
+        dash.scale.set(roadW * 0.86, 1, 1);
+        dash.position.set(centerX, 0.025, z);
+        threeScene.add(dash);
+        derbyTrackDecorations.push({ type: "dash", mesh: dash, baseOpacity: 0.22, phase: z * 0.17 });
+
+        if (z % 36 === 18) {
+          const lane = Math.floor((z / 12) % Math.max(numLanes, 1));
+          const pad = new THREE.Mesh(sharedGeometries.speedPad, padMats[lane % padMats.length].clone());
+          pad.scale.set(Math.max(0.85, laneSpacing * 0.72), 1, 1.15);
+          pad.position.set(lane * laneSpacing + laneSpacing / 2, 0.035, z + 3.2);
+          threeScene.add(pad);
+          derbyTrackDecorations.push({ type: "pad", mesh: pad, baseOpacity: 0.22, phase: z * 0.23 });
+        }
+      }
+
+      for (let z = 20; z <= trackLength + 12; z += 22) {
+        [-1, 1].forEach((side) => {
+          const pylon = new THREE.Mesh(sharedGeometries.trackPylon, pylonMat);
+          pylon.position.set(side < 0 ? -1.22 : roadW - 0.78, 0.23, z);
+          threeScene.add(pylon);
+          derbyTrackDecorations.push({ type: "pylon", mesh: pylon, baseY: 0.23, phase: z * 0.13 });
+        });
+      }
+
+      const droneCount = Math.min(8, Math.max(4, Math.ceil(trackLength / 48)));
+      const droneColors = ["#34d399", "#fbbf24", "#38bdf8"];
+      for (let i = 0; i < droneCount; i += 1) {
+        const drone = createDerbyHoverDisc(droneColors[i % droneColors.length], 0.72);
+        const side = i % 2 === 0 ? -1 : 1;
+        const z = 18 + i * ((trackLength - 16) / Math.max(1, droneCount - 1));
+        drone.position.set(centerX + side * Math.min(roadW * 0.42, 9), 2.2 + (i % 3) * 0.28, z);
+        threeScene.add(drone);
+        derbyTrackDecorations.push({
+          type: "drone",
+          mesh: drone,
+          baseY: drone.position.y,
+          spin: side * (0.014 + i * 0.0015),
+          phase: i * 1.7
+        });
+      }
+    }
+
+    function animateDerbyTrackDecorations(frameNow) {
+      if (!derbyTrackDecorations.length) return;
+      derbyTrackDecorations.forEach((item) => {
+        const mesh = item.mesh;
+        if (!mesh) return;
+        if (item.type === "drone") {
+          mesh.rotation.y += item.spin;
+          mesh.position.y = item.baseY + Math.sin(frameNow * 0.0022 + item.phase) * 0.16;
+          if (mesh.userData.ring) mesh.userData.ring.rotation.z -= item.spin * 2.2;
+          return;
+        }
+        if (item.type === "pylon") {
+          mesh.position.y = item.baseY + Math.sin(frameNow * 0.004 + item.phase) * 0.035;
+          return;
+        }
+        const mat = mesh.material;
+        if (mat && typeof mat.opacity === "number") {
+          mat.opacity = item.baseOpacity + Math.sin(frameNow * 0.003 + item.phase) * 0.06;
+        }
+      });
+    }
+
+    function addDerbyStarField(roadW) {
+      if (!threeScene) return;
+      const centerX = roadW / 2 - 1;
+      const starCount = Math.min(520, Math.max(280, Math.round(roadW * 8)));
+      const positions = new Float32Array(starCount * 3);
+      const colors = new Float32Array(starCount * 3);
+      const palette = ["#dffcf0", "#9ef9d4", "#fef3c7", "#93c5fd", "#f8fafc"].map((color) => new THREE.Color(color));
+
+      for (let i = 0; i < starCount; i += 1) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const farSky = i % 7 === 0;
+        const xOffset = roadW * (farSky ? 0.95 : 0.72) + 7 + Math.random() * Math.max(24, roadW * 1.45);
+        const y = farSky ? 15 + Math.random() * 38 : 3.5 + Math.random() * 30;
+        const z = farSky ? -90 + Math.random() * 120 : -24 + Math.random() * (trackLength + 88);
+        const shade = palette[i % palette.length].clone().multiplyScalar(0.64 + Math.random() * 0.62);
+
+        positions[i * 3] = centerX + side * xOffset;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+        colors[i * 3] = shade.r;
+        colors[i * 3 + 1] = shade.g;
+        colors[i * 3 + 2] = shade.b;
+      }
+
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      starGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      const starMat = new THREE.PointsMaterial({
+        size: 0.16,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.82,
+        vertexColors: true,
+        depthWrite: false,
+        fog: false,
+        blending: THREE.AdditiveBlending
+      });
+      const stars = new THREE.Points(starGeo, starMat);
+      stars.name = "derby-space-stars";
+      stars.renderOrder = -8;
+      threeScene.add(stars);
+      derbySpaceDecorations.push({
+        type: "starfield",
+        mesh: stars,
+        baseOpacity: 0.78,
+        phase: Math.random() * Math.PI,
+        spin: 0.000035
+      });
+    }
+
+    function addDerbyPlanetDecorations(roadW) {
+      if (!threeScene) return;
+
+      const centerX = roadW / 2 - 1;
+      const sideBase = Math.max(10, roadW * 0.72);
+      const planets = [
+        { name: "mercury", color: "#b6b0a7", emissive: "#3f3831", radius: 0.72, side: -1, z: 0.18, y: 5.8, extra: 1.8, spin: 0.0042 },
+        { name: "venus", color: "#f6c56b", emissive: "#5c3714", radius: 1.02, side: 1, z: 0.28, y: 7.2, extra: 3.6, spin: 0.0034 },
+        { name: "earth", color: "#38bdf8", emissive: "#0b5366", radius: 1.0, side: -1, z: 0.43, y: 8.9, extra: 5.2, spin: 0.0048, moon: true },
+        { name: "mars", color: "#ef6c3d", emissive: "#5f1f11", radius: 0.88, side: 1, z: 0.55, y: 6.8, extra: 2.8, spin: 0.0045 },
+        { name: "jupiter", color: "#e5b56f", emissive: "#5a3513", radius: 1.72, side: -1, z: 0.7, y: 11.2, extra: 6.6, spin: 0.0028, bands: true },
+        { name: "saturn", color: "#e8d08a", emissive: "#5b4718", radius: 1.46, side: 1, z: 0.84, y: 12.4, extra: 7.4, spin: 0.0024, ring: true }
+      ];
+
+      planets.forEach((planet, index) => {
+        const group = new THREE.Group();
+        group.name = `derby-planet-${planet.name}`;
+        const coreGeo = new THREE.SphereGeometry(planet.radius, 14, 10);
+        const coreMat = new THREE.MeshStandardMaterial({
+          color: planet.color,
+          emissive: planet.emissive,
+          emissiveIntensity: 0.42,
+          roughness: 0.64,
+          metalness: 0.04,
+          flatShading: true,
+          fog: false
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        group.add(core);
+
+        if (planet.bands) {
+          ["#fff1b7", "#b7791f", "#facc15"].forEach((bandColor, bandIdx) => {
+            const band = new THREE.Mesh(
+              new THREE.TorusGeometry(planet.radius * (0.86 + bandIdx * 0.08), 0.018, 6, 36),
+              new THREE.MeshBasicMaterial({
+                color: bandColor,
+                transparent: true,
+                opacity: 0.38,
+                depthWrite: false,
+                fog: false,
+                blending: THREE.AdditiveBlending
+              })
+            );
+            band.rotation.x = Math.PI / 2;
+            band.position.y = (bandIdx - 1) * planet.radius * 0.23;
+            group.add(band);
+          });
+        }
+
+        if (planet.ring) {
+          const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(planet.radius * 1.55, 0.045, 8, 56),
+            new THREE.MeshBasicMaterial({
+              color: "#fde68a",
+              transparent: true,
+              opacity: 0.62,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+              fog: false,
+              blending: THREE.AdditiveBlending
+            })
+          );
+          ring.rotation.x = Math.PI * 0.58;
+          ring.rotation.z = Math.PI * 0.12;
+          group.add(ring);
+          group.userData.ring = ring;
+        }
+
+        if (planet.moon) {
+          const moon = new THREE.Mesh(
+            new THREE.SphereGeometry(0.22, 10, 8),
+            new THREE.MeshBasicMaterial({ color: "#e5e7eb", transparent: true, opacity: 0.86, fog: false })
+          );
+          moon.position.set(planet.radius * 1.65, planet.radius * 0.42, 0);
+          group.add(moon);
+          group.userData.moon = moon;
+        }
+
+        const z = Math.max(18, Math.min(trackLength - 12, trackLength * planet.z));
+        const x = centerX + planet.side * (sideBase + planet.extra + index * 0.42);
+        group.position.set(x, planet.y, z);
+        group.rotation.y = index * 0.7;
+        group.rotation.z = planet.side * 0.08;
+        threeScene.add(group);
+
+        derbySpaceDecorations.push({
+          type: "planet",
+          mesh: group,
+          baseY: planet.y,
+          spin: planet.spin * planet.side,
+          phase: index * 0.9
+        });
+      });
+    }
+
+    function animateDerbySpaceDecorations(frameNow) {
+      if (!derbySpaceDecorations.length) return;
+      derbySpaceDecorations.forEach((item) => {
+        const mesh = item.mesh;
+        if (!mesh) return;
+
+        if (item.type === "starfield") {
+          mesh.rotation.y += item.spin;
+          if (mesh.material && typeof mesh.material.opacity === "number") {
+            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.0018 + item.phase) * 0.14;
+          }
+          return;
+        }
+
+        if (item.type === "planet") {
+          mesh.rotation.y += item.spin;
+          mesh.position.y = item.baseY + Math.sin(frameNow * 0.0012 + item.phase) * 0.18;
+          if (mesh.userData.ring) mesh.userData.ring.rotation.z += item.spin * 0.9;
+          if (mesh.userData.moon) {
+            const angle = frameNow * 0.0016 + item.phase;
+            mesh.userData.moon.position.x = Math.cos(angle) * 1.75;
+            mesh.userData.moon.position.z = Math.sin(angle) * 1.75;
+          }
+        }
+      });
+    }
+
     function buildThreeDRoadAndLanes(numLanes) {
 
       // Mặt đường nhựa xám đậm
@@ -8076,7 +8436,12 @@
 
       const laneSpacing = getDerbyLaneSpacing(numLanes);
 
-      const roadGeo = new THREE.PlaneGeometry(roadW, trackLength + 40);
+      const roadMinZ = 8;
+      const roadMaxZ = trackLength + 12;
+      const roadLength = roadMaxZ - roadMinZ;
+      const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
+
+      const roadGeo = new THREE.PlaneGeometry(roadW, roadLength);
 
       const roadMat = new THREE.MeshStandardMaterial({
 
@@ -8092,26 +8457,13 @@
 
       road.rotation.x = -Math.PI / 2;
 
-      road.position.set(roadW / 2 - 1, -0.05, trackLength / 2);
+      road.position.set(roadW / 2 - 1, -0.05, roadCenterZ);
 
       threeScene.add(road);
 
-      const shoulderWidth = Math.max(2.2, Math.min(4.8, roadW * 0.22));
-      const shoulderGeo = new THREE.PlaneGeometry(shoulderWidth, trackLength + 32);
-      const shoulderMat = new THREE.MeshBasicMaterial({
-        color: "#020a04",
-        transparent: true,
-        opacity: 0.72,
-        depthWrite: false,
-        fog: true
-      });
-      const leftShoulder = new THREE.Mesh(shoulderGeo, shoulderMat);
-      leftShoulder.rotation.x = -Math.PI / 2;
-      leftShoulder.position.set(-1 - shoulderWidth / 2, -0.07, trackLength / 2);
-      threeScene.add(leftShoulder);
-      const rightShoulder = leftShoulder.clone();
-      rightShoulder.position.x = roadW - 1 + shoulderWidth / 2;
-      threeScene.add(rightShoulder);
+      addDerbyTrackDecorations(roadW, laneSpacing, numLanes, roadMinZ, roadMaxZ);
+      addDerbyStarField(roadW);
+      addDerbyPlanetDecorations(roadW);
 
       
 
@@ -8121,9 +8473,9 @@
 
         const points = [];
 
-        points.push(new THREE.Vector3(i * laneSpacing, 0.01, -20));
+        points.push(new THREE.Vector3(i * laneSpacing, 0.01, roadMinZ));
 
-        points.push(new THREE.Vector3(i * laneSpacing, 0.01, trackLength + 20));
+        points.push(new THREE.Vector3(i * laneSpacing, 0.01, roadMaxZ));
 
         
 
@@ -8288,6 +8640,12 @@
         group.add(ring);
         group.userData.wolf = wolf;
         group.userData.ring = ring;
+
+        const motionBeacon = createDerbyHoverDisc(skin.color, 0.42);
+        motionBeacon.position.set(0, 1.02, 0.18);
+        motionBeacon.userData.baseScale = 0.42;
+        group.add(motionBeacon);
+        group.userData.motionBeacon = motionBeacon;
         
 
         // Tạo bảng tên rõ nét, xếp lệch tầng/ngang để hạn chế đè nhau khi đông người.
@@ -8794,6 +9152,7 @@
         // Tạo nhấp nhô nhẹ cho sói/vòng, giữ bảng tên đứng yên để chữ không bị nhòe.
         const wolf = racer.group.userData.wolf;
         const ring = racer.group.userData.ring;
+        const motionBeacon = racer.group.userData.motionBeacon;
         if (!racer.finished) {
           const bob = Math.abs(Math.sin(frameNow * 0.015)) * 0.12;
           if (wolf) {
@@ -8810,12 +9169,26 @@
             ring.position.y = 0.22 + bob * 0.35;
             ring.rotation.z += 0.03;
           }
+          if (motionBeacon) {
+            const pulse = 0.82 + Math.sin(frameNow * 0.019 + racer.laneIndex) * 0.1;
+            motionBeacon.visible = true;
+            motionBeacon.position.y = 1.02 + bob * 0.55;
+            motionBeacon.rotation.y += racer.boostTimer > 0 ? 0.085 : 0.045;
+            motionBeacon.scale.set(pulse, pulse, pulse);
+            if (motionBeacon.userData.disc?.material) {
+              motionBeacon.userData.disc.material.opacity = racer.boostTimer > 0 ? 0.78 : 0.44;
+            }
+            if (motionBeacon.userData.ring?.material) {
+              motionBeacon.userData.ring.material.opacity = racer.boostTimer > 0 ? 0.72 : 0.46;
+            }
+          }
         } else {
           if (wolf) {
             wolf.position.y = 0;
             wolf.rotation.z = 0;
           }
           if (ring) ring.position.y = 0.22;
+          if (motionBeacon) motionBeacon.visible = false;
         }
 
 
@@ -8839,6 +9212,8 @@
 
       updateDerbyCameraFrame(getDerbyPackCameraFocusZ(), true);
       updateDerbyNameplateScales();
+      animateDerbyTrackDecorations(frameNow);
+      animateDerbySpaceDecorations(frameNow);
 
 
 
@@ -9219,6 +9594,8 @@
       
 
       // Clear shared geometry and material caches
+      derbyTrackDecorations = [];
+      derbySpaceDecorations = [];
 
       for (let key in sharedGeometries) {
 

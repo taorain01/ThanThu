@@ -7910,13 +7910,11 @@
 
       const textureLoader = new THREE.TextureLoader();
 
-      textureLoader.load("anh/bg_derby_racetrack_old.png", (texture) => {
+      textureLoader.load("anh/bg_derby_sky.png", (texture) => {
 
         if (threeScene) {
 
           texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
-          texture.offset.y = 0.16;
-          texture.repeat.y = 0.84;
           texture.needsUpdate = true;
           threeScene.background = texture;
 
@@ -8042,12 +8040,12 @@
       threeScene.add(backdrop);
 
       const loader = new THREE.TextureLoader();
-      loader.load("anh/bg_derby_racetrack_old.png", (texture) => {
+      loader.load("anh/bg_derby_sky.png", (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.repeat.set(2, 0.82);
-        texture.offset.set(0, 0.18);
+        texture.repeat.set(2, 1);
+        texture.offset.set(0, 0);
         texture.needsUpdate = true;
         backdropMat.map = texture;
         backdropMat.color.set("#ffffff");

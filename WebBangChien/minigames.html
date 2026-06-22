@@ -6164,89 +6164,66 @@
     // Mở modal nhập từ Supabase
 
     async function openSupabaseImportModal() {
-
-      const modal = document.getElementById("supabase-modal");
-
-      modal.style.display = "flex";
-
-      
-
-      const listContainer = document.getElementById("supabase-sessions-list");
-
-      listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--emerald);">Đang tải dữ liệu bang chiến...</div>';
-
-      
-
-      if (!supabaseClient) {
-
-        listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--ruby);">Không thể kết nối Supabase Client. Kiểm tra lại kết nối mạng.</div>';
-
-        return;
-
-      }
-
-      
-
       try {
-
-        const { data, error } = await supabaseClient
-
-          .from('bc_sessions')
-
-          .select('id, day, time, teams, teams_json, created_at')
-
-          .eq('guild_id', GUILD_ID)
-
-          .order('created_at', { ascending: false })
-
-          .limit(10);
-
-          
-
-        if (error) throw error;
-
-        
-
-        if (!data || data.length === 0) {
-
-          listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--text-dim);">Không tìm thấy buổi bang chiến nào trong cơ sở dữ liệu.</div>';
-
+        const modal = document.getElementById("supabase-modal");
+        if (!modal) {
+          console.error("[NHẬP BANG CHIẾN] Không tìm thấy element supabase-modal");
+          alert("❌ Lỗi: Không tìm thấy modal! Vui lòng tải lại trang.");
           return;
-
         }
-
         
-
-        listContainer.innerHTML = "";
-
-        data.forEach(session => {
-
-          // Tính tổng số lượng đấu sĩ
-
-          let totalCount = 0;
-
-          try {
-
-            const teams = typeof session.teams === 'string' ? JSON.parse(session.teams) : (session.teams || {});
-
-            for (let teamId in teams) {
-
-              if (Array.isArray(teams[teamId])) totalCount += teams[teamId].length;
-
-            }
-
-          } catch(e){}
-
+        modal.style.display = "flex";
+        
+        const listContainer = document.getElementById("supabase-sessions-list");
+        if (!listContainer) {
+          console.error("[NHẬP BANG CHIẾN] Không tìm thấy element supabase-sessions-list");
+          return;
+        }
+        
+        listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--emerald);">⏳ Đang tải dữ liệu bang chiến...</div>';
+        
+        if (!supabaseClient) {
+          console.error("[NHẬP BANG CHIẾN] supabaseClient chưa được khởi tạo");
+          listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--ruby);">❌ Không thể kết nối Supabase.<br/>Vui lòng kiểm tra kết nối mạng hoặc tải lại trang.<br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>';
+          return;
+        }
+        
+        console.log("[NHẬP BANG CHIẾN] Đang query sessions từ Supabase...");
+        const { data, error } = await supabaseClient
+          .from('bc_sessions')
+          .select('id, day, time, teams, teams_json, created_at')
+          .eq('guild_id', GUILD_ID)
+          .order('created_at', { ascending: false })
+          .limit(10);
           
-
+        if (error) {
+          console.error("[NHẬP BANG CHIẾN] Lỗi query Supabase:", error);
+          listContainer.innerHTML = `<div class="text-center" style="padding:20px;color:var(--ruby);">❌ Lỗi tải dữ liệu từ Supabase:<br/><code style="font-size:11px;color:var(--text-dim);">${error.message}</code><br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>`;
+          return;
+        }
+        
+        if (!data || data.length === 0) {
+          console.warn("[NHẬP BANG CHIẾN] Không tìm thấy session nào");
+          listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--text-dim);">📭 Không tìm thấy buổi bang chiến nào trong cơ sở dữ liệu.<br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>';
+          return;
+        }
+        
+        console.log("[NHẬP BANG CHIẾN] Đã tải", data.length, "sessions");
+        listContainer.innerHTML = "";
+        data.forEach(session => {
+          // Tính tổng số lượng đấu sĩ
+          let totalCount = 0;
+          try {
+            const teams = typeof session.teams === 'string' ? JSON.parse(session.teams) : (session.teams || {});
+            for (let teamId in teams) {
+              if (Array.isArray(teams[teamId])) totalCount += teams[teamId].length;
+            }
+          } catch(e){}
+          
           if (totalCount === 0) {
-
             // Thử parser dự phòng
-
             try {
-
               const legacyKeys = ['team_attack1', 'team_attack2', 'team_defense', 'team_forest'];
-
               legacyKeys.forEach(k => {
 
                 if (session[k]) {
@@ -6359,18 +6336,31 @@
     // Mở modal nhập từ Supabase
 
     async function openSupabaseImportModal() {
-      const modal = document.getElementById("supabase-modal");
-      modal.style.display = "flex";
-      
-      const listContainer = document.getElementById("supabase-sessions-list");
-      listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--emerald);">Đang tải dữ liệu bang chiến...</div>';
-      
-      if (!supabaseClient) {
-        listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--ruby);">Không thể kết nối Supabase Client. Kiểm tra lại kết nối mạng.</div>';
-        return;
-      }
-      
       try {
+        const modal = document.getElementById("supabase-modal");
+        if (!modal) {
+          console.error("[NHẬP BANG CHIẾN] Không tìm thấy element supabase-modal");
+          alert("❌ Lỗi: Không tìm thấy modal! Vui lòng tải lại trang.");
+          return;
+        }
+        
+        modal.style.display = "flex";
+        
+        const listContainer = document.getElementById("supabase-sessions-list");
+        if (!listContainer) {
+          console.error("[NHẬP BANG CHIẾN] Không tìm thấy element supabase-sessions-list");
+          return;
+        }
+        
+        listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--emerald);">⏳ Đang tải dữ liệu bang chiến...</div>';
+        
+        if (!supabaseClient) {
+          console.error("[NHẬP BANG CHIẾN] supabaseClient chưa được khởi tạo");
+          listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--ruby);">❌ Không thể kết nối Supabase.<br/>Vui lòng kiểm tra kết nối mạng hoặc tải lại trang.<br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>';
+          return;
+        }
+        
+        console.log("[NHẬP BANG CHIẾN] Đang query sessions từ Supabase...");
         const { data, error } = await supabaseClient
           .from('bc_sessions')
           .select('id, day, time, teams, teams_json, created_at')
@@ -6378,13 +6368,19 @@
           .order('created_at', { ascending: false })
           .limit(20);
           
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--text-dim);">Không tìm thấy buổi bang chiến nào trong cơ sở dữ liệu.</div>';
+        if (error) {
+          console.error("[NHẬP BANG CHIẾN] Lỗi query Supabase:", error);
+          listContainer.innerHTML = `<div class="text-center" style="padding:20px;color:var(--ruby);">❌ Lỗi tải dữ liệu từ Supabase:<br/><code style="font-size:11px;color:var(--text-dim);">${error.message}</code><br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>`;
           return;
         }
         
+        if (!data || data.length === 0) {
+          console.warn("[NHẬP BANG CHIẾN] Không tìm thấy session nào");
+          listContainer.innerHTML = '<div class="text-center" style="padding:20px;color:var(--text-dim);">📭 Không tìm thấy buổi bang chiến nào trong cơ sở dữ liệu.<br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>';
+          return;
+        }
+        
+        console.log("[NHẬP BANG CHIẾN] Đã tải", data.length, "sessions");
         listContainer.innerHTML = "";
 
         // Gom nhóm các session theo cuối tuần (lấy mốc ngày thứ Bảy làm key)
@@ -6526,8 +6522,11 @@
         });
 
       } catch(err) {
-        console.warn("Lỗi Supabase:", err);
-        listContainer.innerHTML = `<div class="text-center" style="padding:20px;color:var(--ruby);">Lỗi: ${err.message || err}</div>`;
+        console.error("[NHẬP BANG CHIẾN] Lỗi exception:", err);
+        const listContainer = document.getElementById("supabase-sessions-list");
+        if (listContainer) {
+          listContainer.innerHTML = `<div class="text-center" style="padding:20px;color:var(--ruby);">❌ Có lỗi xảy ra:<br/><code style="font-size:11px;color:var(--text-dim);">${err.message || err}</code><br/><br/><button class="btn-action" style="margin-top:8px;" onclick="openSupabaseImportModal()">🔄 Thử lại</button></div>`;
+        }
       }
     }
 
@@ -6902,23 +6901,27 @@
 
 
     function triggerDirectStartGame() {
+      try {
+        // Kiểm tra tên hợp lệ
+        const namesInput = document.getElementById("names-input");
+        if (!namesInput) {
+          console.error("[ĐẤU NGAY] Không tìm thấy element names-input");
+          alert("❌ Lỗi: Không tìm thấy ô nhập tên! Vui lòng tải lại trang.");
+          return;
+        }
 
-      // Kiểm tra tên hợp lệ
-
-      const namesStr = document.getElementById("names-input").value;
-
-      const names = namesStr.split("\n").map(n => n.trim()).filter(n => n.length > 0);
-
-      
-
-      if (!validateRacerNames(names)) return;
-
-      
-
-      initAudioContext();
-
-      launchSpeedDerbyGame(names);
-
+        const namesStr = namesInput.value;
+        const names = namesStr.split("\n").map(n => n.trim()).filter(n => n.length > 0);
+        
+        if (!validateRacerNames(names)) return;
+        
+        console.log("[ĐẤU NGAY] Khởi chạy trận đấu với", names.length, "đấu sĩ");
+        initAudioContext();
+        launchSpeedDerbyGame(names);
+      } catch (error) {
+        console.error("[ĐẤU NGAY] Lỗi khi khởi chạy trận đấu:", error);
+        alert("❌ Có lỗi xảy ra khi khởi chạy trận đấu. Vui lòng thử lại!\n\nChi tiết lỗi: " + error.message);
+      }
     }
 
 

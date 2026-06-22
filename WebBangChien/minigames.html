@@ -6118,7 +6118,7 @@
     const MAX_RACERS = 40;
 
     const DEFAULT_DERBY_LANE_SPACING = 1.5;
-    const DERBY_SKY_TEXTURE_URL = "anh/bg_derby_sky.png?v=20260622_horizon";
+    const DERBY_SKY_TEXTURE_URL = "anh/bg_derby_sky.png";
 
 
 
@@ -8029,17 +8029,18 @@
       if (!threeScene) return;
 
       const centerX = derbyTrackWidth / 2 - 1;
-      const horizonZ = -Math.max(64, trackLength * 0.18);
+      const horizonZ = -24;
       const backdropWidth = Math.max(derbyTrackWidth * 9, 520);
-      const backdropHeight = Math.max(300, backdropWidth * 0.58);
-      const backdropBottomY = -8;
+      const backdropHeight = Math.max(260, backdropWidth * 0.54);
+      const backdropBottomY = -3;
       const backdropGeo = new THREE.PlaneGeometry(backdropWidth, backdropHeight);
       const backdropMat = new THREE.MeshBasicMaterial({
-        color: "#ffffff",
+        color: "#020705",
         transparent: true,
-        opacity: 0,
+        opacity: 1,
+        side: THREE.DoubleSide,
         depthWrite: false,
-        depthTest: true,
+        depthTest: false,
         fog: false,
         toneMapped: false
       });
@@ -8057,12 +8058,13 @@
         texture.offset.set(0, 0);
         texture.needsUpdate = true;
         backdropMat.map = texture;
+        backdropMat.color.set("#ffffff");
         backdropMat.opacity = 1;
         backdropMat.needsUpdate = true;
       }, undefined, () => {
-        if (threeScene) threeScene.remove(backdrop);
-        backdropGeo.dispose();
-        backdropMat.dispose();
+        backdropMat.color.set("#020705");
+        backdropMat.opacity = 1;
+        backdropMat.needsUpdate = true;
       });
     }
 
@@ -8093,6 +8095,23 @@
       road.position.set(roadW / 2 - 1, -0.05, trackLength / 2);
 
       threeScene.add(road);
+
+      const shoulderWidth = Math.max(2.2, Math.min(4.8, roadW * 0.22));
+      const shoulderGeo = new THREE.PlaneGeometry(shoulderWidth, trackLength + 32);
+      const shoulderMat = new THREE.MeshBasicMaterial({
+        color: "#020a04",
+        transparent: true,
+        opacity: 0.72,
+        depthWrite: false,
+        fog: true
+      });
+      const leftShoulder = new THREE.Mesh(shoulderGeo, shoulderMat);
+      leftShoulder.rotation.x = -Math.PI / 2;
+      leftShoulder.position.set(-1 - shoulderWidth / 2, -0.07, trackLength / 2);
+      threeScene.add(leftShoulder);
+      const rightShoulder = leftShoulder.clone();
+      rightShoulder.position.x = roadW - 1 + shoulderWidth / 2;
+      threeScene.add(rightShoulder);
 
       
 

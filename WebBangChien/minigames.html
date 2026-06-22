@@ -7638,6 +7638,10 @@
 
     let derbyTrackWidth = getDerbyTrackWidth(1);
     let derbyCameraFocusZ = null;
+    const DERBY_LABEL_DISTANCE_BASE = 24;
+    const DERBY_LABEL_DISTANCE_RANGE = 36;
+    const DERBY_LABEL_MAX_FAR_SCALE = 2.35;
+    const derbyLabelWorldPos = { current: null };
 
 
 
@@ -7669,6 +7673,33 @@
 
       threeCamera.lookAt(targetCamX, 0, targetLookZ);
 
+    }
+
+    function getDerbyTempVector() {
+      if (!derbyLabelWorldPos.current && window.THREE) {
+        derbyLabelWorldPos.current = new THREE.Vector3();
+      }
+      return derbyLabelWorldPos.current;
+    }
+
+    function updateDerbyNameplateScales() {
+      if (!threeCamera || !window.THREE) return;
+      const worldPos = getDerbyTempVector();
+      if (!worldPos) return;
+
+      threeRacers.forEach((racer) => {
+        const sprite = racer.nameSprite;
+        if (!sprite || !racer.baseLabelScale) return;
+        sprite.getWorldPosition(worldPos);
+        const distance = threeCamera.position.distanceTo(worldPos);
+        const farRatio = Math.max(0, Math.min(1, (distance - DERBY_LABEL_DISTANCE_BASE) / DERBY_LABEL_DISTANCE_RANGE));
+        const farScale = 1 + farRatio * (DERBY_LABEL_MAX_FAR_SCALE - 1);
+        sprite.scale.set(
+          racer.baseLabelScale.x * farScale,
+          racer.baseLabelScale.y * farScale,
+          1
+        );
+      });
     }
 
     function getDerbyPackCameraFocusZ() {
@@ -8269,15 +8300,15 @@
 
         nameSprite.position.set(labelOffsetX, 1.78 + labelTier * 0.38, labelOffsetZ);
 
-        nameSprite.scale.set(
+        const baseLabelScale = {
 
-          Math.max(1.92, Math.min(3.9, derbyLaneSpacing * 2.65)),
+          x: Math.max(1.92, Math.min(3.9, derbyLaneSpacing * 2.65)),
 
-          Math.max(1.18, Math.min(1.72, derbyLaneSpacing * 0.98)),
+          y: Math.max(1.18, Math.min(1.72, derbyLaneSpacing * 0.98))
 
-          1
+        };
 
-        );
+        nameSprite.scale.set(baseLabelScale.x, baseLabelScale.y, 1);
 
         group.add(nameSprite);
 
@@ -8353,6 +8384,10 @@
           labelTier: labelTier,
 
           labelOffsetX: labelOffsetX,
+
+          nameSprite: nameSprite,
+
+          baseLabelScale: baseLabelScale,
 
           trailParticles: [] // Hệ thống vệt đuôi hạt
 
@@ -8799,6 +8834,7 @@
       // 2. Camera điều khiển thông minh bám cả nhóm, tránh để người dẫn đầu kéo mất đoàn.
 
       updateDerbyCameraFrame(getDerbyPackCameraFocusZ(), true);
+      updateDerbyNameplateScales();
 
 
 

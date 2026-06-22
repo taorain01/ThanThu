@@ -1143,6 +1143,16 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 10px rgba(0,0,0,.55),0 0 15px rgba(251,191,36,.18);
 }
 .feedback-btn svg{width:17px;height:17px;flex-shrink:0}
+.info-hub-trigger{
+  border-color:rgba(34,197,94,.34);
+  color:#bbf7d0;
+  background:linear-gradient(135deg,rgba(15,45,28,.62),rgba(28,32,24,.74));
+}
+.info-hub-trigger:hover{
+  border-color:rgba(74,222,128,.62);
+  background:linear-gradient(135deg,rgba(21,70,42,.72),rgba(38,44,30,.9));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 10px rgba(0,0,0,.55),0 0 18px rgba(34,197,94,.16);
+}
 .release-modal{width:min(620px,96%)}
 .release-body{
   padding:22px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;
@@ -1189,6 +1199,82 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   animation:feedbackSlideIn .32s cubic-bezier(.22,.68,0,1.2);
 }
 @keyframes feedbackSlideIn{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+.info-hub-modal{
+  width:min(1160px,96vw);
+  height:min(86vh,780px);
+  max-height:min(92vh,840px);
+}
+.info-hub-head{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:20px 24px 18px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+  background:
+    radial-gradient(circle at 14% 0%,rgba(251,191,36,.11),transparent 34%),
+    linear-gradient(90deg,rgba(34,197,94,.08),rgba(251,191,36,.04),transparent);
+  flex-shrink:0;
+}
+.info-hub-title-wrap{display:flex;align-items:center;gap:14px;min-width:0}
+.info-hub-icon{
+  width:46px;height:46px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;color:#bbf7d0;
+  background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(251,191,36,.11));
+  border:1px solid rgba(34,197,94,.24);
+  box-shadow:0 8px 24px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.info-hub-icon svg{width:22px;height:22px}
+.info-hub-title{font-size:21px;font-weight:950;color:var(--text);line-height:1.15}
+.info-hub-sub{margin-top:3px;color:var(--text3);font-size:12.5px;line-height:1.35}
+.info-hub-shell{flex:1;min-height:0;display:grid;grid-template-columns:210px 1fr}
+.info-hub-rail{
+  display:flex;flex-direction:column;gap:8px;padding:18px;
+  border-right:1px solid rgba(255,255,255,.07);
+  background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(0,0,0,.1));
+}
+.info-hub-tab{
+  display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 14px;
+  border-radius:12px;border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.025);color:var(--text3);
+  font-size:13px;font-weight:850;font-family:'Inter',sans-serif;text-align:left;
+  cursor:pointer;transition:all .18s ease;
+}
+.info-hub-tab:hover{
+  color:var(--text);border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.05);
+  transform:translateX(2px);
+}
+.info-hub-tab.active{
+  color:#fef3c7;border-color:rgba(251,191,36,.36);
+  background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(34,197,94,.08));
+  box-shadow:0 10px 24px rgba(0,0,0,.18),inset 3px 0 0 rgba(251,191,36,.75);
+}
+.info-hub-tab svg{width:16px;height:16px;flex-shrink:0}
+.info-hub-content{min-width:0;min-height:0;overflow:hidden;position:relative}
+.info-hub-panel{display:none;height:100%;min-height:0;animation:infoHubPanelIn .22s ease both}
+.info-hub-panel.active{display:flex;flex-direction:column}
+@keyframes infoHubPanelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.info-hub-panel[data-info-tab="feedback"] .feedback-body{
+  flex:1;min-height:0;height:100%;
+}
+.info-hub-panel[data-info-tab="release"] .release-body{
+  flex:1;min-height:0;height:100%;padding:24px;
+}
+.info-hub-log{
+  flex:1;min-height:0;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(34,197,94,.026),rgba(0,0,0,.12));
+}
+.info-hub-log .index-roster-log-head{
+  padding:20px 24px 16px;
+  border-bottom:1px solid rgba(34,197,94,.12);
+  background:linear-gradient(90deg,rgba(34,197,94,.055),rgba(251,191,36,.03),transparent);
+}
+.info-hub-log .index-roster-log-title{font-size:18px}
+.info-hub-log .index-roster-log-sub{font-size:12px;margin-top:4px}
+.info-hub-log .index-roster-log-filters{padding:12px 24px;gap:8px}
+.info-hub-log .index-roster-log-filter{height:30px;padding:0 12px;border-radius:9px}
+.info-hub-log .index-roster-log-list{padding:16px 24px 24px;gap:10px}
+.info-hub-log .index-roster-log-item{padding:12px 14px;border-radius:12px}
+.info-hub-log .index-roster-log-summary{font-size:13.5px}
+.info-hub-log .index-roster-log-meta,
+.info-hub-log .index-roster-log-change{font-size:11.5px}
 
 /* ─── Header ─── */
 .feedback-head{
@@ -1749,34 +1835,6 @@ body:not(.theme-dark) .app-bg-vignette{background:
 }
 .day-add:hover{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,.05);box-shadow:0 0 12px rgba(251,191,36,.1)}
 .day-add svg{width:16px;height:16px}
-.day-log-btn{
-  position:fixed;
-  right:18px;
-  bottom:6px;
-  z-index:990;
-  height:32px;
-  min-width:58px;
-  padding:0 13px;
-  border:1px solid rgba(251,191,36,.34);
-  border-radius:8px;
-  background:rgba(8,15,10,.72);
-  color:var(--gold);
-  font-size:12px;
-  font-weight:900;
-  cursor:pointer;
-  flex-shrink:0;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  transition:all .2s ease;
-  box-shadow:0 10px 28px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.04);
-}
-.day-log-btn:hover,
-.day-log-btn[aria-expanded="true"]{
-  border-color:var(--gold);
-  background:rgba(251,191,36,.08);
-  box-shadow:0 0 14px rgba(251,191,36,.12),inset 0 1px 0 rgba(255,255,255,.06);
-}
 .day-sep{width:1px;height:24px;background:rgba(255,255,255,.08);margin:0 4px;flex-shrink:0}
 
 .index-roster-log-panel {
@@ -2658,11 +2716,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   /* Day bar: scroll ngang */
   .day-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px }
   .day-tab { white-space: nowrap; font-size: 12px; padding: 6px 14px }
-  .day-sep, .day-add, .day-log-btn { flex-shrink: 0 }
-  .day-log-btn {
-    right: 14px;
-    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
-  }
+  .day-sep, .day-add { flex-shrink: 0 }
   .day-bar-right { display: none !important }
   .roster-toolbar { display: none !important }
   .index-roster-log-panel {
@@ -2940,6 +2994,30 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
   .feedback-btn{width:40px;padding:0}
   .feedback-btn .feedback-btn-label{display:none}
   .feedback-modal{width:min(720px,96%)}
+  .info-hub-modal{
+    width:calc(100vw - 16px);
+    height:min(92dvh,calc(100dvh - 18px));
+    border-radius:18px;
+  }
+  .info-hub-head{padding:14px 15px;gap:10px}
+  .info-hub-icon{width:38px;height:38px;border-radius:12px}
+  .info-hub-title{font-size:17px}
+  .info-hub-sub{font-size:11.5px}
+  .info-hub-shell{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .info-hub-rail{
+    flex-direction:row;overflow-x:auto;padding:9px 10px;gap:7px;
+    border-right:0;border-bottom:1px solid rgba(255,255,255,.07);
+  }
+  .info-hub-tab{
+    flex:0 0 auto;width:auto;min-width:104px;min-height:38px;
+    justify-content:center;padding:0 12px;font-size:12px;
+  }
+  .info-hub-tab:hover{transform:none}
+  .info-hub-tab.active{box-shadow:inset 0 -3px 0 rgba(251,191,36,.75)}
+  .info-hub-panel[data-info-tab="release"] .release-body{padding:14px}
+  .info-hub-log .index-roster-log-head{padding:14px 15px 12px}
+  .info-hub-log .index-roster-log-filters{padding:10px 12px}
+  .info-hub-log .index-roster-log-list{padding:12px 12px 16px}
   .feedback-body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   .feedback-col-left{border-right:none;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:14px}
   .feedback-col-right{padding-top:14px}
@@ -3754,12 +3832,14 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 
 
     <div class="header-actions">
-      <button class="feedback-btn" type="button" onclick="openFeedbackModal(event)" title="Góp ý ẩn danh">
+      <button class="feedback-btn info-hub-trigger" id="btnInfoHub" type="button" onclick="openInfoHub(event, 'feedback')" title="Góp ý, Cập nhật và Log">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
-          <path d="M8 9h8"></path><path d="M8 13h5"></path>
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+          <path d="M14 15h7"></path><path d="M14 20h7"></path>
         </svg>
-        <span class="feedback-btn-label">Góp ý</span>
+        <span class="feedback-btn-label">Trung tâm</span>
       </button>
       <button id="btnSketch" class="feedback-btn" type="button" onclick="openTacticSketch()" title="DLAM - phác thảo chiến thuật">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -3778,15 +3858,6 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
         </svg>
         <span class="feedback-btn-label">Minigame</span>
       </button>
-      <button class="feedback-btn" type="button" onclick="openReleaseModal(event)" title="Cập nhật LangGiaWar V1.2">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-          <path d="M9 7h7"></path><path d="M9 11h5"></path>
-        </svg>
-        <span class="feedback-btn-label">Cập nhật</span>
-      </button>
-
       <!-- User Badge ở góc phải: click để mở dropdown -->
       <div class="user-badge" id="userBadge" onclick="toggleUserDropdown(event)">
         <img id="userAvatar" src="" alt="Avatar">
@@ -3807,7 +3878,6 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
     <div class="day-add" id="addBcBtn" title="Tạo BC tùy chỉnh (Kỳ Cựu)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </div>
-    <button class="day-log-btn" id="btnIndexRosterLog" type="button" aria-expanded="false">Log</button>
     <!-- Right wrapper: Đăng Ký trên, Đội Hình dưới -->
     <div class="day-bar-right">
       <div class="bc-signup-bar" id="bcSignupBar" style="display:none"></div>
@@ -4000,27 +4070,6 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 <div class="member-roster-overlay" id="memberRosterOverlay" aria-hidden="true">
   <iframe class="member-roster-frame" id="memberRosterFrame" title="Danh sach thanh vien"></iframe>
 </div>
-
-<section class="index-roster-log-panel" id="indexRosterLogPanel" aria-hidden="true">
-  <div class="index-roster-log-head">
-    <div>
-      <div class="index-roster-log-title">Roster Log</div>
-      <div class="index-roster-log-sub" id="indexRosterLogSub">Lich su chinh sua gan day</div>
-    </div>
-    <button class="index-roster-log-close" id="btnIndexRosterLogClose" type="button" aria-label="Dong log">x</button>
-  </div>
-  <div class="index-roster-log-filters" id="indexRosterLogFilters">
-    <button class="index-roster-log-filter active" type="button" data-index-log-filter="all">Tat ca</button>
-    <button class="index-roster-log-filter" type="button" data-index-log-filter="web">Web</button>
-    <button class="index-roster-log-filter" type="button" data-index-log-filter="bot">Bot</button>
-    <button class="index-roster-log-filter" type="button" data-index-log-filter="member">Member</button>
-    <button class="index-roster-log-filter" type="button" data-index-log-filter="pending">Pending</button>
-    <button class="index-roster-log-filter" type="button" data-index-log-filter="session">Session</button>
-  </div>
-  <div class="index-roster-log-list" id="indexRosterLogList">
-    <div class="index-roster-log-empty">Dang tai log...</div>
-  </div>
-</section>
 
 <script>
 function removeDuplicateStaticScreens() {
@@ -7782,11 +7831,9 @@ let indexRosterLogReloadTimer = null;
 
 function getIndexRosterLogEls() {
     return {
-        button: document.getElementById('btnIndexRosterLog'),
         panel: document.getElementById('indexRosterLogPanel'),
         list: document.getElementById('indexRosterLogList'),
         sub: document.getElementById('indexRosterLogSub'),
-        close: document.getElementById('btnIndexRosterLogClose'),
         filters: document.getElementById('indexRosterLogFilters')
     };
 }
@@ -7870,9 +7917,9 @@ function renderIndexRosterLogEntries() {
     const els = getIndexRosterLogEls();
     if (!els.list) return;
     const entries = indexRosterLogEntries.filter(entry => indexRosterLogMatchesFilter(entry, indexRosterLogFilter));
-    if (els.sub) els.sub.textContent = `${entries.length}/${indexRosterLogEntries.length} log gan day`;
+    if (els.sub) els.sub.textContent = `${entries.length}/${indexRosterLogEntries.length} log gần đây`;
     if (!entries.length) {
-        els.list.innerHTML = '<div class="index-roster-log-empty">Chua co log phu hop.</div>';
+        els.list.innerHTML = '<div class="index-roster-log-empty">Chưa có log phù hợp.</div>';
         return;
     }
     els.list.innerHTML = entries.map((entry) => {
@@ -7898,7 +7945,7 @@ function renderIndexRosterLogEntries() {
 async function loadIndexRosterLogEntries() {
     const els = getIndexRosterLogEls();
     if (!sb || !els.list) return;
-    els.list.innerHTML = '<div class="index-roster-log-empty">Dang tai log...</div>';
+    els.list.innerHTML = '<div class="index-roster-log-empty">Đang tải log...</div>';
     const { data, error } = await sb.from('bc_logs')
         .select('id,action,details,performed_by,source,created_at')
         .eq('guild_id', GUILD_ID)
@@ -7917,39 +7964,23 @@ function scheduleIndexRosterLogReload() {
     indexRosterLogReloadTimer = setTimeout(() => {
         if (indexRosterLogOpen) loadIndexRosterLogEntries().catch(() => {
             const els = getIndexRosterLogEls();
-            if (els.list) els.list.innerHTML = '<div class="index-roster-log-empty">Chua doc duoc log.</div>';
+            if (els.list) els.list.innerHTML = '<div class="index-roster-log-empty">Chưa đọc được log.</div>';
         });
     }, 220);
 }
 
-function openIndexRosterLogPanel() {
-    const els = getIndexRosterLogEls();
-    if (!els.panel) return;
-    indexRosterLogOpen = true;
-    els.panel.classList.add('show');
-    els.panel.setAttribute('aria-hidden', 'false');
-    els.button?.setAttribute('aria-expanded', 'true');
-    loadIndexRosterLogEntries().catch((error) => {
-        console.warn('[Index] load roster log failed:', error);
-        if (els.list) els.list.innerHTML = '<div class="index-roster-log-empty">Chua doc duoc log.</div>';
-    });
+async function openIndexRosterLogPanel() {
+    await openInfoHub(null, 'log');
 }
 
 function closeIndexRosterLogPanel() {
-    const els = getIndexRosterLogEls();
     indexRosterLogOpen = false;
-    els.panel?.classList.remove('show');
-    els.panel?.setAttribute('aria-hidden', 'true');
-    els.button?.setAttribute('aria-expanded', 'false');
+    document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'true');
+    if (_infoHubActiveTab === 'log') closeInfoHub();
 }
 
 function initIndexRosterLogControls() {
     const els = getIndexRosterLogEls();
-    els.button?.addEventListener('click', () => {
-        if (indexRosterLogOpen) closeIndexRosterLogPanel();
-        else openIndexRosterLogPanel();
-    });
-    els.close?.addEventListener('click', closeIndexRosterLogPanel);
     els.filters?.addEventListener('click', (event) => {
         const btn = event.target.closest('[data-index-log-filter]');
         if (!btn) return;
@@ -7964,7 +7995,7 @@ function initIndexRosterLogControls() {
     });
     document.addEventListener('click', (event) => {
         if (!indexRosterLogOpen) return;
-        if (event.target.closest('#indexRosterLogPanel') || event.target.closest('#btnIndexRosterLog')) return;
+        if (event.target.closest('#indexRosterLogPanel') || event.target.closest('#infoHubModalOv')) return;
         closeIndexRosterLogPanel();
     });
 }
@@ -10083,9 +10114,10 @@ logout = async function(e) {
     await _origLogout();
 };
 
-// ═══ ANONYMOUS FEEDBACK ═══
+// ═══ INFO HUB: GÓP Ý + CẬP NHẬT + LOG ═══
 let _feedbackLoadedOnce = false;
-let _feedbackBackdropPointerDown = false;
+let _infoHubBackdropPointerDown = false;
+let _infoHubActiveTab = 'feedback';
 
 function getFeedbackCategoryLabel(category) {
     return FEEDBACK_CATEGORY_LABELS[category] || FEEDBACK_CATEGORY_LABELS.feedback;
@@ -10118,243 +10150,315 @@ function updateFeedbackCharCount(textarea) {
 }
 
 function ensureFeedbackModal() {
-    if (document.getElementById('feedbackModalOv')) return;
-
-    const ov = document.createElement('div');
-    ov.id = 'feedbackModalOv';
-    ov.className = 'feedback-modal-ov';
-    ov.addEventListener('pointerdown', (ev) => {
-        _feedbackBackdropPointerDown = ev.target === ov;
-    });
-    ov.addEventListener('pointerup', (ev) => {
-        if (_feedbackBackdropPointerDown && ev.target === ov) closeFeedbackModal();
-        _feedbackBackdropPointerDown = false;
-    });
-    ov.addEventListener('pointercancel', () => {
-        _feedbackBackdropPointerDown = false;
-    });
-    ov.innerHTML = `
-      <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
-        <div class="feedback-head">
-          <div class="feedback-head-left">
-            <div class="feedback-head-icon">💬</div>
-            <div class="feedback-head-text">
-              <div class="feedback-title" id="feedbackModalTitle">Góp ý &amp; Bình luận</div>
-              <div class="feedback-sub">Ẩn danh trên web • Quản trị nhận đầy đủ qua Discord</div>
-            </div>
-          </div>
-          <div class="feedback-head-stats">
-            <div class="feedback-stat"><div class="feedback-stat-num" id="feedbackTotalCount">–</div><div class="feedback-stat-lbl">Góp ý</div></div>
-          </div>
-          <button class="feedback-close" type="button" onclick="closeFeedbackModal()">✕</button>
-        </div>
-        <div class="feedback-body">
-          <div class="feedback-col-left">
-            <div class="feedback-compose-label">Viết bình luận</div>
-            <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
-              <!-- Hidden real select for form submission -->
-              <select class="feedback-select" id="feedbackCategory" style="display:none">
-                <option value="feedback">Góp ý</option>
-                <option value="bug">Báo lỗi</option>
-                <option value="suggestion">Đề xuất</option>
-                <option value="other">Khác</option>
-              </select>
-              <!-- Visual category buttons -->
-              <div class="feedback-field">
-                <span class="feedback-label">Loại</span>
-                <div class="feedback-category-grid" id="feedbackCatGrid">
-                  <button type="button" class="feedback-cat-btn cat-feedback active-cat" data-cat="feedback" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Góp ý
-                  </button>
-                  <button type="button" class="feedback-cat-btn cat-bug" data-cat="bug" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Báo lỗi
-                  </button>
-                  <button type="button" class="feedback-cat-btn cat-suggestion" data-cat="suggestion" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Đề xuất
-                  </button>
-                  <button type="button" class="feedback-cat-btn cat-other" data-cat="other" onclick="selectFeedbackCat(this)">
-                    <span class="feedback-cat-dot"></span> Khác
-                  </button>
-                </div>
-              </div>
-              <div class="feedback-field">
-                <span class="feedback-label">Nội dung</span>
-                <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required
-                  placeholder="Chia sẻ góp ý, báo lỗi hoặc đề xuất của bạn..."
-                  oninput="updateFeedbackCharCount(this)"></textarea>
-                <div class="feedback-char-count" id="feedbackCharCount">0 / 1500</div>
-              </div>
-              <div class="feedback-form-actions">
-                <div class="feedback-status" id="feedbackStatus"></div>
-                <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">✦ Gửi góp ý</button>
-              </div>
-            </form>
-          </div>
-          <div class="feedback-col-right">
-            <div class="feedback-list-head">
-              <div class="feedback-list-title">
-                Comment
-                <span class="feedback-list-title-count" id="feedbackCountBadge">0</span>
-              </div>
-              <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                Tải lại
-              </button>
-            </div>
-            <div class="feedback-list" id="feedbackList"></div>
-          </div>
-        </div>
-      </div>`;
-    document.body.appendChild(ov);
-
-    document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape' && document.getElementById('feedbackModalOv')?.classList.contains('active')) {
-            closeFeedbackModal();
-        }
-    });
+    ensureInfoHubModal();
 }
 
-async function openFeedbackModal(e) {
-    if (e) e.stopPropagation();
-    document.getElementById('userBadge')?.classList.remove('open');
-    ensureFeedbackModal();
-    document.getElementById('feedbackModalOv').classList.add('active');
-    setFeedbackStatus('');
-    if (!_feedbackLoadedOnce) {
-        await loadFeedbackList(true);
-        _feedbackLoadedOnce = true;
-    } else {
-        await loadFeedbackList(false);
-    }
-}
-
-function closeFeedbackModal() {
-    document.getElementById('feedbackModalOv')?.classList.remove('active');
-}
-
-let _releaseBackdropPointerDown = false;
 function ensureReleaseModal() {
-    if (document.getElementById('releaseModalOv')) return;
+    ensureInfoHubModal();
+}
+
+function ensureInfoHubModal() {
+    if (document.getElementById('infoHubModalOv')) return;
 
     const ov = document.createElement('div');
-    ov.id = 'releaseModalOv';
-    ov.className = 'feedback-modal-ov';
+    ov.id = 'infoHubModalOv';
+    ov.className = 'feedback-modal-ov info-hub-modal-ov';
     ov.addEventListener('pointerdown', (ev) => {
-        _releaseBackdropPointerDown = ev.target === ov;
+        _infoHubBackdropPointerDown = ev.target === ov;
     });
     ov.addEventListener('pointerup', (ev) => {
-        if (_releaseBackdropPointerDown && ev.target === ov) closeReleaseModal();
-        _releaseBackdropPointerDown = false;
+        if (_infoHubBackdropPointerDown && ev.target === ov) closeInfoHub();
+        _infoHubBackdropPointerDown = false;
     });
     ov.addEventListener('pointercancel', () => {
-        _releaseBackdropPointerDown = false;
+        _infoHubBackdropPointerDown = false;
     });
     ov.innerHTML = `
-      <div class="feedback-modal release-modal" role="dialog" aria-modal="true" aria-labelledby="releaseModalTitle">
-        <div class="feedback-head">
-          <div class="feedback-head-left">
-            <div class="feedback-head-icon">
+      <div class="feedback-modal info-hub-modal" role="dialog" aria-modal="true" aria-labelledby="infoHubTitle">
+        <div class="info-hub-head">
+          <div class="info-hub-title-wrap">
+            <div class="info-hub-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                <path d="M14 15h7"></path><path d="M14 20h7"></path>
+              </svg>
+            </div>
+            <div class="feedback-head-text">
+              <div class="info-hub-title" id="infoHubTitle">Trung tâm Lang Gia</div>
+              <div class="info-hub-sub">Góp ý, cập nhật và log hoạt động trong một popup gọn gàng.</div>
+            </div>
+          </div>
+          <button class="feedback-close" type="button" onclick="closeInfoHub()">✕</button>
+        </div>
+        <div class="info-hub-shell">
+          <div class="info-hub-rail" id="infoHubTabs" role="tablist" aria-label="Trung tâm Lang Gia">
+            <button class="info-hub-tab active" type="button" role="tab" aria-selected="true" data-info-tab="feedback">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+                <path d="M8 9h8"></path><path d="M8 13h5"></path>
+              </svg>
+              Góp ý
+            </button>
+            <button class="info-hub-tab" type="button" role="tab" aria-selected="false" data-info-tab="release">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                 <path d="M9 7h7"></path><path d="M9 11h5"></path>
               </svg>
-            </div>
-            <div class="feedback-head-text">
-              <div class="feedback-title" id="releaseModalTitle">LangGiaWar V1.2</div>
-              <div class="feedback-sub">Tóm tắt các cập nhật lớn</div>
-            </div>
+              Cập nhật
+            </button>
+            <button class="info-hub-tab" type="button" role="tab" aria-selected="false" data-info-tab="log">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path>
+              </svg>
+              Log
+            </button>
           </div>
-          <div class="feedback-head-stats">
-            <div class="feedback-stat"><div class="feedback-stat-num">5</div><div class="feedback-stat-lbl">Cập nhật</div></div>
+          <div class="info-hub-content">
+            <section class="info-hub-panel active" data-info-tab="feedback" role="tabpanel">
+              <div class="feedback-body">
+                <div class="feedback-col-left">
+                  <div class="feedback-compose-label">Viết bình luận</div>
+                  <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
+                    <select class="feedback-select" id="feedbackCategory" style="display:none">
+                      <option value="feedback">Góp ý</option>
+                      <option value="bug">Báo lỗi</option>
+                      <option value="suggestion">Đề xuất</option>
+                      <option value="other">Khác</option>
+                    </select>
+                    <div class="feedback-field">
+                      <span class="feedback-label">Loại</span>
+                      <div class="feedback-category-grid" id="feedbackCatGrid">
+                        <button type="button" class="feedback-cat-btn cat-feedback active-cat" data-cat="feedback" onclick="selectFeedbackCat(this)">
+                          <span class="feedback-cat-dot"></span> Góp ý
+                        </button>
+                        <button type="button" class="feedback-cat-btn cat-bug" data-cat="bug" onclick="selectFeedbackCat(this)">
+                          <span class="feedback-cat-dot"></span> Báo lỗi
+                        </button>
+                        <button type="button" class="feedback-cat-btn cat-suggestion" data-cat="suggestion" onclick="selectFeedbackCat(this)">
+                          <span class="feedback-cat-dot"></span> Đề xuất
+                        </button>
+                        <button type="button" class="feedback-cat-btn cat-other" data-cat="other" onclick="selectFeedbackCat(this)">
+                          <span class="feedback-cat-dot"></span> Khác
+                        </button>
+                      </div>
+                    </div>
+                    <div class="feedback-field">
+                      <span class="feedback-label">Nội dung</span>
+                      <textarea class="feedback-textarea" id="feedbackContent" maxlength="1500" required
+                        placeholder="Chia sẻ góp ý, báo lỗi hoặc đề xuất của bạn..."
+                        oninput="updateFeedbackCharCount(this)"></textarea>
+                      <div class="feedback-char-count" id="feedbackCharCount">0 / 1500</div>
+                    </div>
+                    <div class="feedback-form-actions">
+                      <div class="feedback-status" id="feedbackStatus"></div>
+                      <button class="feedback-submit" id="feedbackSubmitBtn" type="submit">✦ Gửi góp ý</button>
+                    </div>
+                  </form>
+                </div>
+                <div class="feedback-col-right">
+                  <div class="feedback-list-head">
+                    <div class="feedback-list-title">
+                      Comment
+                      <span class="feedback-list-title-count" id="feedbackCountBadge">0</span>
+                    </div>
+                    <button class="feedback-refresh" type="button" onclick="loadFeedbackList(true)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      Tải lại
+                    </button>
+                  </div>
+                  <div class="feedback-list" id="feedbackList"></div>
+                </div>
+              </div>
+            </section>
+            <section class="info-hub-panel" data-info-tab="release" role="tabpanel">
+              <div class="release-body">
+                <div class="release-badge">LangGiaWar V1.2</div>
+                <div class="release-list">
+                  <div class="release-item">
+                    <div class="release-item-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
+                        <path d="M10 21h4"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="release-item-title">Đồng bộ listmem Discord - Web</div>
+                      <div class="release-item-text">Danh sách thành viên trên web được đồng bộ với bot Discord, giúp roster, đội hình và trạng thái thành viên cập nhật thống nhất hơn.</div>
+                    </div>
+                  </div>
+                  <div class="release-item">
+                    <div class="release-item-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M19 8v6"></path><path d="M22 11h-6"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="release-item-title">Thêm thành viên trực tiếp trên web</div>
+                      <div class="release-item-text">Người có quyền có thể thêm member ngay trên web, giảm thao tác qua lệnh bot và cập nhật danh sách nhanh hơn.</div>
+                    </div>
+                  </div>
+                  <div class="release-item">
+                    <div class="release-item-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 7h-9"></path><path d="M14 17H5"></path>
+                        <circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="release-item-title">Pick Role trực tiếp trên web</div>
+                      <div class="release-item-text">Thành viên có thể tự chọn vai trò DPS, Tanker hoặc Healer ngay trên web để chuẩn bị đội hình tiện hơn.</div>
+                    </div>
+                  </div>
+                  <div class="release-item">
+                    <div class="release-item-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="release-item-title">Quản lý roster tiện hơn</div>
+                      <div class="release-item-text">Bổ sung chỉnh sửa thông tin member, thống kê roster, log hoạt động và giao diện danh sách gọn hơn cho người quản lý.</div>
+                    </div>
+                  </div>
+                  <div class="release-item">
+                    <div class="release-item-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+                        <path d="M8 9h8"></path><path d="M8 13h5"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="release-item-title">Góp ý dạng Comment</div>
+                      <div class="release-item-text">Khu góp ý được làm lại theo dạng comment, có danh mục, đếm ký tự, nút tải lại và quyền xóa cho người quản lý.</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="release-note">Tạm thời ẩn Chiến thuật bản đồ trong lúc chờ bản đồ mới và bỏ Timer vì thời gian boss đã thay đổi.</div>
+              </div>
+            </section>
+            <section class="info-hub-panel" data-info-tab="log" role="tabpanel">
+              <section class="info-hub-log" id="indexRosterLogPanel" aria-hidden="true">
+                <div class="index-roster-log-head">
+                  <div>
+                    <div class="index-roster-log-title">Roster Log</div>
+                    <div class="index-roster-log-sub" id="indexRosterLogSub">Lịch sử chỉnh sửa gần đây</div>
+                  </div>
+                  <button class="feedback-refresh" type="button" onclick="loadIndexRosterLogEntries()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Tải lại
+                  </button>
+                </div>
+                <div class="index-roster-log-filters" id="indexRosterLogFilters">
+                  <button class="index-roster-log-filter active" type="button" data-index-log-filter="all">Tất cả</button>
+                  <button class="index-roster-log-filter" type="button" data-index-log-filter="web">Web</button>
+                  <button class="index-roster-log-filter" type="button" data-index-log-filter="bot">Bot</button>
+                  <button class="index-roster-log-filter" type="button" data-index-log-filter="member">Member</button>
+                  <button class="index-roster-log-filter" type="button" data-index-log-filter="pending">Pending</button>
+                  <button class="index-roster-log-filter" type="button" data-index-log-filter="session">Session</button>
+                </div>
+                <div class="index-roster-log-list" id="indexRosterLogList">
+                  <div class="index-roster-log-empty">Đang tải log...</div>
+                </div>
+              </section>
+            </section>
           </div>
-          <button class="feedback-close" type="button" onclick="closeReleaseModal()">✕</button>
-        </div>
-        <div class="release-body">
-          <div class="release-badge">LangGiaWar V1.2</div>
-          <div class="release-list">
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
-                  <path d="M10 21h4"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Đồng bộ listmem Discord - Web</div>
-                <div class="release-item-text">Danh sách thành viên trên web được đồng bộ với bot Discord, giúp roster, đội hình và trạng thái thành viên cập nhật thống nhất hơn.</div>
-              </div>
-            </div>
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="9" cy="7" r="4"></circle>
-                  <path d="M19 8v6"></path><path d="M22 11h-6"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Thêm thành viên trực tiếp trên web</div>
-                <div class="release-item-text">Người có quyền có thể thêm member ngay trên web, giảm thao tác qua lệnh bot và cập nhật danh sách nhanh hơn.</div>
-              </div>
-            </div>
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 7h-9"></path><path d="M14 17H5"></path>
-                  <circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Pick Role trực tiếp trên web</div>
-                <div class="release-item-text">Thành viên có thể tự chọn vai trò DPS, Tanker hoặc Healer ngay trên web để chuẩn bị đội hình tiện hơn.</div>
-              </div>
-            </div>
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Quản lý roster tiện hơn</div>
-                <div class="release-item-text">Bổ sung chỉnh sửa thông tin member, thống kê roster, log hoạt động và giao diện danh sách gọn hơn cho người quản lý.</div>
-              </div>
-            </div>
-            <div class="release-item">
-              <div class="release-item-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
-                  <path d="M8 9h8"></path><path d="M8 13h5"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="release-item-title">Góp ý dạng Comment</div>
-                <div class="release-item-text">Khu góp ý được làm lại theo dạng comment, có danh mục, đếm ký tự, nút tải lại và quyền xóa cho người quản lý.</div>
-              </div>
-            </div>
-          </div>
-          <div class="release-note">Tạm thời ẩn Chiến thuật bản đồ trong lúc chờ bản đồ mới và bỏ Timer vì thời gian boss đã thay đổi.</div>
         </div>
       </div>`;
     document.body.appendChild(ov);
 
+    document.getElementById('infoHubTabs')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-info-tab]');
+        if (!btn) return;
+        setInfoHubTab(btn.dataset.infoTab);
+    });
+    document.getElementById('indexRosterLogFilters')?.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-index-log-filter]');
+        if (!btn) return;
+        indexRosterLogFilter = btn.dataset.indexLogFilter || 'all';
+        document.querySelectorAll('#indexRosterLogFilters .index-roster-log-filter').forEach((item) => {
+            item.classList.toggle('active', item === btn);
+        });
+        renderIndexRosterLogEntries();
+    });
     document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape' && document.getElementById('releaseModalOv')?.classList.contains('active')) {
-            closeReleaseModal();
+        if (ev.key === 'Escape' && document.getElementById('infoHubModalOv')?.classList.contains('active')) {
+            closeInfoHub();
         }
     });
 }
 
-function openReleaseModal(e) {
+async function setInfoHubTab(tab = 'feedback') {
+    ensureInfoHubModal();
+    const safeTab = ['feedback', 'release', 'log'].includes(tab) ? tab : 'feedback';
+    _infoHubActiveTab = safeTab;
+
+    document.querySelectorAll('#infoHubTabs .info-hub-tab').forEach((btn) => {
+        const active = btn.dataset.infoTab === safeTab;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.info-hub-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.dataset.infoTab === safeTab);
+    });
+
+    if (safeTab === 'feedback') {
+        indexRosterLogOpen = false;
+        document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'true');
+        setFeedbackStatus('');
+        if (!_feedbackLoadedOnce) {
+            await loadFeedbackList(true);
+            _feedbackLoadedOnce = true;
+        } else {
+            await loadFeedbackList(false);
+        }
+    } else if (safeTab === 'log') {
+        indexRosterLogOpen = true;
+        document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'false');
+        await loadIndexRosterLogEntries().catch((error) => {
+            console.warn('[Index] load roster log failed:', error);
+            const els = getIndexRosterLogEls();
+            if (els.list) els.list.innerHTML = '<div class="index-roster-log-empty">Chưa đọc được log.</div>';
+        });
+    } else {
+        indexRosterLogOpen = false;
+        document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'true');
+    }
+}
+
+async function openInfoHub(e, tab = 'feedback') {
     if (e) e.stopPropagation();
     document.getElementById('userBadge')?.classList.remove('open');
-    ensureReleaseModal();
-    document.getElementById('releaseModalOv')?.classList.add('active');
+    ensureInfoHubModal();
+    document.getElementById('infoHubModalOv')?.classList.add('active');
+    await setInfoHubTab(tab);
+}
+
+function closeInfoHub() {
+    document.getElementById('infoHubModalOv')?.classList.remove('active');
+    indexRosterLogOpen = false;
+    document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'true');
+}
+
+async function openFeedbackModal(e) {
+    await openInfoHub(e, 'feedback');
+}
+
+function closeFeedbackModal() {
+    closeInfoHub();
+}
+
+async function openReleaseModal(e) {
+    await openInfoHub(e, 'release');
 }
 
 function closeReleaseModal() {
-    document.getElementById('releaseModalOv')?.classList.remove('active');
+    closeInfoHub();
 }
 
 function setFeedbackStatus(message, type = '') {

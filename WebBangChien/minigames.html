@@ -2699,35 +2699,6 @@
 
     }
 
-    .webgl-canvas-container::before {
-
-      content: "";
-
-      position: absolute;
-
-      top: 0;
-
-      left: 0;
-
-      right: 0;
-
-      height: min(30vh, 230px);
-
-      pointer-events: none;
-
-      z-index: 1;
-
-      background:
-        radial-gradient(ellipse at 42% 72%, rgba(52, 211, 153, 0.28), rgba(52, 211, 153, 0.08) 38%, transparent 72%),
-        radial-gradient(ellipse at 70% 45%, rgba(94, 234, 212, 0.18), transparent 58%),
-        linear-gradient(180deg, rgba(6, 78, 59, 0.3), rgba(2, 6, 4, 0));
-
-      mix-blend-mode: screen;
-
-    }
-
-
-
     .webgl-canvas {
 
       width: 100%;
@@ -8014,10 +7985,6 @@
       pointLight.position.set(0, 10, 0);
 
       threeScene.add(pointLight);
-
-
-      addDerbyBackdrop();
-
 
 
       // Tạo đường chạy đua 3D

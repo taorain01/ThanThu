@@ -2567,7 +2567,7 @@
 
       background: #000 url("anh/bg_derby_sky.png") no-repeat center center;
 
-      background-size: cover;
+      background-size: 100% 100%;
 
     }
 
@@ -2693,9 +2693,48 @@
 
       overflow: hidden;
 
-      background: #000 url("anh/bg_derby_sky.png") no-repeat center center;
+      isolation: isolate;
 
-      background-size: cover;
+      background:
+        linear-gradient(180deg, rgba(1, 6, 4, 0.16) 0%, rgba(1, 6, 4, 0.02) 42%, rgba(0, 0, 0, 0.58) 100%),
+        url("anh/bg_derby_sky.png") center center / 100% 100% no-repeat,
+        #020705;
+
+    }
+
+    .webgl-canvas-container::before,
+    .webgl-canvas-container::after {
+
+      content: "";
+
+      position: absolute;
+
+      inset: 0;
+
+      pointer-events: none;
+
+      z-index: 0;
+
+    }
+
+    .webgl-canvas-container::before {
+
+      background:
+        radial-gradient(ellipse at 50% 74%, rgba(91, 255, 190, 0.24) 0%, rgba(16, 185, 129, 0.12) 18%, transparent 44%),
+        radial-gradient(circle at 22% 28%, rgba(67, 255, 197, 0.18), transparent 28%),
+        radial-gradient(circle at 78% 22%, rgba(251, 191, 36, 0.11), transparent 24%);
+
+      opacity: var(--derby-glow-opacity, 0.82);
+
+    }
+
+    .webgl-canvas-container::after {
+
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.56) 0%, transparent 22%, transparent 78%, rgba(0, 0, 0, 0.56) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, transparent 30%, transparent 58%, rgba(0, 0, 0, 0.68) 100%);
+
+      opacity: var(--derby-vignette-opacity, 0.76);
 
     }
 
@@ -2706,6 +2745,12 @@
       height: 100%;
 
       display: block;
+
+      position: relative;
+
+      z-index: 1;
+
+      background: transparent;
 
     }
 
@@ -6121,8 +6166,106 @@
 
     const MAX_RACERS = 40;
 
+    /* MINIGAME_EDITOR_CONFIG_START */
+    const DERBY_SCENE_CONFIG = {
+      version: 2,
+      backgrounds: {
+        sky: "anh/bg_derby_sky.png",
+        racetrack: "anh/bg_derby_racetrack_old.png",
+        skyOpacity: 1,
+        skyBrightness: 1.2,
+        skySaturation: 1.01,
+        skyPositionX: 50,
+        skyPositionY: 75,
+        skySizeX: 110,
+        skySizeY: 134,
+        skyFitMode: "width",
+        skyScale: 110,
+        skyAspect: 0.82,
+        glowOpacity: 0.76,
+        vignetteOpacity: 0.75,
+        racetrackOpacity: 0.45,
+        racetrackTint: "#ffffff",
+        racetrackBrightness: 0.53,
+        racetrackRepeatX: 1.81,
+        racetrackRepeatY: 0.5,
+        racetrackOffsetX: 0.38,
+        racetrackOffsetY: 0,
+        racetrackBlending: "additive",
+        racetrackDepthTest: true
+      },
+      horizon: {
+        enabled: true,
+        x: -87,
+        y: 52,
+        z: -82,
+        width: 1200,
+        height: 185,
+        lockAspect: true,
+        aspect: 6.49,
+        scale: 0.6,
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        renderOrder: -18
+      },
+      camera: {
+        fov: 50,
+        minY: 5.7,
+        yWidthFactor: 0.28,
+        yRacerFactor: 0.28,
+        zOffsetBase: 25,
+        zWidthFactor: 1.03,
+        lookY: 6,
+        lookZOffset: -3.5,
+        smooth: 0.08
+      },
+      stars: {
+        enabled: true,
+        count: 300,
+        size: 0.26,
+        opacity: 0.54,
+        pulse: 0.21,
+        spin: 0.00009,
+        spreadX: 65,
+        nearYMin: 3.5,
+        nearYMax: 33.5,
+        farYMin: 15,
+        farYMax: 53,
+        nearZMin: -24,
+        nearZExtra: 88,
+        farZMin: -90,
+        farZRange: 120,
+        farEvery: 7,
+        palette: ["#dffcf0", "#9ef9d4", "#fef3c7", "#93c5fd", "#f8fafc"]
+      },
+      planets: [
+        { id: "mercury", name: "Mercury", enabled: true, color: "#b6b0a7", emissive: "#3f3831", radius: 0.72, side: -1, z: 0.18, y: 19.77, extra: 1.8, spin: 0.0042, x: -9.98 },
+        { id: "venus", name: "Venus", enabled: true, color: "#f6c56b", emissive: "#5c3714", radius: 1.02, side: 1, z: 0.28, y: 7.2, extra: 3.6, spin: 0.0034 },
+        { id: "earth", name: "Earth", enabled: true, color: "#38bdf8", emissive: "#0b5366", radius: 1, side: -1, z: 0.43, y: 8.9, extra: 5.2, spin: 0.0048, moon: true },
+        { id: "mars", name: "Mars", enabled: true, color: "#ef6c3d", emissive: "#5f1f11", radius: 0.88, side: 1, z: 0.55, y: 6.8, extra: 2.8, spin: 0.0045 },
+        { id: "jupiter", name: "Jupiter", enabled: true, color: "#e5b56f", emissive: "#5a3513", radius: 1.72, side: -1, z: 0.7, y: 11.2, extra: 6.6, spin: 0.0028, bands: true },
+        { id: "saturn", name: "Saturn", enabled: true, color: "#e8d08a", emissive: "#5b4718", radius: 1.46, side: 1, z: 0.84, y: 12.4, extra: 7.4, spin: 0.0024, ring: true }
+      ],
+      effects: {
+        starPulse: true,
+        planetBob: true,
+        planetBobAmplitude: 0.18,
+        planetBobSpeed: 0.0012,
+        moonOrbit: true,
+        moonOrbitSpeed: 0.0016,
+        customBob: true,
+        customSpin: true,
+        customPulse: true
+      },
+      customObjects: []
+    };
+    /* MINIGAME_EDITOR_CONFIG_END */
+
     const DEFAULT_DERBY_LANE_SPACING = 1.5;
-    const DERBY_SKY_TEXTURE_URL = "anh/bg_derby_sky.png";
+    const DERBY_SKY_TEXTURE_URL = DERBY_SCENE_CONFIG.backgrounds?.sky || "anh/bg_derby_sky.png";
+    const DERBY_CAMERA_LOOK_Y = DERBY_SCENE_CONFIG.camera?.lookY ?? 4.2;
+    const DERBY_CAMERA_MIN_Y = DERBY_SCENE_CONFIG.camera?.minY ?? 9;
 
 
 
@@ -6138,6 +6281,105 @@
 
       return numRacers * getDerbyLaneSpacing(numRacers) + 2;
 
+    }
+
+    function derbyNumber(value, fallback) {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : fallback;
+    }
+
+    function derbyBool(value, fallback = true) {
+      return typeof value === "boolean" ? value : fallback;
+    }
+
+    function derbyDegToRad(value) {
+      return derbyNumber(value, 0) * Math.PI / 180;
+    }
+
+    function getDerbyCameraConfig() {
+      return DERBY_SCENE_CONFIG.camera || {};
+    }
+
+    function getDerbyBackgroundConfig() {
+      return DERBY_SCENE_CONFIG.backgrounds || {};
+    }
+
+    function applyDerbySceneStyles() {
+      const container = document.getElementById("webgl-container");
+      if (!container) return;
+
+      const bg = getDerbyBackgroundConfig();
+      const skyUrl = bg.sky || DERBY_SKY_TEXTURE_URL;
+      const skyOpacity = Math.max(0, Math.min(1, derbyNumber(bg.skyOpacity, 1)));
+      const shadeOpacity = Math.max(0, Math.min(0.88, 1 - skyOpacity));
+      const skyX = derbyNumber(bg.skyPositionX, 50);
+      const skyY = derbyNumber(bg.skyPositionY, 50);
+      const skySize = getDerbySkyBackgroundSize(container, bg);
+      container.style.background = [
+        `linear-gradient(180deg, rgba(1, 6, 4, ${0.16 + shadeOpacity}) 0%, rgba(1, 6, 4, ${0.02 + shadeOpacity * 0.35}) 42%, rgba(0, 0, 0, ${0.58 + shadeOpacity * 0.3}) 100%)`,
+        `url("${skyUrl}") ${skyX}% ${skyY}% / ${skySize} no-repeat`,
+        "#020705"
+      ].join(", ");
+      container.style.setProperty("--derby-glow-opacity", String(derbyNumber(bg.glowOpacity, 0.82)));
+      container.style.setProperty("--derby-vignette-opacity", String(derbyNumber(bg.vignetteOpacity, 0.76)));
+      container.style.filter = `brightness(${derbyNumber(bg.skyBrightness, 1)}) saturate(${derbyNumber(bg.skySaturation, 1)})`;
+    }
+
+    function getDerbySkyBackgroundSize(container, bg) {
+      const mode = bg.skyFitMode || "cover";
+      if (mode === "stretch") {
+        const skySizeX = Math.max(10, derbyNumber(bg.skySizeX, 100));
+        const skySizeY = Math.max(10, derbyNumber(bg.skySizeY, 100));
+        return `${skySizeX}% ${skySizeY}%`;
+      }
+      const width = Math.max(1, container?.clientWidth || 1);
+      const height = Math.max(1, container?.clientHeight || 1);
+      const aspect = Math.max(0.1, derbyNumber(bg.skyAspect, 1));
+      const scale = Math.max(0.01, derbyNumber(bg.skyScale, 100) / 100);
+      let targetW;
+      let targetH;
+      if (mode === "height") {
+        targetH = height * scale;
+        targetW = targetH * aspect;
+      } else if (mode === "width") {
+        targetW = width * scale;
+        targetH = targetW / aspect;
+      } else if (mode === "contain") {
+        if (width / height > aspect) {
+          targetH = height * scale;
+          targetW = targetH * aspect;
+        } else {
+          targetW = width * scale;
+          targetH = targetW / aspect;
+        }
+      } else {
+        if (width / height > aspect) {
+          targetW = width * scale;
+          targetH = targetW / aspect;
+        } else {
+          targetH = height * scale;
+          targetW = targetH * aspect;
+        }
+      }
+      return `${Math.round(targetW)}px ${Math.round(targetH)}px`;
+    }
+
+    function applyDerbyTransform(object, transform = {}) {
+      if (!object) return;
+      object.position.set(
+        derbyNumber(transform.x, 0),
+        derbyNumber(transform.y, 0),
+        derbyNumber(transform.z, 0)
+      );
+      object.rotation.set(
+        derbyDegToRad(transform.rx),
+        derbyDegToRad(transform.ry),
+        derbyDegToRad(transform.rz)
+      );
+      const sx = derbyNumber(transform.sx, derbyNumber(transform.scale, 1));
+      const sy = derbyNumber(transform.sy, derbyNumber(transform.scale, 1));
+      const sz = derbyNumber(transform.sz, derbyNumber(transform.scale, 1));
+      object.scale.set(sx, sy, sz);
     }
 
 
@@ -7657,16 +7899,24 @@
 
 
       const numRacers = threeRacers.length;
+      const cameraCfg = getDerbyCameraConfig();
 
       const targetCamX = derbyTrackWidth / 2 - 1;
 
-      const targetCamY = Math.max(11, derbyTrackWidth * 0.5, numRacers * 0.34);
+      const targetCamY = Math.max(
+        derbyNumber(cameraCfg.minY, DERBY_CAMERA_MIN_Y),
+        derbyTrackWidth * derbyNumber(cameraCfg.yWidthFactor, 0.42),
+        numRacers * derbyNumber(cameraCfg.yRacerFactor, 0.28)
+      );
 
-      const targetCamZ = focusZ + Math.max(24, derbyTrackWidth * 0.9);
+      const targetCamZ = focusZ + Math.max(
+        derbyNumber(cameraCfg.zOffsetBase, 24),
+        derbyTrackWidth * derbyNumber(cameraCfg.zWidthFactor, 0.9)
+      );
 
-      const targetLookZ = Math.max(10, focusZ - 4);
+      const targetLookZ = Math.max(10, focusZ + derbyNumber(cameraCfg.lookZOffset, -10));
 
-      const lerp = smooth ? 0.05 : 1;
+      const lerp = smooth ? derbyNumber(cameraCfg.smooth, 0.05) : 1;
 
 
 
@@ -7676,7 +7926,7 @@
 
       threeCamera.position.z += (targetCamZ - threeCamera.position.z) * lerp;
 
-      threeCamera.lookAt(targetCamX, 0, targetLookZ);
+      threeCamera.lookAt(targetCamX, derbyNumber(cameraCfg.lookY, DERBY_CAMERA_LOOK_Y), targetLookZ);
 
     }
 
@@ -7818,7 +8068,7 @@
 
         const script = document.createElement("script");
 
-        script.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+        script.src = "vendor/three.min.js";
 
         script.onload = () => {
 
@@ -7887,6 +8137,7 @@
       const canvas = document.getElementById("webgl-canvas");
 
       canvas.style.display = "block";
+      applyDerbySceneStyles();
 
       document.getElementById("fallback-canvas").style.display = "none";
 
@@ -7914,31 +8165,7 @@
       // Scene
 
       threeScene = new THREE.Scene();
-      threeScene.background = new THREE.Color("#020705");
-
-      const textureLoader = new THREE.TextureLoader();
-
-      textureLoader.load(DERBY_SKY_TEXTURE_URL, (texture) => {
-
-        if (threeScene) {
-
-          texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
-          texture.needsUpdate = true;
-          threeScene.background = texture;
-
-        }
-
-      }, undefined, (err) => {
-
-        console.warn("Lỗi load ảnh nền 3D, dùng màu mặc định:", err);
-
-        if (threeScene) {
-
-          threeScene.background = new THREE.Color("#020705");
-
-        }
-
-      });
+      threeScene.background = null;
 
       threeScene.fog = new THREE.FogExp2("#07180c", 0.0045);
 
@@ -7946,17 +8173,18 @@
 
       // Camera
 
-      threeCamera = new THREE.PerspectiveCamera(52, width / height, 0.1, 1000);
+      threeCamera = new THREE.PerspectiveCamera(derbyNumber(getDerbyCameraConfig().fov, 52), width / height, 0.1, 1000);
 
       
 
       // Renderer
 
-      threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      threeRenderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
 
       threeRenderer.setSize(width, height);
 
       threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      threeRenderer.setClearColor(0x000000, 0);
 
       threeRenderer.shadowMap.enabled = true;
 
@@ -8001,7 +8229,7 @@
 
       // Đặt camera bao trọn toàn bộ bề ngang đường đua ngay từ lúc xuất phát.
 
-      threeCamera.position.set(derbyTrackWidth / 2 - 1, 10, trackLength + 18);
+      threeCamera.position.set(derbyTrackWidth / 2 - 1, derbyNumber(getDerbyCameraConfig().minY, 9) + 1, trackLength + 18);
 
       updateDerbyCameraFrame(trackLength, false);
       updateDerbyNameplateScales();
@@ -8035,41 +8263,59 @@
 
     // Vẽ nền móng đường đua 3D
 
-    function addDerbyBackdrop() {
+    function addDerbyBackdrop(roadW = derbyTrackWidth) {
       if (!threeScene) return;
 
-      const centerX = derbyTrackWidth / 2 - 1;
-      const horizonZ = -24;
-      const backdropWidth = Math.max(derbyTrackWidth * 9, 520);
-      const backdropHeight = Math.max(260, backdropWidth * 0.54);
-      const backdropBottomY = -3;
+      const bg = getDerbyBackgroundConfig();
+      const horizon = DERBY_SCENE_CONFIG.horizon || {};
+      if (horizon.enabled === false || !bg.racetrack) return;
+
+      const centerX = roadW / 2 - 1 + derbyNumber(horizon.x, 0);
+      const horizonZ = derbyNumber(horizon.z, -82);
+      const backdropBaseWidth = Math.max(roadW * 6, derbyNumber(horizon.width, 680));
+      const backdropAspect = Math.max(0.1, derbyNumber(horizon.aspect, backdropBaseWidth / Math.max(1, derbyNumber(horizon.height, 382))));
+      const backdropBaseHeight = derbyBool(horizon.lockAspect, true)
+        ? backdropBaseWidth / backdropAspect
+        : derbyNumber(horizon.height, Math.max(260, backdropBaseWidth * 0.56));
+      const backdropWidth = backdropBaseWidth * derbyNumber(horizon.scale, 1);
+      const backdropHeight = backdropBaseHeight * derbyNumber(horizon.scale, 1);
+      const backdropY = derbyNumber(horizon.y, 132);
       const backdropGeo = new THREE.PlaneGeometry(backdropWidth, backdropHeight);
       const backdropMat = new THREE.MeshBasicMaterial({
-        color: "#020705",
+        color: bg.racetrackTint || "#ffffff",
         transparent: true,
-        opacity: 1,
+        opacity: derbyNumber(bg.racetrackOpacity, 0.66),
         side: THREE.DoubleSide,
         depthWrite: false,
-        depthTest: false,
+        depthTest: derbyBool(bg.racetrackDepthTest, false),
         fog: false,
         toneMapped: false
       });
+      if (bg.racetrackBlending === "additive") backdropMat.blending = THREE.AdditiveBlending;
+      backdropMat.color.multiplyScalar(derbyNumber(bg.racetrackBrightness, 1));
       const backdrop = new THREE.Mesh(backdropGeo, backdropMat);
-      backdrop.position.set(centerX, backdropBottomY + backdropHeight / 2, horizonZ);
-      backdrop.renderOrder = -20;
+      backdrop.position.set(centerX, backdropY, horizonZ);
+      backdrop.rotation.set(
+        derbyDegToRad(horizon.rotationX),
+        derbyDegToRad(horizon.rotationY),
+        derbyDegToRad(horizon.rotationZ)
+      );
+      backdrop.renderOrder = derbyNumber(horizon.renderOrder, -18);
       threeScene.add(backdrop);
 
       const loader = new THREE.TextureLoader();
-      loader.load(DERBY_SKY_TEXTURE_URL, (texture) => {
+      loader.load(bg.racetrack, (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.repeat.set(1, 1);
-        texture.offset.set(0, 0);
+        const repeatX = derbyNumber(bg.racetrackRepeatX, 1);
+        const repeatY = derbyNumber(bg.racetrackRepeatY, 1);
+        texture.wrapS = repeatX === 1 ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+        texture.wrapT = repeatY === 1 ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+        texture.repeat.set(repeatX, repeatY);
+        texture.offset.set(derbyNumber(bg.racetrackOffsetX, 0), derbyNumber(bg.racetrackOffsetY, 0));
         texture.needsUpdate = true;
         backdropMat.map = texture;
-        backdropMat.color.set("#ffffff");
-        backdropMat.opacity = 1;
+        backdropMat.color.set(bg.racetrackTint || "#ffffff").multiplyScalar(derbyNumber(bg.racetrackBrightness, 1));
+        backdropMat.opacity = derbyNumber(bg.racetrackOpacity, 0.66);
         backdropMat.needsUpdate = true;
       }, undefined, () => {
         backdropMat.color.set("#020705");
@@ -8216,6 +8462,48 @@
           mesh.position.y = item.baseY + Math.sin(frameNow * 0.004 + item.phase) * 0.035;
           return;
         }
+        // Start/finish beam: pulsing glow
+        if (item.type === "startBeam" || item.type === "finishBeam") {
+          if (mesh.material) {
+            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.003 + item.phase) * 0.25;
+          }
+          return;
+        }
+        // Gate rings: spin fast + pulse opacity
+        if (item.type === "gateRing") {
+          mesh.rotation.z += item.spin;
+          mesh.rotation.x += item.spin * 0.5;
+          if (mesh.material) {
+            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.004 + item.phase) * 0.15;
+          }
+          return;
+        }
+        // Energy particles: bob up and down
+        if (item.type === "energyParticle") {
+          const baseY = mesh.position.y;
+          const offset = Math.sin(frameNow * 0.003 + item.phase) * 0.15;
+          mesh.position.y = baseY + offset;
+          if (mesh.material) {
+            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.005 + item.phase) * 0.2;
+          }
+          return;
+        }
+        // Trophy gem: rotate + bob
+        if (item.type === "trophyGem") {
+          mesh.rotation.y += item.spin;
+          mesh.position.y = item.baseY + Math.sin(frameNow * 0.003 + item.phase) * 0.2;
+          return;
+        }
+        // Torch flames: flicker scale
+        if (item.type === "torch") {
+          const s = 0.85 + Math.sin(frameNow * 0.015 + item.phase) * 0.15;
+          mesh.scale.set(s, s * 1.2, s);
+          if (mesh.material) {
+            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.008 + item.phase) * 0.15;
+          }
+          return;
+        }
+        // Default: fade in/out
         const mat = mesh.material;
         if (mat && typeof mat.opacity === "number") {
           mat.opacity = item.baseOpacity + Math.sin(frameNow * 0.003 + item.phase) * 0.06;
@@ -8225,18 +8513,24 @@
 
     function addDerbyStarField(roadW) {
       if (!threeScene) return;
+      const starCfg = DERBY_SCENE_CONFIG.stars || {};
+      if (starCfg.enabled === false) return;
       const centerX = roadW / 2 - 1;
-      const starCount = Math.min(520, Math.max(280, Math.round(roadW * 8)));
+      const starCount = Math.max(0, Math.min(900, Math.round(derbyNumber(starCfg.count, Math.min(520, Math.max(280, Math.round(roadW * 8)))))));
       const positions = new Float32Array(starCount * 3);
       const colors = new Float32Array(starCount * 3);
-      const palette = ["#dffcf0", "#9ef9d4", "#fef3c7", "#93c5fd", "#f8fafc"].map((color) => new THREE.Color(color));
+      const palette = (Array.isArray(starCfg.palette) && starCfg.palette.length ? starCfg.palette : ["#dffcf0", "#9ef9d4", "#fef3c7", "#93c5fd", "#f8fafc"]).map((color) => new THREE.Color(color));
 
       for (let i = 0; i < starCount; i += 1) {
         const side = Math.random() < 0.5 ? -1 : 1;
-        const farSky = i % 7 === 0;
-        const xOffset = roadW * (farSky ? 0.95 : 0.72) + 7 + Math.random() * Math.max(24, roadW * 1.45);
-        const y = farSky ? 15 + Math.random() * 38 : 3.5 + Math.random() * 30;
-        const z = farSky ? -90 + Math.random() * 120 : -24 + Math.random() * (trackLength + 88);
+        const farSky = i % Math.max(1, Math.round(derbyNumber(starCfg.farEvery, 7))) === 0;
+        const xOffset = roadW * (farSky ? 0.95 : 0.72) + 7 + Math.random() * Math.max(24, derbyNumber(starCfg.spreadX, 48));
+        const y = farSky
+          ? derbyNumber(starCfg.farYMin, 15) + Math.random() * Math.max(1, derbyNumber(starCfg.farYMax, 53) - derbyNumber(starCfg.farYMin, 15))
+          : derbyNumber(starCfg.nearYMin, 3.5) + Math.random() * Math.max(1, derbyNumber(starCfg.nearYMax, 33.5) - derbyNumber(starCfg.nearYMin, 3.5));
+        const z = farSky
+          ? derbyNumber(starCfg.farZMin, -90) + Math.random() * derbyNumber(starCfg.farZRange, 120)
+          : derbyNumber(starCfg.nearZMin, -24) + Math.random() * (trackLength + derbyNumber(starCfg.nearZExtra, 88));
         const shade = palette[i % palette.length].clone().multiplyScalar(0.64 + Math.random() * 0.62);
 
         positions[i * 3] = centerX + side * xOffset;
@@ -8251,10 +8545,10 @@
       starGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       starGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       const starMat = new THREE.PointsMaterial({
-        size: 0.16,
+        size: derbyNumber(starCfg.size, 0.16),
         sizeAttenuation: true,
         transparent: true,
-        opacity: 0.82,
+        opacity: derbyNumber(starCfg.opacity, 0.82),
         vertexColors: true,
         depthWrite: false,
         fog: false,
@@ -8267,9 +8561,10 @@
       derbySpaceDecorations.push({
         type: "starfield",
         mesh: stars,
-        baseOpacity: 0.78,
+        baseOpacity: derbyNumber(starCfg.opacity, 0.78),
+        pulse: derbyNumber(starCfg.pulse, 0.14),
         phase: Math.random() * Math.PI,
-        spin: 0.000035
+        spin: derbyNumber(starCfg.spin, 0.000035)
       });
     }
 
@@ -8278,23 +8573,18 @@
 
       const centerX = roadW / 2 - 1;
       const sideBase = Math.max(10, roadW * 0.72);
-      const planets = [
-        { name: "mercury", color: "#b6b0a7", emissive: "#3f3831", radius: 0.72, side: -1, z: 0.18, y: 5.8, extra: 1.8, spin: 0.0042 },
-        { name: "venus", color: "#f6c56b", emissive: "#5c3714", radius: 1.02, side: 1, z: 0.28, y: 7.2, extra: 3.6, spin: 0.0034 },
-        { name: "earth", color: "#38bdf8", emissive: "#0b5366", radius: 1.0, side: -1, z: 0.43, y: 8.9, extra: 5.2, spin: 0.0048, moon: true },
-        { name: "mars", color: "#ef6c3d", emissive: "#5f1f11", radius: 0.88, side: 1, z: 0.55, y: 6.8, extra: 2.8, spin: 0.0045 },
-        { name: "jupiter", color: "#e5b56f", emissive: "#5a3513", radius: 1.72, side: -1, z: 0.7, y: 11.2, extra: 6.6, spin: 0.0028, bands: true },
-        { name: "saturn", color: "#e8d08a", emissive: "#5b4718", radius: 1.46, side: 1, z: 0.84, y: 12.4, extra: 7.4, spin: 0.0024, ring: true }
-      ];
+      const planets = Array.isArray(DERBY_SCENE_CONFIG.planets) ? DERBY_SCENE_CONFIG.planets : [];
 
       planets.forEach((planet, index) => {
+        if (planet.enabled === false) return;
         const group = new THREE.Group();
-        group.name = `derby-planet-${planet.name}`;
-        const coreGeo = new THREE.SphereGeometry(planet.radius, 14, 10);
+        const radius = derbyNumber(planet.radius, 1);
+        group.name = `derby-planet-${planet.id || planet.name || index}`;
+        const coreGeo = new THREE.SphereGeometry(radius, 14, 10);
         const coreMat = new THREE.MeshStandardMaterial({
-          color: planet.color,
-          emissive: planet.emissive,
-          emissiveIntensity: 0.42,
+          color: planet.color || "#e8d08a",
+          emissive: planet.emissive || "#1f2937",
+          emissiveIntensity: derbyNumber(planet.emissiveIntensity, 0.42),
           roughness: 0.64,
           metalness: 0.04,
           flatShading: true,
@@ -8306,7 +8596,7 @@
         if (planet.bands) {
           ["#fff1b7", "#b7791f", "#facc15"].forEach((bandColor, bandIdx) => {
             const band = new THREE.Mesh(
-              new THREE.TorusGeometry(planet.radius * (0.86 + bandIdx * 0.08), 0.018, 6, 36),
+              new THREE.TorusGeometry(radius * (0.86 + bandIdx * 0.08), 0.018, 6, 36),
               new THREE.MeshBasicMaterial({
                 color: bandColor,
                 transparent: true,
@@ -8324,9 +8614,9 @@
 
         if (planet.ring) {
           const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(planet.radius * 1.55, 0.045, 8, 56),
+            new THREE.TorusGeometry(radius * derbyNumber(planet.ringScale, 1.55), 0.045, 8, 56),
             new THREE.MeshBasicMaterial({
-              color: "#fde68a",
+              color: planet.ringColor || "#fde68a",
               transparent: true,
               opacity: 0.62,
               side: THREE.DoubleSide,
@@ -8343,26 +8633,32 @@
 
         if (planet.moon) {
           const moon = new THREE.Mesh(
-            new THREE.SphereGeometry(0.22, 10, 8),
+            new THREE.SphereGeometry(derbyNumber(planet.moonRadius, 0.22), 10, 8),
             new THREE.MeshBasicMaterial({ color: "#e5e7eb", transparent: true, opacity: 0.86, fog: false })
           );
-          moon.position.set(planet.radius * 1.65, planet.radius * 0.42, 0);
+          moon.position.set(radius * 1.65, radius * 0.42, 0);
           group.add(moon);
           group.userData.moon = moon;
         }
 
-        const z = Math.max(18, Math.min(trackLength - 12, trackLength * planet.z));
-        const x = centerX + planet.side * (sideBase + planet.extra + index * 0.42);
-        group.position.set(x, planet.y, z);
-        group.rotation.y = index * 0.7;
-        group.rotation.z = planet.side * 0.08;
+        const side = derbyNumber(planet.side, index % 2 === 0 ? -1 : 1);
+        const z = Number.isFinite(Number(planet.absZ))
+          ? derbyNumber(planet.absZ, 18)
+          : Math.max(18, Math.min(trackLength - 12, trackLength * derbyNumber(planet.z, 0.5)));
+        const x = Number.isFinite(Number(planet.x))
+          ? centerX + derbyNumber(planet.x, 0)
+          : centerX + side * (sideBase + derbyNumber(planet.extra, 0) + index * 0.42);
+        group.position.set(x, derbyNumber(planet.y, 7), z);
+        group.rotation.y = derbyNumber(planet.rotationY, index * 0.7);
+        group.rotation.z = derbyNumber(planet.rotationZ, side * 0.08);
         threeScene.add(group);
 
         derbySpaceDecorations.push({
           type: "planet",
           mesh: group,
-          baseY: planet.y,
-          spin: planet.spin * planet.side,
+          baseY: derbyNumber(planet.y, 7),
+          spin: derbyNumber(planet.spin, 0.003) * side,
+          bobAmplitude: derbyNumber(planet.bobAmplitude, DERBY_SCENE_CONFIG.effects?.planetBobAmplitude ?? 0.18),
           phase: index * 0.9
         });
       });
@@ -8370,6 +8666,7 @@
 
     function animateDerbySpaceDecorations(frameNow) {
       if (!derbySpaceDecorations.length) return;
+      const effects = DERBY_SCENE_CONFIG.effects || {};
       derbySpaceDecorations.forEach((item) => {
         const mesh = item.mesh;
         if (!mesh) return;
@@ -8377,21 +8674,453 @@
         if (item.type === "starfield") {
           mesh.rotation.y += item.spin;
           if (mesh.material && typeof mesh.material.opacity === "number") {
-            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.0018 + item.phase) * 0.14;
+            const pulse = derbyBool(effects.starPulse, true) ? derbyNumber(item.pulse, 0.14) : 0;
+            mesh.material.opacity = item.baseOpacity + Math.sin(frameNow * 0.0018 + item.phase) * pulse;
           }
           return;
         }
 
         if (item.type === "planet") {
           mesh.rotation.y += item.spin;
-          mesh.position.y = item.baseY + Math.sin(frameNow * 0.0012 + item.phase) * 0.18;
+          const bob = derbyBool(effects.planetBob, true) ? derbyNumber(item.bobAmplitude, 0.18) : 0;
+          mesh.position.y = item.baseY + Math.sin(frameNow * derbyNumber(effects.planetBobSpeed, 0.0012) + item.phase) * bob;
           if (mesh.userData.ring) mesh.userData.ring.rotation.z += item.spin * 0.9;
-          if (mesh.userData.moon) {
-            const angle = frameNow * 0.0016 + item.phase;
+          if (mesh.userData.moon && derbyBool(effects.moonOrbit, true)) {
+            const angle = frameNow * derbyNumber(effects.moonOrbitSpeed, 0.0016) + item.phase;
             mesh.userData.moon.position.x = Math.cos(angle) * 1.75;
             mesh.userData.moon.position.z = Math.sin(angle) * 1.75;
           }
+          return;
         }
+
+        if (item.type === "custom") {
+          animateDerbyCustomObject(item, frameNow);
+        }
+      });
+    }
+
+    function createDerbyConfiguredMaterial(material = {}, preferStandard = false) {
+      const base = {
+        color: material.color || "#10b981",
+        transparent: true,
+        opacity: derbyNumber(material.opacity, 0.82),
+        side: THREE.DoubleSide,
+        depthWrite: material.depthWrite === true,
+        fog: material.fog === true
+      };
+      if (material.blending === "additive") base.blending = THREE.AdditiveBlending;
+      if (preferStandard || material.emissive) {
+        return new THREE.MeshStandardMaterial({
+          ...base,
+          emissive: material.emissive || "#000000",
+          emissiveIntensity: derbyNumber(material.emissiveIntensity, material.emissive ? 0.45 : 0),
+          roughness: derbyNumber(material.roughness, 0.55),
+          metalness: derbyNumber(material.metalness, 0.05)
+        });
+      }
+      return new THREE.MeshBasicMaterial(base);
+    }
+
+    function addDerbyCustomObjects(roadW) {
+      if (!threeScene || !Array.isArray(DERBY_SCENE_CONFIG.customObjects)) return;
+      const centerX = roadW / 2 - 1;
+      const loader = new THREE.TextureLoader();
+
+      DERBY_SCENE_CONFIG.customObjects.forEach((object, index) => {
+        if (!object || object.enabled === false) return;
+        const type = object.type || "sphere";
+        const material = object.material || {};
+        const transform = getDerbyObjectTransform(object);
+        let mesh = null;
+
+        if (type === "light") {
+          const lightType = material.lightType || "point";
+          const color = material.color || "#fbbf24";
+          const intensity = derbyNumber(material.intensity, 1.8);
+          if (lightType === "ambient") mesh = new THREE.AmbientLight(color, intensity);
+          else if (lightType === "directional") mesh = new THREE.DirectionalLight(color, intensity);
+          else mesh = new THREE.PointLight(color, intensity, derbyNumber(material.distance, 60));
+          mesh.name = object.name || `custom-light-${index}`;
+          applyDerbyTransform(mesh, { ...transform, x: centerX + derbyNumber(transform.x, 0) });
+          threeScene.add(mesh);
+          derbySpaceDecorations.push({ type: "custom", mesh, baseY: mesh.position.y, baseScale: mesh.scale.clone(), animation: object.animation || {}, phase: index * 0.77 });
+          if (!object.showHelper) return;
+          const helper = new THREE.Mesh(
+            new THREE.SphereGeometry(0.16, 10, 8),
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })
+          );
+          helper.position.copy(mesh.position);
+          helper.name = `${mesh.name}-helper`;
+          threeScene.add(helper);
+          derbySpaceDecorations.push({ type: "custom", mesh: helper, baseY: helper.position.y, baseScale: helper.scale.clone(), animation: object.animation || {}, phase: index * 0.77 });
+          return;
+        }
+
+        if (type === "imagePlane") {
+          mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), createDerbyConfiguredMaterial(material));
+          const src = object.src || material.src;
+          if (src) {
+            loader.load(src, (texture) => {
+              texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
+              texture.needsUpdate = true;
+              mesh.material.map = texture;
+              mesh.material.color.set("#ffffff");
+              mesh.material.needsUpdate = true;
+            });
+          }
+        } else if (type === "plane") {
+          mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), createDerbyConfiguredMaterial(material));
+        } else if (type === "circle") {
+          mesh = new THREE.Mesh(new THREE.CircleGeometry(0.5, 48), createDerbyConfiguredMaterial(material));
+        } else if (type === "box") {
+          mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), createDerbyConfiguredMaterial(material, true));
+        } else if (type === "cylinder") {
+          mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 32), createDerbyConfiguredMaterial(material, true));
+        } else if (type === "torus" || type === "ring") {
+          mesh = new THREE.Mesh(
+            new THREE.TorusGeometry(0.45, derbyNumber(material.tube, type === "ring" ? 0.025 : 0.08), 10, 64),
+            createDerbyConfiguredMaterial({ blending: "additive", ...material })
+          );
+        } else {
+          mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), createDerbyConfiguredMaterial(material, true));
+        }
+
+        mesh.name = object.name || `custom-${type}-${index}`;
+        applyDerbyTransform(mesh, { ...transform, x: centerX + derbyNumber(transform.x, 0) });
+        mesh.renderOrder = derbyNumber(object.renderOrder, 0);
+        threeScene.add(mesh);
+        derbySpaceDecorations.push({
+          type: "custom",
+          mesh,
+          baseY: mesh.position.y,
+          baseScale: mesh.scale.clone(),
+          animation: object.animation || {},
+          phase: index * 0.77
+        });
+      });
+    }
+
+    function getDerbyObjectTransform(object = {}) {
+      const transform = { ...(object.transform || {}) };
+      if (object.lockAspect) {
+        const aspect = Math.max(0.1, derbyNumber(object.aspect, 1));
+        transform.sy = derbyNumber(transform.sx, 1) / aspect;
+      }
+      return transform;
+    }
+
+    function animateDerbyCustomObject(item, frameNow) {
+      const mesh = item.mesh;
+      const animation = item.animation || {};
+      const effects = DERBY_SCENE_CONFIG.effects || {};
+      if (!mesh || animation.enabled === false) return;
+
+      if (derbyBool(effects.customSpin, true) && animation.spin) {
+        mesh.rotation.x += derbyDegToRad(animation.spinX || 0);
+        mesh.rotation.y += derbyDegToRad(animation.spinY || 0);
+        mesh.rotation.z += derbyDegToRad(animation.spinZ || 0);
+      }
+
+      if (derbyBool(effects.customBob, true) && animation.bob) {
+        mesh.position.y = item.baseY + Math.sin(frameNow * derbyNumber(animation.bobSpeed, 0.002) + item.phase) * derbyNumber(animation.bobAmplitude, 0.22);
+      }
+
+      if (derbyBool(effects.customPulse, true) && animation.pulse && item.baseScale) {
+        const pulse = 1 + Math.sin(frameNow * derbyNumber(animation.pulseSpeed, 0.003) + item.phase) * derbyNumber(animation.pulseAmount, 0.08);
+        mesh.scale.set(item.baseScale.x * pulse, item.baseScale.y * pulse, item.baseScale.z * pulse);
+        if (mesh.material && typeof mesh.material.opacity === "number") {
+          const baseOpacity = derbyNumber(animation.baseOpacity, mesh.material.opacity);
+          mesh.material.opacity = Math.max(0, Math.min(1, baseOpacity + Math.sin(frameNow * derbyNumber(animation.pulseSpeed, 0.003) + item.phase) * derbyNumber(animation.opacityPulse, 0)));
+        }
+      }
+    }
+
+    function addDerbyStartGate(roadW) {
+      if (!threeScene) return;
+
+      const gateZ = trackLength;
+      const centerX = roadW / 2 - 1;
+
+      // Two arch pillars
+      const pillarMat = new THREE.MeshStandardMaterial({
+        color: "#fbbf24",
+        emissive: "#7c2d12",
+        emissiveIntensity: 0.35,
+        metalness: 0.8,
+        roughness: 0.3
+      });
+
+      [[-0.8, 1.5], [roadW - 1.2, 1.5]].forEach(([px, py], pi) => {
+        const pillarGeo = new THREE.BoxGeometry(0.2, 3.2, 0.2);
+        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+        pillar.position.set(px, py, gateZ);
+        threeScene.add(pillar);
+
+        [0.4, 1.2, 2.0].forEach((ringY, ri) => {
+          const rGeo = new THREE.TorusGeometry(0.18, 0.04, 8, 20);
+          const rMat = new THREE.MeshBasicMaterial({
+            color: ri === 1 ? "#fbbf24" : "#10b981",
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+          });
+          const ring = new THREE.Mesh(rGeo, rMat);
+          ring.position.set(px, ringY, gateZ);
+          ring.rotation.x = Math.PI / 2;
+          threeScene.add(ring);
+          derbyTrackDecorations.push({
+            type: "pillarRing",
+            mesh: ring,
+            baseOpacity: 0.5,
+            phase: pi * 2.1 + ri * 1.3,
+            spin: 0.008
+          });
+        });
+      });
+
+      // Crossbeam glowing bar
+      const beamGeo = new THREE.BoxGeometry(roadW + 0.5, 0.14, 0.14);
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: "#fbbf24",
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const crossbeam = new THREE.Mesh(beamGeo, beamMat);
+      crossbeam.position.set(centerX, 3.1, gateZ);
+      threeScene.add(crossbeam);
+      derbyTrackDecorations.push({
+        type: "startBeam",
+        mesh: crossbeam,
+        baseOpacity: 0.55,
+        phase: 0,
+        spin: 0
+      });
+
+      // Energy burst particles
+      for (let i = 0; i < 14; i++) {
+        const pGeo = new THREE.SphereGeometry(0.07, 4, 4);
+        const pMat = new THREE.MeshBasicMaterial({
+          color: i % 2 === 0 ? "#fbbf24" : "#10b981",
+          transparent: true,
+          opacity: 0.8,
+          blending: THREE.AdditiveBlending
+        });
+        const particle = new THREE.Mesh(pGeo, pMat);
+        const angle = (i / 14) * Math.PI * 2;
+        const radius = 0.3 + Math.random() * 0.4;
+        particle.position.set(
+          centerX + Math.cos(angle) * radius,
+          0.5 + Math.random() * 2.6,
+          gateZ + (Math.random() - 0.5) * 0.3
+        );
+        threeScene.add(particle);
+        derbyTrackDecorations.push({
+          type: "energyParticle",
+          mesh: particle,
+          baseOpacity: 0.6,
+          phase: i * 0.45,
+          spin: 0
+        });
+      }
+
+      // Ethereal portal rings
+      for (let i = 0; i < 5; i++) {
+        const rGeo = new THREE.TorusGeometry(roadW * 0.13 + i * 0.28, 0.045, 8, 40);
+        const rMat = new THREE.MeshBasicMaterial({
+          color: i % 2 === 0 ? "#10b981" : "#fbbf24",
+          transparent: true,
+          opacity: 0.35,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const ring = new THREE.Mesh(rGeo, rMat);
+        ring.position.set(centerX, 1.5, gateZ + 2.5 + i * 1.2);
+        threeScene.add(ring);
+        derbyTrackDecorations.push({
+          type: "gateRing",
+          mesh: ring,
+          baseOpacity: 0.25,
+          phase: i * 1.1,
+          spin: 0.012 + i * 0.004
+        });
+      }
+    }
+
+    function addDerbyFinishArch(roadW) {
+      if (!threeScene) return;
+
+      const centerX = roadW / 2 - 1;
+      const finishZ = 10;
+
+      // Finish arch pillars
+      const finPillarMat = new THREE.MeshStandardMaterial({
+        color: "#fbbf24",
+        emissive: "#92400e",
+        emissiveIntensity: 0.4,
+        metalness: 0.85,
+        roughness: 0.25
+      });
+
+      [[-0.8, 2.0], [roadW - 1.2, 2.0]].forEach(([px, py], pi) => {
+        const pGeo = new THREE.BoxGeometry(0.22, 4.2, 0.22);
+        const pillar = new THREE.Mesh(pGeo, finPillarMat);
+        pillar.position.set(px, py, finishZ);
+        threeScene.add(pillar);
+
+        [0.5, 1.5, 2.5, 3.5].forEach((ringY, ri) => {
+          const rGeo = new THREE.TorusGeometry(0.2, 0.045, 8, 24);
+          const rMat = new THREE.MeshBasicMaterial({
+            color: ri % 2 === 0 ? "#fbbf24" : "#f97316",
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending
+          });
+          const ring = new THREE.Mesh(rGeo, rMat);
+          ring.position.set(px, ringY, finishZ);
+          ring.rotation.x = Math.PI / 2;
+          threeScene.add(ring);
+          derbyTrackDecorations.push({
+            type: "finishPillarRing",
+            mesh: ring,
+            baseOpacity: 0.6,
+            phase: pi * 1.8 + ri * 0.9,
+            spin: 0.01
+          });
+        });
+      });
+
+      // Finish crossbeam
+      const finBeamGeo = new THREE.BoxGeometry(roadW + 0.6, 0.16, 0.16);
+      const finBeamMat = new THREE.MeshBasicMaterial({
+        color: "#fbbf24",
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const finBeam = new THREE.Mesh(finBeamGeo, finBeamMat);
+      finBeam.position.set(centerX, 4.15, finishZ);
+      threeScene.add(finBeam);
+      derbyTrackDecorations.push({
+        type: "finishBeam",
+        mesh: finBeam,
+        baseOpacity: 0.7,
+        phase: 0.5,
+        spin: 0
+      });
+
+      // Trophy gem
+      const gemGeo = new THREE.OctahedronGeometry(0.5, 0);
+      const gemMat = new THREE.MeshStandardMaterial({
+        color: "#fef3c7",
+        emissive: "#fbbf24",
+        emissiveIntensity: 1.2,
+        metalness: 1,
+        roughness: 0
+      });
+      const gem = new THREE.Mesh(gemGeo, gemMat);
+      gem.position.set(centerX, 4.65, finishZ);
+      threeScene.add(gem);
+      derbyTrackDecorations.push({
+        type: "trophyGem",
+        mesh: gem,
+        baseY: 4.65,
+        phase: 0,
+        spin: 0.018
+      });
+
+      // Torch flames
+      const torchPositions = [
+        [-0.5, 2.8], [roadW - 1.5, 2.8],
+        [-0.5, 3.5], [roadW - 1.5, 3.5]
+      ];
+      torchPositions.forEach(([tx, ty], ti) => {
+        const fGeo = new THREE.SphereGeometry(0.18, 8, 8);
+        const fMat = new THREE.MeshBasicMaterial({
+          color: ti % 2 === 0 ? "#ef4444" : "#f97316",
+          transparent: true,
+          opacity: 0.75,
+          blending: THREE.AdditiveBlending
+        });
+        const flame = new THREE.Mesh(fGeo, fMat);
+        flame.position.set(tx, ty, finishZ);
+        threeScene.add(flame);
+        derbyTrackDecorations.push({
+          type: "torch",
+          mesh: flame,
+          baseOpacity: 0.7,
+          phase: ti * 1.2,
+          spin: 0
+        });
+      });
+
+      // Finish area energy beads
+      for (let z = finishZ + 0.5; z < finishZ + 12; z += 1.5) {
+        for (let side = -1; side <= 1; side += 2) {
+          const bGeo = new THREE.SphereGeometry(0.08, 4, 4);
+          const bMat = new THREE.MeshBasicMaterial({
+            color: side === -1 ? "#fbbf24" : "#10b981",
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending
+          });
+          const bead = new THREE.Mesh(bGeo, bMat);
+          bead.position.set(side * (roadW / 2 + 0.3), 0.1, z);
+          threeScene.add(bead);
+          derbyTrackDecorations.push({
+            type: "finishBead",
+            mesh: bead,
+            baseOpacity: 0.5,
+            phase: z * 0.3 + side,
+            spin: 0
+          });
+        }
+      }
+
+      // FINISH banner panels
+      const bannerCanvas = document.createElement("canvas");
+      bannerCanvas.width = 512;
+      bannerCanvas.height = 320;
+      const bCtx = bannerCanvas.getContext("2d");
+
+      bCtx.fillStyle = "rgba(5, 14, 7, 0.9)";
+      bCtx.fillRect(0, 0, 512, 320);
+
+      bCtx.strokeStyle = "#fbbf24";
+      bCtx.lineWidth = 12;
+      bCtx.strokeRect(14, 14, 484, 292);
+
+      bCtx.fillStyle = "#fbbf24";
+      bCtx.font = "bold 82px 'Inter', sans-serif";
+      bCtx.textAlign = "center";
+      bCtx.textBaseline = "middle";
+      bCtx.shadowColor = "#b45309";
+      bCtx.shadowBlur = 28;
+      bCtx.fillText("FINISH", 256, 160);
+
+      const bannerTex = new THREE.CanvasTexture(bannerCanvas);
+      bannerTex.generateMipmaps = false;
+      bannerTex.minFilter = THREE.LinearFilter;
+
+      const bannerPositions = [
+        { x: centerX - roadW * 0.15, y: 2.6, ry: 0 },
+        { x: centerX,                  y: 2.6, ry: Math.PI / 2 },
+        { x: centerX + roadW * 0.15,  y: 2.6, ry: 0 }
+      ];
+      bannerPositions.forEach((bp, bi) => {
+        const bgGeo = new THREE.PlaneGeometry(1.0, 2.6);
+        const bgMat = new THREE.MeshBasicMaterial({
+          map: bannerTex,
+          transparent: true,
+          depthWrite: false,
+          fog: false
+        });
+        const banner = new THREE.Mesh(bgGeo, bgMat);
+        banner.position.set(bp.x, bp.y, finishZ + (bi - 1) * 0.6);
+        banner.rotation.y = bp.ry;
+        threeScene.add(banner);
       });
     }
 
@@ -8407,6 +9136,8 @@
       const roadMaxZ = trackLength + 12;
       const roadLength = roadMaxZ - roadMinZ;
       const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
+
+      addDerbyBackdrop(roadW);
 
       const roadGeo = new THREE.PlaneGeometry(roadW, roadLength);
 
@@ -8429,8 +9160,11 @@
       threeScene.add(road);
 
       addDerbyTrackDecorations(roadW, laneSpacing, numLanes, roadMinZ, roadMaxZ);
+      addDerbyStartGate(roadW);
       addDerbyStarField(roadW);
       addDerbyPlanetDecorations(roadW);
+      addDerbyCustomObjects(roadW);
+      addDerbyFinishArch(roadW);
 
       
 
@@ -9391,6 +10125,9 @@
       const height = container.clientHeight;
 
       
+
+      applyDerbySceneStyles();
+      threeCamera.fov = derbyNumber(getDerbyCameraConfig().fov, 52);
 
       threeCamera.aspect = width / height;
 
@@ -12137,4 +12874,3 @@
 </body>
 
 </html>
-

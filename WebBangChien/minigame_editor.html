@@ -1,0 +1,2138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lang Gia - Minigame Scene Editor</title>
+  <link rel="icon" type="image/png" href="./anh/langgia_icon.png">
+  <script src="vendor/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #06100a;
+      --panel: rgba(7, 18, 11, 0.94);
+      --panel-2: rgba(10, 28, 16, 0.9);
+      --line: rgba(251, 191, 36, 0.24);
+      --line-soft: rgba(16, 185, 129, 0.22);
+      --gold: #fbbf24;
+      --emerald: #10b981;
+      --red: #ef4444;
+      --text: #e5edf0;
+      --muted: #91a3ad;
+      --input: rgba(255, 255, 255, 0.07);
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background:
+        linear-gradient(180deg, rgba(1, 8, 4, 0.84), rgba(1, 4, 3, 0.96)),
+        url("anh/bg_derby_sky.png") center center / cover no-repeat fixed,
+        var(--bg);
+      overflow: hidden;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 360px minmax(420px, 1fr) 380px;
+      grid-template-rows: 58px 1fr;
+    }
+
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(3, 12, 6, 0.9);
+      box-shadow: var(--shadow);
+      z-index: 4;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      background: radial-gradient(circle at 35% 35%, #fff7c2, var(--gold) 35%, #5f3708 80%);
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.36);
+      flex: 0 0 auto;
+    }
+
+    .title {
+      font-weight: 900;
+      letter-spacing: 0;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .panel {
+      overflow: auto;
+      padding: 14px;
+      background: var(--panel);
+      border-right: 1px solid var(--line-soft);
+    }
+
+    .right-panel {
+      border-right: 0;
+      border-left: 1px solid var(--line-soft);
+    }
+
+    .stage-wrap {
+      position: relative;
+      min-width: 0;
+      background: #020705;
+      overflow: hidden;
+    }
+
+    .stage {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(1, 6, 4, 0.16) 0%, rgba(1, 6, 4, 0.02) 42%, rgba(0, 0, 0, 0.58) 100%),
+        url("anh/bg_derby_sky.png") center center / 100% 100% no-repeat,
+        #020705;
+    }
+
+    .stage::before,
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .stage::before {
+      background:
+        radial-gradient(ellipse at 50% 74%, rgba(91, 255, 190, 0.24) 0%, rgba(16, 185, 129, 0.12) 18%, transparent 44%),
+        radial-gradient(circle at 22% 28%, rgba(67, 255, 197, 0.18), transparent 28%),
+        radial-gradient(circle at 78% 22%, rgba(251, 191, 36, 0.11), transparent 24%);
+      opacity: var(--glow-opacity, 0.82);
+    }
+
+    .stage::after {
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.56) 0%, transparent 22%, transparent 78%, rgba(0, 0, 0, 0.56) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, transparent 30%, transparent 58%, rgba(0, 0, 0, 0.68) 100%);
+      opacity: var(--vignette-opacity, 0.76);
+    }
+
+    #previewCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 2;
+      background: transparent;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #previewCanvas.dragging {
+      cursor: grabbing;
+    }
+
+    .stage-hud {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 3;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: #dce8e3;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      background: rgba(3, 12, 6, 0.72);
+      border-radius: 999px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    }
+
+    .section {
+      margin-bottom: 12px;
+      border: 1px solid var(--line-soft);
+      background: rgba(255, 255, 255, 0.025);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .section summary {
+      cursor: pointer;
+      user-select: none;
+      padding: 11px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0;
+      color: var(--gold);
+      background: rgba(251, 191, 36, 0.055);
+      border-bottom: 1px solid rgba(251, 191, 36, 0.14);
+    }
+
+    .section-body {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .row.two {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .row.three {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .value {
+      color: var(--gold);
+      font-variant-numeric: tabular-nums;
+      font-weight: 900;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--gold);
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      color: var(--text);
+      background: var(--input);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 7px;
+      padding: 8px 9px;
+      outline: none;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 36px;
+      padding: 2px;
+      background: var(--input);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 7px;
+    }
+
+    textarea {
+      min-height: 240px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 9px;
+      background: var(--input);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .btn {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 8px 10px;
+      font-weight: 900;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      border-color: rgba(251, 191, 36, 0.55);
+      color: #fff5c9;
+      background: rgba(251, 191, 36, 0.12);
+    }
+
+    .btn.primary {
+      color: #1a1405;
+      border-color: rgba(251, 191, 36, 0.84);
+      background: linear-gradient(135deg, #fde68a, var(--gold));
+    }
+
+    .btn.good {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.16);
+    }
+
+    .btn.danger {
+      border-color: rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.14);
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .list {
+      display: grid;
+      gap: 6px;
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .list-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 9px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.035);
+      border-radius: 7px;
+      cursor: pointer;
+    }
+
+    .list-item.active {
+      border-color: rgba(251, 191, 36, 0.65);
+      background: rgba(251, 191, 36, 0.11);
+    }
+
+    .list-title {
+      font-size: 12px;
+      font-weight: 900;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .list-meta {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .status {
+      min-height: 20px;
+      color: var(--emerald);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mini-note {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1100px) {
+      body { overflow: auto; }
+      .app {
+        min-height: 100vh;
+        height: auto;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 70vh auto;
+      }
+      .topbar,
+      .panel,
+      .stage-wrap,
+      .right-panel {
+        grid-column: 1;
+      }
+      .panel,
+      .right-panel {
+        border: 0;
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <div class="title">Minigame Scene Editor</div>
+          <div class="subtitle">Đua Thần Thú 3D · config-driven preview</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn" id="btnResetTop">Reset default</button>
+        <button class="btn good" id="btnCopyTop">Copy JSON</button>
+        <button class="btn primary" id="btnAcceptCopy">Đồng ý và copy</button>
+      </div>
+    </header>
+
+    <aside class="panel">
+      <details class="section" open>
+        <summary>Nền và đường chân trời</summary>
+        <div class="section-body">
+          <div class="row">
+            <label>Racetrack image <span class="value">lớp trước</span></label>
+            <input id="bgRacetrack" type="text">
+          </div>
+          <div class="row">
+            <label>Sky image <span class="value">lớp sau</span></label>
+            <input id="bgSky" type="text">
+          </div>
+          <div class="row two">
+            <button class="btn" id="btnMoveTrackImageBack">Đưa ảnh Racetrack xuống lớp sau</button>
+            <button class="btn" id="btnSwapBackgroundLayers">Đổi 2 lớp ảnh</button>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Sky opacity <span class="value" id="valSkyOpacity"></span></label>
+              <input id="skyOpacity" type="range" min="0" max="1" step="0.01">
+            </div>
+            <div class="row">
+              <label>Track opacity <span class="value" id="valTrackOpacity"></span></label>
+              <input id="racetrackOpacity" type="range" min="0" max="1" step="0.01">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Brightness <span class="value" id="valSkyBrightness"></span></label>
+              <input id="skyBrightness" type="range" min="0.4" max="1.8" step="0.01">
+            </div>
+            <div class="row">
+              <label>Saturation <span class="value" id="valSkySaturation"></span></label>
+              <input id="skySaturation" type="range" min="0" max="2" step="0.01">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Glow <span class="value" id="valGlowOpacity"></span></label>
+              <input id="glowOpacity" type="range" min="0" max="1" step="0.01">
+            </div>
+            <div class="row">
+              <label>Vignette <span class="value" id="valVignette"></span></label>
+              <input id="vignetteOpacity" type="range" min="0" max="1" step="0.01">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Sky X <span class="value" id="valSkyX"></span></label>
+              <input id="skyPositionX" type="range" min="0" max="100" step="1">
+            </div>
+            <div class="row">
+              <label>Sky Y <span class="value" id="valSkyY"></span></label>
+              <input id="skyPositionY" type="range" min="0" max="100" step="1">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Sky width <span class="value" id="valSkySizeX"></span></label>
+              <input id="skySizeX" type="range" min="60" max="180" step="1">
+            </div>
+            <div class="row">
+              <label>Sky height <span class="value" id="valSkySizeY"></span></label>
+              <input id="skySizeY" type="range" min="60" max="180" step="1">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Sky fit</label>
+              <select id="skyFitMode">
+                <option value="cover">Cover giữ tỉ lệ</option>
+                <option value="contain">Contain giữ tỉ lệ</option>
+                <option value="width">Theo chiều rộng</option>
+                <option value="height">Theo chiều cao</option>
+                <option value="stretch">Stretch W/H</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>Sky scale <span class="value" id="valSkyScale"></span></label>
+              <input id="skyScale" type="range" min="20" max="260" step="1">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Sky ratio W/H</label>
+              <input id="skyAspect" type="number" min="0.2" max="6" step="0.01">
+            </div>
+            <button class="btn" id="btnSkySquareRatio">Sky 1:1</button>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Track tint</label>
+              <input id="racetrackTint" type="color">
+            </div>
+            <div class="row">
+              <label>Track brightness <span class="value" id="valTrackBrightness"></span></label>
+              <input id="racetrackBrightness" type="range" min="0.2" max="2" step="0.01">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Track repeat X <span class="value" id="valTrackRepeatX"></span></label>
+              <input id="racetrackRepeatX" type="range" min="0.2" max="4" step="0.01">
+            </div>
+            <div class="row">
+              <label>Track repeat Y <span class="value" id="valTrackRepeatY"></span></label>
+              <input id="racetrackRepeatY" type="range" min="0.2" max="4" step="0.01">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Track offset X <span class="value" id="valTrackOffsetX"></span></label>
+              <input id="racetrackOffsetX" type="range" min="-1" max="1" step="0.01">
+            </div>
+            <div class="row">
+              <label>Track offset Y <span class="value" id="valTrackOffsetY"></span></label>
+              <input id="racetrackOffsetY" type="range" min="-1" max="1" step="0.01">
+            </div>
+          </div>
+          <div class="row two">
+            <div class="row">
+              <label>Track blend</label>
+              <select id="racetrackBlending">
+                <option value="normal">Normal</option>
+                <option value="additive">Additive</option>
+              </select>
+            </div>
+            <label class="check-row"><input id="racetrackDepthTest" type="checkbox"> Track depth test</label>
+          </div>
+          <div class="check-row">
+            <input id="horizonEnabled" type="checkbox">
+            <span>Bật backdrop racetrack</span>
+          </div>
+          <div class="row three">
+            <div class="row"><label>X <span class="value" id="valHorizonX"></span></label><input id="horizonX" type="range" min="-260" max="260" step="1"></div>
+            <div class="row"><label>Y <span class="value" id="valHorizonY"></span></label><input id="horizonY" type="range" min="-20" max="220" step="1"></div>
+            <div class="row"><label>Z <span class="value" id="valHorizonZ"></span></label><input id="horizonZ" type="range" min="-180" max="40" step="1"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Scale <span class="value" id="valHorizonScale"></span></label><input id="horizonScale" type="range" min="0.2" max="2.4" step="0.01"></div>
+            <div class="row"><label>Render order <span class="value" id="valHorizonRender"></span></label><input id="horizonRenderOrder" type="range" min="-50" max="20" step="1"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Width <span class="value" id="valHorizonWidth"></span></label><input id="horizonWidth" type="range" min="160" max="1200" step="5"></div>
+            <div class="row"><label>Height <span class="value" id="valHorizonHeight"></span></label><input id="horizonHeight" type="range" min="90" max="720" step="5"></div>
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="horizonLockAspect" type="checkbox"> Khóa tỉ lệ track</label>
+            <div class="row"><label>Track ratio W/H <span class="value" id="valHorizonAspect"></span></label><input id="horizonAspect" type="range" min="0.2" max="6" step="0.01"></div>
+          </div>
+          <button class="btn" id="btnUseCurrentTrackRatio">Lấy tỉ lệ track hiện tại</button>
+          <div class="row three">
+            <div class="row"><label>Rot X <span class="value" id="valHorizonRotX"></span></label><input id="horizonRotX" type="range" min="-90" max="90" step="1"></div>
+            <div class="row"><label>Rot Y <span class="value" id="valHorizonRotY"></span></label><input id="horizonRotY" type="range" min="-90" max="90" step="1"></div>
+            <div class="row"><label>Rot Z <span class="value" id="valHorizonRotZ"></span></label><input id="horizonRotZ" type="range" min="-180" max="180" step="1"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <summary>Camera</summary>
+        <div class="section-body">
+          <div class="row two">
+            <div class="row"><label>FOV <span class="value" id="valFov"></span></label><input id="camFov" type="range" min="28" max="82" step="1"></div>
+            <div class="row"><label>Min Y <span class="value" id="valMinY"></span></label><input id="camMinY" type="range" min="2" max="24" step="0.1"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Look Y <span class="value" id="valLookY"></span></label><input id="camLookY" type="range" min="-4" max="18" step="0.1"></div>
+            <div class="row"><label>Look Z offset <span class="value" id="valLookZ"></span></label><input id="camLookZ" type="range" min="-42" max="16" step="0.5"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Z base <span class="value" id="valZBase"></span></label><input id="camZBase" type="range" min="8" max="70" step="1"></div>
+            <div class="row"><label>Z width <span class="value" id="valZWidth"></span></label><input id="camZWidth" type="range" min="0.2" max="2.2" step="0.01"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Y width <span class="value" id="valYWidth"></span></label><input id="camYWidth" type="range" min="0.1" max="1.2" step="0.01"></div>
+            <div class="row"><label>Smooth <span class="value" id="valSmooth"></span></label><input id="camSmooth" type="range" min="0.01" max="0.25" step="0.01"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <summary>Sao và hiệu ứng</summary>
+        <div class="section-body">
+          <div class="check-row"><input id="starsEnabled" type="checkbox"><span>Bật starfield</span></div>
+          <div class="row two">
+            <div class="row"><label>Count <span class="value" id="valStarsCount"></span></label><input id="starsCount" type="range" min="0" max="900" step="10"></div>
+            <div class="row"><label>Size <span class="value" id="valStarsSize"></span></label><input id="starsSize" type="range" min="0.02" max="0.5" step="0.01"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Opacity <span class="value" id="valStarsOpacity"></span></label><input id="starsOpacity" type="range" min="0" max="1" step="0.01"></div>
+            <div class="row"><label>Spread X <span class="value" id="valStarsSpread"></span></label><input id="starsSpread" type="range" min="12" max="120" step="1"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Spin <span class="value" id="valStarsSpin"></span></label><input id="starsSpin" type="range" min="-0.001" max="0.001" step="0.00001"></div>
+            <div class="row"><label>Pulse <span class="value" id="valStarsPulse"></span></label><input id="starsPulse" type="range" min="0" max="0.4" step="0.01"></div>
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="effectStarPulse" type="checkbox"> Star pulse</label>
+            <label class="check-row"><input id="effectPlanetBob" type="checkbox"> Planet bob</label>
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="effectCustomSpin" type="checkbox"> Object spin</label>
+            <label class="check-row"><input id="effectCustomPulse" type="checkbox"> Object pulse</label>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <summary>Tinh cầu</summary>
+        <div class="section-body">
+          <div class="list" id="planetList"></div>
+          <div class="row two">
+            <button class="btn good" id="btnAddPlanet">Thêm tinh cầu</button>
+            <button class="btn danger" id="btnDeletePlanet">Xóa tinh cầu</button>
+          </div>
+          <div class="check-row"><input id="planetEnabled" type="checkbox"><span>Bật tinh cầu đang chọn</span></div>
+          <div class="row"><label>Tên</label><input id="planetName" type="text"></div>
+          <div class="row two">
+            <div class="row"><label>Màu</label><input id="planetColor" type="color"></div>
+            <div class="row"><label>Emissive</label><input id="planetEmissive" type="color"></div>
+          </div>
+          <div class="row three">
+            <div class="row"><label>Radius</label><input id="planetRadius" type="number" step="0.01"></div>
+            <div class="row"><label>X</label><input id="planetX" type="number" step="0.1"></div>
+            <div class="row"><label>Y</label><input id="planetY" type="number" step="0.1"></div>
+          </div>
+          <div class="row three">
+            <div class="row"><label>Z ratio</label><input id="planetZ" type="number" step="0.01"></div>
+            <div class="row"><label>Side</label><select id="planetSide"><option value="-1">Trái</option><option value="1">Phải</option></select></div>
+            <div class="row"><label>Extra</label><input id="planetExtra" type="number" step="0.1"></div>
+          </div>
+          <div class="row">
+            <label>Spin</label><input id="planetSpin" type="number" step="0.0001">
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="planetRing" type="checkbox"> Ring</label>
+            <label class="check-row"><input id="planetMoon" type="checkbox"> Moon</label>
+          </div>
+        </div>
+      </details>
+    </aside>
+
+    <main class="stage-wrap">
+      <div class="stage" id="previewStage">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+      <div class="stage-hud">
+        <div class="pill" id="hudCamera">Camera</div>
+        <div class="pill" id="hudObjects">Objects</div>
+        <div class="pill" id="hudDrag">Kéo: Racetrack</div>
+        <div class="pill" id="hudStatus">Ready</div>
+      </div>
+    </main>
+
+    <aside class="panel right-panel">
+      <details class="section" open>
+        <summary>Vật thể tuỳ chỉnh</summary>
+        <div class="section-body">
+          <div class="button-grid">
+            <button class="btn" data-add-type="imagePlane">Image</button>
+            <button class="btn" data-add-type="sphere">Sphere</button>
+            <button class="btn" data-add-type="box">Box</button>
+            <button class="btn" data-add-type="circle">Circle</button>
+            <button class="btn" data-add-type="torus">Torus</button>
+            <button class="btn" data-add-type="light">Light</button>
+          </div>
+          <div class="list" id="objectList"></div>
+          <div class="row two">
+            <button class="btn good" id="btnDuplicateObject">Nhân bản</button>
+            <button class="btn danger" id="btnDeleteObject">Xóa</button>
+          </div>
+          <div class="check-row"><input id="objectEnabled" type="checkbox"><span>Bật object đang chọn</span></div>
+          <div class="row two">
+            <div class="row"><label>Type</label><select id="objectType"><option>imagePlane</option><option>plane</option><option>circle</option><option>sphere</option><option>box</option><option>cylinder</option><option>torus</option><option>ring</option><option>light</option></select></div>
+            <div class="row"><label>Name</label><input id="objectName" type="text"></div>
+          </div>
+          <div class="row"><label>Image src</label><input id="objectSrc" type="text" placeholder="anh/my_asset.png"></div>
+          <div class="row three">
+            <div class="row"><label>X</label><input id="objectX" type="number" step="0.1"></div>
+            <div class="row"><label>Y</label><input id="objectY" type="number" step="0.1"></div>
+            <div class="row"><label>Z</label><input id="objectZ" type="number" step="0.1"></div>
+          </div>
+          <div class="row three">
+            <div class="row"><label>RX</label><input id="objectRX" type="number" step="1"></div>
+            <div class="row"><label>RY</label><input id="objectRY" type="number" step="1"></div>
+            <div class="row"><label>RZ</label><input id="objectRZ" type="number" step="1"></div>
+          </div>
+          <div class="row three">
+            <div class="row"><label>SX</label><input id="objectSX" type="number" step="0.05"></div>
+            <div class="row"><label>SY</label><input id="objectSY" type="number" step="0.05"></div>
+            <div class="row"><label>SZ</label><input id="objectSZ" type="number" step="0.05"></div>
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="objectLockAspect" type="checkbox"> Khóa tỉ lệ object</label>
+            <div class="row"><label>Object ratio W/H</label><input id="objectAspect" type="number" min="0.1" max="10" step="0.01"></div>
+          </div>
+          <button class="btn" id="btnUseCurrentObjectRatio">Lấy tỉ lệ object hiện tại</button>
+          <div class="row two">
+            <div class="row"><label>Màu</label><input id="objectColor" type="color"></div>
+            <div class="row"><label>Emissive</label><input id="objectEmissive" type="color"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Opacity</label><input id="objectOpacity" type="number" min="0" max="1" step="0.01"></div>
+            <div class="row"><label>Blend</label><select id="objectBlend"><option value="normal">Normal</option><option value="additive">Additive</option></select></div>
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="objectBob" type="checkbox"> Bob</label>
+            <label class="check-row"><input id="objectSpin" type="checkbox"> Spin</label>
+          </div>
+          <div class="row two">
+            <label class="check-row"><input id="objectPulse" type="checkbox"> Pulse</label>
+            <label class="check-row"><input id="objectHelper" type="checkbox"> Light helper</label>
+          </div>
+          <div class="row three">
+            <div class="row"><label>Spin X</label><input id="objectSpinX" type="number" step="0.1"></div>
+            <div class="row"><label>Spin Y</label><input id="objectSpinY" type="number" step="0.1"></div>
+            <div class="row"><label>Spin Z</label><input id="objectSpinZ" type="number" step="0.1"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Bob amount</label><input id="objectBobAmount" type="number" step="0.01"></div>
+            <div class="row"><label>Bob speed</label><input id="objectBobSpeed" type="number" step="0.0001"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Pulse amount</label><input id="objectPulseAmount" type="number" step="0.01"></div>
+            <div class="row"><label>Pulse speed</label><input id="objectPulseSpeed" type="number" step="0.0001"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="section" open>
+        <summary>Output</summary>
+        <div class="section-body">
+          <div class="row two">
+            <button class="btn good" id="btnCopyJson">Copy JSON</button>
+            <button class="btn primary" id="btnAcceptCopyPanel">Đồng ý và copy</button>
+          </div>
+          <div class="row two">
+            <button class="btn" id="btnImportJson">Import JSON</button>
+            <button class="btn" id="btnReset">Reset default</button>
+          </div>
+          <textarea id="jsonOutput" spellcheck="false"></textarea>
+          <textarea id="jsonImport" spellcheck="false" placeholder="Dán JSON vào đây rồi bấm Import JSON"></textarea>
+          <div class="status" id="statusLine"></div>
+          <div class="mini-note">Dữ liệu này được paste vào block MINIGAME_EDITOR_CONFIG trong minigames.html. Trang editor chỉ copy JSON, không ghi trực tiếp file local.</div>
+        </div>
+      </details>
+    </aside>
+  </div>
+
+  <script>
+    const DEFAULT_CONFIG = {
+      version: 2,
+      backgrounds: {
+        sky: "anh/bg_derby_sky.png",
+        racetrack: "anh/bg_derby_racetrack_old.png",
+        skyOpacity: 1,
+        skyBrightness: 1,
+        skySaturation: 1,
+        skyPositionX: 50,
+        skyPositionY: 50,
+        skySizeX: 100,
+        skySizeY: 100,
+        skyFitMode: "cover",
+        skyScale: 100,
+        skyAspect: 1,
+        glowOpacity: 0.82,
+        vignetteOpacity: 0.76,
+        racetrackOpacity: 0.66,
+        racetrackTint: "#ffffff",
+        racetrackBrightness: 1,
+        racetrackRepeatX: 1,
+        racetrackRepeatY: 1,
+        racetrackOffsetX: 0,
+        racetrackOffsetY: 0,
+        racetrackBlending: "normal",
+        racetrackDepthTest: false
+      },
+      horizon: {
+        enabled: true,
+        x: 0,
+        y: 132,
+        z: -82,
+        width: 680,
+        height: 382,
+        lockAspect: true,
+        aspect: 1.78,
+        scale: 1,
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        renderOrder: -18
+      },
+      camera: {
+        fov: 52,
+        minY: 9,
+        yWidthFactor: 0.42,
+        yRacerFactor: 0.28,
+        zOffsetBase: 24,
+        zWidthFactor: 0.9,
+        lookY: 4.2,
+        lookZOffset: -10,
+        smooth: 0.05
+      },
+      stars: {
+        enabled: true,
+        count: 420,
+        size: 0.16,
+        opacity: 0.82,
+        pulse: 0.14,
+        spin: 0.000035,
+        spreadX: 48,
+        nearYMin: 3.5,
+        nearYMax: 33.5,
+        farYMin: 15,
+        farYMax: 53,
+        nearZMin: -24,
+        nearZExtra: 88,
+        farZMin: -90,
+        farZRange: 120,
+        farEvery: 7,
+        palette: ["#dffcf0", "#9ef9d4", "#fef3c7", "#93c5fd", "#f8fafc"]
+      },
+      planets: [
+        { id: "mercury", name: "Mercury", enabled: true, color: "#b6b0a7", emissive: "#3f3831", radius: 0.72, side: -1, z: 0.18, y: 5.8, extra: 1.8, spin: 0.0042 },
+        { id: "venus", name: "Venus", enabled: true, color: "#f6c56b", emissive: "#5c3714", radius: 1.02, side: 1, z: 0.28, y: 7.2, extra: 3.6, spin: 0.0034 },
+        { id: "earth", name: "Earth", enabled: true, color: "#38bdf8", emissive: "#0b5366", radius: 1, side: -1, z: 0.43, y: 8.9, extra: 5.2, spin: 0.0048, moon: true },
+        { id: "mars", name: "Mars", enabled: true, color: "#ef6c3d", emissive: "#5f1f11", radius: 0.88, side: 1, z: 0.55, y: 6.8, extra: 2.8, spin: 0.0045 },
+        { id: "jupiter", name: "Jupiter", enabled: true, color: "#e5b56f", emissive: "#5a3513", radius: 1.72, side: -1, z: 0.7, y: 11.2, extra: 6.6, spin: 0.0028, bands: true },
+        { id: "saturn", name: "Saturn", enabled: true, color: "#e8d08a", emissive: "#5b4718", radius: 1.46, side: 1, z: 0.84, y: 12.4, extra: 7.4, spin: 0.0024, ring: true }
+      ],
+      effects: {
+        starPulse: true,
+        planetBob: true,
+        planetBobAmplitude: 0.18,
+        planetBobSpeed: 0.0012,
+        moonOrbit: true,
+        moonOrbitSpeed: 0.0016,
+        customBob: true,
+        customSpin: true,
+        customPulse: true
+      },
+      customObjects: []
+    };
+
+    let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    let selectedPlanet = 0;
+    let selectedObject = 0;
+    let scene, camera, renderer, animationItems = [];
+    let raycaster, pointerNdc, dragPlane, dragState, selectionHelper;
+    let activeTarget = { kind: "horizon", index: 0 };
+    let dragTargets = { horizon: null, planets: [], objects: [] };
+    let rebuildTimer = 0;
+    const trackLength = 120;
+    const roadW = 8;
+    const centerX = roadW / 2 - 1;
+
+    const $ = (id) => document.getElementById(id);
+    const clone = (value) => JSON.parse(JSON.stringify(value));
+    const num = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+    const deg = (value) => num(value, 0) * Math.PI / 180;
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const roundDrag = (value) => Math.round(value * 100) / 100;
+
+    function setStatus(text) {
+      $("statusLine").textContent = text;
+      $("hudStatus").textContent = text || "Ready";
+    }
+
+    function maybeActivatePath(path) {
+      if (path.startsWith("horizon.") || path.startsWith("backgrounds.racetrack")) {
+        setActiveTarget("horizon", 0);
+      }
+    }
+
+    function bindControlActivation(el, path) {
+      el.addEventListener("focus", () => maybeActivatePath(path));
+      el.addEventListener("pointerdown", () => maybeActivatePath(path));
+    }
+
+    function getPath(path) {
+      return path.split(".").reduce((obj, key) => obj && obj[key], config);
+    }
+
+    function setPath(path, value) {
+      const parts = path.split(".");
+      let obj = config;
+      for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+      obj[parts[parts.length - 1]] = value;
+    }
+
+    function bindRange(id, path, labelId, suffix = "") {
+      const el = $(id);
+      el.value = getPath(path);
+      $(labelId).textContent = formatValue(el.value) + suffix;
+      bindControlActivation(el, path);
+      el.addEventListener("input", () => {
+        maybeActivatePath(path);
+        setPath(path, Number(el.value));
+        handleLinkedControlChange(path);
+        $(labelId).textContent = formatValue(el.value) + suffix;
+        scheduleRebuild();
+      });
+    }
+
+    function bindNumber(id, path) {
+      const el = $(id);
+      el.value = getPath(path) ?? "";
+      bindControlActivation(el, path);
+      el.addEventListener("input", () => {
+        maybeActivatePath(path);
+        setPath(path, Number(el.value));
+        handleLinkedControlChange(path);
+        scheduleRebuild();
+      });
+      el.addEventListener("change", () => {
+        if (!Number.isFinite(Number(el.value))) el.value = getPath(path) ?? "";
+      });
+    }
+
+    function bindText(id, path) {
+      const el = $(id);
+      el.value = getPath(path) || "";
+      bindControlActivation(el, path);
+      el.addEventListener("input", () => {
+        maybeActivatePath(path);
+        setPath(path, el.value.trim());
+        handleLinkedControlChange(path);
+        scheduleRebuild();
+      });
+    }
+
+    function bindColor(id, path) {
+      const el = $(id);
+      el.value = getPath(path) || "#ffffff";
+      bindControlActivation(el, path);
+      el.addEventListener("input", () => {
+        maybeActivatePath(path);
+        setPath(path, el.value);
+        handleLinkedControlChange(path);
+        scheduleRebuild();
+      });
+    }
+
+    function bindSelect(id, path) {
+      const el = $(id);
+      el.value = getPath(path) || el.value;
+      bindControlActivation(el, path);
+      el.addEventListener("change", () => {
+        maybeActivatePath(path);
+        setPath(path, el.value);
+        handleLinkedControlChange(path);
+        scheduleRebuild();
+      });
+    }
+
+    function bindCheck(id, path) {
+      const el = $(id);
+      el.checked = Boolean(getPath(path));
+      bindControlActivation(el, path);
+      el.addEventListener("change", () => {
+        maybeActivatePath(path);
+        setPath(path, el.checked);
+        handleLinkedControlChange(path);
+        scheduleRebuild();
+      });
+    }
+
+    function handleLinkedControlChange(path) {
+      if (path.startsWith("horizon.")) syncHorizonAspectFromPath(path);
+      if (path === "backgrounds.skyAspect") {
+        config.backgrounds.skyAspect = Math.max(0.1, num(config.backgrounds.skyAspect, 1));
+      }
+    }
+
+    function formatValue(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return value;
+      if (Math.abs(n) < 0.01 && n !== 0) return n.toFixed(5);
+      if (Math.abs(n) < 10) return n.toFixed(2).replace(/\.?0+$/, "");
+      return Math.round(n).toString();
+    }
+
+    function initBindings() {
+      bindText("bgSky", "backgrounds.sky");
+      bindText("bgRacetrack", "backgrounds.racetrack");
+      bindRange("skyOpacity", "backgrounds.skyOpacity", "valSkyOpacity");
+      bindRange("racetrackOpacity", "backgrounds.racetrackOpacity", "valTrackOpacity");
+      bindRange("skyBrightness", "backgrounds.skyBrightness", "valSkyBrightness");
+      bindRange("skySaturation", "backgrounds.skySaturation", "valSkySaturation");
+      bindRange("skyPositionX", "backgrounds.skyPositionX", "valSkyX");
+      bindRange("skyPositionY", "backgrounds.skyPositionY", "valSkyY");
+      bindRange("skySizeX", "backgrounds.skySizeX", "valSkySizeX");
+      bindRange("skySizeY", "backgrounds.skySizeY", "valSkySizeY");
+      bindSelect("skyFitMode", "backgrounds.skyFitMode");
+      bindRange("skyScale", "backgrounds.skyScale", "valSkyScale", "%");
+      bindNumber("skyAspect", "backgrounds.skyAspect");
+      bindRange("glowOpacity", "backgrounds.glowOpacity", "valGlowOpacity");
+      bindRange("vignetteOpacity", "backgrounds.vignetteOpacity", "valVignette");
+      bindColor("racetrackTint", "backgrounds.racetrackTint");
+      bindRange("racetrackBrightness", "backgrounds.racetrackBrightness", "valTrackBrightness");
+      bindRange("racetrackRepeatX", "backgrounds.racetrackRepeatX", "valTrackRepeatX");
+      bindRange("racetrackRepeatY", "backgrounds.racetrackRepeatY", "valTrackRepeatY");
+      bindRange("racetrackOffsetX", "backgrounds.racetrackOffsetX", "valTrackOffsetX");
+      bindRange("racetrackOffsetY", "backgrounds.racetrackOffsetY", "valTrackOffsetY");
+      bindSelect("racetrackBlending", "backgrounds.racetrackBlending");
+      bindCheck("racetrackDepthTest", "backgrounds.racetrackDepthTest");
+      bindCheck("horizonEnabled", "horizon.enabled");
+      bindRange("horizonX", "horizon.x", "valHorizonX");
+      bindRange("horizonY", "horizon.y", "valHorizonY");
+      bindRange("horizonZ", "horizon.z", "valHorizonZ");
+      bindRange("horizonScale", "horizon.scale", "valHorizonScale");
+      bindRange("horizonRenderOrder", "horizon.renderOrder", "valHorizonRender");
+      bindRange("horizonWidth", "horizon.width", "valHorizonWidth");
+      bindRange("horizonHeight", "horizon.height", "valHorizonHeight");
+      bindCheck("horizonLockAspect", "horizon.lockAspect");
+      bindRange("horizonAspect", "horizon.aspect", "valHorizonAspect");
+      bindRange("horizonRotX", "horizon.rotationX", "valHorizonRotX");
+      bindRange("horizonRotY", "horizon.rotationY", "valHorizonRotY");
+      bindRange("horizonRotZ", "horizon.rotationZ", "valHorizonRotZ");
+      bindRange("camFov", "camera.fov", "valFov");
+      bindRange("camMinY", "camera.minY", "valMinY");
+      bindRange("camLookY", "camera.lookY", "valLookY");
+      bindRange("camLookZ", "camera.lookZOffset", "valLookZ");
+      bindRange("camZBase", "camera.zOffsetBase", "valZBase");
+      bindRange("camZWidth", "camera.zWidthFactor", "valZWidth");
+      bindRange("camYWidth", "camera.yWidthFactor", "valYWidth");
+      bindRange("camSmooth", "camera.smooth", "valSmooth");
+      bindCheck("starsEnabled", "stars.enabled");
+      bindRange("starsCount", "stars.count", "valStarsCount");
+      bindRange("starsSize", "stars.size", "valStarsSize");
+      bindRange("starsOpacity", "stars.opacity", "valStarsOpacity");
+      bindRange("starsSpread", "stars.spreadX", "valStarsSpread");
+      bindRange("starsSpin", "stars.spin", "valStarsSpin");
+      bindRange("starsPulse", "stars.pulse", "valStarsPulse");
+      bindCheck("effectStarPulse", "effects.starPulse");
+      bindCheck("effectPlanetBob", "effects.planetBob");
+      bindCheck("effectCustomSpin", "effects.customSpin");
+      bindCheck("effectCustomPulse", "effects.customPulse");
+    }
+
+    function initThree() {
+      const canvas = $("previewCanvas");
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(config.camera.fov, 1, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x000000, 0);
+      const ambient = new THREE.AmbientLight("#112215", 1.5);
+      ambient.userData.permanentLight = true;
+      scene.add(ambient);
+      const sun = new THREE.DirectionalLight("#fbbf24", 2);
+      sun.position.set(20, 50, 40);
+      sun.userData.permanentLight = true;
+      scene.add(sun);
+      raycaster = new THREE.Raycaster();
+      pointerNdc = new THREE.Vector2();
+      dragPlane = new THREE.Plane();
+      bindCanvasDrag();
+      window.addEventListener("resize", resizePreview);
+      resizePreview();
+      rebuildScene();
+      requestAnimationFrame(tick);
+    }
+
+    function resizePreview() {
+      const wrap = $("previewStage");
+      const w = Math.max(1, wrap.clientWidth);
+      const h = Math.max(1, wrap.clientHeight);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+      applyStageBackground();
+    }
+
+    function setActiveTarget(kind, index = 0, refreshMarker = true) {
+      let nextIndex = Math.round(num(index, 0));
+      if (kind === "planet") {
+        nextIndex = clamp(nextIndex, 0, Math.max(0, config.planets.length - 1));
+        selectedPlanet = nextIndex;
+      }
+      if (kind === "object") {
+        nextIndex = clamp(nextIndex, 0, Math.max(0, config.customObjects.length - 1));
+        selectedObject = nextIndex;
+      }
+      activeTarget = { kind, index: nextIndex };
+      updateDragHud();
+      if (refreshMarker) refreshSelectionHelper();
+    }
+
+    function activeTargetLabel() {
+      if (activeTarget.kind === "planet") {
+        const planet = config.planets[selectedPlanet];
+        return `Kéo: ${planet?.name || "Tinh cầu"}`;
+      }
+      if (activeTarget.kind === "object") {
+        const object = config.customObjects[selectedObject];
+        return `Kéo: ${object?.name || "Object"}`;
+      }
+      return "Kéo: Racetrack";
+    }
+
+    function updateDragHud() {
+      const hud = $("hudDrag");
+      if (hud) hud.textContent = activeTargetLabel();
+    }
+
+    function getActiveDragMesh() {
+      if (activeTarget.kind === "planet") return dragTargets.planets[selectedPlanet] || null;
+      if (activeTarget.kind === "object") return dragTargets.objects[selectedObject] || null;
+      return dragTargets.horizon;
+    }
+
+    function collectDragTargets() {
+      return [dragTargets.horizon, ...dragTargets.planets, ...dragTargets.objects].filter(Boolean);
+    }
+
+    function findDragRoot(object) {
+      let current = object;
+      while (current && current !== scene) {
+        if (current.userData?.dragKind) return current;
+        current = current.parent;
+      }
+      return null;
+    }
+
+    function updatePointerNdc(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointerNdc, camera);
+    }
+
+    function hitDragTarget(event) {
+      updatePointerNdc(event);
+      const hits = raycaster.intersectObjects(collectDragTargets(), true);
+      for (const hit of hits) {
+        const root = findDragRoot(hit.object);
+        if (root) return root;
+      }
+      return null;
+    }
+
+    function activateDragTargetFromMesh(mesh) {
+      const kind = mesh.userData.dragKind || "horizon";
+      const index = Number(mesh.userData.dragIndex || 0);
+      setActiveTarget(kind, index, false);
+      if (kind === "planet") updatePlanetEditor();
+      if (kind === "object") updateObjectEditor();
+      renderLists();
+      refreshSelectionHelper();
+      return getActiveDragMesh() || mesh;
+    }
+
+    function chooseDragTarget(event) {
+      const hit = hitDragTarget(event);
+      const current = getActiveDragMesh();
+      if (hit) {
+        const hitKind = hit.userData.dragKind;
+        if (!current || activeTarget.kind === "horizon" || hitKind !== "horizon") {
+          return activateDragTargetFromMesh(hit);
+        }
+      }
+      return current || (hit ? activateDragTargetFromMesh(hit) : null);
+    }
+
+    function pointerWorldAtZ(event, z) {
+      updatePointerNdc(event);
+      dragPlane.set(new THREE.Vector3(0, 0, 1), -z);
+      const point = new THREE.Vector3();
+      return raycaster.ray.intersectPlane(dragPlane, point) ? point : null;
+    }
+
+    function bindCanvasDrag() {
+      const canvas = $("previewCanvas");
+      canvas.addEventListener("pointerdown", beginCanvasDrag);
+      canvas.addEventListener("pointermove", moveCanvasDrag);
+      canvas.addEventListener("pointerup", endCanvasDrag);
+      canvas.addEventListener("pointercancel", endCanvasDrag);
+    }
+
+    function beginCanvasDrag(event) {
+      if (event.button !== 0) return;
+      const mesh = chooseDragTarget(event);
+      if (!mesh) return;
+      const startPoint = pointerWorldAtZ(event, mesh.position.z);
+      if (!startPoint) return;
+      dragState = {
+        pointerId: event.pointerId,
+        kind: activeTarget.kind,
+        index: activeTarget.index,
+        mesh,
+        startPoint,
+        startPosition: mesh.position.clone()
+      };
+      $("previewCanvas").classList.add("dragging");
+      $("previewCanvas").setPointerCapture(event.pointerId);
+      setStatus(`Đang kéo ${activeTargetLabel().replace("Kéo: ", "")}`);
+      event.preventDefault();
+    }
+
+    function moveCanvasDrag(event) {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      const point = pointerWorldAtZ(event, dragState.startPosition.z);
+      if (!point) return;
+      const next = dragState.startPosition.clone().add(point.sub(dragState.startPoint));
+      applyDraggedPosition(next);
+      event.preventDefault();
+    }
+
+    function endCanvasDrag(event) {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      $("previewCanvas").classList.remove("dragging");
+      if ($("previewCanvas").hasPointerCapture(event.pointerId)) $("previewCanvas").releasePointerCapture(event.pointerId);
+      dragState = null;
+      setStatus("Đã cập nhật vị trí");
+      scheduleRebuild();
+    }
+
+    function applyDraggedPosition(next) {
+      const { kind, index, mesh } = dragState;
+      if (kind === "horizon") {
+        const h = config.horizon;
+        h.x = roundDrag(clamp(next.x - centerX, -260, 260));
+        h.y = roundDrag(clamp(next.y, -20, 220));
+        mesh.position.set(centerX + h.x, h.y, num(h.z, -82));
+        syncHorizonInputs();
+      } else if (kind === "planet") {
+        const planet = config.planets[index];
+        if (!planet) return;
+        planet.x = roundDrag(next.x - centerX);
+        planet.y = roundDrag(next.y);
+        mesh.position.set(centerX + planet.x, planet.y, mesh.position.z);
+        syncAnimationBase(mesh);
+        updatePlanetEditor();
+      } else if (kind === "object") {
+        const object = config.customObjects[index];
+        if (!object) return;
+        const transform = object.transform || (object.transform = {});
+        transform.x = roundDrag(next.x - centerX);
+        transform.y = roundDrag(next.y);
+        mesh.position.set(centerX + transform.x, transform.y, mesh.position.z);
+        if (mesh.userData.linkedLight) mesh.userData.linkedLight.position.copy(mesh.position);
+        syncAnimationBase(mesh);
+        updateObjectEditor();
+      }
+      updateSelectionHelperPosition();
+      updateOutput();
+    }
+
+    function syncAnimationBase(mesh) {
+      animationItems.forEach((item) => {
+        if (item.mesh === mesh || item.mesh === mesh.userData?.linkedLight) item.baseY = mesh.position.y;
+      });
+    }
+
+    function setRangeImmediate(id, labelId, value, suffix = "") {
+      const input = $(id);
+      const label = $(labelId);
+      if (input) input.value = value;
+      if (label) label.textContent = formatValue(value) + suffix;
+    }
+
+    function syncHorizonInputs() {
+      const h = config.horizon;
+      setRangeImmediate("horizonX", "valHorizonX", h.x);
+      setRangeImmediate("horizonY", "valHorizonY", h.y);
+      setRangeImmediate("horizonZ", "valHorizonZ", h.z);
+      setRangeImmediate("horizonWidth", "valHorizonWidth", h.width);
+      setRangeImmediate("horizonHeight", "valHorizonHeight", h.height);
+      setRangeImmediate("horizonAspect", "valHorizonAspect", h.aspect);
+    }
+
+    function syncHorizonAspectFromPath(path) {
+      const h = config.horizon || {};
+      const aspect = Math.max(0.1, num(h.aspect, num(h.width, 680) / Math.max(1, num(h.height, 382))));
+      h.aspect = aspect;
+      if (!h.lockAspect) return;
+      if (path === "horizon.height") h.width = roundDrag(num(h.height, 382) * aspect);
+      else if (path === "horizon.width" || path === "horizon.aspect" || path === "horizon.lockAspect") h.height = roundDrag(num(h.width, 680) / aspect);
+      syncHorizonInputs();
+    }
+
+    function disposeSelectionHelper() {
+      if (!selectionHelper || !scene) return;
+      scene.remove(selectionHelper);
+      selectionHelper.traverse((node) => {
+        if (node.geometry) node.geometry.dispose();
+        if (node.material) node.material.dispose();
+      });
+      selectionHelper = null;
+    }
+
+    function refreshSelectionHelper() {
+      if (!scene) return;
+      disposeSelectionHelper();
+      const target = getActiveDragMesh();
+      if (!target || !target.parent) {
+        updateDragHud();
+        return;
+      }
+      const color = activeTarget.kind === "horizon" ? 0xfbbf24 : activeTarget.kind === "planet" ? 0x34d399 : 0x38bdf8;
+      let hasGeometry = false;
+      target.traverse((node) => { if (node.geometry) hasGeometry = true; });
+      if (hasGeometry) {
+        selectionHelper = new THREE.BoxHelper(target, color);
+        selectionHelper.material.depthTest = false;
+        selectionHelper.material.transparent = true;
+        selectionHelper.material.opacity = 0.9;
+      } else {
+        selectionHelper = new THREE.Mesh(
+          new THREE.SphereGeometry(0.26, 12, 8),
+          new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false })
+        );
+        selectionHelper.position.copy(target.position);
+      }
+      selectionHelper.userData.helperTarget = target;
+      selectionHelper.renderOrder = 9999;
+      scene.add(selectionHelper);
+      updateDragHud();
+    }
+
+    function updateSelectionHelperPosition() {
+      if (!selectionHelper) return;
+      const target = selectionHelper.userData.helperTarget;
+      if (!target) return;
+      if (selectionHelper.update) selectionHelper.update();
+      else selectionHelper.position.copy(target.position);
+    }
+
+    function scheduleRebuild() {
+      clearTimeout(rebuildTimer);
+      rebuildTimer = setTimeout(rebuildScene, 80);
+      updateOutput();
+    }
+
+    function clearSceneObjects() {
+      animationItems = [];
+      selectionHelper = null;
+      dragTargets = { horizon: null, planets: [], objects: [] };
+      for (let i = scene.children.length - 1; i >= 0; i--) {
+        const child = scene.children[i];
+        if (child.isLight && child.userData.permanentLight) continue;
+        scene.remove(child);
+        child.traverse((node) => {
+          if (node.geometry) node.geometry.dispose();
+          if (node.material) {
+            if (Array.isArray(node.material)) node.material.forEach((mat) => mat.dispose());
+            else node.material.dispose();
+          }
+        });
+      }
+    }
+
+    function rebuildScene() {
+      if (!scene) return;
+      clearSceneObjects();
+      applyStageBackground();
+      updateCamera();
+      addRacetrackBackdrop();
+      addRoad();
+      addStars();
+      addPlanets();
+      addCustomObjects();
+      refreshSelectionHelper();
+      renderLists();
+      updateObjectEditor();
+      updatePlanetEditor();
+      updateOutput();
+      $("hudObjects").textContent = `${config.planets.length} planets · ${config.customObjects.length} objects`;
+      updateDragHud();
+    }
+
+    function applyStageBackground() {
+      const bg = config.backgrounds;
+      const shade = Math.max(0, Math.min(0.88, 1 - num(bg.skyOpacity, 1)));
+      const skyX = num(bg.skyPositionX, 50);
+      const skyY = num(bg.skyPositionY, 50);
+      const skySize = getSkyBackgroundSize($("previewStage"), bg);
+      $("previewStage").style.background = [
+        `linear-gradient(180deg, rgba(1, 6, 4, ${0.16 + shade}) 0%, rgba(1, 6, 4, ${0.02 + shade * 0.35}) 42%, rgba(0, 0, 0, ${0.58 + shade * 0.3}) 100%)`,
+        `url("${bg.sky}") ${skyX}% ${skyY}% / ${skySize} no-repeat`,
+        "#020705"
+      ].join(", ");
+      $("previewStage").style.filter = `brightness(${bg.skyBrightness}) saturate(${bg.skySaturation})`;
+      $("previewStage").style.setProperty("--glow-opacity", bg.glowOpacity);
+      $("previewStage").style.setProperty("--vignette-opacity", bg.vignetteOpacity);
+    }
+
+    function getSkyBackgroundSize(element, bg) {
+      const mode = bg.skyFitMode || "cover";
+      if (mode === "stretch") {
+        const skySizeX = Math.max(10, num(bg.skySizeX, 100));
+        const skySizeY = Math.max(10, num(bg.skySizeY, 100));
+        return `${skySizeX}% ${skySizeY}%`;
+      }
+      const width = Math.max(1, element?.clientWidth || 1);
+      const height = Math.max(1, element?.clientHeight || 1);
+      const aspect = Math.max(0.1, num(bg.skyAspect, 1));
+      const scale = Math.max(0.01, num(bg.skyScale, 100) / 100);
+      let targetW;
+      let targetH;
+      if (mode === "height") {
+        targetH = height * scale;
+        targetW = targetH * aspect;
+      } else if (mode === "width") {
+        targetW = width * scale;
+        targetH = targetW / aspect;
+      } else if (mode === "contain") {
+        if (width / height > aspect) {
+          targetH = height * scale;
+          targetW = targetH * aspect;
+        } else {
+          targetW = width * scale;
+          targetH = targetW / aspect;
+        }
+      } else {
+        if (width / height > aspect) {
+          targetW = width * scale;
+          targetH = targetW / aspect;
+        } else {
+          targetH = height * scale;
+          targetW = targetH * aspect;
+        }
+      }
+      return `${Math.round(targetW)}px ${Math.round(targetH)}px`;
+    }
+
+    function updateCamera() {
+      const c = config.camera;
+      const focusZ = trackLength;
+      const camY = Math.max(num(c.minY, 9), roadW * num(c.yWidthFactor, 0.42), 4 * num(c.yRacerFactor, 0.28));
+      const camZ = focusZ + Math.max(num(c.zOffsetBase, 24), roadW * num(c.zWidthFactor, 0.9));
+      camera.fov = num(c.fov, 52);
+      camera.position.set(centerX, camY, camZ);
+      camera.lookAt(centerX, num(c.lookY, 4.2), Math.max(10, focusZ + num(c.lookZOffset, -10)));
+      camera.updateProjectionMatrix();
+      $("hudCamera").textContent = `FOV ${Math.round(camera.fov)} · Y ${formatValue(camY)} · Z ${formatValue(camZ)}`;
+    }
+
+    function addRacetrackBackdrop() {
+      const bg = config.backgrounds;
+      const h = config.horizon;
+      if (!h.enabled || !bg.racetrack) return;
+      const trackSize = getLockedPlaneSize(h, 680, 382);
+      const geo = new THREE.PlaneGeometry(trackSize.width, trackSize.height);
+      const mat = new THREE.MeshBasicMaterial({
+        color: bg.racetrackTint || "#ffffff",
+        transparent: true,
+        opacity: num(bg.racetrackOpacity, 0.66),
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        depthTest: Boolean(bg.racetrackDepthTest),
+        fog: false
+      });
+      if (bg.racetrackBlending === "additive") mat.blending = THREE.AdditiveBlending;
+      mat.color.multiplyScalar(num(bg.racetrackBrightness, 1));
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(centerX + num(h.x, 0), num(h.y, 132), num(h.z, -82));
+      mesh.rotation.set(deg(h.rotationX), deg(h.rotationY), deg(h.rotationZ));
+      mesh.renderOrder = num(h.renderOrder, -18);
+      mesh.userData.dragKind = "horizon";
+      mesh.userData.dragIndex = 0;
+      dragTargets.horizon = mesh;
+      scene.add(mesh);
+      new THREE.TextureLoader().load(bg.racetrack, (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
+        const repeatX = num(bg.racetrackRepeatX, 1);
+        const repeatY = num(bg.racetrackRepeatY, 1);
+        texture.wrapS = repeatX === 1 ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+        texture.wrapT = repeatY === 1 ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+        texture.repeat.set(repeatX, repeatY);
+        texture.offset.set(num(bg.racetrackOffsetX, 0), num(bg.racetrackOffsetY, 0));
+        mat.map = texture;
+        mat.color.set(bg.racetrackTint || "#ffffff").multiplyScalar(num(bg.racetrackBrightness, 1));
+        mat.opacity = num(bg.racetrackOpacity, 0.66);
+        mat.needsUpdate = true;
+      });
+    }
+
+    function getLockedPlaneSize(source = {}, fallbackWidth = 1, fallbackHeight = 1) {
+      const scale = num(source.scale, 1);
+      const baseWidth = num(source.width, fallbackWidth);
+      const fallbackAspect = fallbackWidth / Math.max(1, fallbackHeight);
+      const aspect = Math.max(0.1, num(source.aspect, baseWidth / Math.max(1, num(source.height, fallbackHeight)) || fallbackAspect));
+      const baseHeight = source.lockAspect ? baseWidth / aspect : num(source.height, fallbackHeight);
+      return {
+        width: baseWidth * scale,
+        height: baseHeight * scale,
+        aspect
+      };
+    }
+
+    function addRoad() {
+      const roadGeo = new THREE.PlaneGeometry(roadW, trackLength + 12);
+      const roadMat = new THREE.MeshStandardMaterial({ color: "#051108", roughness: 0.8, metalness: 0.1 });
+      const road = new THREE.Mesh(roadGeo, roadMat);
+      road.rotation.x = -Math.PI / 2;
+      road.position.set(centerX, -0.05, (8 + trackLength + 12) / 2);
+      scene.add(road);
+
+      const lineMat = new THREE.LineBasicMaterial({ color: "#10b981", transparent: true, opacity: 0.35 });
+      for (let x = 0; x <= roadW; x += roadW / 4) {
+        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 1, 0.01, 8), new THREE.Vector3(x - 1, 0.01, trackLength + 12)]);
+        scene.add(new THREE.Line(geo, lineMat.clone()));
+      }
+
+      const finish = new THREE.Mesh(
+        new THREE.BoxGeometry(roadW, 0.05, 0.5),
+        new THREE.MeshStandardMaterial({ color: "#fbbf24", emissive: "#b45309", roughness: 0.2 })
+      );
+      finish.position.set(centerX, 0.01, 10);
+      scene.add(finish);
+    }
+
+    function addStars() {
+      const s = config.stars;
+      if (!s.enabled || s.count <= 0) return;
+      const count = Math.round(s.count);
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const palette = s.palette.map((color) => new THREE.Color(color));
+      for (let i = 0; i < count; i++) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const farSky = i % Math.max(1, Math.round(s.farEvery || 7)) === 0;
+        const xOffset = roadW * (farSky ? 0.95 : 0.72) + 7 + Math.random() * Math.max(24, s.spreadX);
+        const y = farSky
+          ? s.farYMin + Math.random() * Math.max(1, s.farYMax - s.farYMin)
+          : s.nearYMin + Math.random() * Math.max(1, s.nearYMax - s.nearYMin);
+        const z = farSky
+          ? s.farZMin + Math.random() * s.farZRange
+          : s.nearZMin + Math.random() * (trackLength + s.nearZExtra);
+        const shade = palette[i % palette.length].clone().multiplyScalar(0.64 + Math.random() * 0.62);
+        positions[i * 3] = centerX + side * xOffset;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+        colors[i * 3] = shade.r;
+        colors[i * 3 + 1] = shade.g;
+        colors[i * 3 + 2] = shade.b;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      const mat = new THREE.PointsMaterial({ size: s.size, transparent: true, opacity: s.opacity, vertexColors: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+      const stars = new THREE.Points(geo, mat);
+      scene.add(stars);
+      animationItems.push({ type: "starfield", mesh: stars, baseOpacity: s.opacity, spin: s.spin, pulse: s.pulse, phase: Math.random() * Math.PI });
+    }
+
+    function addPlanets() {
+      config.planets.forEach((planet, index) => {
+        if (!planet.enabled) return;
+        const radius = num(planet.radius, 1);
+        const group = new THREE.Group();
+        group.name = planet.name || `planet-${index}`;
+        const core = new THREE.Mesh(
+          new THREE.SphereGeometry(radius, 18, 12),
+          new THREE.MeshStandardMaterial({ color: planet.color || "#e8d08a", emissive: planet.emissive || "#1f2937", emissiveIntensity: 0.42, roughness: 0.64, metalness: 0.04, flatShading: true, fog: false })
+        );
+        group.add(core);
+        if (planet.ring) {
+          const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(radius * 1.55, 0.045, 8, 56),
+            new THREE.MeshBasicMaterial({ color: planet.ringColor || "#fde68a", transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })
+          );
+          ring.rotation.x = Math.PI * 0.58;
+          ring.rotation.z = Math.PI * 0.12;
+          group.add(ring);
+          group.userData.ring = ring;
+        }
+        if (planet.moon) {
+          const moon = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: "#e5e7eb", transparent: true, opacity: 0.86, fog: false }));
+          moon.position.set(radius * 1.65, radius * 0.42, 0);
+          group.add(moon);
+          group.userData.moon = moon;
+        }
+        const side = num(planet.side, index % 2 === 0 ? -1 : 1);
+        const z = Math.max(18, Math.min(trackLength - 12, trackLength * num(planet.z, 0.5)));
+        const x = Number.isFinite(Number(planet.x))
+          ? centerX + num(planet.x, 0)
+          : centerX + side * (Math.max(10, roadW * 0.72) + num(planet.extra, 0) + index * 0.42);
+        group.position.set(x, num(planet.y, 7), z);
+        group.rotation.y = index * 0.7;
+        group.rotation.z = side * 0.08;
+        group.userData.dragKind = "planet";
+        group.userData.dragIndex = index;
+        dragTargets.planets[index] = group;
+        scene.add(group);
+        animationItems.push({ type: "planet", mesh: group, baseY: group.position.y, spin: num(planet.spin, 0.003) * side, bobAmplitude: num(planet.bobAmplitude, config.effects.planetBobAmplitude), phase: index * 0.9 });
+      });
+    }
+
+    function materialFromConfig(material = {}, standard = false) {
+      const base = { color: material.color || "#10b981", transparent: true, opacity: num(material.opacity, 0.82), side: THREE.DoubleSide, depthWrite: false, fog: false };
+      if (material.blending === "additive") base.blending = THREE.AdditiveBlending;
+      if (standard || material.emissive) {
+        return new THREE.MeshStandardMaterial({ ...base, emissive: material.emissive || "#000000", emissiveIntensity: material.emissive ? 0.45 : 0, roughness: 0.55, metalness: 0.05 });
+      }
+      return new THREE.MeshBasicMaterial(base);
+    }
+
+    function applyTransform(mesh, transform = {}) {
+      mesh.position.set(centerX + num(transform.x, 0), num(transform.y, 0), num(transform.z, 0));
+      mesh.rotation.set(deg(transform.rx), deg(transform.ry), deg(transform.rz));
+      mesh.scale.set(num(transform.sx, 1), num(transform.sy, 1), num(transform.sz, 1));
+    }
+
+    function objectTransformWithAspect(object = {}) {
+      const transform = { ...(object.transform || {}) };
+      if (object.lockAspect) {
+        const aspect = Math.max(0.1, num(object.aspect, 1));
+        transform.sy = num(transform.sx, 1) / aspect;
+      }
+      return transform;
+    }
+
+    function addCustomObjects() {
+      const loader = new THREE.TextureLoader();
+      config.customObjects.forEach((object, index) => {
+        if (!object.enabled) return;
+        const type = object.type || "sphere";
+        const mat = object.material || {};
+        let mesh;
+        if (type === "light") {
+          const lightType = mat.lightType || "point";
+          if (lightType === "ambient") mesh = new THREE.AmbientLight(mat.color || "#fbbf24", num(mat.intensity, 1.8));
+          else if (lightType === "directional") mesh = new THREE.DirectionalLight(mat.color || "#fbbf24", num(mat.intensity, 1.8));
+          else mesh = new THREE.PointLight(mat.color || "#fbbf24", num(mat.intensity, 1.8), num(mat.distance, 60));
+          applyTransform(mesh, objectTransformWithAspect(object));
+          mesh.userData.dragKind = "object";
+          mesh.userData.dragIndex = index;
+          dragTargets.objects[index] = mesh;
+          scene.add(mesh);
+          animationItems.push({ type: "custom", mesh, baseY: mesh.position.y, baseScale: mesh.scale.clone(), animation: object.animation || {}, phase: index * 0.77 });
+          if (!object.showHelper) return;
+          const linkedLight = mesh;
+          mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: mat.color || "#fbbf24", transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+          mesh.userData.linkedLight = linkedLight;
+        } else if (type === "imagePlane") {
+          mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), materialFromConfig(mat));
+          if (object.src) loader.load(object.src, (texture) => { texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace; mesh.material.map = texture; mesh.material.color.set("#ffffff"); mesh.material.needsUpdate = true; });
+        } else if (type === "plane") mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), materialFromConfig(mat));
+        else if (type === "circle") mesh = new THREE.Mesh(new THREE.CircleGeometry(0.5, 48), materialFromConfig(mat));
+        else if (type === "box") mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), materialFromConfig(mat, true));
+        else if (type === "cylinder") mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 32), materialFromConfig(mat, true));
+        else if (type === "torus" || type === "ring") mesh = new THREE.Mesh(new THREE.TorusGeometry(0.45, num(mat.tube, type === "ring" ? 0.025 : 0.08), 10, 64), materialFromConfig({ blending: "additive", ...mat }));
+        else mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), materialFromConfig(mat, true));
+
+        mesh.name = object.name || `object-${index}`;
+        applyTransform(mesh, objectTransformWithAspect(object));
+        mesh.userData.dragKind = "object";
+        mesh.userData.dragIndex = index;
+        dragTargets.objects[index] = mesh;
+        scene.add(mesh);
+        animationItems.push({ type: "custom", mesh, baseY: mesh.position.y, baseScale: mesh.scale.clone(), animation: object.animation || {}, phase: index * 0.77 });
+      });
+    }
+
+    function tick(now) {
+      const effects = config.effects;
+      animationItems.forEach((item) => {
+        const mesh = item.mesh;
+        if (!mesh) return;
+        const draggingThis = isDraggedAnimationMesh(mesh);
+        if (item.type === "starfield") {
+          mesh.rotation.y += item.spin;
+          if (mesh.material && effects.starPulse) mesh.material.opacity = item.baseOpacity + Math.sin(now * 0.0018 + item.phase) * item.pulse;
+        } else if (item.type === "planet") {
+          mesh.rotation.y += item.spin;
+          if (!draggingThis && effects.planetBob) mesh.position.y = item.baseY + Math.sin(now * effects.planetBobSpeed + item.phase) * item.bobAmplitude;
+          if (mesh.userData.ring) mesh.userData.ring.rotation.z += item.spin * 0.9;
+          if (mesh.userData.moon && effects.moonOrbit) {
+            const angle = now * effects.moonOrbitSpeed + item.phase;
+            mesh.userData.moon.position.x = Math.cos(angle) * 1.75;
+            mesh.userData.moon.position.z = Math.sin(angle) * 1.75;
+          }
+        } else if (item.type === "custom") {
+          if (!draggingThis) animateCustom(item, now);
+        }
+      });
+      updateSelectionHelperPosition();
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+
+    function isDraggedAnimationMesh(mesh) {
+      if (!dragState) return false;
+      return dragState.mesh === mesh || dragState.mesh.userData?.linkedLight === mesh;
+    }
+
+    function animateCustom(item, now) {
+      const a = item.animation || {};
+      if (a.enabled === false) return;
+      if (config.effects.customSpin && a.spin) {
+        item.mesh.rotation.x += deg(a.spinX || 0);
+        item.mesh.rotation.y += deg(a.spinY || 0);
+        item.mesh.rotation.z += deg(a.spinZ || 0);
+      }
+      if (config.effects.customBob && a.bob) {
+        item.mesh.position.y = item.baseY + Math.sin(now * num(a.bobSpeed, 0.002) + item.phase) * num(a.bobAmplitude, 0.22);
+      }
+      if (config.effects.customPulse && a.pulse && item.baseScale) {
+        const pulse = 1 + Math.sin(now * num(a.pulseSpeed, 0.003) + item.phase) * num(a.pulseAmount, 0.08);
+        item.mesh.scale.set(item.baseScale.x * pulse, item.baseScale.y * pulse, item.baseScale.z * pulse);
+      }
+    }
+
+    function renderLists() {
+      $("planetList").innerHTML = config.planets.map((planet, index) => `
+        <div class="list-item ${index === selectedPlanet ? "active" : ""}" data-planet="${index}">
+          <div><div class="list-title">${planet.name || planet.id || "Planet"}</div><div class="list-meta">${planet.enabled ? "enabled" : "hidden"} · z ${formatValue(planet.z)}</div></div>
+          <div class="value">${formatValue(planet.radius)}</div>
+        </div>
+      `).join("");
+      $("objectList").innerHTML = config.customObjects.map((object, index) => `
+        <div class="list-item ${index === selectedObject ? "active" : ""}" data-object="${index}">
+          <div><div class="list-title">${object.name || object.id || "Object"}</div><div class="list-meta">${object.enabled ? "enabled" : "hidden"} · ${object.type}</div></div>
+          <div class="value">${index + 1}</div>
+        </div>
+      `).join("");
+      document.querySelectorAll("[data-planet]").forEach((el) => el.addEventListener("click", () => { selectedPlanet = Number(el.dataset.planet); setActiveTarget("planet", selectedPlanet); updatePlanetEditor(); renderLists(); }));
+      document.querySelectorAll("[data-object]").forEach((el) => el.addEventListener("click", () => { selectedObject = Number(el.dataset.object); setActiveTarget("object", selectedObject); updateObjectEditor(); renderLists(); }));
+    }
+
+    function updatePlanetEditor() {
+      const p = config.planets[selectedPlanet];
+      if (!p) return;
+      $("planetEnabled").checked = Boolean(p.enabled);
+      $("planetName").value = p.name || "";
+      $("planetColor").value = p.color || "#e8d08a";
+      $("planetEmissive").value = p.emissive || "#1f2937";
+      $("planetRadius").value = p.radius ?? 1;
+      $("planetX").value = p.x ?? "";
+      $("planetY").value = p.y ?? 7;
+      $("planetZ").value = p.z ?? 0.5;
+      $("planetSide").value = String(p.side ?? 1);
+      $("planetExtra").value = p.extra ?? 2;
+      $("planetSpin").value = p.spin ?? 0.003;
+      $("planetRing").checked = Boolean(p.ring);
+      $("planetMoon").checked = Boolean(p.moon);
+    }
+
+    function updateObjectEditor() {
+      const o = config.customObjects[selectedObject];
+      if (!o) return;
+      const t = o.transform || (o.transform = {});
+      const m = o.material || (o.material = {});
+      const a = o.animation || (o.animation = {});
+      $("objectEnabled").checked = Boolean(o.enabled);
+      $("objectType").value = o.type || "sphere";
+      $("objectName").value = o.name || "";
+      $("objectSrc").value = o.src || "";
+      $("objectX").value = t.x ?? 0;
+      $("objectY").value = t.y ?? 2;
+      $("objectZ").value = t.z ?? 42;
+      $("objectRX").value = t.rx ?? 0;
+      $("objectRY").value = t.ry ?? 0;
+      $("objectRZ").value = t.rz ?? 0;
+      $("objectSX").value = t.sx ?? 1;
+      $("objectSY").value = t.sy ?? 1;
+      $("objectSZ").value = t.sz ?? 1;
+      $("objectLockAspect").checked = Boolean(o.lockAspect);
+      $("objectAspect").value = o.aspect ?? ((num(t.sx, 1) / Math.max(0.001, num(t.sy, 1))).toFixed(2));
+      $("objectColor").value = m.color || "#10b981";
+      $("objectEmissive").value = m.emissive || "#000000";
+      $("objectOpacity").value = m.opacity ?? 0.82;
+      $("objectBlend").value = m.blending || "normal";
+      $("objectBob").checked = Boolean(a.bob);
+      $("objectSpin").checked = Boolean(a.spin);
+      $("objectPulse").checked = Boolean(a.pulse);
+      $("objectHelper").checked = Boolean(o.showHelper);
+      $("objectSpinX").value = a.spinX ?? 0;
+      $("objectSpinY").value = a.spinY ?? 0.8;
+      $("objectSpinZ").value = a.spinZ ?? 0.8;
+      $("objectBobAmount").value = a.bobAmplitude ?? 0.22;
+      $("objectBobSpeed").value = a.bobSpeed ?? 0.002;
+      $("objectPulseAmount").value = a.pulseAmount ?? 0.08;
+      $("objectPulseSpeed").value = a.pulseSpeed ?? 0.003;
+    }
+
+    function bindPlanetEditor() {
+      const fields = ["planetEnabled", "planetName", "planetColor", "planetEmissive", "planetRadius", "planetX", "planetY", "planetZ", "planetSide", "planetExtra", "planetSpin", "planetRing", "planetMoon"];
+      fields.forEach((id) => $(id).addEventListener("focus", () => setActiveTarget("planet", selectedPlanet)));
+      fields.forEach((id) => $(id).addEventListener("pointerdown", () => setActiveTarget("planet", selectedPlanet)));
+      fields.forEach((id) => $(id).addEventListener("input", savePlanetEditor));
+      fields.forEach((id) => $(id).addEventListener("change", savePlanetEditor));
+    }
+
+    function savePlanetEditor() {
+      const p = config.planets[selectedPlanet];
+      if (!p) return;
+      setActiveTarget("planet", selectedPlanet);
+      p.enabled = $("planetEnabled").checked;
+      p.name = $("planetName").value.trim() || "Planet";
+      p.id = p.id || `planet-${Date.now()}`;
+      p.color = $("planetColor").value;
+      p.emissive = $("planetEmissive").value;
+      p.radius = Number($("planetRadius").value);
+      if ($("planetX").value === "") delete p.x;
+      else p.x = Number($("planetX").value);
+      p.y = Number($("planetY").value);
+      p.z = Number($("planetZ").value);
+      p.side = Number($("planetSide").value);
+      p.extra = Number($("planetExtra").value);
+      p.spin = Number($("planetSpin").value);
+      p.ring = $("planetRing").checked;
+      p.moon = $("planetMoon").checked;
+      scheduleRebuild();
+    }
+
+    function bindObjectEditor() {
+      const fields = ["objectEnabled", "objectType", "objectName", "objectSrc", "objectX", "objectY", "objectZ", "objectRX", "objectRY", "objectRZ", "objectSX", "objectSY", "objectSZ", "objectLockAspect", "objectAspect", "objectColor", "objectEmissive", "objectOpacity", "objectBlend", "objectBob", "objectSpin", "objectPulse", "objectHelper", "objectSpinX", "objectSpinY", "objectSpinZ", "objectBobAmount", "objectBobSpeed", "objectPulseAmount", "objectPulseSpeed"];
+      fields.forEach((id) => $(id).addEventListener("focus", () => setActiveTarget("object", selectedObject)));
+      fields.forEach((id) => $(id).addEventListener("pointerdown", () => setActiveTarget("object", selectedObject)));
+      fields.forEach((id) => $(id).addEventListener("input", saveObjectEditor));
+      fields.forEach((id) => $(id).addEventListener("change", saveObjectEditor));
+    }
+
+    function saveObjectEditor() {
+      const o = config.customObjects[selectedObject];
+      if (!o) return;
+      setActiveTarget("object", selectedObject);
+      o.enabled = $("objectEnabled").checked;
+      o.type = $("objectType").value;
+      o.name = $("objectName").value.trim() || o.type;
+      o.id = o.id || `object-${Date.now()}`;
+      o.src = $("objectSrc").value.trim();
+      o.showHelper = $("objectHelper").checked;
+      o.lockAspect = $("objectLockAspect").checked;
+      o.aspect = Math.max(0.1, Number($("objectAspect").value) || 1);
+      const objectSx = Number($("objectSX").value);
+      const objectSy = o.lockAspect ? roundDrag(objectSx / o.aspect) : Number($("objectSY").value);
+      o.transform = {
+        x: Number($("objectX").value),
+        y: Number($("objectY").value),
+        z: Number($("objectZ").value),
+        rx: Number($("objectRX").value),
+        ry: Number($("objectRY").value),
+        rz: Number($("objectRZ").value),
+        sx: objectSx,
+        sy: objectSy,
+        sz: Number($("objectSZ").value)
+      };
+      if (o.lockAspect) $("objectSY").value = objectSy;
+      o.material = {
+        color: $("objectColor").value,
+        emissive: $("objectEmissive").value,
+        opacity: Number($("objectOpacity").value),
+        blending: $("objectBlend").value,
+        tube: o.material?.tube ?? (o.type === "ring" ? 0.025 : 0.08),
+        intensity: o.material?.intensity ?? 1.8,
+        distance: o.material?.distance ?? 60
+      };
+      o.animation = {
+        enabled: true,
+        bob: $("objectBob").checked,
+        spin: $("objectSpin").checked,
+        pulse: $("objectPulse").checked,
+        spinX: Number($("objectSpinX").value),
+        spinY: Number($("objectSpinY").value),
+        spinZ: Number($("objectSpinZ").value),
+        bobAmplitude: Number($("objectBobAmount").value),
+        bobSpeed: Number($("objectBobSpeed").value),
+        pulseAmount: Number($("objectPulseAmount").value),
+        pulseSpeed: Number($("objectPulseSpeed").value)
+      };
+      scheduleRebuild();
+    }
+
+    function addObject(type) {
+      const next = {
+        id: `${type}-${Date.now()}`,
+        name: `${type} ${config.customObjects.length + 1}`,
+        type,
+        enabled: true,
+        transform: { x: 0, y: type === "light" ? 6 : 2.4, z: 36 + config.customObjects.length * 4, rx: type === "ring" || type === "circle" ? 90 : 0, ry: 0, rz: 0, sx: type === "ring" ? 5 : 1.5, sy: type === "ring" ? 5 : 1.5, sz: 1.5 },
+        material: { color: "#10b981", emissive: type === "light" ? "#fbbf24" : "#000000", opacity: type === "light" ? 1 : 0.82, blending: type === "ring" || type === "torus" ? "additive" : "normal", tube: type === "ring" ? 0.025 : 0.08, intensity: 1.8, distance: 60 },
+        animation: { enabled: true, bob: false, spin: type === "ring" || type === "torus", pulse: type === "ring", spinZ: 0.8, pulseAmount: 0.08, pulseSpeed: 0.003 },
+        lockAspect: type === "imagePlane",
+        aspect: 1,
+        showHelper: type === "light"
+      };
+      if (type === "imagePlane") {
+        next.src = "anh/langgia_icon.png";
+        next.transform.sx = 4;
+        next.transform.sy = 4;
+        next.transform.sz = 1;
+      }
+      config.customObjects.push(next);
+      selectedObject = config.customObjects.length - 1;
+      setActiveTarget("object", selectedObject, false);
+      rebuildScene();
+      updateObjectEditor();
+      setStatus(`Đã thêm ${type}`);
+    }
+
+    function addPlanet() {
+      config.planets.push({ id: `planet-${Date.now()}`, name: `Planet ${config.planets.length + 1}`, enabled: true, color: "#9ef9d4", emissive: "#0b5366", radius: 1, side: config.planets.length % 2 ? 1 : -1, z: 0.5, y: 8, extra: 3, spin: 0.003, ring: false, moon: false });
+      selectedPlanet = config.planets.length - 1;
+      setActiveTarget("planet", selectedPlanet, false);
+      rebuildScene();
+      updatePlanetEditor();
+    }
+
+    function updateOutput() {
+      $("jsonOutput").value = JSON.stringify(config, null, 2);
+      try { localStorage.setItem("minigame_editor_config", JSON.stringify(config)); } catch (err) {}
+    }
+
+    async function copyJson(label = "Đã copy JSON") {
+      updateOutput();
+      await navigator.clipboard.writeText($("jsonOutput").value);
+      setStatus(label);
+    }
+
+    function importJson() {
+      try {
+        const next = JSON.parse($("jsonImport").value || $("jsonOutput").value);
+        config = mergeConfig(clone(DEFAULT_CONFIG), next);
+        normalizeBackgroundLayers();
+        selectedPlanet = 0;
+        selectedObject = 0;
+        setActiveTarget("horizon", 0, false);
+        refreshAllControls();
+        rebuildScene();
+        setStatus("Đã import JSON");
+      } catch (err) {
+        setStatus("JSON không hợp lệ");
+      }
+    }
+
+    function mergeConfig(base, incoming) {
+      Object.keys(incoming || {}).forEach((key) => {
+        if (Array.isArray(incoming[key])) base[key] = incoming[key];
+        else if (incoming[key] && typeof incoming[key] === "object" && base[key] && typeof base[key] === "object") base[key] = mergeConfig(base[key], incoming[key]);
+        else base[key] = incoming[key];
+      });
+      return base;
+    }
+
+    function isSkyImage(path = "") {
+      return /(^|[\\/])bg_derby_sky\.png$/i.test(path.trim()) || /sky/i.test(path);
+    }
+
+    function isRacetrackImage(path = "") {
+      return /bg_derby_racetrack/i.test(path.trim()) || /racetrack/i.test(path);
+    }
+
+    function normalizeBackgroundLayers() {
+      const bg = config.backgrounds || (config.backgrounds = clone(DEFAULT_CONFIG.backgrounds));
+      const front = bg.racetrack || "";
+      const back = bg.sky || "";
+      if (isSkyImage(front) && isRacetrackImage(back)) {
+        bg.racetrack = back;
+        bg.sky = front;
+        return true;
+      }
+      if (isSkyImage(front)) {
+        bg.sky = front;
+        bg.racetrack = back && !isSkyImage(back) ? back : DEFAULT_CONFIG.backgrounds.racetrack;
+        return true;
+      }
+      return false;
+    }
+
+    function syncBackgroundImageInputs() {
+      $("bgRacetrack").value = config.backgrounds.racetrack || "";
+      $("bgSky").value = config.backgrounds.sky || "";
+    }
+
+    function moveTrackImageBack() {
+      const bg = config.backgrounds;
+      const front = bg.racetrack || "";
+      const back = bg.sky || "";
+      if (!front) return;
+      bg.sky = front;
+      bg.racetrack = back && back !== front ? back : DEFAULT_CONFIG.backgrounds.racetrack;
+      syncBackgroundImageInputs();
+      setActiveTarget("horizon", 0);
+      rebuildScene();
+      setStatus("Đã đưa ảnh Racetrack xuống lớp sau");
+    }
+
+    function swapBackgroundLayers() {
+      const bg = config.backgrounds;
+      [bg.racetrack, bg.sky] = [bg.sky || "", bg.racetrack || ""];
+      syncBackgroundImageInputs();
+      setActiveTarget("horizon", 0);
+      rebuildScene();
+      setStatus("Đã đổi 2 lớp ảnh");
+    }
+
+    function setSkySquareRatio() {
+      config.backgrounds.skyAspect = 1;
+      $("skyAspect").value = 1;
+      scheduleRebuild();
+      setStatus("Đã đặt sky ratio 1:1");
+    }
+
+    function useCurrentTrackRatio() {
+      const h = config.horizon;
+      h.aspect = roundDrag(num(h.width, 680) / Math.max(0.001, num(h.height, 382)));
+      h.lockAspect = true;
+      $("horizonLockAspect").checked = true;
+      syncHorizonInputs();
+      scheduleRebuild();
+      setStatus("Đã lấy tỉ lệ track hiện tại");
+    }
+
+    function useCurrentObjectRatio() {
+      const object = config.customObjects[selectedObject];
+      if (!object) return;
+      const t = object.transform || (object.transform = {});
+      object.aspect = roundDrag(num(t.sx, 1) / Math.max(0.001, num(t.sy, 1)));
+      object.lockAspect = true;
+      $("objectLockAspect").checked = true;
+      $("objectAspect").value = object.aspect;
+      scheduleRebuild();
+      setStatus("Đã lấy tỉ lệ object hiện tại");
+    }
+
+    function refreshAllControls() {
+      document.querySelectorAll("input, select").forEach((el) => {
+        const cloneEl = el.cloneNode(true);
+        el.parentNode.replaceChild(cloneEl, el);
+      });
+      initBindings();
+      bindPlanetEditor();
+      bindObjectEditor();
+      bindButtons();
+      updatePlanetEditor();
+      updateObjectEditor();
+    }
+
+    function bindButtons() {
+      document.querySelectorAll("[data-add-type]").forEach((btn) => btn.addEventListener("click", () => addObject(btn.dataset.addType)));
+      $("btnAddPlanet").onclick = addPlanet;
+      $("btnDeletePlanet").onclick = () => {
+        if (config.planets.length <= 1) return;
+        config.planets.splice(selectedPlanet, 1);
+        selectedPlanet = Math.max(0, selectedPlanet - 1);
+        setActiveTarget("planet", selectedPlanet, false);
+        rebuildScene();
+        updatePlanetEditor();
+      };
+      $("btnDeleteObject").onclick = () => {
+        if (!config.customObjects.length) return;
+        config.customObjects.splice(selectedObject, 1);
+        selectedObject = Math.max(0, selectedObject - 1);
+        setActiveTarget(config.customObjects.length ? "object" : "horizon", selectedObject, false);
+        rebuildScene();
+        updateObjectEditor();
+      };
+      $("btnDuplicateObject").onclick = () => {
+        const current = config.customObjects[selectedObject];
+        if (!current) return;
+        const copy = clone(current);
+        copy.id = `${copy.type}-${Date.now()}`;
+        copy.name = `${copy.name || copy.type} copy`;
+        copy.transform.x = (copy.transform.x || 0) + 1.2;
+        config.customObjects.splice(selectedObject + 1, 0, copy);
+        selectedObject += 1;
+        setActiveTarget("object", selectedObject, false);
+        rebuildScene();
+        updateObjectEditor();
+      };
+      ["btnCopyTop", "btnCopyJson"].forEach((id) => $(id).onclick = () => copyJson());
+      ["btnAcceptCopy", "btnAcceptCopyPanel"].forEach((id) => $(id).onclick = () => copyJson("Đã đồng ý và copy JSON"));
+      $("btnMoveTrackImageBack").onclick = moveTrackImageBack;
+      $("btnSwapBackgroundLayers").onclick = swapBackgroundLayers;
+      $("btnSkySquareRatio").onclick = setSkySquareRatio;
+      $("btnUseCurrentTrackRatio").onclick = useCurrentTrackRatio;
+      $("btnUseCurrentObjectRatio").onclick = useCurrentObjectRatio;
+      ["btnResetTop", "btnReset"].forEach((id) => $(id).onclick = () => {
+        config = clone(DEFAULT_CONFIG);
+        selectedPlanet = 0;
+        selectedObject = 0;
+        setActiveTarget("horizon", 0, false);
+        refreshAllControls();
+        rebuildScene();
+        setStatus("Đã reset default");
+      });
+      $("btnImportJson").onclick = importJson;
+    }
+
+    function boot() {
+      try {
+        const saved = localStorage.getItem("minigame_editor_config");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.version === DEFAULT_CONFIG.version) {
+            config = mergeConfig(clone(DEFAULT_CONFIG), parsed);
+            normalizeBackgroundLayers();
+          }
+        }
+      } catch (err) {}
+      initBindings();
+      bindPlanetEditor();
+      bindObjectEditor();
+      bindButtons();
+      updatePlanetEditor();
+      updateObjectEditor();
+      updateOutput();
+      if (!window.THREE) {
+        setStatus("Không tải được Three.js");
+        return;
+      }
+      initThree();
+    }
+
+    boot();
+  </script>
+</body>
+</html>

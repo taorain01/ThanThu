@@ -8026,25 +8026,46 @@
     function addDerbyBackdrop() {
       if (!threeScene) return;
 
-      const backdropGeo = new THREE.SphereGeometry(520, 48, 24);
+      const centerX = derbyTrackWidth / 2 - 1;
+      const horizonZ = -Math.max(64, trackLength * 0.18);
+      const backdropWidth = Math.max(derbyTrackWidth * 9, 520);
+      const backdropHeight = Math.max(300, backdropWidth * 0.58);
+      const backdropBottomY = -8;
+      const backdropGeo = new THREE.PlaneGeometry(backdropWidth, backdropHeight);
       const backdropMat = new THREE.MeshBasicMaterial({
-        color: "#163d20",
-        side: THREE.BackSide,
+        color: "#0b2416",
         depthWrite: false,
-        depthTest: false
+        depthTest: true,
+        fog: false,
+        toneMapped: false
       });
       const backdrop = new THREE.Mesh(backdropGeo, backdropMat);
-      backdrop.position.set(derbyTrackWidth / 2 - 1, 22, trackLength * 0.42);
-      backdrop.scale.set(1.25, 0.72, 1);
-      backdrop.renderOrder = -10;
+      backdrop.position.set(centerX, backdropBottomY + backdropHeight / 2, horizonZ);
+      backdrop.renderOrder = -20;
       threeScene.add(backdrop);
+
+      const horizonGlowGeo = new THREE.PlaneGeometry(backdropWidth * 0.95, 34);
+      const horizonGlowMat = new THREE.MeshBasicMaterial({
+        color: "#6ff5a3",
+        transparent: true,
+        opacity: 0.16,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+        fog: false,
+        toneMapped: false
+      });
+      const horizonGlow = new THREE.Mesh(horizonGlowGeo, horizonGlowMat);
+      horizonGlow.position.set(centerX, 2.5, horizonZ + 0.4);
+      horizonGlow.renderOrder = -19;
+      threeScene.add(horizonGlow);
 
       const loader = new THREE.TextureLoader();
       loader.load("anh/bg_derby_sky.png", (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace || texture.colorSpace;
-        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.repeat.set(2, 1);
+        texture.repeat.set(1, 1);
         texture.offset.set(0, 0);
         texture.needsUpdate = true;
         backdropMat.map = texture;
@@ -8078,12 +8099,12 @@
       threeScene.add(ground);
 
       const textureLoader = new THREE.TextureLoader();
-      textureLoader.load("anh/bg_derby_racetrack_old.png", (texture) => {
+      textureLoader.load("anh/bg_derby_sides.png", (texture) => {
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
-        texture.repeat.set(2, Math.max(2, trackLength / 70));
+        texture.repeat.set(6, Math.max(6, trackLength / 18));
         groundMat.map = texture;
-        groundMat.color.set("#12351d");
+        groundMat.color.set("#ffffff");
         groundMat.needsUpdate = true;
       });
 

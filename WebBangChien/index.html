@@ -4600,7 +4600,7 @@ function getSessionCacheKey(session) {
 }
 
 function hasKcWebAccess(discordId = window.currentDiscordId) {
-    return KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
+    return true; // KC_WEB_ACCESS_DISCORD_IDS.has(String(discordId || ''));
 }
 
 function hasLineupEditorAccess(discordId = window.currentDiscordId) {

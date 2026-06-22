@@ -39,6 +39,9 @@ WebBangChien/anh/*
 !WebBangChien/anh/map.png
 !WebBangChien/anh/LangGia2.png
 !WebBangChien/anh/iconvukhi/
+!WebBangChien/anh/bg_lobby_beasts.png
+!WebBangChien/anh/bg_derby_racetrack_old.png
+!WebBangChien/anh/bg_derby_racetrack.png
 tools/dist/
 reports/
 

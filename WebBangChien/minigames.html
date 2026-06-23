@@ -2738,6 +2738,32 @@
 
     }
 
+    .derby-camera-layer {
+
+      position: absolute;
+
+      inset: -8% -6%;
+
+      z-index: 0;
+
+      display: none;
+
+      pointer-events: none;
+
+      background-position: center center;
+
+      background-size: cover;
+
+      background-repeat: no-repeat;
+
+      mix-blend-mode: screen;
+
+      transform-origin: 50% 58%;
+
+      will-change: transform, opacity;
+
+    }
+
     .webgl-canvas {
 
       width: 100%;
@@ -3396,11 +3422,14 @@
 
       inset: 0;
 
-      background: rgba(1, 6, 3, 0.96);
+      background:
+        radial-gradient(circle at 24% 12%, rgba(251, 191, 36, 0.14), transparent 32%),
+        radial-gradient(circle at 74% 8%, rgba(16, 185, 129, 0.18), transparent 36%),
+        rgba(1, 6, 3, 0.66);
 
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(2px);
 
-      -webkit-backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(2px);
 
       z-index: 5000;
 
@@ -3416,33 +3445,50 @@
 
 
 
+    .results-overlay.fireworks-visible {
+
+      background:
+        radial-gradient(circle at 22% 16%, rgba(251, 191, 36, 0.18), transparent 34%),
+        radial-gradient(circle at 78% 10%, rgba(45, 212, 191, 0.2), transparent 38%),
+        rgba(1, 6, 3, 0.52);
+
+    }
+
+
+
     .results-panel {
 
-      width: min(680px, 100%);
+      width: min(720px, 100%);
 
       max-height: 90vh;
 
-      background: linear-gradient(180deg, #0b1f10, #030c05);
+      background:
+        linear-gradient(180deg, rgba(11, 31, 16, 0.94), rgba(3, 12, 5, 0.97)),
+        rgba(3, 12, 5, 0.88);
 
-      border: 2px solid rgba(251, 191, 36, 0.55);
+      border: 2px solid rgba(251, 191, 36, 0.62);
 
-      box-shadow: 0 32px 80px rgba(0, 0, 0, 0.9), 0 0 42px rgba(251, 191, 36, 0.22);
+      box-shadow: 0 32px 80px rgba(0, 0, 0, 0.86), 0 0 48px rgba(251, 191, 36, 0.24);
 
       border-radius: 16px;
 
-      padding: 32px;
+      padding: 30px;
 
       display: flex;
 
       flex-direction: column;
 
-      gap: 24px;
+      gap: 18px;
 
       overflow-y: auto;
 
       position: relative;
 
       z-index: 5002;
+
+      backdrop-filter: blur(10px);
+
+      -webkit-backdrop-filter: blur(10px);
 
     }
 
@@ -3494,6 +3540,368 @@
 
 
 
+    .winner-celebration {
+
+      min-height: 88px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 16px;
+
+      padding: 12px 16px;
+
+      border-radius: 14px;
+
+      border: 1px solid rgba(251, 191, 36, 0.22);
+
+      background:
+        linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(16, 185, 129, 0.09)),
+        rgba(2, 18, 9, 0.62);
+
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 40px rgba(0, 0, 0, 0.22);
+
+      position: relative;
+
+      overflow: hidden;
+
+    }
+
+
+
+    .winner-celebration::before {
+
+      content: "";
+
+      position: absolute;
+
+      inset: -40% 10%;
+
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.18), transparent 58%);
+
+      opacity: 0.9;
+
+      pointer-events: none;
+
+    }
+
+
+
+    .winner-dog {
+
+      width: 72px;
+
+      height: 72px;
+
+      flex: 0 0 72px;
+
+      position: relative;
+
+      animation: winnerDogBob 1.25s ease-in-out infinite;
+
+      z-index: 1;
+
+    }
+
+
+
+    .winner-dog-face {
+
+      position: absolute;
+
+      left: 12px;
+
+      top: 18px;
+
+      width: 48px;
+
+      height: 42px;
+
+      border-radius: 44% 44% 50% 50%;
+
+      background: linear-gradient(180deg, #f8d487, #c47c24);
+
+      box-shadow: inset 0 -8px 0 rgba(77, 42, 12, 0.18), 0 8px 18px rgba(0, 0, 0, 0.3);
+
+      z-index: 2;
+
+    }
+
+
+
+    .winner-dog-ear {
+
+      position: absolute;
+
+      top: 20px;
+
+      width: 18px;
+
+      height: 30px;
+
+      border-radius: 80% 20% 70% 30%;
+
+      background: linear-gradient(180deg, #7c3f14, #422006);
+
+      z-index: 1;
+
+    }
+
+
+
+    .winner-dog-ear.left {
+
+      left: 5px;
+
+      transform: rotate(-28deg);
+
+    }
+
+
+
+    .winner-dog-ear.right {
+
+      right: 5px;
+
+      transform: scaleX(-1) rotate(-28deg);
+
+    }
+
+
+
+    .winner-dog-eye {
+
+      position: absolute;
+
+      top: 32px;
+
+      width: 6px;
+
+      height: 6px;
+
+      border-radius: 50%;
+
+      background: #101006;
+
+      z-index: 3;
+
+    }
+
+
+
+    .winner-dog-eye.left { left: 25px; }
+
+    .winner-dog-eye.right { right: 25px; }
+
+
+
+    .winner-dog-nose {
+
+      position: absolute;
+
+      left: 32px;
+
+      top: 42px;
+
+      width: 8px;
+
+      height: 7px;
+
+      border-radius: 50% 50% 60% 60%;
+
+      background: #1a1207;
+
+      z-index: 3;
+
+    }
+
+
+
+    .winner-dog-tail {
+
+      position: absolute;
+
+      right: -2px;
+
+      top: 43px;
+
+      width: 26px;
+
+      height: 9px;
+
+      border-radius: 999px;
+
+      border: 4px solid #c47c24;
+
+      border-left: 0;
+
+      transform-origin: 0 50%;
+
+      animation: winnerTailWag 0.34s ease-in-out infinite;
+
+      z-index: 0;
+
+    }
+
+
+
+    .winner-dog-crown {
+
+      position: absolute;
+
+      left: 24px;
+
+      top: -2px;
+
+      font-size: 22px;
+
+      filter: drop-shadow(0 4px 8px rgba(251, 191, 36, 0.45));
+
+      animation: winnerCrownPop 1s ease-in-out infinite;
+
+      z-index: 4;
+
+    }
+
+
+
+    .winner-dog-sparkle {
+
+      position: absolute;
+
+      right: 5px;
+
+      top: 6px;
+
+      color: #fef3c7;
+
+      font-size: 13px;
+
+      animation: winnerSparkle 0.9s ease-in-out infinite;
+
+      z-index: 5;
+
+    }
+
+
+
+    .winner-copy {
+
+      min-width: 0;
+
+      position: relative;
+
+      z-index: 1;
+
+    }
+
+
+
+    .winner-subtitle {
+
+      font-size: 11px;
+
+      font-weight: 900;
+
+      color: var(--emerald);
+
+      text-transform: uppercase;
+
+      letter-spacing: 0.4px;
+
+    }
+
+
+
+    .winner-name {
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 8px;
+
+      margin-top: 3px;
+
+      color: #fff2b4;
+
+      font-size: 20px;
+
+      font-weight: 900;
+
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.72);
+
+      min-width: 0;
+
+    }
+
+
+
+    .winner-name-text {
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
+
+    }
+
+
+
+    .winner-emoji {
+
+      flex: 0 0 auto;
+
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+
+    }
+
+
+
+    @keyframes winnerDogBob {
+
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+
+      50% { transform: translateY(-5px) rotate(2deg); }
+
+    }
+
+
+
+    @keyframes winnerTailWag {
+
+      0%, 100% { transform: rotate(-28deg); }
+
+      50% { transform: rotate(25deg); }
+
+    }
+
+
+
+    @keyframes winnerCrownPop {
+
+      0%, 100% { transform: translateY(0) scale(1); }
+
+      50% { transform: translateY(-3px) scale(1.08); }
+
+    }
+
+
+
+    @keyframes winnerSparkle {
+
+      0%, 100% { opacity: 0.35; transform: scale(0.8) rotate(0deg); }
+
+      50% { opacity: 1; transform: scale(1.2) rotate(18deg); }
+
+    }
+
+
+
     /* Bục vinh quang */
 
     .podium-container {
@@ -3504,11 +3912,13 @@
 
       justify-content: center;
 
-      gap: 12px;
+      gap: 10px;
 
-      height: 180px;
+      height: 192px;
 
-      margin: 16px 0 8px;
+      margin: 4px 0 8px;
+
+      overflow: hidden;
 
     }
 
@@ -3522,15 +3932,35 @@
 
       align-items: center;
 
-      width: 100px;
+      width: 92px;
+
+      min-width: 0;
 
       position: relative;
+
+      animation: podiumRise 0.55s ease both;
 
     }
 
 
 
-    .podium-column.first { width: 120px; z-index: 2; }
+    .podium-column.rank-1 {
+
+      width: 118px;
+
+      z-index: 5;
+
+    }
+
+
+
+    .podium-column.rank-2 { z-index: 4; }
+
+    .podium-column.rank-3 { z-index: 3; }
+
+    .podium-column.rank-4 { z-index: 2; }
+
+    .podium-column.rank-5 { z-index: 1; }
 
 
 
@@ -3538,7 +3968,9 @@
 
       width: 100%;
 
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+
+      border-radius: 8px 8px 0 0;
 
       display: flex;
 
@@ -3548,35 +3980,65 @@
 
       font-family: 'Inter', sans-serif;
 
-      font-size: 22px;
+      font-size: 24px;
 
       font-weight: 900;
 
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.48);
+
+      position: relative;
+
+      overflow: hidden;
 
     }
 
 
 
-    .podium-column.first .podium-box {
+    .podium-box::before {
 
-      height: 90px;
+      content: "";
 
-      background: linear-gradient(180deg, #fbbf24, #b45309);
+      position: absolute;
+
+      inset: 0;
+
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+
+      transform: translateX(-120%);
+
+      animation: podiumShine 2.8s ease-in-out infinite;
+
+    }
+
+
+
+    .podium-box span {
+
+      position: relative;
+
+      z-index: 1;
+
+    }
+
+
+
+    .podium-column.rank-1 .podium-box {
+
+      height: 96px;
+
+      background: linear-gradient(180deg, #fbbf24, #d97706 58%, #92400e);
 
       color: #381a04;
 
-      border-color: rgba(255, 255, 255, 0.25);
-
     }
 
 
 
-    .podium-column.second .podium-box {
+    .podium-column.rank-2 .podium-box {
 
-      height: 65px;
+      height: 76px;
 
-      background: linear-gradient(180deg, #cbd5e1, #475569);
+      background: linear-gradient(180deg, #e2e8f0, #94a3b8 58%, #475569);
 
       color: #0f172a;
 
@@ -3584,13 +4046,37 @@
 
 
 
-    .podium-column.third .podium-box {
+    .podium-column.rank-3 .podium-box {
 
-      height: 45px;
+      height: 60px;
 
-      background: linear-gradient(180deg, #d97706, #78350f);
+      background: linear-gradient(180deg, #f59e0b, #b45309 58%, #78350f);
 
-      color: #ffebeb;
+      color: #fff7ed;
+
+    }
+
+
+
+    .podium-column.rank-4 .podium-box {
+
+      height: 46px;
+
+      background: linear-gradient(180deg, #34d399, #047857);
+
+      color: #ecfdf5;
+
+    }
+
+
+
+    .podium-column.rank-5 .podium-box {
+
+      height: 36px;
+
+      background: linear-gradient(180deg, #38bdf8, #1d4ed8);
+
+      color: #eff6ff;
 
     }
 
@@ -3598,23 +4084,27 @@
 
     .podium-avatar-label {
 
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 4px;
+
       font-size: 12px;
 
       font-weight: 800;
 
       text-align: center;
 
-      margin-bottom: 8px;
+      margin-bottom: 7px;
 
       max-width: 100%;
 
-      white-space: nowrap;
+      color: #f8fafc;
 
-      overflow: hidden;
-
-      text-overflow: ellipsis;
-
-      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.85);
 
       position: relative;
 
@@ -3622,7 +4112,7 @@
 
 
 
-    .podium-column.first .podium-avatar-label {
+    .podium-column.rank-1 .podium-avatar-label {
 
       font-size: 14px;
 
@@ -3632,13 +4122,59 @@
 
 
 
+    .podium-name {
+
+      min-width: 0;
+
+      max-width: 100%;
+
+      white-space: nowrap;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+    }
+
+
+
+    .podium-racer-emoji {
+
+      flex: 0 0 auto;
+
+    }
+
+
+
     .podium-crown {
 
       font-size: 18px;
 
-      margin-bottom: -4px;
+      margin-bottom: -3px;
 
       display: block;
+
+      filter: drop-shadow(0 3px 7px rgba(251, 191, 36, 0.38));
+
+    }
+
+
+
+    @keyframes podiumRise {
+
+      from { opacity: 0; transform: translateY(18px) scale(0.96); }
+
+      to { opacity: 1; transform: translateY(0) scale(1); }
+
+    }
+
+
+
+    @keyframes podiumShine {
+
+      0%, 45% { transform: translateX(-120%); }
+
+      78%, 100% { transform: translateX(120%); }
 
     }
 
@@ -3743,6 +4279,204 @@
       z-index: 120;
 
       display: none;
+
+    }
+
+
+
+    .fireworks-canvas.celebration-active {
+
+      z-index: 5001;
+
+      opacity: 0.98;
+
+      mix-blend-mode: screen;
+
+    }
+
+
+
+    @media (max-width: 720px) {
+
+      .results-overlay {
+
+        padding: 10px;
+
+      }
+
+
+
+      .results-panel {
+
+        padding: 18px;
+
+        gap: 14px;
+
+        max-height: 94vh;
+
+      }
+
+
+
+      .results-title {
+
+        font-size: 23px;
+
+      }
+
+
+
+      .winner-celebration {
+
+        min-height: 74px;
+
+        gap: 10px;
+
+        padding: 9px 10px;
+
+      }
+
+
+
+      .winner-dog {
+
+        width: 60px;
+
+        height: 60px;
+
+        flex-basis: 60px;
+
+      }
+
+
+
+      .winner-dog-face {
+
+        left: 10px;
+
+        top: 16px;
+
+        width: 40px;
+
+        height: 36px;
+
+      }
+
+
+
+      .winner-dog-ear {
+
+        top: 18px;
+
+        width: 15px;
+
+        height: 25px;
+
+      }
+
+
+
+      .winner-dog-eye.left { left: 21px; }
+
+      .winner-dog-eye.right { right: 21px; }
+
+      .winner-dog-nose {
+
+        left: 26px;
+
+        top: 37px;
+
+      }
+
+
+
+      .winner-dog-crown {
+
+        left: 19px;
+
+        font-size: 19px;
+
+      }
+
+
+
+      .winner-name {
+
+        font-size: 16px;
+
+      }
+
+
+
+      .podium-container {
+
+        height: 158px;
+
+        gap: 5px;
+
+      }
+
+
+
+      .podium-column {
+
+        width: 58px;
+
+      }
+
+
+
+      .podium-column.rank-1 {
+
+        width: 72px;
+
+      }
+
+
+
+      .podium-column.rank-1 .podium-box { height: 82px; }
+
+      .podium-column.rank-2 .podium-box { height: 64px; }
+
+      .podium-column.rank-3 .podium-box { height: 50px; }
+
+      .podium-column.rank-4 .podium-box { height: 38px; }
+
+      .podium-column.rank-5 .podium-box { height: 32px; }
+
+
+
+      .podium-box {
+
+        font-size: 19px;
+
+      }
+
+
+
+      .podium-avatar-label {
+
+        font-size: 10px;
+
+        gap: 2px;
+
+      }
+
+
+
+      .podium-column.rank-1 .podium-avatar-label {
+
+        font-size: 11px;
+
+      }
+
+
+
+      .results-actions {
+
+        flex-wrap: wrap;
+
+      }
 
     }
 
@@ -4271,7 +5005,7 @@
 
           </div>
 
-          <input type="range" min="10" max="60" step="5" value="30" class="form-select" id="race-duration-select" oninput="document.getElementById('duration-val').textContent = this.value + ' giây'">
+          <input type="range" min="10" max="90" step="5" value="30" class="form-select" id="race-duration-select" oninput="document.getElementById('duration-val').textContent = this.value + ' giây'">
 
         </div>
 
@@ -4439,6 +5173,8 @@
 
       <div class="webgl-canvas-container" id="webgl-container">
 
+        <div class="derby-camera-layer" id="derby-camera-layer" aria-hidden="true"></div>
+
         <!-- Overlay màn hình giật chớp khi sét đánh -->
 
         <div class="screen-flash-overlay" id="flash-overlay"></div>
@@ -4539,43 +5275,15 @@
 
 
 
+      <!-- Thú thắng cuộc -->
+
+      <div class="winner-celebration" id="winner-celebration"></div>
+
+
+
       <!-- Bục vinh quang 3D -->
 
-      <div class="podium-container">
-
-        <!-- Top 2 -->
-
-        <div class="podium-column second" id="podium-2">
-
-          <div class="podium-avatar-label" id="podium-name-2">Trần Thị B</div>
-
-          <div class="podium-box">2</div>
-
-        </div>
-
-        <!-- Top 1 -->
-
-        <div class="podium-column first" id="podium-1">
-
-          <span class="podium-crown">👑</span>
-
-          <div class="podium-avatar-label" id="podium-name-1">Nguyễn Văn A</div>
-
-          <div class="podium-box">1</div>
-
-        </div>
-
-        <!-- Top 3 -->
-
-        <div class="podium-column third" id="podium-3">
-
-          <div class="podium-avatar-label" id="podium-name-3">Lê Văn C</div>
-
-          <div class="podium-box">3</div>
-
-        </div>
-
-      </div>
+      <div class="podium-container" id="podium-container"></div>
 
 
 
@@ -6170,8 +6878,8 @@
     const DERBY_SCENE_CONFIG = {
       version: 2,
       backgrounds: {
-        sky: "anh/bg_derby_sky.png",
-        racetrack: "anh/bg_derby_racetrack_old.png",
+        sky: "anh/bg_derby_racetrack_old.png",
+        racetrack: "anh/bg_derby_sky.png",
         skyOpacity: 1,
         skyBrightness: 1.2,
         skySaturation: 1.01,
@@ -6179,30 +6887,26 @@
         skyPositionY: 75,
         skySizeX: 110,
         skySizeY: 134,
-        skyFitMode: "width",
-        skyScale: 110,
-        skyAspect: 0.82,
         glowOpacity: 0.76,
         vignetteOpacity: 0.75,
         racetrackOpacity: 0.45,
         racetrackTint: "#ffffff",
         racetrackBrightness: 0.53,
-        racetrackRepeatX: 1.81,
+        racetrackRepeatX: 3.42,
         racetrackRepeatY: 0.5,
         racetrackOffsetX: 0.38,
         racetrackOffsetY: 0,
         racetrackBlending: "additive",
-        racetrackDepthTest: true
+        racetrackDepthTest: true,
+        racetrackMode: "cameraLayer"
       },
       horizon: {
         enabled: true,
-        x: -87,
+        x: -81,
         y: 52,
         z: -82,
         width: 1200,
         height: 185,
-        lockAspect: true,
-        aspect: 6.49,
         scale: 0.6,
         rotationX: 0,
         rotationY: 0,
@@ -6210,15 +6914,15 @@
         renderOrder: -18
       },
       camera: {
-        fov: 50,
+        fov: 53,
         minY: 5.7,
-        yWidthFactor: 0.28,
+        yWidthFactor: 0.1,
         yRacerFactor: 0.28,
         zOffsetBase: 25,
         zWidthFactor: 1.03,
-        lookY: 6,
+        lookY: 6.6,
         lookZOffset: -3.5,
-        smooth: 0.08
+        smooth: 0.13
       },
       stars: {
         enabled: true,
@@ -6304,6 +7008,14 @@
       return DERBY_SCENE_CONFIG.backgrounds || {};
     }
 
+    function normalizeDerbyMode(value) {
+      return String(value || "").replace(/[-_\s]/g, "").toLowerCase();
+    }
+
+    function isDerbyCameraLayerMode(bg = getDerbyBackgroundConfig()) {
+      return normalizeDerbyMode(bg.racetrackMode) === "cameralayer";
+    }
+
     function applyDerbySceneStyles() {
       const container = document.getElementById("webgl-container");
       if (!container) return;
@@ -6323,10 +7035,12 @@
       container.style.setProperty("--derby-glow-opacity", String(derbyNumber(bg.glowOpacity, 0.82)));
       container.style.setProperty("--derby-vignette-opacity", String(derbyNumber(bg.vignetteOpacity, 0.76)));
       container.style.filter = `brightness(${derbyNumber(bg.skyBrightness, 1)}) saturate(${derbyNumber(bg.skySaturation, 1)})`;
+      updateDerbyCameraLayer(derbyCameraFocusZ ?? trackLength);
     }
 
     function getDerbySkyBackgroundSize(container, bg) {
-      const mode = bg.skyFitMode || "cover";
+      const legacyStretch = bg.skySizeX != null || bg.skySizeY != null;
+      const mode = bg.skyFitMode || (legacyStretch ? "stretch" : "cover");
       if (mode === "stretch") {
         const skySizeX = Math.max(10, derbyNumber(bg.skySizeX, 100));
         const skySizeY = Math.max(10, derbyNumber(bg.skySizeY, 100));
@@ -6362,6 +7076,76 @@
         }
       }
       return `${Math.round(targetW)}px ${Math.round(targetH)}px`;
+    }
+
+    function getDerbyRaceProgressFromFocusZ(focusZ) {
+      const runDistance = Math.max(1, trackLength - 10);
+      return Math.max(0, Math.min(1, (trackLength - derbyNumber(focusZ, trackLength)) / runDistance));
+    }
+
+    function getDerbyCameraZOffset() {
+      const cameraCfg = getDerbyCameraConfig();
+      return Math.max(
+        derbyNumber(cameraCfg.zOffsetBase, 24),
+        derbyTrackWidth * derbyNumber(cameraCfg.zWidthFactor, 0.9)
+      );
+    }
+
+    function getDerbyRoadBounds() {
+      const cameraOffset = getDerbyCameraZOffset();
+      return {
+        roadMinZ: 10 - 160,
+        roadMaxZ: trackLength + Math.max(320, cameraOffset * 2.25, derbyTrackWidth * 6)
+      };
+    }
+
+    function ensureDerbyCameraLayer() {
+      if (derbyCameraLayer && derbyCameraLayer.isConnected) return derbyCameraLayer;
+      derbyCameraLayer = document.getElementById("derby-camera-layer");
+      const container = document.getElementById("webgl-container");
+      if (!derbyCameraLayer && container) {
+        derbyCameraLayer = document.createElement("div");
+        derbyCameraLayer.id = "derby-camera-layer";
+        derbyCameraLayer.className = "derby-camera-layer";
+        derbyCameraLayer.setAttribute("aria-hidden", "true");
+        container.insertBefore(derbyCameraLayer, container.firstChild);
+      }
+      return derbyCameraLayer;
+    }
+
+    function updateDerbyCameraLayer(focusZ = trackLength) {
+      const bg = getDerbyBackgroundConfig();
+      const layer = ensureDerbyCameraLayer();
+      if (!layer) return;
+
+      if (!isDerbyCameraLayerMode(bg) || !bg.racetrack) {
+        layer.style.display = "none";
+        return;
+      }
+
+      const progress = getDerbyRaceProgressFromFocusZ(focusZ);
+      const lateProgress = Math.max(0, Math.min(1, (progress - 0.72) / 0.28));
+      const scale = 1 + lateProgress * 0.045;
+      const translateY = -lateProgress * 2.4;
+      const translateX = (derbyNumber(bg.racetrackOffsetX, 0) - 0.5) * 2;
+      const blendMode = bg.racetrackBlending === "normal" ? "normal" : "screen";
+
+      layer.style.display = "block";
+      layer.style.backgroundImage = `url("${bg.racetrack}")`;
+      layer.style.backgroundSize = "cover";
+      layer.style.backgroundPosition = "center center";
+      layer.style.opacity = String(Math.max(0, Math.min(1, derbyNumber(bg.racetrackOpacity, 0.66))));
+      layer.style.mixBlendMode = blendMode;
+      layer.style.filter = `brightness(${derbyNumber(bg.racetrackBrightness, 1)})`;
+      layer.style.transform = `translate3d(${translateX}%, ${translateY}%, 0) scale(${scale})`;
+    }
+
+    function resetDerbyCameraLayer() {
+      const layer = ensureDerbyCameraLayer();
+      if (!layer) return;
+      layer.style.display = "none";
+      layer.style.transform = "";
+      layer.style.backgroundImage = "";
     }
 
     function applyDerbyTransform(object, transform = {}) {
@@ -7405,6 +8189,40 @@
 
     }
 
+
+
+    function getDerbyPrizeThreshold(racers) {
+
+      const total = Array.isArray(racers) ? racers.length : 0;
+
+      if (total <= 0) return 0;
+
+      return Math.min(getSelectedPrizeCount(), total);
+
+    }
+
+
+
+    function hasDerbyFilledPrizeRanks(racers) {
+
+      const threshold = getDerbyPrizeThreshold(racers);
+
+      if (threshold <= 0) return true;
+
+      return racers.filter(racer => racer && racer.finished).length >= threshold;
+
+    }
+
+
+
+    function getDerbyLightningTargets(racers) {
+
+      if (!Array.isArray(racers) || hasDerbyFilledPrizeRanks(racers)) return [];
+
+      return racers.filter(racer => racer && !racer.finished);
+
+    }
+
     
 
     function startFallback2DGame(names) {
@@ -7653,21 +8471,20 @@
 
       // Sự kiện ngẫu nhiên (chớp sấm sét)
 
-      if (Math.random() < 0.005) {
+      const lightningTargets = getDerbyLightningTargets(fallbackRacers);
+
+      if (lightningTargets.length > 0 && Math.random() < 0.005) {
 
         triggerDerbyFlashEffect();
 
         playLightningSound();
 
-        const struckIdx = Math.floor(Math.random() * numRacers);
+        const struckRacer = lightningTargets[Math.floor(Math.random() * lightningTargets.length)];
 
-        if (!fallbackRacers[struckIdx].finished) {
+        applyLightningPenalty(struckRacer);
 
-          applyLightningPenalty(fallbackRacers[struckIdx]);
+        updateCommentaryText(`⚡ Thiên Lôi giáng sét làm chậm tốc chiến của [${struckRacer.name}]!`);
 
-          updateCommentaryText(`⚡ Thiên Lôi giáng sét làm chậm tốc chiến của [${fallbackRacers[struckIdx].name}]!`);
-
-        }
 
       }
 
@@ -7885,6 +8702,7 @@
 
     let derbyTrackWidth = getDerbyTrackWidth(1);
     let derbyCameraFocusZ = null;
+    let derbyCameraLayer = null;
     const DERBY_LABEL_DISTANCE_BASE = 24;
     const DERBY_LABEL_DISTANCE_RANGE = 36;
     const DERBY_LABEL_MAX_FAR_SCALE = 2.35;
@@ -7927,6 +8745,7 @@
       threeCamera.position.z += (targetCamZ - threeCamera.position.z) * lerp;
 
       threeCamera.lookAt(targetCamX, derbyNumber(cameraCfg.lookY, DERBY_CAMERA_LOOK_Y), targetLookZ);
+      updateDerbyCameraLayer(focusZ);
 
     }
 
@@ -8269,6 +9088,10 @@
       const bg = getDerbyBackgroundConfig();
       const horizon = DERBY_SCENE_CONFIG.horizon || {};
       if (horizon.enabled === false || !bg.racetrack) return;
+      if (isDerbyCameraLayerMode(bg)) {
+        updateDerbyCameraLayer(derbyCameraFocusZ ?? trackLength);
+        return;
+      }
 
       const centerX = roadW / 2 - 1 + derbyNumber(horizon.x, 0);
       const horizonZ = derbyNumber(horizon.z, -82);
@@ -8403,15 +9226,17 @@
         });
       });
 
-      for (let z = 18; z <= trackLength + 8; z += 12) {
+      const dashStartZ = Math.ceil((roadMinZ + 4) / 12) * 12;
+      for (let z = dashStartZ, dashIndex = 0; z <= roadMaxZ - 4; z += 12, dashIndex += 1) {
         const dash = new THREE.Mesh(sharedGeometries.trackDash, dashMat.clone());
         dash.scale.set(roadW * 0.86, 1, 1);
         dash.position.set(centerX, 0.025, z);
         threeScene.add(dash);
         derbyTrackDecorations.push({ type: "dash", mesh: dash, baseOpacity: 0.22, phase: z * 0.17 });
 
-        if (z % 36 === 18) {
-          const lane = Math.floor((z / 12) % Math.max(numLanes, 1));
+        if (dashIndex % 3 === 0) {
+          const laneCount = Math.max(numLanes, 1);
+          const lane = dashIndex % laneCount;
           const pad = new THREE.Mesh(sharedGeometries.speedPad, padMats[lane % padMats.length].clone());
           pad.scale.set(Math.max(0.85, laneSpacing * 0.72), 1, 1.15);
           pad.position.set(lane * laneSpacing + laneSpacing / 2, 0.035, z + 3.2);
@@ -8420,7 +9245,8 @@
         }
       }
 
-      for (let z = 20; z <= trackLength + 12; z += 22) {
+      const pylonStartZ = Math.ceil((roadMinZ + 8) / 22) * 22;
+      for (let z = pylonStartZ; z <= roadMaxZ - 8; z += 22) {
         [-1, 1].forEach((side) => {
           const pylon = new THREE.Mesh(sharedGeometries.trackPylon, pylonMat);
           pylon.position.set(side < 0 ? -1.22 : roadW - 0.78, 0.23, z);
@@ -8429,12 +9255,12 @@
         });
       }
 
-      const droneCount = Math.min(8, Math.max(4, Math.ceil(trackLength / 48)));
+      const droneCount = Math.min(8, Math.max(4, Math.ceil(roadLength / 80)));
       const droneColors = ["#34d399", "#fbbf24", "#38bdf8"];
       for (let i = 0; i < droneCount; i += 1) {
         const drone = createDerbyHoverDisc(droneColors[i % droneColors.length], 0.72);
         const side = i % 2 === 0 ? -1 : 1;
-        const z = 18 + i * ((trackLength - 16) / Math.max(1, droneCount - 1));
+        const z = roadMinZ + 18 + i * ((roadLength - 36) / Math.max(1, droneCount - 1));
         drone.position.set(centerX + side * Math.min(roadW * 0.42, 9), 2.2 + (i % 3) * 0.28, z);
         threeScene.add(drone);
         derbyTrackDecorations.push({
@@ -9132,8 +9958,7 @@
 
       const laneSpacing = getDerbyLaneSpacing(numLanes);
 
-      const roadMinZ = 8;
-      const roadMaxZ = trackLength + 12;
+      const { roadMinZ, roadMaxZ } = getDerbyRoadBounds();
       const roadLength = roadMaxZ - roadMinZ;
       const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
 
@@ -9754,27 +10579,26 @@
 
       // Xử lý sét đánh ngẫu nhiên
 
-      if (Math.random() < 0.005) {
+      const lightningTargets = getDerbyLightningTargets(threeRacers);
+
+      if (lightningTargets.length > 0 && Math.random() < 0.005) {
 
         triggerDerbyFlashEffect();
 
         playLightningSound();
 
-        const struckIdx = Math.floor(Math.random() * threeRacers.length);
+        const struckRacer = lightningTargets[Math.floor(Math.random() * lightningTargets.length)];
 
-        if (!threeRacers[struckIdx].finished) {
+        applyLightningPenalty(struckRacer);
 
-          applyLightningPenalty(threeRacers[struckIdx]);
-
-          updateCommentaryText(`⚡ Bão sét đột kích! Giật điện làm tê liệt [${threeRacers[struckIdx].name}]!`);
+        updateCommentaryText(`⚡ Bão sét đột kích! Giật điện làm tê liệt [${struckRacer.name}]!`);
 
           
 
-          // Thêm hiệu ứng sét đánh đồ họa (jagged line)
+        // Thêm hiệu ứng sét đánh đồ họa (jagged line)
 
-          createVisualLightningBolt(threeRacers[struckIdx].group.position);
+        createVisualLightningBolt(struckRacer.group.position);
 
-        }
 
       }
 
@@ -10300,6 +11124,7 @@
       // Clear shared geometry and material caches
       derbyTrackDecorations = [];
       derbySpaceDecorations = [];
+      resetDerbyCameraLayer();
 
       for (let key in sharedGeometries) {
 
@@ -12289,9 +13114,197 @@
 
 
 
+    function escapeHtml(value) {
+
+      const htmlMap = {
+
+        "&": "&amp;",
+
+        "<": "&lt;",
+
+        ">": "&gt;",
+
+        '"': "&quot;",
+
+        "'": "&#39;"
+
+      };
+
+      return String(value ?? "").replace(/[&<>"']/g, char => htmlMap[char]);
+
+    }
+
+
+
+    function getSelectedPrizeCount() {
+
+      const select = document.getElementById("prize-count-select");
+
+      const value = parseInt(select?.value || "3", 10);
+
+      return Math.max(1, Math.min(5, Number.isFinite(value) ? value : 3));
+
+    }
+
+
+
+    function getResultMedal(rank) {
+
+      if (rank === 1) return "🥇";
+
+      if (rank === 2) return "🥈";
+
+      if (rank === 3) return "🥉";
+
+      return "🎁";
+
+    }
+
+
+
+    function getPodiumVisualOrder(count) {
+
+      const podiumOrders = {
+
+        1: [1],
+
+        2: [2, 1],
+
+        3: [2, 1, 3],
+
+        4: [4, 2, 1, 3],
+
+        5: [4, 2, 1, 3, 5]
+
+      };
+
+      return podiumOrders[count] || podiumOrders[5];
+
+    }
+
+
+
+    function renderWinnerCelebration(winner) {
+
+      const container = document.getElementById("winner-celebration");
+
+      if (!container) return;
+
+      if (!winner) {
+
+        container.innerHTML = "";
+
+        return;
+
+      }
+
+      const winnerName = escapeHtml(winner.name || "Thần thú vô danh");
+
+      const winnerEmoji = escapeHtml(winner.emoji || "🐶");
+
+      container.innerHTML = `
+
+        <div class="winner-dog" aria-hidden="true">
+
+          <span class="winner-dog-crown">👑</span>
+
+          <span class="winner-dog-sparkle">✦</span>
+
+          <span class="winner-dog-tail"></span>
+
+          <span class="winner-dog-ear left"></span>
+
+          <span class="winner-dog-ear right"></span>
+
+          <span class="winner-dog-face"></span>
+
+          <span class="winner-dog-eye left"></span>
+
+          <span class="winner-dog-eye right"></span>
+
+          <span class="winner-dog-nose"></span>
+
+        </div>
+
+        <div class="winner-copy">
+
+          <div class="winner-subtitle">Quán quân đại chiến</div>
+
+          <div class="winner-name">
+
+            <span class="winner-emoji">${winnerEmoji}</span>
+
+            <span class="winner-name-text">${winnerName}</span>
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+
+    function renderDynamicPodium(sortedRacers, prizeCount) {
+
+      const container = document.getElementById("podium-container");
+
+      if (!container) return;
+
+      const count = Math.min(prizeCount, 5, sortedRacers.length);
+
+      if (count <= 0) {
+
+        container.innerHTML = "";
+
+        return;
+
+      }
+
+      container.innerHTML = getPodiumVisualOrder(count).map((rank, index) => {
+
+        const racer = sortedRacers[rank - 1];
+
+        if (!racer) return "";
+
+        const safeName = escapeHtml(racer.name || `Hạng ${rank}`);
+
+        const safeEmoji = escapeHtml(racer.emoji || "🐶");
+
+        const crown = rank === 1 ? `<span class="podium-crown">👑</span>` : "";
+
+        return `
+
+          <div class="podium-column rank-${rank}" data-rank="${rank}" style="animation-delay: ${index * 0.06}s">
+
+            <div class="podium-avatar-label">
+
+              <span class="podium-racer-emoji">${safeEmoji}</span>
+
+              <span class="podium-name">${safeName}</span>
+
+            </div>
+
+            ${crown}
+
+            <div class="podium-box"><span>${rank}</span></div>
+
+          </div>
+
+        `;
+
+      }).join("");
+
+    }
+
+
+
     function displayVictoryResults(sortedRacers) {
 
-      currentWinnersList = sortedRacers;
+      const racers = Array.isArray(sortedRacers) ? sortedRacers : [];
+
+      currentWinnersList = racers;
 
       threeIsRunning = false;
 
@@ -12319,39 +13332,13 @@
 
       
 
-      // Bục vinh quang (Top 1, 2, 3)
+      const prizeCount = getSelectedPrizeCount();
 
-      document.getElementById("podium-name-1").innerHTML = `<span class="podium-crown">👑</span> ${sortedRacers[0].emoji} ${sortedRacers[0].name}`;
+      renderWinnerCelebration(racers[0]);
 
-      
+      renderDynamicPodium(racers, prizeCount);
 
-      if (sortedRacers[1]) {
 
-        document.getElementById("podium-2").style.display = "flex";
-
-        document.getElementById("podium-name-2").textContent = `${sortedRacers[1].emoji} ${sortedRacers[1].name}`;
-
-      } else {
-
-        document.getElementById("podium-2").style.display = "none";
-
-      }
-
-      
-
-      if (sortedRacers[2]) {
-
-        document.getElementById("podium-3").style.display = "flex";
-
-        document.getElementById("podium-name-3").textContent = `${sortedRacers[2].emoji} ${sortedRacers[2].name}`;
-
-      } else {
-
-        document.getElementById("podium-3").style.display = "none";
-
-      }
-
-      
 
       // Sinh danh sách các giải thưởng
 
@@ -12361,13 +13348,9 @@
 
       
 
-      const prizeCount = parseInt(document.getElementById("prize-count-select").value);
-
-      
-
       for (let i = 1; i <= prizeCount; i++) {
 
-        const racer = sortedRacers[i - 1];
+        const racer = racers[i - 1];
 
         if (!racer) break;
 
@@ -12375,13 +13358,7 @@
 
         const prizeText = document.getElementById(`prize-input-${i}`).value || `Giải ${i}`;
 
-        let medal = "🎁";
-
-        if (i === 1) medal = "🥇";
-
-        else if (i === 2) medal = "🥈";
-
-        else if (i === 3) medal = "🥉";
+        const medal = getResultMedal(i);
 
         
 
@@ -12391,9 +13368,9 @@
 
         row.innerHTML = `
 
-          <span>${medal} <strong>Hạng ${i}</strong>: <span class="name">${racer.name}</span></span>
+          <span>${medal} <strong>Hạng ${i}</strong>: <span class="name">${escapeHtml(racer.name)}</span></span>
 
-          <span class="prize-text">${prizeText}</span>
+          <span class="prize-text">${escapeHtml(prizeText)}</span>
 
         `;
 
@@ -12427,7 +13404,7 @@
 
       
 
-      const prizeCount = parseInt(document.getElementById("prize-count-select").value);
+      const prizeCount = getSelectedPrizeCount();
 
       let text = `🏆 *** KẾT QUẢ ĐUA THẦN THÚ - SỰ KIỆN QUAY SỐ BAN HỘI *** 🏆\n\n`;
 
@@ -12443,13 +13420,7 @@
 
         const prizeText = document.getElementById(`prize-input-${i}`).value || `Giải ${i}`;
 
-        let medal = "🎁";
-
-        if (i === 1) medal = "🥇";
-
-        else if (i === 2) medal = "🥈";
-
-        else if (i === 3) medal = "🥉";
+        const medal = getResultMedal(i);
 
         
 
@@ -12589,6 +13560,8 @@
 
       fwCanvas = document.getElementById("fireworks-canvas");
 
+      if (!fwCanvas) return;
+
       fwCtx = fwCanvas.getContext("2d");
 
       fwCanvas.width = window.innerWidth;
@@ -12596,6 +13569,10 @@
       fwCanvas.height = window.innerHeight;
 
       fwCanvas.style.display = "block";
+
+      fwCanvas.classList.add("celebration-active");
+
+      document.getElementById("results-overlay")?.classList.add("fireworks-visible");
 
       
 
@@ -12617,6 +13594,8 @@
 
       fwIsRunning = false;
 
+      document.getElementById("results-overlay")?.classList.remove("fireworks-visible");
+
       window.removeEventListener('resize', resizeFireworksCanvas);
 
       if (fwLoopId) {
@@ -12632,6 +13611,8 @@
         fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
 
         fwCanvas.style.display = "none";
+
+        fwCanvas.classList.remove("celebration-active");
 
       }
 
@@ -12655,7 +13636,9 @@
 
       
 
-      fwCtx.fillStyle = 'rgba(3, 12, 5, 0.2)';
+      const celebrationMode = document.getElementById("results-overlay")?.classList.contains("fireworks-visible");
+
+      fwCtx.fillStyle = celebrationMode ? 'rgba(1, 6, 3, 0.09)' : 'rgba(3, 12, 5, 0.2)';
 
       fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
 
@@ -12663,15 +13646,15 @@
 
       // Bắn pháo hoa mới ngẫu nhiên
 
-      if (Math.random() < 0.05) {
+      if (Math.random() < (celebrationMode ? 0.09 : 0.05)) {
 
         const startX = fwCanvas.width * (0.15 + Math.random() * 0.7);
 
         const startY = fwCanvas.height;
 
-        const targetY = fwCanvas.height * (0.15 + Math.random() * 0.45);
+        const targetY = fwCanvas.height * (celebrationMode ? (0.12 + Math.random() * 0.5) : (0.15 + Math.random() * 0.45));
 
-        const color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+        const color = `hsl(${Math.random() * 360}, 100%, ${celebrationMode ? 68 : 60}%)`;
 
         
 
@@ -12689,7 +13672,7 @@
 
           exploded: false,
 
-          speed: 8 + Math.random() * 4,
+          speed: (celebrationMode ? 9 : 8) + Math.random() * (celebrationMode ? 5 : 4),
 
           life: 0
 
@@ -12717,7 +13700,7 @@
 
           fwCtx.beginPath();
 
-          fwCtx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          fwCtx.arc(p.x, p.y, celebrationMode ? 3.6 : 3, 0, Math.PI * 2);
 
           fwCtx.fill();
 
@@ -12729,7 +13712,7 @@
 
             // Tạo vụ nổ hạt
 
-            const numSparks = 60 + Math.floor(Math.random() * 40);
+            const numSparks = (celebrationMode ? 90 : 60) + Math.floor(Math.random() * (celebrationMode ? 55 : 40));
 
             p.sparks = [];
 
@@ -12737,7 +13720,7 @@
 
               const angle = Math.random() * Math.PI * 2;
 
-              const speed = 1 + Math.random() * 5;
+              const speed = (celebrationMode ? 1.4 : 1) + Math.random() * (celebrationMode ? 6.2 : 5);
 
               p.sparks.push({
 
@@ -12751,7 +13734,7 @@
 
                 alpha: 1,
 
-                decay: 0.015 + Math.random() * 0.015
+                decay: (celebrationMode ? 0.01 : 0.015) + Math.random() * 0.015
 
               });
 
@@ -12791,7 +13774,7 @@
 
               fwCtx.beginPath();
 
-              fwCtx.arc(s.x, s.y, 2, 0, Math.PI * 2);
+              fwCtx.arc(s.x, s.y, celebrationMode ? 2.45 : 2, 0, Math.PI * 2);
 
               fwCtx.fill();
 

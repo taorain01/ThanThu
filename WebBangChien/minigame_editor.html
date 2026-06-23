@@ -150,6 +150,20 @@
       opacity: var(--vignette-opacity, 0.76);
     }
 
+    .preview-camera-layer {
+      position: absolute;
+      inset: -8% -6%;
+      z-index: 1;
+      display: none;
+      pointer-events: none;
+      background-position: center center;
+      background-size: cover;
+      background-repeat: no-repeat;
+      mix-blend-mode: screen;
+      transform-origin: 50% 58%;
+      will-change: transform, opacity;
+    }
+
     #previewCanvas {
       position: absolute;
       inset: 0;
@@ -549,7 +563,17 @@
                 <option value="additive">Additive</option>
               </select>
             </div>
-            <label class="check-row"><input id="racetrackDepthTest" type="checkbox"> Track depth test</label>
+            <div class="row">
+              <label>Track mode</label>
+              <select id="racetrackMode">
+                <option value="cameraLayer">Camera layer</option>
+                <option value="worldPlane">World plane</option>
+              </select>
+            </div>
+          </div>
+          <div class="check-row">
+            <input id="racetrackDepthTest" type="checkbox">
+            <span>Track depth test</span>
           </div>
           <div class="check-row">
             <input id="horizonEnabled" type="checkbox">
@@ -584,6 +608,10 @@
       <details class="section" open>
         <summary>Camera</summary>
         <div class="section-body">
+          <div class="row two">
+            <div class="row"><label>Preview duration <span class="value" id="valPreviewDuration"></span></label><input id="previewDuration" type="range" min="5" max="90" step="1"></div>
+            <div class="row"><label>Preview racers <span class="value" id="valPreviewRacers"></span></label><input id="previewRacers" type="range" min="1" max="40" step="1"></div>
+          </div>
           <div class="row two">
             <div class="row"><label>FOV <span class="value" id="valFov"></span></label><input id="camFov" type="range" min="28" max="82" step="1"></div>
             <div class="row"><label>Min Y <span class="value" id="valMinY"></span></label><input id="camMinY" type="range" min="2" max="24" step="0.1"></div>
@@ -667,6 +695,7 @@
 
     <main class="stage-wrap">
       <div class="stage" id="previewStage">
+        <div class="preview-camera-layer" id="previewCameraLayer" aria-hidden="true"></div>
         <canvas id="previewCanvas"></canvas>
       </div>
       <div class="stage-hud">
@@ -775,30 +804,35 @@
   <script>
     const DEFAULT_CONFIG = {
       version: 2,
+      preview: {
+        duration: 20,
+        racers: 5
+      },
       backgrounds: {
-        sky: "anh/bg_derby_sky.png",
-        racetrack: "anh/bg_derby_racetrack_old.png",
+        sky: "anh/bg_derby_racetrack_old.png",
+        racetrack: "anh/bg_derby_sky.png",
         skyOpacity: 1,
-        skyBrightness: 1,
-        skySaturation: 1,
+        skyBrightness: 1.2,
+        skySaturation: 1.01,
         skyPositionX: 50,
-        skyPositionY: 50,
-        skySizeX: 100,
-        skySizeY: 100,
-        skyFitMode: "cover",
-        skyScale: 100,
+        skyPositionY: 75,
+        skySizeX: 110,
+        skySizeY: 134,
+        skyFitMode: "stretch",
+        skyScale: 110,
         skyAspect: 1,
-        glowOpacity: 0.82,
-        vignetteOpacity: 0.76,
-        racetrackOpacity: 0.66,
+        glowOpacity: 0.76,
+        vignetteOpacity: 0.75,
+        racetrackOpacity: 0.45,
         racetrackTint: "#ffffff",
-        racetrackBrightness: 1,
-        racetrackRepeatX: 1,
-        racetrackRepeatY: 1,
-        racetrackOffsetX: 0,
+        racetrackBrightness: 0.53,
+        racetrackRepeatX: 3.42,
+        racetrackRepeatY: 0.5,
+        racetrackOffsetX: 0.38,
         racetrackOffsetY: 0,
-        racetrackBlending: "normal",
-        racetrackDepthTest: false
+        racetrackBlending: "additive",
+        racetrackDepthTest: true,
+        racetrackMode: "cameraLayer"
       },
       horizon: {
         enabled: true,
@@ -875,9 +909,9 @@
     let activeTarget = { kind: "horizon", index: 0 };
     let dragTargets = { horizon: null, planets: [], objects: [] };
     let rebuildTimer = 0;
-    const trackLength = 120;
-    const roadW = 8;
-    const centerX = roadW / 2 - 1;
+    let trackLength = 120;
+    let roadW = 8;
+    let centerX = roadW / 2 - 1;
 
     const $ = (id) => document.getElementById(id);
     const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -885,6 +919,14 @@
     const deg = (value) => num(value, 0) * Math.PI / 180;
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
     const roundDrag = (value) => Math.round(value * 100) / 100;
+
+    function normalizeMode(value) {
+      return String(value || "").replace(/[-_\s]/g, "").toLowerCase();
+    }
+
+    function isCameraLayerMode(bg = config.backgrounds || {}) {
+      return normalizeMode(bg.racetrackMode) === "cameralayer";
+    }
 
     function setStatus(text) {
       $("statusLine").textContent = text;
@@ -997,6 +1039,41 @@
       }
     }
 
+    function getPreviewLaneSpacing(numRacers) {
+      return Math.max(0.8, Math.min(1.5, 46 / Math.max(numRacers, 1)));
+    }
+
+    function getPreviewTrackWidth(numRacers) {
+      return numRacers * getPreviewLaneSpacing(numRacers) + 2;
+    }
+
+    function updatePreviewMetrics() {
+      const preview = config.preview || {};
+      const duration = Math.max(5, num(preview.duration, 20));
+      const racers = Math.max(1, Math.round(num(preview.racers, 5)));
+      trackLength = duration * 10;
+      roadW = getPreviewTrackWidth(racers);
+      centerX = roadW / 2 - 1;
+    }
+
+    function getPreviewCameraZOffset() {
+      const c = config.camera || {};
+      return Math.max(num(c.zOffsetBase, 24), roadW * num(c.zWidthFactor, 0.9));
+    }
+
+    function getPreviewRoadBounds() {
+      const cameraOffset = getPreviewCameraZOffset();
+      return {
+        roadMinZ: 10 - 160,
+        roadMaxZ: trackLength + Math.max(320, cameraOffset * 2.25, roadW * 6)
+      };
+    }
+
+    function getPreviewRaceProgressFromFocusZ(focusZ) {
+      const runDistance = Math.max(1, trackLength - 10);
+      return clamp((trackLength - num(focusZ, trackLength)) / runDistance, 0, 1);
+    }
+
     function formatValue(value) {
       const n = Number(value);
       if (!Number.isFinite(n)) return value;
@@ -1006,6 +1083,8 @@
     }
 
     function initBindings() {
+      bindRange("previewDuration", "preview.duration", "valPreviewDuration", "s");
+      bindRange("previewRacers", "preview.racers", "valPreviewRacers");
       bindText("bgSky", "backgrounds.sky");
       bindText("bgRacetrack", "backgrounds.racetrack");
       bindRange("skyOpacity", "backgrounds.skyOpacity", "valSkyOpacity");
@@ -1028,6 +1107,7 @@
       bindRange("racetrackOffsetX", "backgrounds.racetrackOffsetX", "valTrackOffsetX");
       bindRange("racetrackOffsetY", "backgrounds.racetrackOffsetY", "valTrackOffsetY");
       bindSelect("racetrackBlending", "backgrounds.racetrackBlending");
+      bindSelect("racetrackMode", "backgrounds.racetrackMode");
       bindCheck("racetrackDepthTest", "backgrounds.racetrackDepthTest");
       bindCheck("horizonEnabled", "horizon.enabled");
       bindRange("horizonX", "horizon.x", "valHorizonX");
@@ -1378,6 +1458,7 @@
 
     function rebuildScene() {
       if (!scene) return;
+      updatePreviewMetrics();
       clearSceneObjects();
       applyStageBackground();
       updateCamera();
@@ -1409,6 +1490,7 @@
       $("previewStage").style.filter = `brightness(${bg.skyBrightness}) saturate(${bg.skySaturation})`;
       $("previewStage").style.setProperty("--glow-opacity", bg.glowOpacity);
       $("previewStage").style.setProperty("--vignette-opacity", bg.vignetteOpacity);
+      updatePreviewCameraLayer(trackLength);
     }
 
     function getSkyBackgroundSize(element, bg) {
@@ -1450,6 +1532,33 @@
       return `${Math.round(targetW)}px ${Math.round(targetH)}px`;
     }
 
+    function updatePreviewCameraLayer(focusZ = trackLength) {
+      const layer = $("previewCameraLayer");
+      const bg = config.backgrounds || {};
+      if (!layer) return;
+
+      if (!isCameraLayerMode(bg) || !bg.racetrack) {
+        layer.style.display = "none";
+        return;
+      }
+
+      const progress = getPreviewRaceProgressFromFocusZ(focusZ);
+      const lateProgress = clamp((progress - 0.72) / 0.28, 0, 1);
+      const scale = 1 + lateProgress * 0.045;
+      const translateY = -lateProgress * 2.4;
+      const translateX = (num(bg.racetrackOffsetX, 0) - 0.5) * 2;
+      const blendMode = bg.racetrackBlending === "normal" ? "normal" : "screen";
+
+      layer.style.display = "block";
+      layer.style.backgroundImage = `url("${bg.racetrack}")`;
+      layer.style.backgroundSize = "cover";
+      layer.style.backgroundPosition = "center center";
+      layer.style.opacity = String(clamp(num(bg.racetrackOpacity, 0.66), 0, 1));
+      layer.style.mixBlendMode = blendMode;
+      layer.style.filter = `brightness(${num(bg.racetrackBrightness, 1)})`;
+      layer.style.transform = `translate3d(${translateX}%, ${translateY}%, 0) scale(${scale})`;
+    }
+
     function updateCamera() {
       const c = config.camera;
       const focusZ = trackLength;
@@ -1459,13 +1568,18 @@
       camera.position.set(centerX, camY, camZ);
       camera.lookAt(centerX, num(c.lookY, 4.2), Math.max(10, focusZ + num(c.lookZOffset, -10)));
       camera.updateProjectionMatrix();
-      $("hudCamera").textContent = `FOV ${Math.round(camera.fov)} · Y ${formatValue(camY)} · Z ${formatValue(camZ)}`;
+      $("hudCamera").textContent = `FOV ${Math.round(camera.fov)} · Y ${formatValue(camY)} · Z ${formatValue(camZ)} · L ${formatValue(trackLength)}`;
     }
 
     function addRacetrackBackdrop() {
       const bg = config.backgrounds;
       const h = config.horizon;
       if (!h.enabled || !bg.racetrack) return;
+      if (isCameraLayerMode(bg)) {
+        updatePreviewCameraLayer(trackLength);
+        dragTargets.horizon = null;
+        return;
+      }
       const trackSize = getLockedPlaneSize(h, 680, 382);
       const geo = new THREE.PlaneGeometry(trackSize.width, trackSize.height);
       const mat = new THREE.MeshBasicMaterial({
@@ -1516,16 +1630,19 @@
     }
 
     function addRoad() {
-      const roadGeo = new THREE.PlaneGeometry(roadW, trackLength + 12);
+      const { roadMinZ, roadMaxZ } = getPreviewRoadBounds();
+      const roadLength = roadMaxZ - roadMinZ;
+      const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
+      const roadGeo = new THREE.PlaneGeometry(roadW, roadLength);
       const roadMat = new THREE.MeshStandardMaterial({ color: "#051108", roughness: 0.8, metalness: 0.1 });
       const road = new THREE.Mesh(roadGeo, roadMat);
       road.rotation.x = -Math.PI / 2;
-      road.position.set(centerX, -0.05, (8 + trackLength + 12) / 2);
+      road.position.set(centerX, -0.05, roadCenterZ);
       scene.add(road);
 
       const lineMat = new THREE.LineBasicMaterial({ color: "#10b981", transparent: true, opacity: 0.35 });
       for (let x = 0; x <= roadW; x += roadW / 4) {
-        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 1, 0.01, 8), new THREE.Vector3(x - 1, 0.01, trackLength + 12)]);
+        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 1, 0.01, roadMinZ), new THREE.Vector3(x - 1, 0.01, roadMaxZ)]);
         scene.add(new THREE.Line(geo, lineMat.clone()));
       }
 
@@ -1702,6 +1819,9 @@
           if (!draggingThis) animateCustom(item, now);
         }
       });
+      const previewDurationMs = Math.max(1000, num(config.preview?.duration, 20) * 1000);
+      const previewProgress = (now % previewDurationMs) / previewDurationMs;
+      updatePreviewCameraLayer(trackLength - (trackLength - 10) * previewProgress);
       updateSelectionHelperPosition();
       renderer.render(scene, camera);
       requestAnimationFrame(tick);
@@ -1941,7 +2061,7 @@
       try {
         const next = JSON.parse($("jsonImport").value || $("jsonOutput").value);
         config = mergeConfig(clone(DEFAULT_CONFIG), next);
-        normalizeBackgroundLayers();
+        applyLegacyConfigCompatibility(next);
         selectedPlanet = 0;
         selectedObject = 0;
         setActiveTarget("horizon", 0, false);
@@ -1962,6 +2082,23 @@
       return base;
     }
 
+    function applyLegacyConfigCompatibility(incoming = {}) {
+      if (incoming.backgrounds && !Object.prototype.hasOwnProperty.call(incoming.backgrounds, "skyFitMode")) {
+        config.backgrounds.skyFitMode = "stretch";
+        config.backgrounds.skyScale = Number(config.backgrounds.skySizeX) || 100;
+        config.backgrounds.skyAspect = Math.max(0.1, num(config.backgrounds.skySizeX, 100) / Math.max(0.1, num(config.backgrounds.skySizeY, 100)));
+      }
+      if (incoming.horizon && !Object.prototype.hasOwnProperty.call(incoming.horizon, "aspect")) {
+        config.horizon.aspect = Math.max(0.1, num(config.horizon.width, 680) / Math.max(0.1, num(config.horizon.height, 382)));
+      }
+      if (incoming.backgrounds && !Object.prototype.hasOwnProperty.call(incoming.backgrounds, "racetrackMode")) {
+        config.backgrounds.racetrackMode = isSkyImage(config.backgrounds.racetrack) ? "cameraLayer" : "worldPlane";
+      }
+      if (incoming.preview == null) {
+        config.preview = { ...config.preview, duration: num(config.preview?.duration, 20), racers: num(config.preview?.racers, 5) };
+      }
+    }
+
     function isSkyImage(path = "") {
       return /(^|[\\/])bg_derby_sky\.png$/i.test(path.trim()) || /sky/i.test(path);
     }
@@ -1972,6 +2109,7 @@
 
     function normalizeBackgroundLayers() {
       const bg = config.backgrounds || (config.backgrounds = clone(DEFAULT_CONFIG.backgrounds));
+      if (isCameraLayerMode(bg)) return false;
       const front = bg.racetrack || "";
       const back = bg.sky || "";
       if (isSkyImage(front) && isRacetrackImage(back)) {
@@ -2114,7 +2252,7 @@
           const parsed = JSON.parse(saved);
           if (parsed.version === DEFAULT_CONFIG.version) {
             config = mergeConfig(clone(DEFAULT_CONFIG), parsed);
-            normalizeBackgroundLayers();
+            applyLegacyConfigCompatibility(parsed);
           }
         }
       } catch (err) {}

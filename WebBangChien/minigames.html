@@ -8780,14 +8780,17 @@
       if (!threeCamera || !window.THREE) return;
       const tempVec = getDerbyTempVector();
       if (!tempVec) return;
-      const MAX_DEPTH = 180;
-      threeRacers.forEach((racer) => {
-        const sprite = racer.nameSprite;
-        if (!sprite) return;
-        sprite.getWorldPosition(tempVec);
-        const dist = threeCamera.position.distanceTo(tempVec);
-        const depthRatio = Math.min(1, dist / MAX_DEPTH);
-        sprite.renderOrder = 100 - depthRatio * 90;
+
+      const entries = threeRacers
+        .filter((r) => r.nameSprite)
+        .map((r) => {
+          r.nameSprite.getWorldPosition(tempVec);
+          return { sprite: r.nameSprite, z: tempVec.z };
+        })
+        .sort((a, b) => a.z - b.z);
+
+      entries.forEach((entry, i) => {
+        entry.sprite.renderOrder = 10 + i;
       });
     }
 

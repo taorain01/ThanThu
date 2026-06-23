@@ -99,6 +99,8 @@
     }
 
     .panel {
+      display: flex;
+      flex-direction: column;
       overflow: auto;
       padding: 14px;
       background: var(--panel);
@@ -202,6 +204,7 @@
     }
 
     .section {
+      flex: 0 0 auto;
       margin-bottom: 12px;
       border: 1px solid var(--line-soft);
       background: rgba(255, 255, 255, 0.025);
@@ -345,6 +348,31 @@
       gap: 7px;
     }
 
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .angle-section {
+      order: -1;
+      border-color: rgba(251, 191, 36, 0.34);
+      background: rgba(251, 191, 36, 0.035);
+    }
+
+    .angle-section summary {
+      color: #fff2bf;
+      background: rgba(251, 191, 36, 0.1);
+    }
+
+    .subhead {
+      color: #fff2bf;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
     .list {
       display: grid;
       gap: 6px;
@@ -415,6 +443,39 @@
       .right-panel {
         border: 0;
         max-height: none;
+      }
+      .preset-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app,
+      .topbar,
+      .panel,
+      .right-panel,
+      .stage-wrap {
+        max-width: 100vw;
+        min-width: 0;
+      }
+      .topbar {
+        min-height: 58px;
+        height: auto;
+        align-items: stretch;
+        flex-direction: column;
+        padding: 10px 14px;
+      }
+      .top-actions {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .btn {
+        min-width: 0;
+        white-space: normal;
+      }
+      .top-actions .btn.primary {
+        grid-column: 1 / -1;
       }
     }
   </style>
@@ -605,13 +666,21 @@
         </div>
       </details>
 
-      <details class="section" open>
-        <summary>Camera</summary>
+      <details class="section angle-section" open>
+        <summary>Góc cam và góc đường</summary>
         <div class="section-body">
+          <div class="preset-grid">
+            <button class="btn" data-angle-preset="wide">Rộng</button>
+            <button class="btn" data-angle-preset="close">Cận</button>
+            <button class="btn" data-angle-preset="low">Thấp</button>
+            <button class="btn" data-angle-preset="left">Nghiêng trái</button>
+            <button class="btn" data-angle-preset="right">Nghiêng phải</button>
+          </div>
           <div class="row two">
             <div class="row"><label>Preview duration <span class="value" id="valPreviewDuration"></span></label><input id="previewDuration" type="range" min="5" max="90" step="1"></div>
             <div class="row"><label>Preview racers <span class="value" id="valPreviewRacers"></span></label><input id="previewRacers" type="range" min="1" max="40" step="1"></div>
           </div>
+          <div class="subhead">Camera</div>
           <div class="row two">
             <div class="row"><label>FOV <span class="value" id="valFov"></span></label><input id="camFov" type="range" min="28" max="82" step="1"></div>
             <div class="row"><label>Min Y <span class="value" id="valMinY"></span></label><input id="camMinY" type="range" min="2" max="24" step="0.1"></div>
@@ -620,6 +689,11 @@
             <div class="row"><label>Look Y <span class="value" id="valLookY"></span></label><input id="camLookY" type="range" min="-4" max="18" step="0.1"></div>
             <div class="row"><label>Look Z offset <span class="value" id="valLookZ"></span></label><input id="camLookZ" type="range" min="-42" max="16" step="0.5"></div>
           </div>
+          <div class="row three">
+            <div class="row"><label>Cam X <span class="value" id="valCamX"></span></label><input id="camXOffset" type="range" min="-18" max="18" step="0.1"></div>
+            <div class="row"><label>Look X <span class="value" id="valLookX"></span></label><input id="camLookX" type="range" min="-18" max="18" step="0.1"></div>
+            <div class="row"><label>Roll <span class="value" id="valCamRoll"></span></label><input id="camRoll" type="range" min="-18" max="18" step="0.1"></div>
+          </div>
           <div class="row two">
             <div class="row"><label>Z base <span class="value" id="valZBase"></span></label><input id="camZBase" type="range" min="8" max="70" step="1"></div>
             <div class="row"><label>Z width <span class="value" id="valZWidth"></span></label><input id="camZWidth" type="range" min="0.2" max="2.2" step="0.01"></div>
@@ -627,6 +701,16 @@
           <div class="row two">
             <div class="row"><label>Y width <span class="value" id="valYWidth"></span></label><input id="camYWidth" type="range" min="0.1" max="1.2" step="0.01"></div>
             <div class="row"><label>Smooth <span class="value" id="valSmooth"></span></label><input id="camSmooth" type="range" min="0.01" max="0.25" step="0.01"></div>
+          </div>
+          <div class="subhead">Đường</div>
+          <div class="row three">
+            <div class="row"><label>Pitch <span class="value" id="valRoadPitch"></span></label><input id="roadPitch" type="range" min="-18" max="18" step="0.1"></div>
+            <div class="row"><label>Yaw <span class="value" id="valRoadYaw"></span></label><input id="roadYaw" type="range" min="-18" max="18" step="0.1"></div>
+            <div class="row"><label>Roll <span class="value" id="valRoadRoll"></span></label><input id="roadRoll" type="range" min="-18" max="18" step="0.1"></div>
+          </div>
+          <div class="row two">
+            <div class="row"><label>Road Y <span class="value" id="valRoadY"></span></label><input id="roadY" type="range" min="-2" max="4" step="0.05"></div>
+            <div class="row"><label>Grid opacity <span class="value" id="valRoadGridOpacity"></span></label><input id="roadGridOpacity" type="range" min="0" max="1" step="0.01"></div>
           </div>
         </div>
       </details>
@@ -836,38 +920,48 @@
       },
       horizon: {
         enabled: true,
-        x: 0,
-        y: 132,
+        x: -81,
+        y: 52,
         z: -82,
-        width: 680,
-        height: 382,
+        width: 1200,
+        height: 185,
         lockAspect: true,
-        aspect: 1.78,
-        scale: 1,
+        aspect: 6.49,
+        scale: 0.6,
         rotationX: 0,
         rotationY: 0,
         rotationZ: 0,
         renderOrder: -18
       },
       camera: {
-        fov: 52,
-        minY: 9,
-        yWidthFactor: 0.42,
+        fov: 53,
+        minY: 5.7,
+        yWidthFactor: 0.1,
         yRacerFactor: 0.28,
-        zOffsetBase: 24,
-        zWidthFactor: 0.9,
-        lookY: 4.2,
-        lookZOffset: -10,
-        smooth: 0.05
+        zOffsetBase: 25,
+        zWidthFactor: 1.03,
+        lookY: 6.6,
+        lookZOffset: -3.5,
+        xOffset: 0,
+        lookXOffset: 0,
+        roll: 0,
+        smooth: 0.13
+      },
+      road: {
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+        y: -0.05,
+        gridOpacity: 0.35
       },
       stars: {
         enabled: true,
-        count: 420,
-        size: 0.16,
-        opacity: 0.82,
-        pulse: 0.14,
-        spin: 0.000035,
-        spreadX: 48,
+        count: 300,
+        size: 0.26,
+        opacity: 0.54,
+        pulse: 0.21,
+        spin: 0.00009,
+        spreadX: 65,
         nearYMin: 3.5,
         nearYMax: 33.5,
         farYMin: 15,
@@ -880,7 +974,7 @@
         palette: ["#dffcf0", "#9ef9d4", "#fef3c7", "#93c5fd", "#f8fafc"]
       },
       planets: [
-        { id: "mercury", name: "Mercury", enabled: true, color: "#b6b0a7", emissive: "#3f3831", radius: 0.72, side: -1, z: 0.18, y: 5.8, extra: 1.8, spin: 0.0042 },
+        { id: "mercury", name: "Mercury", enabled: true, color: "#b6b0a7", emissive: "#3f3831", radius: 0.72, side: -1, z: 0.18, y: 19.77, extra: 1.8, spin: 0.0042, x: -9.98 },
         { id: "venus", name: "Venus", enabled: true, color: "#f6c56b", emissive: "#5c3714", radius: 1.02, side: 1, z: 0.28, y: 7.2, extra: 3.6, spin: 0.0034 },
         { id: "earth", name: "Earth", enabled: true, color: "#38bdf8", emissive: "#0b5366", radius: 1, side: -1, z: 0.43, y: 8.9, extra: 5.2, spin: 0.0048, moon: true },
         { id: "mars", name: "Mars", enabled: true, color: "#ef6c3d", emissive: "#5f1f11", radius: 0.88, side: 1, z: 0.55, y: 6.8, extra: 2.8, spin: 0.0045 },
@@ -1126,10 +1220,18 @@
       bindRange("camMinY", "camera.minY", "valMinY");
       bindRange("camLookY", "camera.lookY", "valLookY");
       bindRange("camLookZ", "camera.lookZOffset", "valLookZ");
+      bindRange("camXOffset", "camera.xOffset", "valCamX");
+      bindRange("camLookX", "camera.lookXOffset", "valLookX");
+      bindRange("camRoll", "camera.roll", "valCamRoll");
       bindRange("camZBase", "camera.zOffsetBase", "valZBase");
       bindRange("camZWidth", "camera.zWidthFactor", "valZWidth");
       bindRange("camYWidth", "camera.yWidthFactor", "valYWidth");
       bindRange("camSmooth", "camera.smooth", "valSmooth");
+      bindRange("roadPitch", "road.pitch", "valRoadPitch");
+      bindRange("roadYaw", "road.yaw", "valRoadYaw");
+      bindRange("roadRoll", "road.roll", "valRoadRoll");
+      bindRange("roadY", "road.y", "valRoadY");
+      bindRange("roadGridOpacity", "road.gridOpacity", "valRoadGridOpacity");
       bindCheck("starsEnabled", "stars.enabled");
       bindRange("starsCount", "stars.count", "valStarsCount");
       bindRange("starsSize", "stars.size", "valStarsSize");
@@ -1562,13 +1664,16 @@
     function updateCamera() {
       const c = config.camera;
       const focusZ = trackLength;
+      const camX = centerX + num(c.xOffset, 0);
+      const lookX = centerX + num(c.lookXOffset, 0);
       const camY = Math.max(num(c.minY, 9), roadW * num(c.yWidthFactor, 0.42), 4 * num(c.yRacerFactor, 0.28));
       const camZ = focusZ + Math.max(num(c.zOffsetBase, 24), roadW * num(c.zWidthFactor, 0.9));
       camera.fov = num(c.fov, 52);
-      camera.position.set(centerX, camY, camZ);
-      camera.lookAt(centerX, num(c.lookY, 4.2), Math.max(10, focusZ + num(c.lookZOffset, -10)));
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(lookX, num(c.lookY, 4.2), Math.max(10, focusZ + num(c.lookZOffset, -10)));
+      camera.rotateZ(deg(c.roll));
       camera.updateProjectionMatrix();
-      $("hudCamera").textContent = `FOV ${Math.round(camera.fov)} · Y ${formatValue(camY)} · Z ${formatValue(camZ)} · L ${formatValue(trackLength)}`;
+      $("hudCamera").textContent = `FOV ${Math.round(camera.fov)} · X ${formatValue(num(c.xOffset, 0))} · Y ${formatValue(camY)} · Roll ${formatValue(num(c.roll, 0))}`;
     }
 
     function addRacetrackBackdrop() {
@@ -1629,29 +1734,45 @@
       };
     }
 
+    function getRoadConfig() {
+      return config.road || (config.road = clone(DEFAULT_CONFIG.road));
+    }
+
+    function createRoadGroup() {
+      const r = getRoadConfig();
+      const group = new THREE.Group();
+      group.position.set(centerX, num(r.y, -0.05), 0);
+      group.rotation.set(deg(r.pitch), deg(r.yaw), deg(r.roll));
+      scene.add(group);
+      return group;
+    }
+
     function addRoad() {
+      const roadCfg = getRoadConfig();
       const { roadMinZ, roadMaxZ } = getPreviewRoadBounds();
       const roadLength = roadMaxZ - roadMinZ;
       const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
+      const roadGroup = createRoadGroup();
       const roadGeo = new THREE.PlaneGeometry(roadW, roadLength);
       const roadMat = new THREE.MeshStandardMaterial({ color: "#051108", roughness: 0.8, metalness: 0.1 });
       const road = new THREE.Mesh(roadGeo, roadMat);
       road.rotation.x = -Math.PI / 2;
-      road.position.set(centerX, -0.05, roadCenterZ);
-      scene.add(road);
+      road.position.set(0, 0, roadCenterZ);
+      roadGroup.add(road);
 
-      const lineMat = new THREE.LineBasicMaterial({ color: "#10b981", transparent: true, opacity: 0.35 });
+      const lineMat = new THREE.LineBasicMaterial({ color: "#10b981", transparent: true, opacity: num(roadCfg.gridOpacity, 0.35) });
       for (let x = 0; x <= roadW; x += roadW / 4) {
-        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x - 1, 0.01, roadMinZ), new THREE.Vector3(x - 1, 0.01, roadMaxZ)]);
-        scene.add(new THREE.Line(geo, lineMat.clone()));
+        const localX = x - 1 - centerX;
+        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(localX, 0.06, roadMinZ), new THREE.Vector3(localX, 0.06, roadMaxZ)]);
+        roadGroup.add(new THREE.Line(geo, lineMat.clone()));
       }
 
       const finish = new THREE.Mesh(
         new THREE.BoxGeometry(roadW, 0.05, 0.5),
         new THREE.MeshStandardMaterial({ color: "#fbbf24", emissive: "#b45309", roughness: 0.2 })
       );
-      finish.position.set(centerX, 0.01, 10);
-      scene.add(finish);
+      finish.position.set(0, 0.06, 10);
+      roadGroup.add(finish);
     }
 
     function addStars() {
@@ -2181,6 +2302,65 @@
       setStatus("Đã lấy tỉ lệ object hiện tại");
     }
 
+    const ANGLE_PRESETS = {
+      wide: {
+        camera: { fov: 58, minY: 7.2, zOffsetBase: 32, zWidthFactor: 1.08, lookY: 6.2, lookZOffset: -7, xOffset: 0, lookXOffset: 0, roll: 0 },
+        road: { pitch: 0, yaw: 0, roll: 0, y: -0.05, gridOpacity: 0.35 },
+        status: "Preset góc rộng"
+      },
+      close: {
+        camera: { fov: 47, minY: 5, zOffsetBase: 18, zWidthFactor: 0.86, lookY: 6.8, lookZOffset: -2.5, xOffset: 0, lookXOffset: 0, roll: 0 },
+        road: { pitch: 0, yaw: 0, roll: 0, y: -0.05, gridOpacity: 0.38 },
+        status: "Preset góc cận"
+      },
+      low: {
+        camera: { fov: 55, minY: 3.8, zOffsetBase: 24, zWidthFactor: 1, lookY: 8.2, lookZOffset: -1.5, xOffset: 0, lookXOffset: 0, roll: 0 },
+        road: { pitch: -2.5, yaw: 0, roll: 0, y: -0.08, gridOpacity: 0.42 },
+        status: "Preset góc thấp"
+      },
+      left: {
+        camera: { xOffset: -4.5, lookXOffset: 1.8, roll: -4.2 },
+        road: { pitch: 0, yaw: -2.5, roll: -1.2 },
+        status: "Preset nghiêng trái"
+      },
+      right: {
+        camera: { xOffset: 4.5, lookXOffset: -1.8, roll: 4.2 },
+        road: { pitch: 0, yaw: 2.5, roll: 1.2 },
+        status: "Preset nghiêng phải"
+      }
+    };
+
+    function syncAngleControls() {
+      const c = config.camera || {};
+      const r = getRoadConfig();
+      setRangeImmediate("camFov", "valFov", c.fov);
+      setRangeImmediate("camMinY", "valMinY", c.minY);
+      setRangeImmediate("camLookY", "valLookY", c.lookY);
+      setRangeImmediate("camLookZ", "valLookZ", c.lookZOffset);
+      setRangeImmediate("camXOffset", "valCamX", c.xOffset);
+      setRangeImmediate("camLookX", "valLookX", c.lookXOffset);
+      setRangeImmediate("camRoll", "valCamRoll", c.roll);
+      setRangeImmediate("camZBase", "valZBase", c.zOffsetBase);
+      setRangeImmediate("camZWidth", "valZWidth", c.zWidthFactor);
+      setRangeImmediate("camYWidth", "valYWidth", c.yWidthFactor);
+      setRangeImmediate("camSmooth", "valSmooth", c.smooth);
+      setRangeImmediate("roadPitch", "valRoadPitch", r.pitch);
+      setRangeImmediate("roadYaw", "valRoadYaw", r.yaw);
+      setRangeImmediate("roadRoll", "valRoadRoll", r.roll);
+      setRangeImmediate("roadY", "valRoadY", r.y);
+      setRangeImmediate("roadGridOpacity", "valRoadGridOpacity", r.gridOpacity);
+    }
+
+    function applyAnglePreset(name) {
+      const preset = ANGLE_PRESETS[name];
+      if (!preset) return;
+      config.camera = { ...config.camera, ...preset.camera };
+      config.road = { ...getRoadConfig(), ...preset.road };
+      syncAngleControls();
+      scheduleRebuild();
+      setStatus(preset.status);
+    }
+
     function refreshAllControls() {
       document.querySelectorAll("input, select").forEach((el) => {
         const cloneEl = el.cloneNode(true);
@@ -2195,6 +2375,9 @@
     }
 
     function bindButtons() {
+      document.querySelectorAll("[data-angle-preset]").forEach((btn) => {
+        btn.onclick = () => applyAnglePreset(btn.dataset.anglePreset);
+      });
       document.querySelectorAll("[data-add-type]").forEach((btn) => btn.addEventListener("click", () => addObject(btn.dataset.addType)));
       $("btnAddPlanet").onclick = addPlanet;
       $("btnDeletePlanet").onclick = () => {

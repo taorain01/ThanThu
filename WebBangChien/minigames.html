@@ -2780,6 +2780,184 @@
 
     }
 
+    .derby-label-overlay {
+
+      position: absolute;
+
+      inset: 0;
+
+      z-index: 4;
+
+      pointer-events: none;
+
+      overflow: hidden;
+
+    }
+
+    .derby-race-label {
+
+      position: absolute;
+
+      left: 0;
+
+      top: 0;
+
+      max-width: 146px;
+
+      min-width: 74px;
+
+      padding: 5px 10px 6px;
+
+      border: 2px solid var(--label-color, #10b981);
+
+      border-radius: 8px;
+
+      background: rgba(1, 8, 4, 0.88);
+
+      color: #f8fafc;
+
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.42), 0 0 14px rgba(0, 0, 0, 0.3);
+
+      font-size: 12px;
+
+      font-weight: 900;
+
+      line-height: 1.05;
+
+      text-align: center;
+
+      text-shadow: 0 2px 5px rgba(0, 0, 0, 0.9);
+
+      transform: translate3d(-50%, -100%, 0);
+
+      opacity: 0;
+
+      transition: opacity 0.14s ease, filter 0.14s ease;
+
+      will-change: transform, opacity;
+
+    }
+
+    .derby-race-label.visible {
+
+      opacity: 0.94;
+
+    }
+
+    .derby-race-label::after {
+
+      content: "";
+
+      position: absolute;
+
+      left: 50%;
+
+      bottom: -10px;
+
+      width: 0;
+
+      height: 0;
+
+      border-left: 7px solid transparent;
+
+      border-right: 7px solid transparent;
+
+      border-top: 10px solid var(--label-color, #10b981);
+
+      transform: translateX(-50%);
+
+      filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.65));
+
+    }
+
+    .derby-race-label .label-rank {
+
+      display: inline-block;
+
+      margin-right: 4px;
+
+      color: #fbbf24;
+
+      font-size: 11px;
+
+    }
+
+    .derby-race-label .label-name {
+
+      display: inline-block;
+
+      max-width: 112px;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
+
+      vertical-align: bottom;
+
+    }
+
+    .derby-race-label.compact {
+
+      max-width: 112px;
+
+      min-width: 58px;
+
+      padding: 4px 8px 5px;
+
+      font-size: 10px;
+
+      opacity: 0.82;
+
+    }
+
+    .derby-race-label.leader {
+
+      max-width: 180px;
+
+      min-width: 108px;
+
+      padding: 7px 13px 8px;
+
+      border-color: #fbbf24;
+
+      background: linear-gradient(180deg, rgba(64, 34, 4, 0.96), rgba(8, 18, 9, 0.94));
+
+      color: #fff4bf;
+
+      font-size: 15px;
+
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.52), 0 0 22px rgba(251, 191, 36, 0.38);
+
+      z-index: 80;
+
+    }
+
+    .derby-race-label.leader .label-name {
+
+      max-width: 136px;
+
+    }
+
+    .derby-race-label.leader::before {
+
+      content: "👑";
+
+      position: absolute;
+
+      left: 50%;
+
+      top: -20px;
+
+      transform: translateX(-50%);
+
+      font-size: 18px;
+
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.75));
+
+    }
+
 
 
     .fallback-canvas {
@@ -3922,6 +4100,122 @@
 
     }
 
+    .podium-container.has-3d-stage {
+
+      height: 238px;
+
+      align-items: stretch;
+
+      margin: 0 0 6px;
+
+    }
+
+    .results-podium-stage {
+
+      position: relative;
+
+      width: 100%;
+
+      min-height: 238px;
+
+      border-radius: 12px;
+
+      overflow: hidden;
+
+      background:
+        radial-gradient(circle at 50% 26%, rgba(251, 191, 36, 0.2), transparent 38%),
+        linear-gradient(180deg, rgba(2, 18, 9, 0.68), rgba(0, 0, 0, 0.18));
+
+      border: 1px solid rgba(251, 191, 36, 0.18);
+
+    }
+
+    .results-podium-canvas {
+
+      position: absolute;
+
+      inset: 0;
+
+      width: 100%;
+
+      height: 100%;
+
+      display: block;
+
+    }
+
+    .results-podium-labels {
+
+      position: absolute;
+
+      inset: auto 18px 10px;
+
+      display: flex;
+
+      align-items: flex-end;
+
+      justify-content: center;
+
+      gap: 8px;
+
+      pointer-events: none;
+
+      z-index: 2;
+
+    }
+
+    .results-podium-label {
+
+      min-width: 0;
+
+      width: 92px;
+
+      padding: 5px 6px;
+
+      border-radius: 8px;
+
+      border: 1px solid rgba(255, 255, 255, 0.12);
+
+      background: rgba(0, 0, 0, 0.42);
+
+      color: #f8fafc;
+
+      font-size: 11px;
+
+      font-weight: 900;
+
+      text-align: center;
+
+      text-shadow: 0 2px 5px rgba(0, 0, 0, 0.9);
+
+    }
+
+    .results-podium-label.rank-1 {
+
+      width: 116px;
+
+      color: #fef3c7;
+
+      border-color: rgba(251, 191, 36, 0.42);
+
+      background: rgba(74, 42, 5, 0.58);
+
+      font-size: 13px;
+
+    }
+
+    .results-podium-label .podium-label-name {
+
+      display: block;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
+
+    }
+
 
 
     .podium-column {
@@ -4288,7 +4582,7 @@
 
       z-index: 5001;
 
-      opacity: 0.98;
+      opacity: 0.72;
 
       mix-blend-mode: screen;
 
@@ -4416,6 +4710,44 @@
 
       }
 
+      .podium-container.has-3d-stage {
+
+        height: 198px;
+
+      }
+
+      .results-podium-stage {
+
+        min-height: 198px;
+
+      }
+
+      .results-podium-labels {
+
+        inset: auto 8px 8px;
+
+        gap: 4px;
+
+      }
+
+      .results-podium-label {
+
+        width: 58px;
+
+        padding: 4px;
+
+        font-size: 9px;
+
+      }
+
+      .results-podium-label.rank-1 {
+
+        width: 72px;
+
+        font-size: 10px;
+
+      }
+
 
 
       .podium-column {
@@ -4475,6 +4807,44 @@
       .results-actions {
 
         flex-wrap: wrap;
+
+      }
+
+    }
+
+    @media (max-width: 720px) {
+
+      .derby-race-label {
+
+        max-width: 110px;
+
+        min-width: 54px;
+
+        padding: 4px 7px 5px;
+
+        font-size: 10px;
+
+      }
+
+      .derby-race-label .label-name {
+
+        max-width: 78px;
+
+      }
+
+      .derby-race-label.leader {
+
+        max-width: 132px;
+
+        min-width: 82px;
+
+        font-size: 12px;
+
+      }
+
+      .derby-race-label.leader .label-name {
+
+        max-width: 96px;
 
       }
 
@@ -5187,6 +5557,8 @@
 
         <canvas class="fallback-canvas" id="fallback-canvas"></canvas>
 
+        <div class="derby-label-overlay" id="derby-label-overlay" aria-hidden="true"></div>
+
         <div class="race-timer-overlay" id="race-timer">
 
           <div class="race-timer-top">
@@ -5283,7 +5655,17 @@
 
       <!-- Bục vinh quang 3D -->
 
-      <div class="podium-container" id="podium-container"></div>
+      <div class="podium-container" id="podium-container">
+
+        <div class="results-podium-stage" id="results-podium-stage" aria-hidden="true">
+
+          <canvas class="results-podium-canvas" id="results-podium-canvas"></canvas>
+
+          <div class="results-podium-labels" id="results-podium-labels"></div>
+
+        </div>
+
+      </div>
 
 
 
@@ -6877,19 +7259,26 @@
     /* MINIGAME_EDITOR_CONFIG_START */
     const DERBY_SCENE_CONFIG = {
       version: 2,
+      preview: {
+        duration: 20,
+        racers: 5
+      },
       backgrounds: {
         sky: "anh/bg_derby_racetrack_old.png",
         racetrack: "anh/bg_derby_sky.png",
         skyOpacity: 1,
-        skyBrightness: 1.2,
-        skySaturation: 1.01,
+        skyBrightness: 1.18,
+        skySaturation: 0.99,
         skyPositionX: 50,
-        skyPositionY: 75,
-        skySizeX: 110,
+        skyPositionY: 84,
+        skySizeX: 97,
         skySizeY: 134,
-        glowOpacity: 0.76,
+        skyFitMode: "stretch",
+        skyScale: 110,
+        skyAspect: 1,
+        glowOpacity: 0.5,
         vignetteOpacity: 0.75,
-        racetrackOpacity: 0.45,
+        racetrackOpacity: 0.49,
         racetrackTint: "#ffffff",
         racetrackBrightness: 0.53,
         racetrackRepeatX: 3.42,
@@ -6907,6 +7296,8 @@
         z: -82,
         width: 1200,
         height: 185,
+        lockAspect: true,
+        aspect: 6.49,
         scale: 0.6,
         rotationX: 0,
         rotationY: 0,
@@ -6922,7 +7313,17 @@
         zWidthFactor: 1.03,
         lookY: 6.6,
         lookZOffset: -3.5,
+        xOffset: 0,
+        lookXOffset: 0,
+        roll: 0,
         smooth: 0.13
+      },
+      road: {
+        pitch: 0,
+        yaw: 0,
+        roll: 0,
+        y: -0.05,
+        gridOpacity: 0.35
       },
       stars: {
         enabled: true,
@@ -7002,6 +7403,10 @@
 
     function getDerbyCameraConfig() {
       return DERBY_SCENE_CONFIG.camera || {};
+    }
+
+    function getDerbyRoadConfig() {
+      return DERBY_SCENE_CONFIG.road || {};
     }
 
     function getDerbyBackgroundConfig() {
@@ -8703,10 +9108,19 @@
     let derbyTrackWidth = getDerbyTrackWidth(1);
     let derbyCameraFocusZ = null;
     let derbyCameraLayer = null;
+    let derbyRoadVisualRoot = null;
+    const DERBY_BASE_ROAD_Y = -0.05;
     const DERBY_LABEL_DISTANCE_BASE = 24;
     const DERBY_LABEL_DISTANCE_RANGE = 36;
     const DERBY_LABEL_MAX_FAR_SCALE = 2.35;
+    const DERBY_LEAD_COMPRESSION_RATIO = 0.12;
+    const DERBY_LEAD_COMPRESSION_MIN_GAP = 18;
+    const DERBY_LEAD_COMPRESSION_MAX_GAP = 42;
+    const DERBY_LEAD_COMPRESSION_SMOOTH = 0.18;
     const derbyLabelWorldPos = { current: null };
+    const derbyLabelAnchorPos = { current: null };
+    const derbyLabelBodyPos = { current: null };
+    let derbyLabelOverlay = null;
 
 
 
@@ -8719,7 +9133,9 @@
       const numRacers = threeRacers.length;
       const cameraCfg = getDerbyCameraConfig();
 
-      const targetCamX = derbyTrackWidth / 2 - 1;
+      const baseCamX = derbyTrackWidth / 2 - 1;
+      const targetCamX = baseCamX + derbyNumber(cameraCfg.xOffset, 0);
+      const targetLookX = baseCamX + derbyNumber(cameraCfg.lookXOffset, 0);
 
       const targetCamY = Math.max(
         derbyNumber(cameraCfg.minY, DERBY_CAMERA_MIN_Y),
@@ -8744,7 +9160,8 @@
 
       threeCamera.position.z += (targetCamZ - threeCamera.position.z) * lerp;
 
-      threeCamera.lookAt(targetCamX, derbyNumber(cameraCfg.lookY, DERBY_CAMERA_LOOK_Y), targetLookZ);
+      threeCamera.lookAt(targetLookX, derbyNumber(cameraCfg.lookY, DERBY_CAMERA_LOOK_Y), targetLookZ);
+      threeCamera.rotateZ(derbyDegToRad(cameraCfg.roll));
       updateDerbyCameraLayer(focusZ);
 
     }
@@ -8794,9 +9211,300 @@
       });
     }
 
+    function clampDerbyValue(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function getDerbyLogicalZ(racer) {
+      if (!racer) return trackLength;
+      const rawZ = Number(racer.rawZ);
+      if (Number.isFinite(rawZ)) return rawZ;
+      return derbyNumber(racer.z, trackLength);
+    }
+
+    function getDerbyVisualZ(racer) {
+      if (!racer) return trackLength;
+      const displayZ = Number(racer.displayZ);
+      if (Number.isFinite(displayZ)) return displayZ;
+      return getDerbyLogicalZ(racer);
+    }
+
+    function getDerbyMaxVisualLeadGap() {
+      const runDistance = Math.max(1, trackLength - 10);
+      return clampDerbyValue(
+        runDistance * DERBY_LEAD_COMPRESSION_RATIO,
+        DERBY_LEAD_COMPRESSION_MIN_GAP,
+        DERBY_LEAD_COMPRESSION_MAX_GAP
+      );
+    }
+
+    function sortDerbyRacersByTrueProgress(a, b) {
+      if (a.finished && b.finished) return a.rank - b.rank;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return getDerbyLogicalZ(a) - getDerbyLogicalZ(b);
+    }
+
+    function applyDerbyLeaderVisualCompression() {
+      if (!threeRacers.length) return;
+
+      const ranked = [...threeRacers].sort(sortDerbyRacersByTrueProgress);
+      const leader = ranked[0];
+      const runnerUp = ranked[1];
+      const previousLeaderDisplayZ = Number(leader?.displayZ);
+
+      threeRacers.forEach((racer) => {
+        const rawZ = getDerbyLogicalZ(racer);
+        racer.displayZ = rawZ;
+        racer.z = rawZ;
+      });
+
+      if (!leader || !runnerUp) return;
+
+      const leaderRawZ = getDerbyLogicalZ(leader);
+      const runnerUpRawZ = getDerbyLogicalZ(runnerUp);
+      const maxGap = getDerbyMaxVisualLeadGap();
+      const compressedTargetZ = Math.max(leaderRawZ, runnerUpRawZ - maxGap);
+      const startZ = Number.isFinite(previousLeaderDisplayZ) ? previousLeaderDisplayZ : compressedTargetZ;
+      let smoothedZ = startZ + (compressedTargetZ - startZ) * DERBY_LEAD_COMPRESSION_SMOOTH;
+
+      if (compressedTargetZ > leaderRawZ) {
+        smoothedZ = Math.max(compressedTargetZ, smoothedZ);
+      } else {
+        smoothedZ = Math.max(leaderRawZ, smoothedZ);
+      }
+
+      if (Math.abs(smoothedZ - compressedTargetZ) < 0.02) smoothedZ = compressedTargetZ;
+      leader.displayZ = smoothedZ;
+      leader.z = leader.displayZ;
+    }
+
+    function ensureDerbyLabelOverlay() {
+      if (!derbyLabelOverlay) {
+        derbyLabelOverlay = document.getElementById("derby-label-overlay");
+      }
+      return derbyLabelOverlay;
+    }
+
+    function createDerbyRaceLabel(name, color) {
+      const label = document.createElement("div");
+      label.className = "derby-race-label";
+      label.style.setProperty("--label-color", color || "#10b981");
+      label.innerHTML = `
+        <span class="label-rank"></span>
+        <span class="label-name">${escapeHtml(name || "")}</span>
+      `;
+      return label;
+    }
+
+    function clearDerbyRaceLabels() {
+      const overlay = ensureDerbyLabelOverlay();
+      if (overlay) overlay.innerHTML = "";
+      threeRacers.forEach((racer) => {
+        racer.labelEl = null;
+      });
+    }
+
+    function getDerbyProjectedPoint(vector, overlayRect) {
+      if (!threeCamera || !vector || !overlayRect) return null;
+      vector.project(threeCamera);
+      if (vector.z < -1 || vector.z > 1) return null;
+      return {
+        x: (vector.x * 0.5 + 0.5) * overlayRect.width,
+        y: (-vector.y * 0.5 + 0.5) * overlayRect.height,
+        z: vector.z
+      };
+    }
+
+    function inflateDerbyRect(rect, amount) {
+      return {
+        left: rect.left - amount,
+        top: rect.top - amount,
+        right: rect.right + amount,
+        bottom: rect.bottom + amount
+      };
+    }
+
+    function derbyRectsIntersect(a, b) {
+      return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+    }
+
+    function derbyOverlapArea(a, b) {
+      const width = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+      const height = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+      return width * height;
+    }
+
+    function getDerbyReservedLabelRects(overlayRect) {
+      const reserved = [];
+      const timer = document.getElementById("race-timer");
+      if (timer && timer.style.display !== "none") {
+        const rect = timer.getBoundingClientRect();
+        reserved.push(inflateDerbyRect({
+          left: rect.left - overlayRect.left,
+          top: rect.top - overlayRect.top,
+          right: rect.right - overlayRect.left,
+          bottom: rect.bottom - overlayRect.top
+        }, 8));
+      }
+      return reserved;
+    }
+
+    function getDerbyLabelMetrics(name, isLeader, compact, overlayWidth) {
+      const isMobile = overlayWidth <= 720;
+      const maxWidth = isLeader ? (isMobile ? 132 : 180) : compact ? (isMobile ? 88 : 112) : (isMobile ? 110 : 146);
+      const minWidth = isLeader ? (isMobile ? 82 : 108) : compact ? (isMobile ? 48 : 58) : (isMobile ? 54 : 74);
+      const charWidth = isLeader ? 8.2 : compact ? 5.8 : 6.7;
+      const rankSpace = isLeader ? 36 : 22;
+      return {
+        width: clampDerbyValue(36 + String(name || "").length * charWidth + rankSpace, minWidth, maxWidth),
+        height: isLeader ? (isMobile ? 32 : 38) : compact ? 23 : (isMobile ? 24 : 29)
+      };
+    }
+
+    function buildDerbyLabelRect(anchorX, anchorY, metrics, overlayRect) {
+      const x = clampDerbyValue(anchorX, metrics.width / 2 + 5, overlayRect.width - metrics.width / 2 - 5);
+      const y = clampDerbyValue(anchorY, metrics.height + 8, overlayRect.height - 6);
+      return {
+        x,
+        y,
+        left: x - metrics.width / 2,
+        right: x + metrics.width / 2,
+        top: y - metrics.height,
+        bottom: y
+      };
+    }
+
+    function scoreDerbyLabelRect(rect, placedRects, bodyRects, reservedRects, dx, dy) {
+      let labelPenalty = 0;
+      let bodyPenalty = 0;
+      placedRects.forEach((placed) => {
+        labelPenalty += derbyOverlapArea(rect, placed) * 1.2;
+      });
+      bodyRects.forEach((body) => {
+        bodyPenalty += derbyOverlapArea(rect, body) * 3.2;
+      });
+      reservedRects.forEach((reserved) => {
+        bodyPenalty += derbyOverlapArea(rect, reserved) * 2.4;
+      });
+      return {
+        total: labelPenalty + bodyPenalty + Math.abs(dx) * 0.18 + Math.abs(dy) * 0.08,
+        bodyPenalty
+      };
+    }
+
+    function getDerbyLabelCandidateOffsets(isLeader, compact) {
+      if (isLeader) {
+        return [
+          [0, -6], [0, -34], [-34, -22], [34, -22], [0, -62], [-58, -48], [58, -48], [0, -90]
+        ];
+      }
+      if (compact) {
+        return [
+          [0, -4], [-32, -16], [32, -16], [0, -34], [-56, -34], [56, -34],
+          [0, -58], [-76, -54], [76, -54], [0, -82], [-96, -78], [96, -78]
+        ];
+      }
+      return [
+        [0, -6], [-42, -18], [42, -18], [0, -38], [-68, -42], [68, -42],
+        [0, -68], [-92, -70], [92, -70], [0, -98]
+      ];
+    }
+
+    function chooseDerbyLabelPlacement(item, placedRects, bodyRects, reservedRects, overlayRect) {
+      const baseY = item.anchor.y - 16;
+      let best = null;
+
+      [false, true].forEach((compact) => {
+        const metrics = getDerbyLabelMetrics(item.racer.name, item.isLeader, compact, overlayRect.width);
+        getDerbyLabelCandidateOffsets(item.isLeader, compact).forEach(([dx, dy]) => {
+          const rect = buildDerbyLabelRect(item.anchor.x + dx, baseY + dy, metrics, overlayRect);
+          const score = scoreDerbyLabelRect(rect, placedRects, bodyRects, reservedRects, dx, dy);
+          const candidate = { rect, compact, score };
+          if (!best || candidate.score.total < best.score.total) best = candidate;
+          if (score.total === 0 && (!best || !best.perfect)) best = { ...candidate, perfect: true };
+        });
+      });
+
+      if (!best) return null;
+      if (best.score.bodyPenalty > 0 && !item.isLeader) return null;
+      return best;
+    }
+
+    function updateDerbyRaceLabels(sortedRacers = []) {
+      const overlay = ensureDerbyLabelOverlay();
+      if (!overlay || !threeCamera || !window.THREE) return;
+
+      const overlayRect = overlay.getBoundingClientRect();
+      if (overlayRect.width <= 0 || overlayRect.height <= 0) return;
+
+      const anchorVec = derbyLabelAnchorPos.current || (derbyLabelAnchorPos.current = new THREE.Vector3());
+      const bodyVec = derbyLabelBodyPos.current || (derbyLabelBodyPos.current = new THREE.Vector3());
+      const rankMap = new Map();
+      sortedRacers.forEach((racer, index) => {
+        rankMap.set(racer, racer.rank || index + 1);
+      });
+
+      const visibleItems = [];
+      const bodyRects = [];
+
+      threeRacers.forEach((racer) => {
+        if (!racer?.group || !racer.labelEl) return;
+        const groupPos = racer.group.position;
+        anchorVec.set(groupPos.x, 2.34, groupPos.z);
+        const anchor = getDerbyProjectedPoint(anchorVec, overlayRect);
+        bodyVec.set(groupPos.x, 0.76, groupPos.z);
+        const body = getDerbyProjectedPoint(bodyVec, overlayRect);
+
+        if (!anchor || !body || anchor.x < -120 || anchor.x > overlayRect.width + 120 || anchor.y < -160 || anchor.y > overlayRect.height + 120) {
+          racer.labelEl.classList.remove("visible", "leader", "compact");
+          return;
+        }
+
+        const rank = rankMap.get(racer) || racer.rank || 999;
+        const isLeader = rank === 1;
+        const animalPad = isLeader ? 36 : 28;
+        const bodyRect = {
+          left: body.x - animalPad,
+          right: body.x + animalPad,
+          top: body.y - animalPad * 1.1,
+          bottom: body.y + animalPad * 1.25
+        };
+        bodyRects.push(bodyRect);
+        visibleItems.push({ racer, anchor, body, rank, isLeader });
+      });
+
+      const reservedRects = getDerbyReservedLabelRects(overlayRect);
+      const placedRects = [];
+      visibleItems
+        .sort((a, b) => {
+          if (a.isLeader !== b.isLeader) return a.isLeader ? -1 : 1;
+          if (a.rank !== b.rank) return a.rank - b.rank;
+          return (a.racer.laneIndex || 0) - (b.racer.laneIndex || 0);
+        })
+        .forEach((item) => {
+          const label = item.racer.labelEl;
+          const placement = chooseDerbyLabelPlacement(item, placedRects, bodyRects, reservedRects, overlayRect);
+          if (!placement) {
+            label.classList.remove("visible", "leader", "compact");
+            return;
+          }
+
+          const rankText = item.isLeader ? "Top 1" : item.rank <= 5 ? `#${item.rank}` : "";
+          const rankEl = label.querySelector(".label-rank");
+          if (rankEl) rankEl.textContent = rankText;
+          label.classList.toggle("leader", item.isLeader);
+          label.classList.toggle("compact", placement.compact && !item.isLeader);
+          label.classList.add("visible");
+          label.style.zIndex = String(item.isLeader ? 80 : Math.max(12, 46 - item.rank));
+          label.style.transform = `translate3d(${Math.round(placement.rect.x)}px, ${Math.round(placement.rect.y)}px, 0) translate(-50%, -100%)`;
+          placedRects.push(placement.rect);
+        });
+    }
+
     function getDerbyPackCameraFocusZ() {
       const packZ = threeRacers
-        .map(racer => racer.z)
+        .map(racer => getDerbyVisualZ(racer))
         .sort((a, b) => a - b);
 
       if (packZ.length === 0) return derbyCameraFocusZ ?? trackLength;
@@ -9196,6 +9904,36 @@
       return group;
     }
 
+    function createDerbyRoadVisualRoot(roadW) {
+      if (!threeScene) return null;
+      const roadCfg = getDerbyRoadConfig();
+      const centerX = roadW / 2 - 1;
+      const root = new THREE.Group();
+      root.name = "derby-road-visual-root";
+      root.position.set(centerX, derbyNumber(roadCfg.y, DERBY_BASE_ROAD_Y), 0);
+      root.rotation.set(
+        derbyDegToRad(roadCfg.pitch),
+        derbyDegToRad(roadCfg.yaw),
+        derbyDegToRad(roadCfg.roll)
+      );
+      root.userData.centerX = centerX;
+      root.userData.baseY = DERBY_BASE_ROAD_Y;
+      threeScene.add(root);
+      return root;
+    }
+
+    function addDerbyRoadVisual(object) {
+      if (!object) return object;
+      if (!derbyRoadVisualRoot) {
+        threeScene.add(object);
+        return object;
+      }
+      object.position.x -= derbyNumber(derbyRoadVisualRoot.userData.centerX, 0);
+      object.position.y -= derbyNumber(derbyRoadVisualRoot.userData.baseY, DERBY_BASE_ROAD_Y);
+      derbyRoadVisualRoot.add(object);
+      return object;
+    }
+
     function addDerbyTrackDecorations(roadW, laneSpacing, numLanes, roadMinZ, roadMaxZ) {
       if (!threeScene) return;
       initSharedThreeResources();
@@ -9236,7 +9974,7 @@
       [-1, roadW - 1].forEach((x, idx) => {
         const edge = new THREE.Mesh(edgeGeo, edgeMat.clone());
         edge.position.set(x, 0.018, roadCenterZ);
-        threeScene.add(edge);
+        addDerbyRoadVisual(edge);
         derbyTrackDecorations.push({
           type: "edge",
           mesh: edge,
@@ -9250,7 +9988,7 @@
         const dash = new THREE.Mesh(sharedGeometries.trackDash, dashMat.clone());
         dash.scale.set(roadW * 0.86, 1, 1);
         dash.position.set(centerX, 0.025, z);
-        threeScene.add(dash);
+        addDerbyRoadVisual(dash);
         derbyTrackDecorations.push({ type: "dash", mesh: dash, baseOpacity: 0.22, phase: z * 0.17 });
 
         if (dashIndex % 3 === 0) {
@@ -9259,7 +9997,7 @@
           const pad = new THREE.Mesh(sharedGeometries.speedPad, padMats[lane % padMats.length].clone());
           pad.scale.set(Math.max(0.85, laneSpacing * 0.72), 1, 1.15);
           pad.position.set(lane * laneSpacing + laneSpacing / 2, 0.035, z + 3.2);
-          threeScene.add(pad);
+          addDerbyRoadVisual(pad);
           derbyTrackDecorations.push({ type: "pad", mesh: pad, baseOpacity: 0.22, phase: z * 0.23 });
         }
       }
@@ -9269,8 +10007,8 @@
         [-1, 1].forEach((side) => {
           const pylon = new THREE.Mesh(sharedGeometries.trackPylon, pylonMat);
           pylon.position.set(side < 0 ? -1.22 : roadW - 0.78, 0.23, z);
-          threeScene.add(pylon);
-          derbyTrackDecorations.push({ type: "pylon", mesh: pylon, baseY: 0.23, phase: z * 0.13 });
+          addDerbyRoadVisual(pylon);
+          derbyTrackDecorations.push({ type: "pylon", mesh: pylon, baseY: pylon.position.y, phase: z * 0.13 });
         });
       }
 
@@ -9281,7 +10019,7 @@
         const side = i % 2 === 0 ? -1 : 1;
         const z = roadMinZ + 18 + i * ((roadLength - 36) / Math.max(1, droneCount - 1));
         drone.position.set(centerX + side * Math.min(roadW * 0.42, 9), 2.2 + (i % 3) * 0.28, z);
-        threeScene.add(drone);
+        addDerbyRoadVisual(drone);
         derbyTrackDecorations.push({
           type: "drone",
           mesh: drone,
@@ -9699,7 +10437,7 @@
         const pillarGeo = new THREE.BoxGeometry(0.2, 3.2, 0.2);
         const pillar = new THREE.Mesh(pillarGeo, pillarMat);
         pillar.position.set(px, py, gateZ);
-        threeScene.add(pillar);
+        addDerbyRoadVisual(pillar);
 
         [0.4, 1.2, 2.0].forEach((ringY, ri) => {
           const rGeo = new THREE.TorusGeometry(0.18, 0.04, 8, 20);
@@ -9712,7 +10450,7 @@
           const ring = new THREE.Mesh(rGeo, rMat);
           ring.position.set(px, ringY, gateZ);
           ring.rotation.x = Math.PI / 2;
-          threeScene.add(ring);
+          addDerbyRoadVisual(ring);
           derbyTrackDecorations.push({
             type: "pillarRing",
             mesh: ring,
@@ -9734,7 +10472,7 @@
       });
       const crossbeam = new THREE.Mesh(beamGeo, beamMat);
       crossbeam.position.set(centerX, 3.1, gateZ);
-      threeScene.add(crossbeam);
+      addDerbyRoadVisual(crossbeam);
       derbyTrackDecorations.push({
         type: "startBeam",
         mesh: crossbeam,
@@ -9760,7 +10498,7 @@
           0.5 + Math.random() * 2.6,
           gateZ + (Math.random() - 0.5) * 0.3
         );
-        threeScene.add(particle);
+        addDerbyRoadVisual(particle);
         derbyTrackDecorations.push({
           type: "energyParticle",
           mesh: particle,
@@ -9782,7 +10520,7 @@
         });
         const ring = new THREE.Mesh(rGeo, rMat);
         ring.position.set(centerX, 1.5, gateZ + 2.5 + i * 1.2);
-        threeScene.add(ring);
+        addDerbyRoadVisual(ring);
         derbyTrackDecorations.push({
           type: "gateRing",
           mesh: ring,
@@ -9812,7 +10550,7 @@
         const pGeo = new THREE.BoxGeometry(0.22, 4.2, 0.22);
         const pillar = new THREE.Mesh(pGeo, finPillarMat);
         pillar.position.set(px, py, finishZ);
-        threeScene.add(pillar);
+        addDerbyRoadVisual(pillar);
 
         [0.5, 1.5, 2.5, 3.5].forEach((ringY, ri) => {
           const rGeo = new THREE.TorusGeometry(0.2, 0.045, 8, 24);
@@ -9825,7 +10563,7 @@
           const ring = new THREE.Mesh(rGeo, rMat);
           ring.position.set(px, ringY, finishZ);
           ring.rotation.x = Math.PI / 2;
-          threeScene.add(ring);
+          addDerbyRoadVisual(ring);
           derbyTrackDecorations.push({
             type: "finishPillarRing",
             mesh: ring,
@@ -9847,7 +10585,7 @@
       });
       const finBeam = new THREE.Mesh(finBeamGeo, finBeamMat);
       finBeam.position.set(centerX, 4.15, finishZ);
-      threeScene.add(finBeam);
+      addDerbyRoadVisual(finBeam);
       derbyTrackDecorations.push({
         type: "finishBeam",
         mesh: finBeam,
@@ -9867,11 +10605,11 @@
       });
       const gem = new THREE.Mesh(gemGeo, gemMat);
       gem.position.set(centerX, 4.65, finishZ);
-      threeScene.add(gem);
+      addDerbyRoadVisual(gem);
       derbyTrackDecorations.push({
         type: "trophyGem",
         mesh: gem,
-        baseY: 4.65,
+        baseY: gem.position.y,
         phase: 0,
         spin: 0.018
       });
@@ -9891,7 +10629,7 @@
         });
         const flame = new THREE.Mesh(fGeo, fMat);
         flame.position.set(tx, ty, finishZ);
-        threeScene.add(flame);
+        addDerbyRoadVisual(flame);
         derbyTrackDecorations.push({
           type: "torch",
           mesh: flame,
@@ -9913,7 +10651,7 @@
           });
           const bead = new THREE.Mesh(bGeo, bMat);
           bead.position.set(side * (roadW / 2 + 0.3), 0.1, z);
-          threeScene.add(bead);
+          addDerbyRoadVisual(bead);
           derbyTrackDecorations.push({
             type: "finishBead",
             mesh: bead,
@@ -9965,7 +10703,7 @@
         const banner = new THREE.Mesh(bgGeo, bgMat);
         banner.position.set(bp.x, bp.y, finishZ + (bi - 1) * 0.6);
         banner.rotation.y = bp.ry;
-        threeScene.add(banner);
+        addDerbyRoadVisual(banner);
       });
     }
 
@@ -9980,8 +10718,10 @@
       const { roadMinZ, roadMaxZ } = getDerbyRoadBounds();
       const roadLength = roadMaxZ - roadMinZ;
       const roadCenterZ = (roadMinZ + roadMaxZ) / 2;
+      const roadCfg = getDerbyRoadConfig();
 
       addDerbyBackdrop(roadW);
+      derbyRoadVisualRoot = createDerbyRoadVisualRoot(roadW);
 
       const roadGeo = new THREE.PlaneGeometry(roadW, roadLength);
 
@@ -10001,7 +10741,7 @@
 
       road.position.set(roadW / 2 - 1, -0.05, roadCenterZ);
 
-      threeScene.add(road);
+      addDerbyRoadVisual(road);
 
       addDerbyTrackDecorations(roadW, laneSpacing, numLanes, roadMinZ, roadMaxZ);
       addDerbyStartGate(roadW);
@@ -10030,7 +10770,7 @@
 
           color: i === 0 || i === numLanes ? "#fbbf24" : "#10b981",
 
-          opacity: 0.35,
+          opacity: derbyNumber(roadCfg.gridOpacity, 0.35),
 
           transparent: true
 
@@ -10038,7 +10778,7 @@
 
         const line = new THREE.Line(lineGeo, lineMat);
 
-        threeScene.add(line);
+        addDerbyRoadVisual(line);
 
       }
 
@@ -10062,7 +10802,7 @@
 
       finishLine.position.set(roadW / 2 - 1, 0.01, 10); // Vạch đích ở tọa độ Z = 10
 
-      threeScene.add(finishLine);
+      addDerbyRoadVisual(finishLine);
 
     }
 
@@ -10149,6 +10889,8 @@
     // Khởi tạo các cờ hiệu đấu sĩ 3D
     function initThreeDRacers(names) {
       threeRacers = [];
+      clearDerbyRaceLabels();
+      const labelOverlay = ensureDerbyLabelOverlay();
 
       const numRacers = names.length;
 
@@ -10193,31 +10935,9 @@
         group.userData.motionBeacon = motionBeacon;
         
 
-        // Tạo bảng tên rõ nét, xếp lệch tầng/ngang để hạn chế đè nhau khi đông người.
-
-        const labelTierCount = numRacers > 24 ? 12 : (numRacers > 12 ? 8 : 5);
-
-        const labelTier = i % labelTierCount;
-
-        const labelOffsetX = ((i % 4) - 1.5) * Math.max(0.34, derbyLaneSpacing * 0.52);
-
-        const labelOffsetZ = -0.24 * labelTier - (i % 2) * 0.18;
-
-        const nameSprite = createThreeDRacerNameplate(name, skin.color, labelOffsetX);
-
-        nameSprite.position.set(labelOffsetX, 1.78 + labelTier * 0.38, labelOffsetZ);
-
-        const baseLabelScale = {
-
-          x: Math.max(1.92, Math.min(3.9, derbyLaneSpacing * 2.65)),
-
-          y: Math.max(1.18, Math.min(1.72, derbyLaneSpacing * 0.98))
-
-        };
-
-        nameSprite.scale.set(baseLabelScale.x, baseLabelScale.y, 1);
-
-        group.add(nameSprite);
+        // Bảng tên chạy bằng DOM overlay để không che model 3D.
+        const nameLabel = createDerbyRaceLabel(name, skin.color);
+        if (labelOverlay) labelOverlay.appendChild(nameLabel);
 
 
 
@@ -10258,6 +10978,10 @@
 
           startZ: posZ,
 
+          rawZ: posZ,
+
+          displayZ: posZ,
+
           z: posZ,
 
           speed: avgSpeed,
@@ -10283,18 +11007,19 @@
           color: skin.color,
 
           emoji: skin.emoji,
+          skinName: skin.name,
+          skinIndex: i % MYTHICAL_BEAST_SKINS.length,
+          skinElement: skin.element,
 
           rank: 0,
 
           laneIndex: i,
 
-          labelTier: labelTier,
+          labelEl: nameLabel,
 
-          labelOffsetX: labelOffsetX,
+          nameSprite: null,
 
-          nameSprite: nameSprite,
-
-          baseLabelScale: baseLabelScale,
+          baseLabelScale: null,
 
           trailParticles: [] // Hệ thống vệt đuôi hạt
 
@@ -10588,8 +11313,6 @@
 
       // 1. Tính toán chuyển động ngẫu nhiên các đấu sĩ
 
-      let leadZ = trackLength; // Z xuất phát 120, về đích là 10 (chạy giật lùi Z)
-
       let finishedCount = threeRacers.filter(r => r.finished).length;
 
       let allFinished = true;
@@ -10657,7 +11380,7 @@
 
           if (racer.slowTimer > 0) racer.slowTimer--;
 
-          racer.z = racer.startZ - (racer.startZ - 10) * progress;
+          racer.rawZ = racer.startZ - (racer.startZ - 10) * progress;
 
           
 
@@ -10665,7 +11388,7 @@
 
           if (progress >= 1) {
 
-            racer.z = 10;
+            racer.rawZ = 10;
 
             racer.finished = true;
 
@@ -10684,6 +11407,18 @@
           }
 
         }
+
+        racer.z = getDerbyLogicalZ(racer);
+
+      });
+
+
+
+      applyDerbyLeaderVisualCompression();
+
+
+
+      threeRacers.forEach(racer => {
 
         
 
@@ -10740,14 +11475,6 @@
 
         createVisualRacerTrail(racer);
 
-
-
-        if (racer.z < leadZ) {
-
-          leadZ = racer.z; // Tìm Z nhỏ nhất (đang dẫn đầu)
-
-        }
-
       });
 
 
@@ -10765,20 +11492,14 @@
       // Xếp hạng ảo cập nhật realtime bảng xếp hạng sidebar
 
       const sorted = [...threeRacers].sort((a, b) => {
-
-        if (a.finished && b.finished) return a.rank - b.rank;
-
-        if (a.finished) return -1;
-
-        if (b.finished) return 1;
-
-        return a.z - b.z; // Z nhỏ hơn là dẫn trước
+        return sortDerbyRacersByTrueProgress(a, b);
 
       });
 
       
 
       updateLeaderboardUI(sorted);
+      updateDerbyRaceLabels(sorted);
 
 
 
@@ -11029,6 +11750,8 @@
 
       }
 
+      clearDerbyRaceLabels();
+
       
 
       // Clean up Sumo sparks
@@ -11144,6 +11867,7 @@
       // Clear shared geometry and material caches
       derbyTrackDecorations = [];
       derbySpaceDecorations = [];
+      derbyRoadVisualRoot = null;
       resetDerbyCameraLayer();
 
       for (let key in sharedGeometries) {
@@ -13094,7 +13818,9 @@
 
           // Tính % quãng đường dựa vào Z chạy từ 120 về 10
 
-          progressPercent = Math.round(((trackLength - racer.z) / (trackLength - 10)) * 100);
+          progressPercent = Math.round(((trackLength - getDerbyLogicalZ(racer)) / (trackLength - 10)) * 100);
+          if (!Number.isFinite(progressPercent)) progressPercent = 0;
+          progressPercent = clampDerbyValue(progressPercent, 0, 100);
 
         }
 
@@ -13202,6 +13928,285 @@
 
     }
 
+    let resultsPodiumScene = null;
+    let resultsPodiumCamera = null;
+    let resultsPodiumRenderer = null;
+    let resultsPodiumLoopId = null;
+    let resultsPodiumModels = [];
+
+    function disposeResultsPodiumObject(object) {
+      if (!object) return;
+      object.traverse((node) => {
+        if (node.geometry) node.geometry.dispose();
+        if (node.material) {
+          const materials = Array.isArray(node.material) ? node.material : [node.material];
+          materials.forEach((material) => {
+            if (material.map) material.map.dispose();
+            material.dispose();
+          });
+        }
+      });
+    }
+
+    function stopResultsPodiumScene() {
+      if (resultsPodiumLoopId) {
+        cancelAnimationFrame(resultsPodiumLoopId);
+        resultsPodiumLoopId = null;
+      }
+      window.removeEventListener("resize", resizeResultsPodiumScene);
+      if (resultsPodiumScene) {
+        while (resultsPodiumScene.children.length > 0) {
+          const child = resultsPodiumScene.children[0];
+          resultsPodiumScene.remove(child);
+          disposeResultsPodiumObject(child);
+        }
+      }
+      if (resultsPodiumRenderer) {
+        try { resultsPodiumRenderer.dispose(); } catch (e) { console.warn("Lỗi giải phóng podium renderer:", e); }
+      }
+      resultsPodiumScene = null;
+      resultsPodiumCamera = null;
+      resultsPodiumRenderer = null;
+      resultsPodiumModels = [];
+    }
+
+    function getResultsPodiumHeight(rank) {
+      if (rank === 1) return 1.18;
+      if (rank === 2) return 0.88;
+      if (rank === 3) return 0.7;
+      if (rank === 4) return 0.52;
+      return 0.44;
+    }
+
+    function getResultsPodiumColor(rank) {
+      if (rank === 1) return "#fbbf24";
+      if (rank === 2) return "#cbd5e1";
+      if (rank === 3) return "#d97706";
+      if (rank === 4) return "#10b981";
+      return "#38bdf8";
+    }
+
+    function createResultsRankPlane(rank) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 180;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = rank === 1 ? "#381a04" : "#ffffff";
+      ctx.font = "900 96px 'Inter', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "rgba(0,0,0,0.4)";
+      ctx.shadowBlur = 12;
+      ctx.fillText(String(rank), 128, 92);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.generateMipmaps = false;
+      texture.minFilter = THREE.LinearFilter;
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false });
+      return new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.36), material);
+    }
+
+    function createResultsPodiumBlock(rank, height) {
+      const color = getResultsPodiumColor(rank);
+      const group = new THREE.Group();
+      const width = rank === 1 ? 1.16 : 1.02;
+      const block = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, 0.88),
+        new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: rank === 1 ? 0.28 : 0.12,
+          metalness: rank <= 3 ? 0.42 : 0.18,
+          roughness: 0.36
+        })
+      );
+      block.position.y = height / 2;
+      group.add(block);
+
+      const rim = new THREE.Mesh(
+        new THREE.BoxGeometry(width + 0.08, 0.06, 0.94),
+        new THREE.MeshBasicMaterial({ color: "#fff7cc", transparent: true, opacity: rank === 1 ? 0.44 : 0.22 })
+      );
+      rim.position.y = height + 0.02;
+      group.add(rim);
+
+      const rankPlane = createResultsRankPlane(rank);
+      rankPlane.position.set(0, Math.max(0.22, height * 0.54), 0.451);
+      group.add(rankPlane);
+      return group;
+    }
+
+    function createResultsPodiumCrown() {
+      const crown = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({
+        color: "#fbbf24",
+        emissive: "#f59e0b",
+        emissiveIntensity: 0.55,
+        metalness: 0.7,
+        roughness: 0.22
+      });
+      const base = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.025, 8, 28), mat);
+      base.rotation.x = Math.PI / 2;
+      crown.add(base);
+      [-0.16, 0, 0.16].forEach((x, index) => {
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(index === 1 ? 0.07 : 0.055, index === 1 ? 0.28 : 0.22, 4), mat);
+        spike.position.set(x, 0.14, 0);
+        spike.rotation.y = Math.PI / 4;
+        crown.add(spike);
+      });
+      crown.position.set(0, 1.18, 0.03);
+      return crown;
+    }
+
+    function renderResultsPodiumLabels(racers, visualOrder) {
+      const labels = document.getElementById("results-podium-labels");
+      if (!labels) return;
+      labels.innerHTML = visualOrder.map((rank) => {
+        const racer = racers[rank - 1];
+        if (!racer) return "";
+        const medal = getResultMedal(rank);
+        return `
+          <div class="results-podium-label rank-${rank}">
+            <span>${medal} Top ${rank}</span>
+            <span class="podium-label-name">${escapeHtml(racer.name || `Hạng ${rank}`)}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function resizeResultsPodiumScene() {
+      const stage = document.getElementById("results-podium-stage");
+      if (!stage || !resultsPodiumRenderer || !resultsPodiumCamera) return;
+      const width = Math.max(1, stage.clientWidth);
+      const height = Math.max(1, stage.clientHeight);
+      resultsPodiumRenderer.setSize(width, height, false);
+      resultsPodiumCamera.aspect = width / height;
+      resultsPodiumCamera.updateProjectionMatrix();
+    }
+
+    function startResultsPodiumScene(racers, visualOrder) {
+      const stage = document.getElementById("results-podium-stage");
+      const canvas = document.getElementById("results-podium-canvas");
+      if (!stage || !canvas || !window.THREE || !racers.length) return false;
+
+      stopResultsPodiumScene();
+      resultsPodiumScene = new THREE.Scene();
+      resultsPodiumCamera = new THREE.PerspectiveCamera(38, 1, 0.1, 60);
+      resultsPodiumRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      resultsPodiumRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      resultsPodiumRenderer.setClearColor(0x000000, 0);
+
+      const ambient = new THREE.AmbientLight("#dfffea", 1.35);
+      const key = new THREE.DirectionalLight("#fff2b8", 1.9);
+      key.position.set(2.8, 4.2, 4.6);
+      const fill = new THREE.PointLight("#10b981", 1.8, 9);
+      fill.position.set(-2.8, 2.2, 3.4);
+      resultsPodiumScene.add(ambient, key, fill);
+
+      const count = visualOrder.length;
+      const spacing = count <= 3 ? 1.45 : 1.12;
+      const centerOffset = (count - 1) / 2;
+      visualOrder.forEach((rank, index) => {
+        const racer = racers[rank - 1];
+        if (!racer) return;
+        const x = (index - centerOffset) * spacing;
+        const podiumHeight = getResultsPodiumHeight(rank);
+
+        const block = createResultsPodiumBlock(rank, podiumHeight);
+        block.position.set(x, 0, 0);
+        resultsPodiumScene.add(block);
+
+        const beastGroup = new THREE.Group();
+        const wolf = createDerbyWolfModel(racer.color || "#10b981");
+        wolf.rotation.y = Math.PI;
+        beastGroup.add(wolf);
+        const scale = rank === 1 ? 0.86 : rank <= 3 ? 0.68 : 0.56;
+        beastGroup.scale.set(scale, scale, scale);
+        beastGroup.position.set(x, podiumHeight + 0.03, 0.02);
+        beastGroup.userData.baseY = beastGroup.position.y;
+        beastGroup.userData.rank = rank;
+        beastGroup.userData.wolf = wolf;
+
+        if (rank === 1) {
+          const haloMat = new THREE.MeshBasicMaterial({
+            color: "#fbbf24",
+            transparent: true,
+            opacity: 0.58,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+          });
+          const halo = new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.025, 8, 54), haloMat);
+          halo.rotation.x = Math.PI / 2;
+          halo.position.y = 0.45;
+          beastGroup.add(halo);
+          beastGroup.userData.halo = halo;
+          beastGroup.add(createResultsPodiumCrown());
+        }
+
+        resultsPodiumScene.add(beastGroup);
+        resultsPodiumModels.push(beastGroup);
+      });
+
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(4.8, 64),
+        new THREE.MeshBasicMaterial({ color: "#0b2a13", transparent: true, opacity: 0.34, depthWrite: false })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -0.02;
+      resultsPodiumScene.add(ground);
+
+      resultsPodiumCamera.position.set(0, count >= 4 ? 2.35 : 2.2, count >= 4 ? 5.9 : 5.25);
+      resultsPodiumCamera.lookAt(0, 0.92, 0);
+      resizeResultsPodiumScene();
+      window.addEventListener("resize", resizeResultsPodiumScene);
+      animateResultsPodiumScene();
+      return true;
+    }
+
+    function animateResultsPodiumScene() {
+      if (!resultsPodiumRenderer || !resultsPodiumScene || !resultsPodiumCamera) return;
+      const now = performance.now();
+      resultsPodiumModels.forEach((model, index) => {
+        const rank = model.userData.rank || index + 1;
+        const bob = Math.sin(now * 0.0025 + index * 0.8) * (rank === 1 ? 0.045 : 0.028);
+        model.position.y = model.userData.baseY + bob;
+        model.rotation.y = Math.sin(now * 0.0018 + index) * 0.08;
+        const wolf = model.userData.wolf;
+        if (wolf?.userData?.tail) wolf.userData.tail.rotation.x = -0.62 + Math.sin(now * 0.006 + index) * 0.12;
+        if (wolf?.userData?.legs) {
+          wolf.userData.legs.forEach((leg, legIndex) => {
+            leg.rotation.x = Math.sin(now * 0.007 + legIndex * Math.PI + index) * 0.09;
+          });
+        }
+        if (model.userData.halo) model.userData.halo.rotation.z += 0.018;
+      });
+      resultsPodiumRenderer.render(resultsPodiumScene, resultsPodiumCamera);
+      resultsPodiumLoopId = requestAnimationFrame(animateResultsPodiumScene);
+    }
+
+    function renderFallbackPodium(sortedRacers, count) {
+      const container = document.getElementById("podium-container");
+      if (!container) return;
+      container.classList.remove("has-3d-stage");
+      container.innerHTML = getPodiumVisualOrder(count).map((rank, index) => {
+        const racer = sortedRacers[rank - 1];
+        if (!racer) return "";
+        const safeName = escapeHtml(racer.name || `Hạng ${rank}`);
+        const safeEmoji = escapeHtml(racer.emoji || "🐶");
+        const crown = rank === 1 ? `<span class="podium-crown">👑</span>` : "";
+        return `
+          <div class="podium-column rank-${rank}" data-rank="${rank}" style="animation-delay: ${index * 0.06}s">
+            <div class="podium-avatar-label">
+              <span class="podium-racer-emoji">${safeEmoji}</span>
+              <span class="podium-name">${safeName}</span>
+            </div>
+            ${crown}
+            <div class="podium-box"><span>${rank}</span></div>
+          </div>
+        `;
+      }).join("");
+    }
+
 
 
     function renderWinnerCelebration(winner) {
@@ -13221,30 +14226,9 @@
       const winnerName = escapeHtml(winner.name || "Thần thú vô danh");
 
       const winnerEmoji = escapeHtml(winner.emoji || "🐶");
+      const winnerSkin = escapeHtml(winner.skinName || "Thần thú");
 
       container.innerHTML = `
-
-        <div class="winner-dog" aria-hidden="true">
-
-          <span class="winner-dog-crown">👑</span>
-
-          <span class="winner-dog-sparkle">✦</span>
-
-          <span class="winner-dog-tail"></span>
-
-          <span class="winner-dog-ear left"></span>
-
-          <span class="winner-dog-ear right"></span>
-
-          <span class="winner-dog-face"></span>
-
-          <span class="winner-dog-eye left"></span>
-
-          <span class="winner-dog-eye right"></span>
-
-          <span class="winner-dog-nose"></span>
-
-        </div>
 
         <div class="winner-copy">
 
@@ -13257,6 +14241,8 @@
             <span class="winner-name-text">${winnerName}</span>
 
           </div>
+
+          <div class="winner-subtitle" style="margin-top: 4px; color: #fbbf24;">${winnerSkin}</div>
 
         </div>
 
@@ -13271,50 +14257,31 @@
       const container = document.getElementById("podium-container");
 
       if (!container) return;
+      stopResultsPodiumScene();
 
       const count = Math.min(prizeCount, 5, sortedRacers.length);
 
       if (count <= 0) {
 
         container.innerHTML = "";
+        container.classList.remove("has-3d-stage");
 
         return;
 
       }
 
-      container.innerHTML = getPodiumVisualOrder(count).map((rank, index) => {
-
-        const racer = sortedRacers[rank - 1];
-
-        if (!racer) return "";
-
-        const safeName = escapeHtml(racer.name || `Hạng ${rank}`);
-
-        const safeEmoji = escapeHtml(racer.emoji || "🐶");
-
-        const crown = rank === 1 ? `<span class="podium-crown">👑</span>` : "";
-
-        return `
-
-          <div class="podium-column rank-${rank}" data-rank="${rank}" style="animation-delay: ${index * 0.06}s">
-
-            <div class="podium-avatar-label">
-
-              <span class="podium-racer-emoji">${safeEmoji}</span>
-
-              <span class="podium-name">${safeName}</span>
-
-            </div>
-
-            ${crown}
-
-            <div class="podium-box"><span>${rank}</span></div>
-
-          </div>
-
-        `;
-
-      }).join("");
+      const visualOrder = getPodiumVisualOrder(count);
+      container.classList.add("has-3d-stage");
+      container.innerHTML = `
+        <div class="results-podium-stage" id="results-podium-stage" aria-hidden="true">
+          <canvas class="results-podium-canvas" id="results-podium-canvas"></canvas>
+          <div class="results-podium-labels" id="results-podium-labels"></div>
+        </div>
+      `;
+      renderResultsPodiumLabels(sortedRacers, visualOrder);
+      if (!startResultsPodiumScene(sortedRacers, visualOrder)) {
+        renderFallbackPodium(sortedRacers, count);
+      }
 
     }
 
@@ -13474,6 +14441,8 @@
 
       document.getElementById("results-overlay").style.display = "none";
 
+      stopResultsPodiumScene();
+
       stopFireworksAnimation();
 
       exitArenaView();
@@ -13529,6 +14498,7 @@
       stopRaceTimer(false);
 
       stopFireworksAnimation();
+      stopResultsPodiumScene();
 
       
 
@@ -13573,6 +14543,7 @@
     let fwParticles = [];
 
     let fwIsRunning = false;
+    const FIREWORKS_SAFE_PADDING = 18;
 
 
 
@@ -13648,6 +14619,58 @@
 
     }
 
+    function getFireworksSafeRects() {
+      if (!fwCanvas) return [];
+      const selectors = [".results-panel", "#results-other-list"];
+      return selectors
+        .map((selector) => document.querySelector(selector))
+        .filter(Boolean)
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            left: Math.max(0, rect.left - FIREWORKS_SAFE_PADDING),
+            top: Math.max(0, rect.top - FIREWORKS_SAFE_PADDING),
+            right: Math.min(fwCanvas.width, rect.right + FIREWORKS_SAFE_PADDING),
+            bottom: Math.min(fwCanvas.height, rect.bottom + FIREWORKS_SAFE_PADDING)
+          };
+        });
+    }
+
+    function isPointInFireworksSafeRect(x, y, safeRects) {
+      return safeRects.some((rect) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+    }
+
+    function clearFireworksSafeRects(safeRects) {
+      safeRects.forEach((rect) => {
+        fwCtx.clearRect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+      });
+    }
+
+    function createFireworkBurst(celebrationMode, safeRects) {
+      const width = fwCanvas.width;
+      const height = fwCanvas.height;
+      let startX = width * 0.18;
+      let targetY = height * 0.24;
+
+      for (let attempt = 0; attempt < 18; attempt++) {
+        const sideLeft = Math.random() < 0.5;
+        startX = width * (sideLeft ? (0.07 + Math.random() * 0.23) : (0.7 + Math.random() * 0.23));
+        targetY = height * (celebrationMode ? (0.08 + Math.random() * 0.34) : (0.12 + Math.random() * 0.4));
+        if (!isPointInFireworksSafeRect(startX, targetY, safeRects)) break;
+      }
+
+      return {
+        x: startX,
+        y: height,
+        tx: startX,
+        ty: targetY,
+        color: `hsl(${Math.random() * 360}, 95%, ${celebrationMode ? 66 : 60}%)`,
+        exploded: false,
+        speed: (celebrationMode ? 7.2 : 7) + Math.random() * (celebrationMode ? 2.8 : 3.2),
+        life: 0
+      };
+    }
+
 
 
     function animateFireworks() {
@@ -13657,8 +14680,9 @@
       
 
       const celebrationMode = document.getElementById("results-overlay")?.classList.contains("fireworks-visible");
+      const safeRects = celebrationMode ? getFireworksSafeRects() : [];
 
-      fwCtx.fillStyle = celebrationMode ? 'rgba(1, 6, 3, 0.09)' : 'rgba(3, 12, 5, 0.2)';
+      fwCtx.fillStyle = celebrationMode ? 'rgba(1, 6, 3, 0.13)' : 'rgba(3, 12, 5, 0.2)';
 
       fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
 
@@ -13666,37 +14690,9 @@
 
       // Bắn pháo hoa mới ngẫu nhiên
 
-      if (Math.random() < (celebrationMode ? 0.09 : 0.05)) {
+      if (Math.random() < (celebrationMode ? 0.025 : 0.025) && fwParticles.length < (celebrationMode ? 10 : 14)) {
 
-        const startX = fwCanvas.width * (0.15 + Math.random() * 0.7);
-
-        const startY = fwCanvas.height;
-
-        const targetY = fwCanvas.height * (celebrationMode ? (0.12 + Math.random() * 0.5) : (0.15 + Math.random() * 0.45));
-
-        const color = `hsl(${Math.random() * 360}, 100%, ${celebrationMode ? 68 : 60}%)`;
-
-        
-
-        fwParticles.push({
-
-          x: startX,
-
-          y: startY,
-
-          tx: startX,
-
-          ty: targetY,
-
-          color: color,
-
-          exploded: false,
-
-          speed: (celebrationMode ? 9 : 8) + Math.random() * (celebrationMode ? 5 : 4),
-
-          life: 0
-
-        });
+        fwParticles.push(createFireworkBurst(celebrationMode, safeRects));
 
       }
 
@@ -13716,13 +14712,15 @@
 
           // Vẽ tia lửa bay lên
 
-          fwCtx.fillStyle = p.color;
+          if (!isPointInFireworksSafeRect(p.x, p.y, safeRects)) {
+            fwCtx.fillStyle = p.color;
 
-          fwCtx.beginPath();
+            fwCtx.beginPath();
 
-          fwCtx.arc(p.x, p.y, celebrationMode ? 3.6 : 3, 0, Math.PI * 2);
+            fwCtx.arc(p.x, p.y, celebrationMode ? 2.2 : 2, 0, Math.PI * 2);
 
-          fwCtx.fill();
+            fwCtx.fill();
+          }
 
           
 
@@ -13732,7 +14730,7 @@
 
             // Tạo vụ nổ hạt
 
-            const numSparks = (celebrationMode ? 90 : 60) + Math.floor(Math.random() * (celebrationMode ? 55 : 40));
+            const numSparks = (celebrationMode ? 28 : 22) + Math.floor(Math.random() * (celebrationMode ? 25 : 18));
 
             p.sparks = [];
 
@@ -13740,7 +14738,7 @@
 
               const angle = Math.random() * Math.PI * 2;
 
-              const speed = (celebrationMode ? 1.4 : 1) + Math.random() * (celebrationMode ? 6.2 : 5);
+              const speed = (celebrationMode ? 0.9 : 0.8) + Math.random() * (celebrationMode ? 3.4 : 3.1);
 
               p.sparks.push({
 
@@ -13752,9 +14750,9 @@
 
                 vy: Math.sin(angle) * speed,
 
-                alpha: 1,
+                alpha: celebrationMode ? 0.74 : 0.88,
 
-                decay: (celebrationMode ? 0.01 : 0.015) + Math.random() * 0.015
+                decay: (celebrationMode ? 0.018 : 0.02) + Math.random() * 0.016
 
               });
 
@@ -13788,17 +14786,19 @@
 
             } else {
 
-              fwCtx.fillStyle = p.color;
+              if (!isPointInFireworksSafeRect(s.x, s.y, safeRects)) {
+                fwCtx.fillStyle = p.color;
 
-              fwCtx.globalAlpha = s.alpha;
+                fwCtx.globalAlpha = s.alpha;
 
-              fwCtx.beginPath();
+                fwCtx.beginPath();
 
-              fwCtx.arc(s.x, s.y, celebrationMode ? 2.45 : 2, 0, Math.PI * 2);
+                fwCtx.arc(s.x, s.y, celebrationMode ? 1.35 : 1.25, 0, Math.PI * 2);
 
-              fwCtx.fill();
+                fwCtx.fill();
 
-              fwCtx.globalAlpha = 1.0;
+                fwCtx.globalAlpha = 1.0;
+              }
 
             }
 
@@ -13817,6 +14817,7 @@
       }
 
       
+      if (safeRects.length) clearFireworksSafeRects(safeRects);
 
       fwLoopId = requestAnimationFrame(animateFireworks);
 

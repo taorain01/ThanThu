@@ -8776,6 +8776,21 @@
       });
     }
 
+    function updateNameplateRenderOrders() {
+      if (!threeCamera || !window.THREE) return;
+      const tempVec = getDerbyTempVector();
+      if (!tempVec) return;
+      const MAX_DEPTH = 180;
+      threeRacers.forEach((racer) => {
+        const sprite = racer.nameSprite;
+        if (!sprite) return;
+        sprite.getWorldPosition(tempVec);
+        const dist = threeCamera.position.distanceTo(tempVec);
+        const depthRatio = Math.min(1, dist / MAX_DEPTH);
+        sprite.renderOrder = 100 - depthRatio * 90;
+      });
+    }
+
     function getDerbyPackCameraFocusZ() {
       const packZ = threeRacers
         .map(racer => racer.z)
@@ -9052,6 +9067,7 @@
 
       updateDerbyCameraFrame(trackLength, false);
       updateDerbyNameplateScales();
+      updateNameplateRenderOrders();
 
       const firstFrameNow = performance.now();
       animateDerbyTrackDecorations(firstFrameNow);
@@ -10737,6 +10753,7 @@
 
       updateDerbyCameraFrame(getDerbyPackCameraFocusZ(), true);
       updateDerbyNameplateScales();
+      updateNameplateRenderOrders();
       animateDerbyTrackDecorations(frameNow);
       animateDerbySpaceDecorations(frameNow);
 

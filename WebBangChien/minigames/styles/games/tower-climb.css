@@ -379,6 +379,179 @@
   }
 }
 
+#card-game-4 .tower-preview {
+  background:
+    radial-gradient(circle at 50% 24%, rgba(253, 224, 71, 0.58), transparent 25%),
+    radial-gradient(circle at 24% 76%, rgba(45, 212, 191, 0.35), transparent 30%),
+    radial-gradient(circle at 76% 70%, rgba(56, 189, 248, 0.32), transparent 30%),
+    linear-gradient(180deg, #0c3b52 0%, #0b5a55 52%, #06241c 100%);
+  box-shadow:
+    inset 0 0 28px rgba(255, 247, 174, 0.18),
+    inset 0 -28px 36px rgba(1, 7, 4, 0.72);
+}
+
+#card-game-4 .tower-preview-bg {
+  display: none;
+}
+
+#card-game-4 .tower-preview::before {
+  z-index: 1;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(255, 247, 174, 0.13) 19px 20px),
+    linear-gradient(115deg, transparent 31%, rgba(250, 204, 21, 0.12) 32%, transparent 45%),
+    linear-gradient(245deg, transparent 34%, rgba(45, 212, 191, 0.12) 35%, transparent 48%);
+  opacity: 0.78;
+  animation: towerPreviewRays 3.4s ease-in-out infinite;
+}
+
+#card-game-4 .tower-preview::after {
+  z-index: 8;
+  background:
+    radial-gradient(circle at 18% 24%, #fef3c7 0 1.5px, transparent 3px),
+    radial-gradient(circle at 78% 18%, #a7f3d0 0 1.5px, transparent 3px),
+    radial-gradient(circle at 84% 62%, #fde68a 0 1.5px, transparent 3px),
+    radial-gradient(circle at 25% 68%, #67e8f9 0 1.5px, transparent 3px);
+  animation: towerPreviewSparkle 1.9s ease-in-out infinite;
+}
+
+#card-game-4 .tower-preview-moon {
+  left: 50%;
+  top: 3px;
+  width: 34px;
+  height: 34px;
+  z-index: 2;
+  opacity: 0.8;
+}
+
+#card-game-4 .tower-preview-spire {
+  left: 50%;
+  top: 16px;
+  width: 74px;
+  height: 79px;
+  transform: translateX(-50%);
+  clip-path: none;
+  border-radius: 8px 8px 4px 4px;
+  background:
+    linear-gradient(180deg, transparent 0 8px, #fef3c7 8px 12px, transparent 12px 19px, #fde68a 19px 23px, transparent 23px 34px, #fde68a 34px 39px, transparent 39px),
+    repeating-linear-gradient(90deg, rgba(6, 78, 59, 0.95) 0 10px, rgba(16, 185, 129, 0.92) 10px 16px),
+    linear-gradient(180deg, #34d399, #047857);
+  box-shadow:
+    0 0 22px rgba(45, 212, 191, 0.68),
+    0 12px 22px rgba(0, 0, 0, 0.36),
+    inset 0 0 16px rgba(255, 247, 174, 0.3);
+  z-index: 3;
+  animation: towerPreviewBreathe 2.4s ease-in-out infinite;
+}
+
+#card-game-4 .tower-preview-spire::before,
+#card-game-4 .tower-preview-spire::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+#card-game-4 .tower-preview-spire::before {
+  top: -18px;
+  width: 54px;
+  height: 22px;
+  clip-path: polygon(50% 0, 100% 78%, 72% 78%, 72% 100%, 28% 100%, 28% 78%, 0 78%);
+  background: linear-gradient(180deg, #fff7ad, #f59e0b 72%, #7c2d12);
+  filter: drop-shadow(0 0 9px rgba(251, 191, 36, 0.85));
+}
+
+#card-game-4 .tower-preview-spire::after {
+  top: 18px;
+  width: 96px;
+  height: 58px;
+  background:
+    linear-gradient(180deg, transparent 0 6px, rgba(253, 224, 71, 0.96) 6px 10px, transparent 10px 25px, rgba(253, 224, 71, 0.96) 25px 30px, transparent 30px 45px, rgba(253, 224, 71, 0.96) 45px 50px, transparent 50px);
+  clip-path: polygon(50% 0, 93% 14%, 78% 24%, 88% 34%, 70% 44%, 78% 54%, 50% 62%, 22% 54%, 30% 44%, 12% 34%, 22% 24%, 7% 14%);
+  opacity: 0.96;
+}
+
+#card-game-4 .tower-preview-step {
+  width: 82px;
+  height: 13px;
+  z-index: 5;
+  opacity: 1;
+  mix-blend-mode: normal;
+  animation: towerPreviewStepFloat 2.2s ease-in-out infinite;
+}
+
+#card-game-4 .tower-preview-step.s1 { left: 8%; top: 78%; transform: rotate(-7deg); }
+#card-game-4 .tower-preview-step.s2 { right: 7%; top: 58%; transform: rotate(6deg); animation-delay: -0.42s; }
+#card-game-4 .tower-preview-step.s3 { left: 12%; top: 39%; transform: rotate(-6deg) scale(0.9); animation-delay: -0.84s; }
+#card-game-4 .tower-preview-step.s4 { right: 14%; top: 22%; transform: rotate(7deg) scale(0.76); animation-delay: -1.26s; }
+
+#card-game-4 .tower-preview-beast {
+  width: 28px;
+  height: 28px;
+  font-size: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 28%, #fff7cc 0 14%, transparent 15%),
+    radial-gradient(circle at 50% 56%, #f97316 0 48%, #7c2d12 72%);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.55),
+    0 0 13px rgba(251, 191, 36, 0.9);
+  z-index: 7;
+}
+
+#card-game-4 .tower-preview-beast::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: -5px;
+  width: 20px;
+  height: 12px;
+  background:
+    radial-gradient(circle at 32% 58%, #111827 0 2px, transparent 2.5px),
+    radial-gradient(circle at 68% 58%, #111827 0 2px, transparent 2.5px),
+    linear-gradient(135deg, #fed7aa 0 48%, transparent 49%),
+    linear-gradient(225deg, #fed7aa 0 48%, transparent 49%);
+  border-radius: 8px 8px 4px 4px;
+}
+
+#card-game-4 .tower-preview-beast::after {
+  content: "";
+  position: absolute;
+  left: -13px;
+  top: 20px;
+  width: 42px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(1, 7, 4, 0.45);
+  filter: blur(2px);
+  z-index: -1;
+}
+
+#card-game-4 .tower-preview-beast.b1 { left: 18%; top: 55%; --jump-x: 94px; --jump-y: -24px; }
+#card-game-4 .tower-preview-beast.b2 { left: 62%; top: 36%; --jump-x: -88px; --jump-y: -22px; animation-delay: -0.9s; }
+#card-game-4 .tower-preview-beast.b3 { left: 27%; top: 18%; --jump-x: 74px; --jump-y: -14px; animation-delay: -1.8s; }
+
+#card-game-4 .tower-preview-gem {
+  z-index: 6;
+  font-size: 18px;
+}
+
+#card-game-4 .tower-preview-crown {
+  top: 6px;
+  z-index: 9;
+  font-size: 20px;
+}
+
+@keyframes towerPreviewBreathe {
+  0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+  50% { transform: translateX(-50%) translateY(-2px) scale(1.03); }
+}
+
+@keyframes towerPreviewStepFloat {
+  0%, 100% { filter: brightness(0.96); }
+  50% { filter: brightness(1.42); box-shadow: 0 4px 0 #3f2109, 0 0 20px rgba(251, 191, 36, 0.78); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tower-preview-beast,
   .tower-preview-gem,

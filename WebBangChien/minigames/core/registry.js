@@ -1,6 +1,6 @@
 import speedDerbyGame from "../games/speed-derby/index.js?v=20260625-3";
-import plinko3DGame from "../games/plinko-3d/index.js?v=20260625-6";
-import towerClimbGame from "../games/tower-climb/index.js?v=20260625-3";
+import plinko3DGame from "../games/plinko-3d/index.js?v=20260625-8";
+import towerClimbGame from "../games/tower-climb/index.js?v=20260625-4";
 
 export const gameRegistry = [
   speedDerbyGame,

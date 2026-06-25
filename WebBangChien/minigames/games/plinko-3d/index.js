@@ -1,6 +1,6 @@
 import { PLINKO_CONFIG } from "./config.js?v=20260625-5";
-import { startPlinko3DGame, cleanupPlinko3DGame } from "./engine3d.js?v=20260625-6";
-import { startPlinkoFallback2D, cleanupPlinkoFallback2D } from "./fallback2d.js?v=20260625-5";
+import { startPlinko3DGame, cleanupPlinko3DGame } from "./engine3d.js?v=20260625-8";
+import { startPlinkoFallback2D, cleanupPlinkoFallback2D } from "./fallback2d.js?v=20260625-7";
 
 const plinko3DGame = {
   id: "plinko-3d",

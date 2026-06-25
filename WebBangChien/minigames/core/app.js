@@ -1,4 +1,4 @@
-import { getEnabledGames, getGameByLegacyId, getRandomWheelEntries } from "./registry.js?v=20260625-6";
+import { getEnabledGames, getGameByLegacyId, getRandomWheelEntries } from "./registry.js?v=20260625-9";
 import { loadThreeJsDynamic } from "./three-loader.js";
 import { createBeastWolfModel, getBeastSurfaceOffset, updateBeastIdlePose } from "./beast-model.js?v=20260625-1";
 import { DERBY_SCENE_CONFIG } from "../games/speed-derby/config.js";

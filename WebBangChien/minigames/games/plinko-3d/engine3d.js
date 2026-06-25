@@ -310,7 +310,7 @@ function buildBoard() {
     line.position.set(0, y, 0.42);
     plinkoGroup.add(line);
     const label = createLabelSprite(`${milestone.label} +${milestone.score}`, "#fef08a", 620, 150, 7.2, 1.45);
-    label.position.set(-cfg.width / 2 + 5.8, y + 0.62, 0.78);
+    label.position.set(-cfg.width / 2 - 1.3, y + 0.62, 0.78);
     plinkoGroup.add(label);
   });
 
@@ -352,7 +352,7 @@ function buildBoard() {
       slotCfg.jackpot ? 4.75 : 3.55,
       1.16
     );
-    label.position.set(0, 1.62, 0.62);
+    label.position.set(0, 0.62, 0.62);
     slotGroup.add(label);
     plinkoGroup.add(slotGroup);
     plinkoSlots.push({ ...slotCfg, index, x, width: slotWidth, mesh, group: slotGroup, pulse: 0 });
@@ -1280,27 +1280,30 @@ function updatePlinkoCamera(now) {
 function createPodiumLabel(lines, color, width = 4.8) {
   const canvas = document.createElement("canvas");
   canvas.width = 640;
-  canvas.height = 220;
+  canvas.height = 270;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(2, 6, 23, 0.86)";
   ctx.strokeStyle = color;
   ctx.lineWidth = 6;
   ctx.beginPath();
-  drawRoundedRect(ctx, 12, 14, 616, 192, 28);
+  drawRoundedRect(ctx, 12, 14, 616, 236, 28);
   ctx.fill();
   ctx.stroke();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#fff7cc";
-  ctx.font = "900 44px Inter, sans-serif";
-  ctx.fillText(lines[0], 320, 58);
+  ctx.font = "900 38px Inter, sans-serif";
+  ctx.fillText(lines[0], 320, 50);
   ctx.fillStyle = "#f8fafc";
+  ctx.font = "900 36px Inter, sans-serif";
+  ctx.fillText(lines[1], 320, 106);
+  ctx.fillStyle = "#fff7cc";
   ctx.font = "900 32px Inter, sans-serif";
-  ctx.fillText(lines[1], 320, 108);
+  ctx.fillText(lines[2], 320, 154);
   ctx.fillStyle = "#bfdbfe";
-  ctx.font = "800 24px Inter, sans-serif";
-  ctx.fillText(lines[2] || "", 320, 154);
-  return createCanvasSprite(canvas, width, width * 0.344).sprite;
+  ctx.font = "800 22px Inter, sans-serif";
+  ctx.fillText(lines[3] || "", 320, 204);
+  return createCanvasSprite(canvas, width, width * 0.422).sprite;
 }
 
 function buildPodium(sorted) {
@@ -1323,14 +1326,15 @@ function buildPodium(sorted) {
     plinkoPodiumGroup.add(block);
     const label = createPodiumLabel([
       `Hạng ${pos.rank}`,
-      ball ? `${shortName(ball.name, 13)} • ${ball.score}đ` : "Đang chờ",
+      ball ? shortName(ball.name, 13) : "Đang chờ",
+      ball ? `${ball.score} điểm` : "",
       getPrizeText(pos.rank)
     ], pos.color, pos.width);
-    label.position.set(pos.x, pos.y + 1.25, 1.8);
+    label.position.set(pos.x, pos.y - 0.24, 2.05);
     plinkoPodiumGroup.add(label);
     if (ball) {
       if (ball.group) ball.group.visible = true;
-      ball.stageTarget = { x: pos.x, y: pos.y + pos.h + 0.15, z: 1.8, scale: pos.rank === 1 ? 1.8 : 1.55 };
+      ball.stageTarget = { x: pos.x, y: pos.y + pos.h + 1.18, z: 1.72, scale: pos.rank === 1 ? 1.72 : 1.48 };
       ball.pingUntil = performance.now() + 999999;
     }
   });

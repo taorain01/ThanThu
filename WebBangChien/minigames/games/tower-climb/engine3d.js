@@ -142,11 +142,31 @@ function getPodiumSurfaceY(podium) {
   return podium.position.y + podium.userData.height / 2;
 }
 
-function getPodiumAwardTarget(racer, podium) {
+function getPodiumCameraFacingOffset(podium) {
+  const fallback = { x: 1, z: 0 };
+  const source = towerCamera?.position || fallback;
+  const dx = source.x - podium.position.x;
+  const dz = source.z - podium.position.z;
+  const length = Math.hypot(dx, dz);
+  const radius = num(podium.userData.radius, 1);
+  const offset = radius * 0.52;
+
+  if (length < 0.001) {
+    return { x: fallback.x * offset, z: fallback.z * offset };
+  }
+
   return {
-    x: podium.position.x,
-    y: getPodiumSurfaceY(podium) + getRacerAwardSurfaceOffset(racer),
-    z: podium.position.z
+    x: (dx / length) * offset,
+    z: (dz / length) * offset
+  };
+}
+
+function getPodiumAwardTarget(racer, podium) {
+  const facingOffset = getPodiumCameraFacingOffset(podium);
+  return {
+    x: podium.position.x + facingOffset.x,
+    y: getPodiumSurfaceY(podium) + getRacerAwardSurfaceOffset(racer) + 0.12,
+    z: podium.position.z + facingOffset.z
   };
 }
 
@@ -454,6 +474,7 @@ function createPodium(rank, x, y, z, color, height, radius) {
   group.userData.rank = rank;
   group.userData.occupied = false;
   group.userData.height = height;
+  group.userData.radius = radius;
   towerScene.add(group);
 
   return group;

@@ -865,7 +865,7 @@ function finishFallbackGame(now = performance.now(), reason = "time") {
     const ball = sorted[pos.rank - 1];
     if (ball) {
       ball.visibleOnBoard = true;
-      ball.stageTarget = { ...pos, scale: pos.rank === 1 ? 1.8 : 1.55 };
+      ball.stageTarget = { ...pos, y: pos.y + pos.h + 1.18, scale: pos.rank === 1 ? 1.72 : 1.48 };
     }
   });
   fallbackLegacy?.stopRaceTimer?.(true);
@@ -910,7 +910,7 @@ function drawFallback(ctx, canvas, now) {
 
   PLINKO_CONFIG.milestones.forEach((milestone) => {
     const y = PLINKO_CONFIG.board.topY - milestone.progress * (PLINKO_CONFIG.board.topY - PLINKO_CONFIG.board.slotY);
-    const point = boardToCanvas(metrics, -PLINKO_CONFIG.board.width / 2 + 2, y);
+    const point = boardToCanvas(metrics, -PLINKO_CONFIG.board.width / 2 - 2.4, y);
     ctx.strokeStyle = "rgba(254,240,138,0.28)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -1010,7 +1010,7 @@ function drawFallback(ctx, canvas, now) {
     ctx.font = slot.jackpot ? "900 23px Inter, sans-serif" : "900 27px Inter, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(slot.label, center.x, y + height / 2);
+    ctx.fillText(slot.label, center.x, y + height * 0.72);
     ctx.textBaseline = "alphabetic";
     slot.pulse = Math.max(0, slot.pulse - 0.055);
   });
@@ -1070,7 +1070,7 @@ function drawFallback(ctx, canvas, now) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    const labelY = point.y - radius - 72;
+    const labelY = fallbackStageMode ? point.y + radius + 48 : point.y - radius - 72;
     ctx.shadowBlur = 0;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -1098,14 +1098,15 @@ function drawFallback(ctx, canvas, now) {
       const ball = sorted[pos.rank - 1];
       ctx.fillStyle = `${pos.color}aa`;
       ctx.beginPath();
-      drawRoundedRect(ctx, point.x - 62, point.y, 124, 58, 10);
+      drawRoundedRect(ctx, point.x - 62, point.y, 124, 74, 10);
       ctx.fill();
       ctx.fillStyle = "#020617";
       ctx.font = "900 13px Inter, sans-serif";
       ctx.fillText(`Hạng ${pos.rank}`, point.x, point.y + 16);
-      ctx.fillText(ball ? `${shortName(ball.name, 10)} • ${ball.score}đ` : "Đang chờ", point.x, point.y + 34);
+      ctx.fillText(ball ? shortName(ball.name, 10) : "Đang chờ", point.x, point.y + 34);
+      ctx.fillText(ball ? `${ball.score} điểm` : "", point.x, point.y + 48);
       ctx.font = "800 10px Inter, sans-serif";
-      ctx.fillText(getPrizeText(pos.rank), point.x, point.y + 50);
+      ctx.fillText(getPrizeText(pos.rank), point.x, point.y + 60);
     });
   }
 }

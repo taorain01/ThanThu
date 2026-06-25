@@ -30,10 +30,14 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 15%, rgba(253, 224, 71, 0.58), transparent 24%),
-    radial-gradient(ellipse at 50% 92%, rgba(16, 185, 129, 0.48), transparent 55%),
-    radial-gradient(circle at 24% 55%, rgba(56, 189, 248, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(2, 10, 8, 0.12), rgba(2, 10, 8, 0.18)),
+    radial-gradient(circle at 50% 15%, rgba(253, 224, 71, 0.34), transparent 24%),
+    radial-gradient(ellipse at 50% 92%, rgba(16, 185, 129, 0.28), transparent 55%),
+    url("../../../anh/bg_thien_van_cung_sang.png"),
     linear-gradient(180deg, #082447 0%, #073528 56%, #020a08 100%);
+  background-position: center, center, center, 59% 44%, center;
+  background-size: auto, auto, auto, 190% auto, auto;
+  background-repeat: no-repeat;
   box-shadow: inset 0 0 30px rgba(251, 191, 36, 0.12);
 }
 

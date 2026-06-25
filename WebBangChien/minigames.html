@@ -36,6 +36,194 @@
   <link rel="stylesheet" href="./minigames/styles/games/speed-derby.css">
   <link rel="stylesheet" href="./minigames/styles/games/plinko-3d.css">
   <link rel="stylesheet" href="./minigames/styles/games/tower-climb.css?v=20260625-7">
+  <style>
+    #card-game-4 .tower-avatar {
+      background:
+        radial-gradient(circle at 50% 20%, rgba(253, 224, 71, 0.7), transparent 23%),
+        radial-gradient(circle at 23% 74%, rgba(45, 212, 191, 0.42), transparent 31%),
+        radial-gradient(circle at 78% 72%, rgba(56, 189, 248, 0.35), transparent 31%),
+        linear-gradient(180deg, #0e4560 0%, #0d685f 55%, #06241c 100%) !important;
+      box-shadow: inset 0 0 26px rgba(255, 247, 174, 0.22), inset 0 -28px 34px rgba(1, 7, 4, 0.7);
+      isolation: isolate;
+    }
+
+    #card-game-4 .tower-avatar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 18px, rgba(255, 247, 174, 0.13) 19px 20px),
+        linear-gradient(115deg, transparent 31%, rgba(250, 204, 21, 0.14) 32%, transparent 45%),
+        linear-gradient(245deg, transparent 34%, rgba(45, 212, 191, 0.13) 35%, transparent 48%);
+      animation: towerAvatarRays 3.4s ease-in-out infinite;
+    }
+
+    #card-game-4 .tower-avatar::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 24%, #fef3c7 0 1.5px, transparent 3px),
+        radial-gradient(circle at 78% 18%, #a7f3d0 0 1.5px, transparent 3px),
+        radial-gradient(circle at 84% 62%, #fde68a 0 1.5px, transparent 3px),
+        radial-gradient(circle at 25% 68%, #67e8f9 0 1.5px, transparent 3px);
+      animation: towerAvatarSparkle 1.9s ease-in-out infinite;
+    }
+
+    .tower-avatar-moon {
+      position: absolute;
+      left: 50%;
+      top: 3px;
+      z-index: 2;
+      width: 34px;
+      height: 34px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: radial-gradient(circle at 36% 32%, #fffde7, #fde047 42%, #ca8a04 76%);
+      box-shadow: 0 0 20px rgba(253, 224, 71, 0.95), 0 0 36px rgba(250, 204, 21, 0.5);
+      opacity: 0.82;
+    }
+
+    .tower-avatar-spire {
+      position: absolute;
+      left: 50%;
+      top: 17px;
+      z-index: 4;
+      width: 76px;
+      height: 78px;
+      transform: translateX(-50%);
+      border-radius: 8px 8px 4px 4px;
+      background:
+        linear-gradient(180deg, transparent 0 8px, #fef3c7 8px 12px, transparent 12px 19px, #fde68a 19px 23px, transparent 23px 34px, #fde68a 34px 39px, transparent 39px),
+        repeating-linear-gradient(90deg, rgba(6, 78, 59, 0.95) 0 10px, rgba(16, 185, 129, 0.92) 10px 16px),
+        linear-gradient(180deg, #34d399, #047857);
+      box-shadow: 0 0 22px rgba(45, 212, 191, 0.68), 0 12px 22px rgba(0, 0, 0, 0.36), inset 0 0 16px rgba(255, 247, 174, 0.3);
+      animation: towerAvatarBreathe 2.4s ease-in-out infinite;
+    }
+
+    .tower-avatar-spire::before,
+    .tower-avatar-spire::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+    }
+
+    .tower-avatar-spire::before {
+      top: -18px;
+      width: 54px;
+      height: 22px;
+      clip-path: polygon(50% 0, 100% 78%, 72% 78%, 72% 100%, 28% 100%, 28% 78%, 0 78%);
+      background: linear-gradient(180deg, #fff7ad, #f59e0b 72%, #7c2d12);
+      filter: drop-shadow(0 0 9px rgba(251, 191, 36, 0.85));
+    }
+
+    .tower-avatar-spire::after {
+      top: 18px;
+      width: 98px;
+      height: 58px;
+      background: linear-gradient(180deg, transparent 0 6px, rgba(253, 224, 71, 0.96) 6px 10px, transparent 10px 25px, rgba(253, 224, 71, 0.96) 25px 30px, transparent 30px 45px, rgba(253, 224, 71, 0.96) 45px 50px, transparent 50px);
+      clip-path: polygon(50% 0, 93% 14%, 78% 24%, 88% 34%, 70% 44%, 78% 54%, 50% 62%, 22% 54%, 30% 44%, 12% 34%, 22% 24%, 7% 14%);
+      opacity: 0.96;
+    }
+
+    .tower-avatar-step {
+      position: absolute;
+      z-index: 5;
+      width: 82px;
+      height: 13px;
+      border-radius: 50%;
+      border: 1px solid rgba(254, 240, 138, 0.85);
+      background: linear-gradient(180deg, #fff7ad, #fbbf24 52%, #92400e);
+      box-shadow: 0 4px 0 #3f2109, 0 0 17px rgba(251, 191, 36, 0.7);
+      animation: towerAvatarStepFloat 2.2s ease-in-out infinite;
+    }
+
+    .tower-avatar-step.s1 { left: 8%; top: 78%; transform: rotate(-7deg); }
+    .tower-avatar-step.s2 { right: 7%; top: 58%; transform: rotate(6deg); animation-delay: -0.42s; }
+    .tower-avatar-step.s3 { left: 12%; top: 39%; transform: rotate(-6deg) scale(0.9); animation-delay: -0.84s; }
+    .tower-avatar-step.s4 { right: 14%; top: 22%; transform: rotate(7deg) scale(0.76); animation-delay: -1.26s; }
+
+    .tower-avatar-beast {
+      position: absolute;
+      z-index: 8;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 36% 28%, #fff7cc 0 14%, transparent 15%),
+        radial-gradient(circle at 50% 56%, #f97316 0 48%, #7c2d12 72%);
+      box-shadow: 0 3px 4px rgba(0, 0, 0, 0.55), 0 0 13px rgba(251, 191, 36, 0.9);
+      animation: towerAvatarJump 2.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+    }
+
+    .tower-avatar-beast::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: -5px;
+      width: 20px;
+      height: 12px;
+      border-radius: 8px 8px 4px 4px;
+      background:
+        radial-gradient(circle at 32% 58%, #111827 0 2px, transparent 2.5px),
+        radial-gradient(circle at 68% 58%, #111827 0 2px, transparent 2.5px),
+        linear-gradient(135deg, #fed7aa 0 48%, transparent 49%),
+        linear-gradient(225deg, #fed7aa 0 48%, transparent 49%);
+    }
+
+    .tower-avatar-beast.b1 { left: 18%; top: 55%; --jump-x: 94px; --jump-y: -24px; }
+    .tower-avatar-beast.b2 { left: 62%; top: 36%; --jump-x: -88px; --jump-y: -22px; animation-delay: -0.9s; }
+    .tower-avatar-beast.b3 { left: 27%; top: 18%; --jump-x: 74px; --jump-y: -14px; animation-delay: -1.8s; }
+
+    .tower-avatar-gem {
+      position: absolute;
+      z-index: 7;
+      color: #67e8f9;
+      font-size: 18px;
+      text-shadow: 0 0 11px #22d3ee, 0 0 18px rgba(103, 232, 249, 0.68);
+      animation: towerAvatarGem 1.4s ease-in-out infinite;
+    }
+
+    .tower-avatar-gem.g1 { right: 24%; top: 43%; }
+    .tower-avatar-gem.g2 { left: 23%; top: 25%; animation-delay: -0.7s; }
+
+    @keyframes towerAvatarJump {
+      0%, 100% { transform: translate(0, 0) scale(0.96) rotate(-5deg); }
+      42% { transform: translate(calc(var(--jump-x) * 0.52), calc(var(--jump-y) - 21px)) scale(1.12, 0.92) rotate(7deg); }
+      72% { transform: translate(var(--jump-x), var(--jump-y)) scale(0.94, 1.08) rotate(-3deg); }
+    }
+
+    @keyframes towerAvatarBreathe {
+      0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+      50% { transform: translateX(-50%) translateY(-2px) scale(1.03); }
+    }
+
+    @keyframes towerAvatarStepFloat {
+      0%, 100% { filter: brightness(0.96); }
+      50% { filter: brightness(1.42); box-shadow: 0 4px 0 #3f2109, 0 0 20px rgba(251, 191, 36, 0.78); }
+    }
+
+    @keyframes towerAvatarGem {
+      0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.72; }
+      50% { transform: translateY(-5px) rotate(12deg); opacity: 1; }
+    }
+
+    @keyframes towerAvatarRays {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
+    }
+
+    @keyframes towerAvatarSparkle {
+      0%, 100% { opacity: 0.42; transform: translateY(0); }
+      50% { opacity: 0.9; transform: translateY(-4px); }
+    }
+  </style>
 
 </head>
 
@@ -216,22 +404,18 @@
             </div>
 
             <div class="game-card-lobby tower-card" id="card-game-4">
-              <div class="game-card-preview tower-preview" aria-hidden="true">
-                <img class="tower-preview-bg" src="./anh/bg_thien_van_cung_sang.png" alt="" loading="eager" decoding="async">
-                <div class="tower-preview-moon"></div>
-                <div class="tower-preview-cloud c1"></div>
-                <div class="tower-preview-cloud c2"></div>
-                <div class="tower-preview-crown">♛</div>
-                <div class="tower-preview-spire"></div>
-                <div class="tower-preview-step s1"><span></span></div>
-                <div class="tower-preview-step s2"><span></span></div>
-                <div class="tower-preview-step s3"><span></span></div>
-                <div class="tower-preview-step s4"><span></span></div>
-                <div class="tower-preview-beast b1">🐺</div>
-                <div class="tower-preview-beast b2">🐺</div>
-                <div class="tower-preview-beast b3">🐺</div>
-                <div class="tower-preview-gem g1">◆</div>
-                <div class="tower-preview-gem g2">◆</div>
+              <div class="game-card-preview tower-avatar" aria-hidden="true">
+                <div class="tower-avatar-moon"></div>
+                <div class="tower-avatar-spire"></div>
+                <div class="tower-avatar-step s1"></div>
+                <div class="tower-avatar-step s2"></div>
+                <div class="tower-avatar-step s3"></div>
+                <div class="tower-avatar-step s4"></div>
+                <div class="tower-avatar-beast b1"></div>
+                <div class="tower-avatar-beast b2"></div>
+                <div class="tower-avatar-beast b3"></div>
+                <div class="tower-avatar-gem g1">◆</div>
+                <div class="tower-avatar-gem g2">◆</div>
               </div>
               <div class="game-card-copy">
                 <div class="game-card-name">Tháp</div>

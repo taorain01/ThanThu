@@ -184,66 +184,70 @@ export function createBeastWolfModel(THREE, color, options = {}) {
   chest.position.set(0, 0.54, -0.36);
   beast.add(chest);
 
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.42), bodyMat);
+  const head = new THREE.Group();
+  head.name = "wolf-head-rig";
   head.position.set(0, 0.77, -0.58);
   beast.add(head);
 
+  const headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.42), bodyMat);
+  head.add(headMesh);
+
   const snout = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.24), lightMat);
-  snout.position.set(0, 0.72, -0.87);
-  beast.add(snout);
+  snout.position.set(0, -0.05, -0.29);
+  head.add(snout);
 
   const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 0.06), darkMat);
-  nose.position.set(0, 0.73, -1.02);
-  beast.add(nose);
+  nose.position.set(0, -0.04, -0.44);
+  head.add(nose);
 
   const earGeo = new THREE.BoxGeometry(0.14, 0.18, 0.08);
   const leftEar = new THREE.Mesh(earGeo, bodyMat);
-  leftEar.position.set(-0.15, 0.98, -0.58);
+  leftEar.position.set(-0.15, 0.21, 0);
   leftEar.rotation.set(0.1, 0, -0.38);
-  beast.add(leftEar);
+  head.add(leftEar);
 
   const rightEar = leftEar.clone();
   rightEar.position.x = 0.15;
   rightEar.rotation.z = 0.38;
-  beast.add(rightEar);
+  head.add(rightEar);
 
   const eyeGeo = new THREE.BoxGeometry(0.07, 0.07, 0.018);
   const leftEye = new THREE.Mesh(eyeGeo, darkMat);
-  leftEye.position.set(-0.105, 0.805, -0.812);
-  beast.add(leftEye);
+  leftEye.position.set(-0.105, 0.035, -0.232);
+  head.add(leftEye);
 
   const rightEye = leftEye.clone();
   rightEye.position.x = 0.105;
-  beast.add(rightEye);
+  head.add(rightEye);
 
   const browGeo = new THREE.BoxGeometry(0.12, 0.024, 0.018);
   const leftBrow = new THREE.Mesh(browGeo, darkMat);
-  leftBrow.position.set(-0.105, 0.875, -0.818);
-  beast.add(leftBrow);
+  leftBrow.position.set(-0.105, 0.105, -0.238);
+  head.add(leftBrow);
 
   const rightBrow = leftBrow.clone();
   rightBrow.position.x = 0.105;
-  beast.add(rightBrow);
+  head.add(rightBrow);
 
   const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.028, 0.026), darkMat);
-  mouth.position.set(0, 0.665, -1.005);
-  beast.add(mouth);
+  mouth.position.set(0, -0.105, -0.425);
+  head.add(mouth);
 
   const mouthAlt = mouth.clone();
   mouthAlt.visible = false;
   mouthAlt.position.x = 0.035;
-  beast.add(mouthAlt);
+  head.add(mouthAlt);
 
   const cheekGeo = new THREE.SphereGeometry(0.035, 8, 6);
   const leftCheek = new THREE.Mesh(cheekGeo, cheekMat);
-  leftCheek.position.set(-0.15, 0.69, -0.93);
+  leftCheek.position.set(-0.15, -0.08, -0.35);
   leftCheek.scale.set(1, 0.62, 0.28);
   leftCheek.visible = false;
-  beast.add(leftCheek);
+  head.add(leftCheek);
 
   const rightCheek = leftCheek.clone();
   rightCheek.position.x = 0.15;
-  beast.add(rightCheek);
+  head.add(rightCheek);
 
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.42), bodyMat);
   tail.position.set(0, 0.64, 0.56);
@@ -266,7 +270,7 @@ export function createBeastWolfModel(THREE, color, options = {}) {
   });
 
   const parts = [
-    body, chest, head, snout, nose, leftEar, rightEar, leftEye, rightEye,
+    body, chest, head, headMesh, snout, nose, leftEar, rightEar, leftEye, rightEye,
     leftBrow, rightBrow, mouth, mouthAlt, leftCheek, rightCheek, tail,
     ...legs
   ];
@@ -279,6 +283,7 @@ export function createBeastWolfModel(THREE, color, options = {}) {
     body,
     chest,
     head,
+    headMesh,
     snout,
     nose,
     ears: [leftEar, rightEar],

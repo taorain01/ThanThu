@@ -1,11 +1,11 @@
-import speedDerbyGame from "../games/speed-derby/index.js";
-import plinko3DGame from "../games/plinko-3d/index.js";
-import towerClimbGame from "../games/tower-climb/index.js";
+import speedDerbyGame from "../games/speed-derby/index.js?v=20260625-3";
+import plinko3DGame from "../games/plinko-3d/index.js?v=20260625-6";
+import towerClimbGame from "../games/tower-climb/index.js?v=20260625-3";
 
 export const gameRegistry = [
   speedDerbyGame,
-  plinko3DGame,
-  towerClimbGame
+  towerClimbGame,
+  plinko3DGame
 ];
 
 const WHEEL_COLORS = ["#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
@@ -26,13 +26,12 @@ export function getRandomWheelEntries() {
   const enabledGames = getEnabledGames();
   const sourceGames = enabledGames.length ? enabledGames : [speedDerbyGame];
 
-  return WHEEL_COLORS.map((color, index) => {
-    const game = sourceGames[index % sourceGames.length];
+  return sourceGames.map((game, index) => {
     return {
       id: game.legacyId,
       gameId: game.id,
       name: game.name,
-      color,
+      color: WHEEL_COLORS[index % WHEEL_COLORS.length],
       icon: game.icon
     };
   });

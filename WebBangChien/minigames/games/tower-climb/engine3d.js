@@ -28,6 +28,7 @@ let towerStartMs = 0;
 let towerDurationSeconds = DEFAULT_GAME_DURATION_SECONDS;
 let towerDurationMs = DEFAULT_GAME_DURATION_SECONDS * 1000;
 let towerFinishedCount = 0;
+let towerPrizeCount = 3;
 let towerNextEventAt = 0;
 let towerResizeHandler = null;
 let towerCameraAngleOffset = Math.random() * Math.PI * 2;
@@ -84,6 +85,11 @@ function lerpAngle(current, target, amount) {
 function getDurationSeconds() {
   const value = parseInt(document.getElementById("race-duration-select")?.value || String(DEFAULT_GAME_DURATION_SECONDS), 10);
   return Number.isFinite(value) ? value : DEFAULT_GAME_DURATION_SECONDS;
+}
+
+function getSelectedPrizeCount() {
+  const value = parseInt(document.getElementById("prize-count-select")?.value || "3", 10);
+  return clamp(Number.isFinite(value) ? value : 3, 1, 5);
 }
 
 function getBaselineDurationSeconds() {
@@ -145,7 +151,7 @@ function getPodiumAwardTarget(racer, podium) {
 }
 
 function getSafeOverflowSpot(racer) {
-  const extraIndex = Math.max(0, (racer?.rank || 4) - 4);
+  const extraIndex = Math.max(0, (racer?.rank || towerPrizeCount + 1) - towerPrizeCount - 1);
   const ring = Math.floor(extraIndex / 12);
   const indexInRing = extraIndex % 12;
   const angleOffset = ring * 0.33;
@@ -250,7 +256,7 @@ function setupTowerDom(names) {
   document.getElementById("derby-label-overlay").innerHTML = "";
   document.getElementById("derby-camera-layer").style.display = "none";
   document.getElementById("webgl-container").classList.add("tower-climb-active");
-  document.querySelector(".arena-logo").textContent = "Tháp Xoắn Thần Thú 3D";
+  document.querySelector(".arena-logo").textContent = "Tháp";
   document.querySelector("#arena-sidebar .sidebar-title span").textContent = "Cao Thủ Leo Tháp";
   document.getElementById("racer-progress-title").textContent = `Hoàn thành: 0 / ${names.length}`;
   towerLegacy?.updateCommentaryText?.("Đang triệu hồi tháp xoắn và các linh hồ leo tháp...");
@@ -453,24 +459,44 @@ function createPodium(rank, x, y, z, color, height, radius) {
   return group;
 }
 
+function getPodiumVisualOrder(count) {
+  return {
+    1: [1],
+    2: [2, 1],
+    3: [2, 1, 3],
+    4: [4, 2, 1, 3],
+    5: [4, 2, 1, 3, 5]
+  }[count] || [4, 2, 1, 3, 5];
+}
+
 function buildPodiums() {
   const totalSteps = getTowerTotalSteps();
   const apexHeight = totalSteps * TOWER_CONFIG.stepHeight + 0.3;
   const podiums = [];
+  const visualOrder = getPodiumVisualOrder(towerPrizeCount);
+  const spacing = towerPrizeCount <= 3 ? 3.15 : 2.55;
+  const rankStyles = {
+    1: { color: 0xfbbf24, height: 1.8, radius: 1.2 },
+    2: { color: 0xe2e8f0, height: 1.35, radius: 1.0 },
+    3: { color: 0xfb923c, height: 1.05, radius: 0.95 },
+    4: { color: 0x60a5fa, height: 0.82, radius: 0.86 },
+    5: { color: 0xa78bfa, height: 0.68, radius: 0.82 }
+  };
 
-  // Podium 1 (center, tallest, gold)
-  const p1 = createPodium(1, 0, apexHeight + 1.8, 0, 0xfbbf24, 1.8, 1.2);
-  podiums.push(p1);
-
-  // Podium 2 (left, silver)
-  const angle2 = -Math.PI / 4;
-  const p2 = createPodium(2, Math.cos(angle2) * 3.5, apexHeight + 1.2, Math.sin(angle2) * 3.5, 0xe2e8f0, 1.2, 1.0);
-  podiums.push(p2);
-
-  // Podium 3 (right, bronze)
-  const angle3 = Math.PI / 4;
-  const p3 = createPodium(3, Math.cos(angle3) * 3.5, apexHeight + 1.2, Math.sin(angle3) * 3.5, 0xfb923c, 1.2, 1.0);
-  podiums.push(p3);
+  visualOrder.forEach((rank, visualIndex) => {
+    const style = rankStyles[rank];
+    const x = (visualIndex - (visualOrder.length - 1) / 2) * spacing;
+    const podium = createPodium(
+      rank,
+      x,
+      apexHeight + 0.35 + style.height / 2,
+      0,
+      style.color,
+      style.height,
+      style.radius
+    );
+    podiums[rank - 1] = podium;
+  });
 
   return podiums;
 }
@@ -915,7 +941,7 @@ function completeTowerRacer(racer, now) {
 
   attachDroneToRacer(racer);
 
-  if (racer.rank <= 3 && towerPodiums[racer.rank - 1]) {
+  if (racer.rank <= towerPrizeCount && towerPodiums[racer.rank - 1]) {
     racer.targetPodium = towerPodiums[racer.rank - 1];
     racer.targetPodium.userData.occupied = true;
   } else {
@@ -1472,7 +1498,7 @@ function updateTowerRacers(now) {
     }
     // Top 1 to hơn, các vị trí sau nhỏ dần nhẹ
     racer.label.material.opacity = 1;
-    racer.label.position.y = racer.finished ? (racer.rank <= 3 ? 2.1 : 1.85) : 1.4;
+    racer.label.position.y = racer.finished ? (racer.rank <= towerPrizeCount ? 2.1 : 1.85) : 1.4;
     const s = rank === 0 ? 4.2 : 3.2;
     const h = rank === 0 ? 1.4 : 1.05;
     racer.label.scale.set(s, h, 1);
@@ -1669,6 +1695,7 @@ export async function startTowerClimbGame(context, names) {
   towerLegacy?.cleanupWebGLScene?.();
   towerDurationSeconds = getDurationSeconds();
   towerDurationMs = towerDurationSeconds * 1000;
+  towerPrizeCount = getSelectedPrizeCount();
   towerFinishedCount = 0;
   towerRunning = true;
 
@@ -1725,6 +1752,7 @@ export function cleanupTowerClimbGame() {
   cinematicCameraFrom = null;
   towerDurationSeconds = DEFAULT_GAME_DURATION_SECONDS;
   towerDurationMs = DEFAULT_GAME_DURATION_SECONDS * 1000;
+  towerPrizeCount = 3;
   towerLegacy = null;
 
   // Hide cinematic UI

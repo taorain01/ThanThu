@@ -42,6 +42,7 @@ let fallbackRoundEndAt = 0;
 let fallbackBallStartedAt = 0;
 let fallbackNextBallAt = 0;
 let fallbackLandingSequence = 0;
+let fallbackPrizeCount = 3;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -58,6 +59,30 @@ function randomBetween(min, max) {
 function getDurationSeconds() {
   const value = parseInt(document.getElementById("race-duration-select")?.value || String(DEFAULT_GAME_DURATION_SECONDS), 10);
   return Number.isFinite(value) ? value : DEFAULT_GAME_DURATION_SECONDS;
+}
+
+function getSelectedPrizeCount() {
+  const value = parseInt(document.getElementById("prize-count-select")?.value || "3", 10);
+  return clamp(Number.isFinite(value) ? value : 3, 1, 5);
+}
+
+function getPodiumPositions(count) {
+  const visualOrder = {
+    1: [1],
+    2: [2, 1],
+    3: [2, 1, 3],
+    4: [4, 2, 1, 3],
+    5: [4, 2, 1, 3, 5]
+  }[count] || [4, 2, 1, 3, 5];
+  const spacing = count <= 3 ? 7.2 : 4.15;
+  const heights = [0, 1.25, 0.92, 0.76, 0.62, 0.52];
+  const colors = ["", "#facc15", "#cbd5e1", "#fdba74", "#60a5fa", "#a78bfa"];
+  return visualOrder.map((rank, index) => ({
+    rank,
+    x: (index - (visualOrder.length - 1) / 2) * spacing,
+    y: -4.35 + heights[rank] * 0.9,
+    color: colors[rank]
+  }));
 }
 
 function getPrizeText(rank) {
@@ -111,7 +136,7 @@ function setupFallbackDom(names) {
 
   const logo = document.querySelector(".arena-logo");
   const sidebarTitle = document.querySelector("#arena-sidebar .sidebar-title span");
-  if (logo) logo.textContent = "Linh Ngọc Plinko 3D";
+  if (logo) logo.textContent = "Rơi Tự Do";
   if (sidebarTitle) sidebarTitle.textContent = "Bảng Điểm Linh Ngọc";
   document.getElementById("racer-progress-title").textContent = `Round ${getDurationSeconds()}s: 0 / ${names.length}`;
   document.getElementById("leaderboard-list").innerHTML = "";
@@ -422,7 +447,7 @@ function syncFallbackLeaderboard(force = false) {
   if (title) {
     const remaining = Math.max(0, Math.ceil(((fallbackRoundEndAt || fallbackStartMs + fallbackDurationMs) - now) / 1000));
     const current = Math.min(fallbackBalls.length, Math.max(fallbackCurrentBallIndex, fallbackBalls.length - fallbackQueue.length));
-    title.textContent = fallbackStageMode ? "Top 3 nhận giải" : `Còn ${remaining}s • Bi ${current}/${fallbackBalls.length}`;
+    title.textContent = fallbackStageMode ? `Top ${fallbackPrizeCount} nhận giải` : `Còn ${remaining}s • Bi ${current}/${fallbackBalls.length}`;
   }
   return displayOrder;
 }
@@ -648,6 +673,9 @@ function handleBumperCollision(ball, bumper, dt, now) {
   const point = closestPointOnBumper(ball, bumper);
   const dx = ball.x - point.x;
   const dy = ball.y - point.y;
+  const tangentX = Math.cos(bumper.angle);
+  const tangentY = Math.sin(bumper.angle);
+  const localX = (ball.x - bumper.x) * tangentX + (ball.y - bumper.y) * tangentY;
   let dist = Math.sqrt(dx * dx + dy * dy);
   const minDist = getBallRadius(ball, now) + bumper.radius + 0.06;
   if (dist >= minDist) return false;
@@ -657,12 +685,30 @@ function handleBumperCollision(ball, bumper, dt, now) {
   ball.x = point.x + nx * minDist;
   ball.y = point.y + ny * minDist;
   const dot = ball.vx * nx + ball.vy * ny;
-  ball.vx -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * nx;
-  ball.vy -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * ny;
-  ball.vx += nx * 0.06 * dt;
-  ball.vy += ny * 0.06 * dt;
+  if (dot < 0) {
+    ball.vx -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * nx;
+    ball.vy -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * ny;
+  }
+
+  const tangentVelocity = ball.vx * tangentX + ball.vy * tangentY;
+  const escapeDirection = Math.abs(localX) > 0.08
+    ? Math.sign(localX)
+    : (Math.abs(tangentVelocity) > 0.025 ? Math.sign(tangentVelocity) : (ball.index % 2 === 0 ? 1 : -1));
+  const slideImpulse = PLINKO_CONFIG.physics.bumperSlideImpulse * dt;
+  ball.vx += tangentX * escapeDirection * slideImpulse;
+  ball.vy += tangentY * escapeDirection * slideImpulse;
+
+  const escapedRepeatedCollision = noteCollision(ball, key, tangentX * escapeDirection, now);
+  if (escapedRepeatedCollision) {
+    ball.x += tangentX * escapeDirection * PLINKO_CONFIG.physics.bumperEscapePush;
+    ball.y += tangentY * escapeDirection * PLINKO_CONFIG.physics.bumperEscapePush;
+    ball.vx = tangentX * escapeDirection * Math.max(
+      Math.abs(ball.vx),
+      PLINKO_CONFIG.physics.bumperEscapeVelocity
+    );
+    ball.vy = Math.min(ball.vy, -0.1);
+  }
   clampBallVelocity(ball, PLINKO_CONFIG.physics.maxSpeed * 1.35);
-  noteCollision(ball, key, nx, now);
   bumper.pulse = 1;
   createParticle(point.x, point.y, "#f8fafc", 4);
   return true;
@@ -795,9 +841,9 @@ function updateFallbackParticles(dt) {
   }
 }
 
-function finishFallbackGame() {
+function finishFallbackGame(now = performance.now(), reason = "time") {
   if (fallbackFinishTriggered) return;
-  const finishNow = fallbackRoundEndAt || fallbackStartMs + fallbackDurationMs;
+  const finishNow = Math.min(now, fallbackRoundEndAt || now);
   fallbackFinishTriggered = true;
   fallbackStageMode = true;
   fallbackBalls.forEach((ball) => {
@@ -814,11 +860,7 @@ function finishFallbackGame() {
   fallbackActiveBall = null;
   fallbackQueue = [];
   const sorted = syncFallbackLeaderboard(true);
-  const podium = [
-    { x: 0, y: -3.2, rank: 1 },
-    { x: -7.2, y: -4.2, rank: 2 },
-    { x: 7.2, y: -4.5, rank: 3 }
-  ];
+  const podium = getPodiumPositions(fallbackPrizeCount);
   podium.forEach((pos) => {
     const ball = sorted[pos.rank - 1];
     if (ball) {
@@ -829,7 +871,11 @@ function finishFallbackGame() {
   fallbackLegacy?.stopRaceTimer?.(true);
   fallbackLegacy?.playVictorySound?.();
   fallbackLegacy?.showPostGameActions?.(sorted, { camera: false });
-  fallbackLegacy?.updateCommentaryText?.("🏆 Hết giờ! Top 3 linh ngọc đang bay lên bục nhận giải.");
+  fallbackLegacy?.updateCommentaryText?.(
+    reason === "all-balls-complete"
+      ? `🏆 Tất cả linh ngọc đã rơi xong! Top ${fallbackPrizeCount} đang bay lên bục nhận giải.`
+      : `🏆 Hết giờ! Top ${fallbackPrizeCount} linh ngọc đang bay lên bục nhận giải.`
+  );
 }
 
 function updateStage(dt) {
@@ -872,18 +918,18 @@ function drawFallback(ctx, canvas, now) {
     ctx.lineTo(left + boardWidth - 28, point.y);
     ctx.stroke();
     const label = `${milestone.label} +${milestone.score}`;
-    const labelW = 116;
+    const labelW = 168;
     ctx.fillStyle = "rgba(2,6,23,0.84)";
     ctx.strokeStyle = "#fef08a";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    drawRoundedRect(ctx, point.x - labelW / 2, point.y - 31, labelW, 24, 7);
+    drawRoundedRect(ctx, point.x - labelW / 2, point.y - 43, labelW, 36, 9);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#fef08a";
-    ctx.font = "900 15px Inter, sans-serif";
+    ctx.font = "900 23px Inter, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(label, point.x, point.y - 14);
+    ctx.fillText(label, point.x, point.y - 17);
   });
 
   fallbackPegs.forEach((peg) => {
@@ -961,7 +1007,7 @@ function drawFallback(ctx, canvas, now) {
     ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#fff7cc";
-    ctx.font = slot.jackpot ? "900 20px Inter, sans-serif" : "900 19px Inter, sans-serif";
+    ctx.font = slot.jackpot ? "900 23px Inter, sans-serif" : "900 27px Inter, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(slot.label, center.x, y + height / 2);
@@ -1024,45 +1070,29 @@ function drawFallback(ctx, canvas, now) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    const labelW = Math.max(240, Math.min(380, shortName(ball.name, 16).length * 18 + 112));
-    const labelH = 86;
-    const labelY = point.y - radius - 100;
+    const labelY = point.y - radius - 72;
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "rgba(2,6,23,0.88)";
-    ctx.strokeStyle = ball.color;
-    ctx.beginPath();
-    drawRoundedRect(ctx, point.x - labelW / 2, labelY, labelW, labelH, 15);
-    ctx.fill();
-    ctx.stroke();
-    const rankLabel = ball.rank ? `TOP ${ball.rank}` : `#${ball.index + 1}`;
-    ctx.fillStyle = ball.rank && ball.rank <= 3 ? "rgba(250,204,21,0.92)" : "rgba(56,189,248,0.9)";
-    ctx.strokeStyle = "rgba(255,247,204,0.9)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    drawRoundedRect(ctx, point.x - labelW / 2 + 10, labelY + 10, 76, 28, 9);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#020617";
-    ctx.font = "900 15px Inter, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(rankLabel, point.x - labelW / 2 + 48, labelY + 24);
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(2,6,23,0.96)";
+    ctx.lineWidth = 7;
     ctx.fillStyle = "#f8fafc";
     ctx.font = "900 28px Inter, sans-serif";
-    ctx.fillText(shortName(ball.name, 16), point.x + 30, labelY + 31);
+    ctx.strokeText(shortName(ball.name, 16), point.x, labelY);
+    ctx.fillText(shortName(ball.name, 16), point.x, labelY);
+    ctx.strokeStyle = "rgba(2,6,23,0.96)";
+    ctx.lineWidth = 6;
     ctx.fillStyle = "#fff7cc";
     ctx.font = "900 24px Inter, sans-serif";
-    ctx.fillText(`${ball.score} điểm`, point.x, labelY + 62);
+    ctx.strokeText(`${ball.score} điểm`, point.x, labelY + 34);
+    ctx.fillText(`${ball.score} điểm`, point.x, labelY + 34);
     ctx.textBaseline = "alphabetic";
     ctx.restore();
   });
 
   if (fallbackStageMode) {
-    const positions = [
-      { rank: 1, x: 0, y: -3.2, color: "#facc15" },
-      { rank: 2, x: -7.2, y: -4.2, color: "#cbd5e1" },
-      { rank: 3, x: 7.2, y: -4.5, color: "#fdba74" }
-    ];
+    const positions = getPodiumPositions(fallbackPrizeCount);
     positions.forEach((pos) => {
       const point = boardToCanvas(metrics, pos.x, pos.y - 1.2);
       const ball = sorted[pos.rank - 1];
@@ -1098,7 +1128,7 @@ function animateFallback(now = performance.now()) {
   const dt = clamp((now - (fallbackLastFrameMs || now)) / 16.67, 0.45, 2.25);
   fallbackLastFrameMs = now;
   fallbackLegacy?.updateRaceTimerDisplay?.();
-  if (!fallbackStageMode && now >= fallbackRoundEndAt) finishFallbackGame();
+  if (!fallbackStageMode && now >= fallbackRoundEndAt) finishFallbackGame(now, "time");
 
   if (fallbackStageMode) {
     updateStage(dt);
@@ -1113,6 +1143,10 @@ function animateFallback(now = performance.now()) {
       if (ball.active && ball.completed && now >= ball.completedAt) completeFallbackBall(ball, now, true);
     });
     handleCollectibles(dt, now);
+    const allBallsComplete = fallbackQueue.length === 0
+      && fallbackBalls.length > 0
+      && fallbackBalls.every((ball) => ball.completed && !ball.active);
+    if (allBallsComplete) finishFallbackGame(now, "all-balls-complete");
   }
   fallbackBalls.forEach((ball) => {
     ball.boostTimer = Math.max(0, ball.boostTimer - dt);
@@ -1183,6 +1217,7 @@ export function startPlinkoFallback2D(context, names) {
   cleanupPlinkoFallback2D();
   fallbackLegacy = context?.legacy || window.__minigamesLegacyApi || {};
   fallbackDurationMs = getDurationSeconds() * 1000;
+  fallbackPrizeCount = getSelectedPrizeCount();
   fallbackFinishTriggered = false;
   fallbackStageMode = false;
   fallbackRunning = true;
@@ -1233,4 +1268,5 @@ export function cleanupPlinkoFallback2D() {
   fallbackBallStartedAt = 0;
   fallbackNextBallAt = 0;
   fallbackLandingSequence = 0;
+  fallbackPrizeCount = 3;
 }

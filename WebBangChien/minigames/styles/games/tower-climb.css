@@ -30,18 +30,22 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 12%, rgba(251, 191, 36, 0.28), transparent 34%),
-    radial-gradient(circle at 26% 78%, rgba(16, 185, 129, 0.24), transparent 32%),
-    linear-gradient(180deg, rgba(4, 30, 21, 0.9), rgba(2, 6, 23, 0.98));
+    radial-gradient(circle at 50% 15%, rgba(253, 224, 71, 0.58), transparent 24%),
+    radial-gradient(ellipse at 50% 92%, rgba(16, 185, 129, 0.48), transparent 55%),
+    radial-gradient(circle at 24% 55%, rgba(56, 189, 248, 0.18), transparent 28%),
+    linear-gradient(180deg, #082447 0%, #073528 56%, #020a08 100%);
+  box-shadow: inset 0 0 30px rgba(251, 191, 36, 0.12);
 }
 
 .tower-preview::before {
   content: "";
   position: absolute;
-  inset: 12% 48% 10% 48%;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(251, 191, 36, 0.5), rgba(16, 185, 129, 0.22));
-  box-shadow: 0 0 18px rgba(251, 191, 36, 0.28);
+  inset: 0;
+  background:
+    linear-gradient(115deg, transparent 31%, rgba(250, 204, 21, 0.09) 32%, transparent 42%),
+    linear-gradient(245deg, transparent 34%, rgba(52, 211, 153, 0.08) 35%, transparent 46%);
+  animation: towerPreviewRays 4s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .tower-preview::after {
@@ -49,75 +53,206 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 32% 64%, rgba(251, 191, 36, 0.26), transparent 5%),
-    radial-gradient(circle at 68% 44%, rgba(16, 185, 129, 0.24), transparent 6%),
-    radial-gradient(circle at 42% 28%, rgba(251, 191, 36, 0.2), transparent 4%);
+    radial-gradient(circle at 14% 25%, #fde68a 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 18%, #a7f3d0 0 1px, transparent 2px),
+    radial-gradient(circle at 88% 55%, #fde68a 0 1px, transparent 2px),
+    radial-gradient(circle at 22% 63%, #6ee7b7 0 1px, transparent 2px),
+    radial-gradient(circle at 67% 69%, #fef3c7 0 1px, transparent 2px);
   animation: towerPreviewSparkle 2.4s ease-in-out infinite;
   pointer-events: none;
+}
+
+.tower-preview-moon {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 44px;
+  height: 44px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 32%, #fffde7, #fde047 42%, #ca8a04 76%);
+  box-shadow: 0 0 18px rgba(253, 224, 71, 0.98), 0 0 36px rgba(250, 204, 21, 0.58);
+  opacity: 0.92;
 }
 
 .tower-preview-spire {
   position: absolute;
   left: 50%;
-  top: 10%;
-  width: 16px;
-  height: 74%;
+  top: 13%;
+  width: 40px;
+  height: 88%;
   transform: translateX(-50%);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #facc15, #15803d 58%, #064e3b);
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.36);
+  clip-path: polygon(50% 0, 82% 15%, 72% 100%, 28% 100%, 18% 15%);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(253, 224, 71, 0.58) 10px 12px),
+    linear-gradient(90deg, #06251f, #6ee7b7 46%, #10b981 52%, #021b17);
+  box-shadow:
+    0 0 22px rgba(16, 185, 129, 0.68),
+    inset 0 0 16px rgba(255, 247, 174, 0.24);
+  z-index: 2;
 }
 
 .tower-preview-step {
   position: absolute;
-  width: 58px;
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(251, 191, 36, 0.92), rgba(16, 185, 129, 0.72));
-  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+  width: 92px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff7ad, #fbbf24 52%, #92400e);
+  border: 1px solid rgba(254, 240, 138, 0.8);
+  box-shadow: 0 4px 0 #3f2109, 0 0 17px rgba(251, 191, 36, 0.7);
   transform-origin: center;
   animation: towerPreviewStepGlow 2.6s ease-in-out infinite;
+  z-index: 3;
+}
+
+.tower-preview-step span {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #6ee7b7;
+  box-shadow: 0 0 8px #34d399;
 }
 
 .tower-preview-step.s1 {
-  left: 23%;
-  top: 64%;
-  transform: rotate(-12deg);
+  left: 5%;
+  top: 76%;
+  transform: rotate(-5deg);
   animation-delay: 0s;
 }
 
 .tower-preview-step.s2 {
-  right: 20%;
-  top: 46%;
-  transform: rotate(14deg);
+  right: 5%;
+  top: 56%;
+  transform: rotate(5deg);
   animation-delay: 0.32s;
 }
 
 .tower-preview-step.s3 {
-  left: 25%;
-  top: 28%;
-  transform: rotate(-11deg);
+  left: 8%;
+  top: 36%;
+  transform: rotate(-5deg);
   animation-delay: 0.64s;
 }
 
-.tower-preview-fox {
+.tower-preview-step.s4 {
+  right: 10%;
+  top: 18%;
+  transform: rotate(5deg) scale(0.86);
+  animation-delay: 0.96s;
+}
+
+.tower-preview-beast {
   position: absolute;
-  left: 27%;
-  top: 63%;
-  font-size: 24px;
-  z-index: 2;
-  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.82));
-  animation: towerPreviewClimb 2.7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  font-size: 31px;
+  line-height: 1;
+  z-index: 6;
+  filter:
+    drop-shadow(0 3px 2px #000)
+    drop-shadow(0 0 8px rgba(251, 191, 36, 0.95))
+    drop-shadow(0 0 12px rgba(56, 189, 248, 0.38));
+  animation: towerBeastJump 2.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+.tower-preview-beast.b1 {
+  left: 19%;
+  top: 55%;
+  --jump-x: 90px;
+  --jump-y: -23px;
+}
+
+.tower-preview-beast.b2 {
+  left: 63%;
+  top: 35%;
+  --jump-x: -86px;
+  --jump-y: -22px;
+  animation-delay: -0.92s;
+}
+
+.tower-preview-beast.b3 {
+  left: 26%;
+  top: 16%;
+  --jump-x: 78px;
+  --jump-y: -14px;
+  animation-delay: -1.84s;
 }
 
 .tower-preview-gem {
   position: absolute;
-  right: 26%;
-  top: 19%;
-  font-size: 18px;
-  z-index: 2;
-  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.75));
+  color: #67e8f9;
+  font-size: 17px;
+  z-index: 4;
+  text-shadow: 0 0 11px #22d3ee, 0 0 18px rgba(103, 232, 249, 0.68);
   animation: towerPreviewGem 1.4s ease-in-out infinite;
+}
+
+.tower-preview-gem.g1 {
+  right: 24%;
+  top: 43%;
+}
+
+.tower-preview-gem.g2 {
+  left: 23%;
+  top: 25%;
+  animation-delay: -0.7s;
+}
+
+.tower-preview-crown {
+  position: absolute;
+  left: 50%;
+  top: 5px;
+  transform: translateX(-50%);
+  color: #fff7ae;
+  font-size: 24px;
+  z-index: 7;
+  text-shadow: 0 0 10px #facc15, 0 2px 2px #713f12;
+  animation: towerPreviewGem 1.5s ease-in-out infinite;
+}
+
+.tower-preview-cloud {
+  position: absolute;
+  width: 52px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(167, 243, 208, 0.22);
+  filter: blur(2px);
+  z-index: 1;
+  animation: towerCloudDrift 5s ease-in-out infinite alternate;
+}
+
+.tower-preview-cloud.c1 {
+  left: -8px;
+  top: 29%;
+}
+
+.tower-preview-cloud.c2 {
+  right: -10px;
+  top: 68%;
+  animation-delay: -2.5s;
+}
+
+@keyframes towerBeastJump {
+  0%, 100% {
+    transform: translate(0, 0) scale(0.96) rotate(-5deg);
+  }
+  42% {
+    transform: translate(calc(var(--jump-x) * 0.52), calc(var(--jump-y) - 21px)) scale(1.12, 0.92) rotate(7deg);
+  }
+  72% {
+    transform: translate(var(--jump-x), var(--jump-y)) scale(0.94, 1.08) rotate(-3deg);
+  }
+}
+
+@keyframes towerCloudDrift {
+  from { transform: translateX(-8px); opacity: 0.35; }
+  to { transform: translateX(13px); opacity: 0.75; }
+}
+
+@keyframes towerPreviewRays {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
 .webgl-canvas-container.tower-climb-active {
@@ -168,6 +303,25 @@
   }
 }
 
+@keyframes towerBeastClimb {
+  0%, 100% {
+    transform: translate(0, 2px) scale(0.9) rotate(-7deg);
+    opacity: 0.72;
+  }
+  24% {
+    transform: translate(var(--climb-mid-x), var(--climb-mid-y)) scale(1.08, 0.94) rotate(7deg);
+    opacity: 1;
+  }
+  52% {
+    transform: translate(var(--climb-mid-x), var(--climb-mid-y)) scale(0.94, 1.08) rotate(-5deg);
+    opacity: 1;
+  }
+  78% {
+    transform: translate(var(--climb-x), var(--climb-y)) scale(1.04) rotate(5deg);
+    opacity: 0.9;
+  }
+}
+
 @keyframes towerPreviewGem {
   0%, 100% {
     transform: translateY(0) rotate(0deg);
@@ -211,8 +365,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tower-preview-fox,
+  .tower-preview-beast,
   .tower-preview-gem,
+  .tower-preview-crown,
+  .tower-preview-cloud,
   .tower-preview-step,
   .tower-preview::after,
   .webgl-canvas-container.tower-climb-active::before {

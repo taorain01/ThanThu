@@ -1,31 +1,6 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../../database/db');
 const { hasLangGiaRole } = require('../../utils/langGiaRole');
-
-// Helper: delay
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// ============== API KEY ROTATION ==============
-function loadApiKeys() {
-    const keys = [];
-    for (let i = 1; i <= 30; i++) {
-        const key = process.env[`GEMINI_API_KEY_${i}`];
-        if (key) keys.push(key);
-    }
-    if (keys.length === 0 && process.env.GEMINI_API_KEY) {
-        keys.push(process.env.GEMINI_API_KEY);
-    }
-    return keys;
-}
-
-let currentKeyIndex = 0;
-
-function getNextApiKey(keys) {
-    if (keys.length === 0) return null;
-    const key = keys[currentKeyIndex % keys.length];
-    currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-    return key;
-}
+const { generateFortuneText, hasAnyFortuneAiKey } = require('../../utils/fortuneAiService');
 
 // ============== COOLDOWN ==============
 const cooldowns = new Map();
@@ -50,9 +25,8 @@ async function execute(message, args) {
     // 1. Kiểm tra trạng thái Cầu Duyên
     const { usedToday, lastFortune } = db.getCauDuyenStatus(message.author.id);
 
-    // 2. Load API keys
-    const apiKeys = loadApiKeys();
-    if (apiKeys.length === 0) {
+    // 2. Kiểm tra API keys
+    if (!hasAnyFortuneAiKey()) {
         return message.reply("⚠️ Bot chưa được cấu hình API Key. Vui lòng liên hệ Admin!");
     }
 
@@ -143,59 +117,8 @@ Yêu cầu:
             }
         }
 
-        // 6. Gọi API với KEY ROTATION + retry
-        let text = null;
-        const maxKeyAttempts = apiKeys.length;
-        const maxRetries = 2;
-
-        for (let keyAttempt = 0; keyAttempt < maxKeyAttempts; keyAttempt++) {
-            const apiKey = getNextApiKey(apiKeys);
-            const keyLabel = `Key ${(currentKeyIndex === 0 ? apiKeys.length : currentKeyIndex)}/${apiKeys.length}`;
-
-            try {
-                const genAI = new GoogleGenerativeAI(apiKey);
-
-                // Thử gemini-2.5-flash-lite trước, fallback gemini-2.0-flash
-                const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-2.0-flash'];
-
-                for (const modelName of modelsToTry) {
-                    const model = genAI.getGenerativeModel({ model: modelName });
-
-                    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                        try {
-                            const result = await model.generateContent(prompt);
-                            const response = await result.response;
-                            text = response.text();
-                            console.log(`[CauDuyen] Success with ${keyLabel} (${modelName})`);
-                            break;
-                        } catch (apiError) {
-                            const isRateLimit = apiError.message?.includes("429") || apiError.message?.includes("Too Many Requests");
-                            if (isRateLimit && attempt < maxRetries) {
-                                console.log(`[CauDuyen] ${keyLabel} (${modelName}) rate limit, retry ${attempt + 1}/${maxRetries}...`);
-                                await delay(5000);
-                            } else {
-                                // Nếu model này fail → thử model tiếp theo
-                                console.log(`[CauDuyen] ${keyLabel} (${modelName}) failed: ${apiError.message?.slice(0, 80)}`);
-                                break;
-                            }
-                        }
-                    }
-
-                    if (text) break; // Đã có kết quả, thoát vòng model
-                }
-
-                if (text) break; // Thành công, thoát vòng lặp key
-
-            } catch (keyError) {
-                const isRateLimit = keyError.message?.includes("429") || keyError.message?.includes("Too Many Requests");
-                if (isRateLimit && keyAttempt < maxKeyAttempts - 1) {
-                    console.log(`[CauDuyen] ${keyLabel} exhausted, trying next key...`);
-                    await waitingMessage.edit(`💘 Thầy đang bận, đổi quẻ thẻ... (thử key ${keyAttempt + 2}/${maxKeyAttempts})`);
-                    continue;
-                }
-                throw keyError;
-            }
-        }
+        // 6. Gọi DeepSeek V4 Flash trước, nếu lỗi thì fallback Gemini cũ
+        const text = await generateFortuneText(prompt, { logPrefix: 'CauDuyen' });
 
         // 7. Chỉnh sửa message và ghi nhận usage
         if (text) {

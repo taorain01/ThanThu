@@ -389,7 +389,7 @@ export function startTowerClimbFallback2D(context, names) {
   document.getElementById("arena-view").style.display = "flex";
   document.getElementById("webgl-canvas").style.display = "none";
   document.getElementById("fallback-canvas").style.display = "block";
-  document.querySelector(".arena-logo").textContent = "Tháp Xoắn Thần Thú 2D";
+  document.querySelector(".arena-logo").textContent = "Tháp";
   document.querySelector("#arena-sidebar .sidebar-title span").textContent = "Cao Thủ Leo Tháp";
   document.getElementById("racer-progress-title").textContent = `Hoàn thành: 0 / ${names.length}`;
 

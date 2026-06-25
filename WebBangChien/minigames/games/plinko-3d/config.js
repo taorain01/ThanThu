@@ -37,7 +37,10 @@ export const PLINKO_CONFIG = {
   physics: {
     gravity: 0.0048,
     bounce: 0.55,
-    bumperBounce: 1.25,
+    bumperBounce: 0.86,
+    bumperSlideImpulse: 0.045,
+    bumperEscapePush: 0.72,
+    bumperEscapeVelocity: 0.18,
     wallBounce: 0.68,
     horizontalDamping: 0.994,
     verticalDamping: 0.998,
@@ -52,7 +55,7 @@ export const PLINKO_CONFIG = {
     antiStuckPushY: 0.11,
     perBallMaxMs: 8200,
     perBallMinMs: 1800,
-    postLandDelayMs: 520
+    postLandDelayMs: 5000
   },
   scoring: {
     timePenaltyPerSecond: 20,

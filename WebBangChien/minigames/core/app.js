@@ -1,6 +1,6 @@
-import { getEnabledGames, getGameByLegacyId, getRandomWheelEntries } from "./registry.js";
+import { getEnabledGames, getGameByLegacyId, getRandomWheelEntries } from "./registry.js?v=20260625-6";
 import { loadThreeJsDynamic } from "./three-loader.js";
-import { createBeastWolfModel, getBeastSurfaceOffset, updateBeastIdlePose } from "./beast-model.js";
+import { createBeastWolfModel, getBeastSurfaceOffset, updateBeastIdlePose } from "./beast-model.js?v=20260625-1";
 import { DERBY_SCENE_CONFIG } from "../games/speed-derby/config.js";
 
 const loadThreeJSDynamic = loadThreeJsDynamic;
@@ -1377,6 +1377,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       const label = document.getElementById("duration-val");
       if (input) input.value = String(duration);
       if (label) label.textContent = `${duration} giây`;
+      syncDurationControlForSelectedGame();
     }
 
     function derbyNumber(value, fallback) {
@@ -1940,7 +1941,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         
         if (titleSpan) titleSpan.textContent = "🔒 TÍNH NĂNG TẠM KHÓA";
         if (bodyP) {
-          bodyP.innerHTML = `Chức năng <strong>Random Game</strong> đang được khóa lại vì hiện tại chưa có game mới (chỉ có <strong>Đua Thần Thú 3D</strong> khả dụng).`;
+          bodyP.innerHTML = `Chức năng <strong>Random Game</strong> đang được khóa lại vì hiện tại chưa có game mới (chỉ có <strong>Đua Thú</strong> khả dụng).`;
         }
         if (subP) {
           subP.innerHTML = `Vui lòng chọn trực tiếp game hoạt động và nhấn <strong>Đấu Ngay</strong>!`;
@@ -1961,7 +1962,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
           bodyP.innerHTML = `Trò chơi <strong>${gameName}</strong> hiện tại đang khóa (${statusMsg}).`;
         }
         if (subP) {
-          subP.innerHTML = `Vui lòng chọn <strong>Đua Thần Thú 3D</strong> và nhấn <strong>Đấu Ngay</strong>!`;
+          subP.innerHTML = `Vui lòng chọn <strong>Đua Thú</strong> và nhấn <strong>Đấu Ngay</strong>!`;
         }
         modal.style.display = "flex";
       }
@@ -2093,6 +2094,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
 
     let isSpinning = false;
+    let wheelLabelsAnimationFrame = 0;
 
     const MINIGAME_MODULE_CONTEXT = {
       get legacy() {
@@ -2130,7 +2132,26 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         const id = Number(String(card.id || "").replace("card-game-", ""));
         card.classList.toggle("active", id === legacyId && !card.classList.contains("disabled"));
       });
+      syncDurationControlForSelectedGame();
       playTickSound(600, 0.05);
+    }
+
+    function syncDurationControlForSelectedGame() {
+      const input = document.getElementById("race-duration-select");
+      const label = document.getElementById("duration-val");
+      const group = document.getElementById("duration-control-group");
+      if (!input) return;
+
+      const isFreeFallSelected = selectedGameLobbyId === 3;
+      input.disabled = isFreeFallSelected;
+      input.setAttribute("aria-disabled", String(isFreeFallSelected));
+      group?.classList.toggle("duration-locked", isFreeFallSelected);
+
+      if (label) {
+        label.textContent = isFreeFallSelected
+          ? `${input.value} giây • Đã khóa`
+          : `${input.value} giây`;
+      }
     }
 
     function bindSelectableGameCard(legacyId) {
@@ -2225,24 +2246,65 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
         
 
-        // Chữ ngắn, không kèm icon để các ô luôn dễ đọc hơn.
-        const midAngle = angle + arc / 2;
+      }
+
+      drawDestinyWheelLabels(0);
+    }
+
+    function drawDestinyWheelLabels(rotationDeg = 0) {
+      const canvas = document.getElementById("wheel-labels-canvas");
+      const container = canvas?.parentElement;
+      if (!canvas || !container || !GAMES_INFO.length) return;
+
+      const size = container.clientWidth;
+      const pixelRatio = 2;
+      canvas.width = size * pixelRatio;
+      canvas.height = size * pixelRatio;
+      canvas.style.width = size + "px";
+      canvas.style.height = size + "px";
+
+      const ctx = canvas.getContext("2d");
+      ctx.scale(pixelRatio, pixelRatio);
+      ctx.clearRect(0, 0, size, size);
+
+      const cx = size / 2;
+      const cy = size / 2;
+      const r = size / 2 - 16;
+      const arc = (Math.PI * 2) / GAMES_INFO.length;
+      const rotation = rotationDeg * Math.PI / 180;
+
+      ctx.fillStyle = "#06120a";
+      ctx.font = `900 ${Math.max(12, Math.min(15, size / 32))}px 'Inter', sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      GAMES_INFO.forEach((game, index) => {
+        const midAngle = index * arc + arc / 2 + rotation;
         const labelRadius = r * 0.55;
         const labelX = cx + Math.cos(midAngle) * labelRadius;
         const labelY = cy + Math.sin(midAngle) * labelRadius;
-        const isRightHalf = Math.cos(midAngle) >= 0;
-        const label = getWheelLabel(GAMES_INFO[i].name);
+        ctx.fillText(getWheelLabel(game.name), labelX, labelY, r * 0.48);
+      });
+    }
 
-        ctx.save();
-        ctx.fillStyle = "#06120a";
-        ctx.font = `900 ${Math.max(12, Math.min(15, size / 32))}px 'Inter', sans-serif`;
-        ctx.textAlign = isRightHalf ? "left" : "right";
-        ctx.textBaseline = "middle";
-        ctx.fillText(label, labelX, labelY, r * 0.34);
-        ctx.restore();
+    function getWheelRotation(wheel) {
+      const transform = window.getComputedStyle(wheel).transform;
+      if (!transform || transform === "none") return 0;
+      const matrix = new DOMMatrixReadOnly(transform);
+      return Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
+    }
 
-      }
+    function animateDestinyWheelLabels(wheel) {
+      cancelAnimationFrame(wheelLabelsAnimationFrame);
 
+      const update = () => {
+        drawDestinyWheelLabels(getWheelRotation(wheel));
+        if (isSpinning) {
+          wheelLabelsAnimationFrame = requestAnimationFrame(update);
+        }
+      };
+
+      wheelLabelsAnimationFrame = requestAnimationFrame(update);
     }
 
 
@@ -2302,6 +2364,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       
 
       wheel.style.transform = `rotate(${spinAngle}deg)`;
+      animateDestinyWheelLabels(wheel);
 
       banner.innerHTML = `<span class="selector-result-main">Đang quay...</span><span class="selector-result-sub">Linh thú đang chọn trận đấu.</span>`;
 
@@ -2348,6 +2411,8 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         clearInterval(tickTimer);
 
         isSpinning = false;
+        cancelAnimationFrame(wheelLabelsAnimationFrame);
+        drawDestinyWheelLabels(getWheelRotation(wheel));
 
         
 
@@ -2368,6 +2433,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
           overlay.style.display = "none";
 
           wheel.style.transform = "rotate(0deg)";
+          drawDestinyWheelLabels(0);
 
           startGameByLegacyId(chosenGame.id, names);
 
@@ -3161,6 +3227,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
     let derbyPodiumGroup = null;
     let derbyPodiumSlots = [];
     let derbyPodiumWinners = [];
+    let derbyPrizeCount = 3;
     let derbyPostRaceMode = false;
     let derbyShowcaseOrbitEnabled = true;
     let derbyShowcaseCameraState = null;
@@ -3646,7 +3713,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       if (!threeScene) return;
       if (derbyPodiumGroup) threeScene.remove(derbyPodiumGroup);
 
-      const prizeCount = getSelectedPrizeCount();
+      const prizeCount = derbyPrizeCount;
       const visualOrder = getPodiumVisualOrder(prizeCount);
       const spacing = prizeCount <= 3 ? Math.max(1.45, derbyLaneSpacing * 1.9) : Math.max(1.14, derbyLaneSpacing * 1.4);
       const centerX = derbyTrackWidth / 2 - 1;
@@ -3690,7 +3757,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
     }
 
     function assignDerbyFinishDestination(racer) {
-      const prizeCount = getSelectedPrizeCount();
+      const prizeCount = derbyPrizeCount;
       if (racer.rank <= prizeCount && derbyPodiumSlots[racer.rank]) {
         const slot = derbyPodiumSlots[racer.rank];
         slot.occupied = true;
@@ -3951,6 +4018,8 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
     // Hàm phóng chạy game chính
 
     async function launchSpeedDerbyGame(names) {
+
+      derbyPrizeCount = getSelectedPrizeCount();
 
       document.getElementById("lobby-view").style.display = "none";
 
@@ -5966,6 +6035,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       derbyPodiumGroup = null;
       derbyPodiumSlots = [];
       derbyPodiumWinners = [];
+      derbyPrizeCount = 3;
 
 
       window.removeEventListener('resize', onThreeWindowResize);
@@ -6761,7 +6831,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       
 
       const prizeCount = getSelectedPrizeCount();
-      const activeGameName = activeMinigameModule?.name || "Đua Thần Thú 3D";
+      const activeGameName = activeMinigameModule?.name || "Đua Thú";
 
       let text = `🏆 *** KẾT QUẢ ${activeGameName.toUpperCase()} - SỰ KIỆN QUAY SỐ BAN HỘI *** 🏆\n\n`;
 
@@ -6813,11 +6883,12 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
       let text = `🏆 *** KẾT QUẢ LEO THÁP - TOWER CLIMB *** 🏆\n\n`;
 
-      const top3 = currentWinnersList.slice(0, 3);
+      const prizeCount = getSelectedPrizeCount();
+      const awardedRacers = currentWinnersList.slice(0, prizeCount);
 
-      top3.forEach((racer, index) => {
+      awardedRacers.forEach((racer, index) => {
 
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
+        const medal = getResultMedal(index + 1);
 
         text += `${medal} Top ${index + 1}: ${racer.emoji} ${racer.name}\n`;
 
@@ -7246,6 +7317,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       bindSelectableGameCard(4);
 
       syncRandomButtonState();
+      syncDurationControlForSelectedGame();
 
 
 

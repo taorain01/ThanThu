@@ -29,13 +29,13 @@
   
 
   <link rel="stylesheet" href="./minigames/styles/base.css">
-  <link rel="stylesheet" href="./minigames/styles/lobby.css">
+  <link rel="stylesheet" href="./minigames/styles/lobby.css?v=20260625-7">
   <link rel="stylesheet" href="./minigames/styles/music-player.css">
   <link rel="stylesheet" href="./minigames/styles/arena.css">
   <link rel="stylesheet" href="./minigames/styles/results.css">
   <link rel="stylesheet" href="./minigames/styles/games/speed-derby.css">
   <link rel="stylesheet" href="./minigames/styles/games/plinko-3d.css">
-  <link rel="stylesheet" href="./minigames/styles/games/tower-climb.css">
+  <link rel="stylesheet" href="./minigames/styles/games/tower-climb.css?v=20260625-4">
 
 </head>
 
@@ -153,7 +153,7 @@
 
         <!-- Thời gian đua -->
 
-        <div class="form-group">
+        <div class="form-group" id="duration-control-group">
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
 
@@ -198,21 +198,44 @@
 
                 <div class="preview-timer">01:00</div>
 
-                <div class="preview-racer r1"></div>
+                <div class="preview-racer r1"><span class="preview-beast">🐺</span></div>
 
-                <div class="preview-racer r2"></div>
+                <div class="preview-racer r2"><span class="preview-beast">🐺</span></div>
 
-                <div class="preview-racer r3"></div>
+                <div class="preview-racer r3"><span class="preview-beast">🐺</span></div>
 
-                <div class="preview-racer r4"></div>
+                <div class="preview-racer r4"><span class="preview-beast">🐺</span></div>
 
               </div>
 
               <div class="game-card-copy">
-                <div class="game-card-name">Đua Thần Thú 3D</div>
+                <div class="game-card-name">Đua Thú</div>
                 <div class="game-card-desc">Chạy đua tối đa 40 làn, tránh sét, nhặt tốc độ về đích.</div>
               </div>
 
+            </div>
+
+            <div class="game-card-lobby tower-card" id="card-game-4">
+              <div class="game-card-preview tower-preview" aria-hidden="true">
+                <div class="tower-preview-moon"></div>
+                <div class="tower-preview-cloud c1"></div>
+                <div class="tower-preview-cloud c2"></div>
+                <div class="tower-preview-crown">♛</div>
+                <div class="tower-preview-spire"></div>
+                <div class="tower-preview-step s1"><span></span></div>
+                <div class="tower-preview-step s2"><span></span></div>
+                <div class="tower-preview-step s3"><span></span></div>
+                <div class="tower-preview-step s4"><span></span></div>
+                <div class="tower-preview-beast b1">🐺</div>
+                <div class="tower-preview-beast b2">🐺</div>
+                <div class="tower-preview-beast b3">🐺</div>
+                <div class="tower-preview-gem g1">◆</div>
+                <div class="tower-preview-gem g2">◆</div>
+              </div>
+              <div class="game-card-copy">
+                <div class="game-card-name">Tháp</div>
+                <div class="game-card-desc">Leo tháp xoắn ốc, tránh bẫy sập, nhặt ngọc tăng tốc lên đỉnh.</div>
+              </div>
             </div>
 
             <div class="game-card-lobby plinko-card" id="card-game-3">
@@ -232,23 +255,8 @@
                 </div>
               </div>
               <div class="game-card-copy">
-                <div class="game-card-name">Linh Ngọc Plinko 3D</div>
+                <div class="game-card-name">Rơi Tự Do</div>
                 <div class="game-card-desc">Một round tính điểm, nhặt sao, né bẫy và săn Jackpot.</div>
-              </div>
-            </div>
-
-            <div class="game-card-lobby tower-card" id="card-game-4">
-              <div class="game-card-preview tower-preview mystic-preview" aria-hidden="true">
-                <div class="tower-preview-spire"></div>
-                <div class="tower-preview-step s1"></div>
-                <div class="tower-preview-step s2"></div>
-                <div class="tower-preview-step s3"></div>
-                <div class="tower-preview-fox">🦊</div>
-                <div class="tower-preview-gem">💎</div>
-              </div>
-              <div class="game-card-copy">
-                <div class="game-card-name">Leo Tháp Thần Thú 3D</div>
-                <div class="game-card-desc">Leo tháp xoắn ốc, tránh bẫy sập, nhặt ngọc tăng tốc lên đỉnh.</div>
               </div>
             </div>
 
@@ -288,6 +296,7 @@
         <div class="wheel-outer" id="wheel-outer">
           <canvas class="wheel-canvas" id="wheel-canvas"></canvas>
         </div>
+        <canvas class="wheel-labels-canvas" id="wheel-labels-canvas"></canvas>
         <div class="wheel-center-pin">🔮</div>
       </div>
       <div class="selector-copy">
@@ -310,7 +319,7 @@
 
     <div class="arena-header">
 
-      <div class="arena-logo">Đường Đua Thần Thú 3D</div>
+      <div class="arena-logo">Đua Thú</div>
 
       <div style="display: flex; gap: 12px; align-items: center;">
 
@@ -516,7 +525,7 @@
         <span>🔒 TÍNH NĂNG TẠM KHÓA</span>
       </h3>
       <p style="font-size: 14px; color: var(--text); line-height: 1.6; margin-top: 10px;">
-        Chức năng <strong>Random Game</strong> đang được khóa lại vì hiện tại chưa có game mới (chỉ có <strong>Đua Thần Thú 3D</strong> khả dụng).
+        Chức năng <strong>Random Game</strong> đang được khóa lại vì hiện tại chưa có game mới (chỉ có <strong>Đua Thú</strong> khả dụng).
       </p>
       <p style="font-size: 12px; color: var(--text-dim); margin-top: 8px;">
         Vui lòng chọn trực tiếp game hoạt động và nhấn <strong>Đấu Ngay</strong>!
@@ -741,7 +750,7 @@
 
   <!-- ==================== LẬP TRÌNH LOGIC JAVASCRIPT ==================== -->
 
-  <script type="module" src="./minigames/core/app.js"></script>
+  <script type="module" src="./minigames/core/app.js?v=20260625-6"></script>
 
 </body>
 

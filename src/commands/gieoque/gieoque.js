@@ -1,10 +1,7 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../../database/db');
 const { hasLangGiaRole } = require('../../utils/langGiaRole');
 const { isCoreQuestion, rollCoreOutcome } = require('../../utils/gieoqueCore');
-
-// Helper: delay
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const { generateFortuneText, hasAnyFortuneAiKey } = require('../../utils/fortuneAiService');
 
 function normalizeFortuneText(text) {
     return (text || '')
@@ -46,30 +43,6 @@ function extractFortuneNameFromText(text, fortuneLevels) {
     return null;
 }
 
-// ============== API KEY ROTATION ==============
-// Load all GEMINI_API_KEY_* from env
-function loadApiKeys() {
-    const keys = [];
-    for (let i = 1; i <= 30; i++) {
-        const key = process.env[`GEMINI_API_KEY_${i}`];
-        if (key) keys.push(key);
-    }
-    // Fallback: old single key
-    if (keys.length === 0 && process.env.GEMINI_API_KEY) {
-        keys.push(process.env.GEMINI_API_KEY);
-    }
-    return keys;
-}
-
-let currentKeyIndex = 0;
-
-function getNextApiKey(keys) {
-    if (keys.length === 0) return null;
-    const key = keys[currentKeyIndex % keys.length];
-    currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-    return key;
-}
-
 // ============== COOLDOWN ==============
 const cooldowns = new Map();
 const COOLDOWN_MS = 30000; // 30 giây
@@ -93,9 +66,8 @@ async function execute(message, args) {
     // 1. Kiểm tra trạng thái Gieo Quẻ
     const { usedToday, lastFortune } = db.getGieoQueStatus(message.author.id);
 
-    // 2. Load API keys
-    const apiKeys = loadApiKeys();
-    if (apiKeys.length === 0) {
+    // 2. Kiểm tra API keys
+    if (!hasAnyFortuneAiKey()) {
         return message.reply("⚠️ Bot chưa được cấu hình API Key. Vui lòng liên hệ Admin!");
     }
 
@@ -207,64 +179,8 @@ Yêu cầu:
             }
         }
 
-        // 6. Gọi API với KEY ROTATION + retry
-        let text = null;
-        const maxKeyAttempts = apiKeys.length; // Thử tất cả keys
-        const maxRetries = 2;
-
-        for (let keyAttempt = 0; keyAttempt < maxKeyAttempts; keyAttempt++) {
-            const apiKey = getNextApiKey(apiKeys);
-            const keyLabel = `Key ${(currentKeyIndex === 0 ? apiKeys.length : currentKeyIndex)}/${apiKeys.length}`;
-
-            try {
-                const genAI = new GoogleGenerativeAI(apiKey);
-
-                // Thử gemini-2.5-flash-lite trước, fallback gemini-2.0-flash
-                const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-2.0-flash'];
-
-                for (const modelName of modelsToTry) {
-                    const model = genAI.getGenerativeModel({ model: modelName });
-
-                    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                        try {
-                            const result = await model.generateContent(prompt);
-                            const response = await result.response;
-                            text = response.text();
-                            console.log(`[GieoQue] Success with ${keyLabel} (${modelName})`);
-                            break;
-                        } catch (apiError) {
-                            const isRateLimit = apiError.message?.includes("429") || apiError.message?.includes("Too Many Requests");
-                            if (isRateLimit && attempt < maxRetries) {
-                                console.log(`[GieoQue] ${keyLabel} (${modelName}) rate limit, retry ${attempt + 1}/${maxRetries}...`);
-                                await delay(5000);
-                            } else {
-                                // Kiểm tra lỗi API key expired/invalid → skip key này luôn
-                                const isKeyInvalid = apiError.message?.includes("API_KEY_INVALID") || apiError.message?.includes("API key expired") || apiError.message?.includes("400 Bad Request");
-                                console.log(`[GieoQue] ${keyLabel} (${modelName}) failed: ${apiError.message?.slice(0, 100)}`);
-                                if (isKeyInvalid) {
-                                    // Key hết hạn → bỏ qua tất cả model cho key này, thử key tiếp
-                                    throw apiError;
-                                }
-                                break; // Lỗi model khác → thử model tiếp theo
-                            }
-                        }
-                    }
-
-                    if (text) break; // Đã có kết quả, thoát vòng model
-                }
-
-                if (text) break; // Thành công, thoát vòng lặp key
-
-            } catch (keyError) {
-                const isRateLimit = keyError.message?.includes("429") || keyError.message?.includes("Too Many Requests");
-                const isKeyInvalid = keyError.message?.includes("API_KEY_INVALID") || keyError.message?.includes("API key expired") || keyError.message?.includes("400 Bad Request");
-                if ((isRateLimit || isKeyInvalid) && keyAttempt < maxKeyAttempts - 1) {
-                    console.log(`[GieoQue] ${keyLabel} ${isKeyInvalid ? 'expired/invalid' : 'rate limit'}, trying next key...`);
-                    continue;
-                }
-                throw keyError; // Tất cả key đều fail
-            }
-        }
+        // 6. Gọi DeepSeek V4 Flash trước, nếu lỗi thì fallback Gemini cũ
+        const text = await generateFortuneText(prompt, { logPrefix: 'GieoQue' });
 
         // 7. Chỉnh sửa message và ghi nhận usage
         if (text) {

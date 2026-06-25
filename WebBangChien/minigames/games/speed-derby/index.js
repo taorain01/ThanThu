@@ -5,7 +5,7 @@ import { startSpeedDerbyFallback2D } from "./fallback2d.js";
 const speedDerbyGame = {
   id: "speed-derby",
   legacyId: 1,
-  name: "Đua Thần Thú 3D",
+  name: "Đua Thú",
   icon: "🚀",
   description: "Chạy đua tối đa 40 làn, tránh sét, nhặt tốc độ về đích.",
   enabled: true,

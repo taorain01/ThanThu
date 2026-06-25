@@ -51,6 +51,7 @@ let plinkoRoundEndAt = 0;
 let plinkoBallStartedAt = 0;
 let plinkoNextBallAt = 0;
 let plinkoLandingSequence = 0;
+let plinkoPrizeCount = 3;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -72,6 +73,32 @@ function randomBetween(min, max) {
 function getDurationSeconds() {
   const value = parseInt(document.getElementById("race-duration-select")?.value || String(DEFAULT_GAME_DURATION_SECONDS), 10);
   return Number.isFinite(value) ? value : DEFAULT_GAME_DURATION_SECONDS;
+}
+
+function getSelectedPrizeCount() {
+  const value = parseInt(document.getElementById("prize-count-select")?.value || "3", 10);
+  return clamp(Number.isFinite(value) ? value : 3, 1, 5);
+}
+
+function getPodiumPositions(count) {
+  const visualOrder = {
+    1: [1],
+    2: [2, 1],
+    3: [2, 1, 3],
+    4: [4, 2, 1, 3],
+    5: [4, 2, 1, 3, 5]
+  }[count] || [4, 2, 1, 3, 5];
+  const spacing = count <= 3 ? 7.2 : 4.15;
+  const heights = [0, 1.25, 0.92, 0.76, 0.62, 0.52];
+  const colors = ["", "#facc15", "#cbd5e1", "#fdba74", "#60a5fa", "#a78bfa"];
+  return visualOrder.map((rank, index) => ({
+    rank,
+    x: (index - (visualOrder.length - 1) / 2) * spacing,
+    y: -4.35 + heights[rank] * 0.9,
+    h: heights[rank],
+    color: colors[rank],
+    width: count <= 3 ? 4.8 : 3.55
+  }));
 }
 
 function getPrizeText(rank) {
@@ -186,49 +213,21 @@ function updateScoreSprite(ball) {
   const w = ball.scoreCanvas.width;
   const h = ball.scoreCanvas.height;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(2, 6, 23, 0.88)";
-  ctx.strokeStyle = ball.shieldCharges > 0 ? "#bbf7d0" : ball.color;
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  drawRoundedRect(ctx, 10, 14, w - 20, h - 28, 26);
-  ctx.fill();
-  ctx.stroke();
-
-  const topLabel = ball.rank ? `TOP ${ball.rank}` : `#${ball.index + 1}`;
-  ctx.fillStyle = ball.rank && ball.rank <= 3 ? "rgba(250, 204, 21, 0.92)" : "rgba(56, 189, 248, 0.86)";
-  ctx.strokeStyle = "rgba(255, 247, 204, 0.9)";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  drawRoundedRect(ctx, 28, 28, 160, 58, 18);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#020617";
-  ctx.font = "900 32px Inter, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(topLabel, 108, 58);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(2, 6, 23, 0.96)";
+  ctx.lineWidth = 14;
   ctx.fillStyle = "#f8fafc";
   ctx.font = "900 68px Inter, sans-serif";
+  ctx.strokeText(shortName(ball.name, 16), w / 2, 94);
   ctx.fillText(shortName(ball.name, 16), w / 2, 94);
+  ctx.strokeStyle = "rgba(2, 6, 23, 0.96)";
+  ctx.lineWidth = 12;
   ctx.fillStyle = "#fff7cc";
   ctx.font = "900 52px Inter, sans-serif";
+  ctx.strokeText(`${ball.score} điểm`, w / 2, 166);
   ctx.fillText(`${ball.score} điểm`, w / 2, 166);
-  if (ball.magnetUntil > performance.now()) {
-    ctx.fillStyle = "#bfdbfe";
-    ctx.font = "800 32px Inter, sans-serif";
-    ctx.fillText("NAM CHÂM", w / 2, 218);
-  } else if (ball.scaleMode === "tiny") {
-    ctx.fillStyle = "#a5f3fc";
-    ctx.font = "800 32px Inter, sans-serif";
-    ctx.fillText("TÍ HON", w / 2, 218);
-  } else if (ball.scaleMode === "grow") {
-    ctx.fillStyle = "#fecdd3";
-    ctx.font = "800 32px Inter, sans-serif";
-    ctx.fillText("PHÌNH TO", w / 2, 218);
-  }
   ball.scoreTexture.needsUpdate = true;
 }
 
@@ -251,7 +250,7 @@ function setupPlinkoDom(names) {
 
   const logo = document.querySelector(".arena-logo");
   const sidebarTitle = document.querySelector("#arena-sidebar .sidebar-title span");
-  if (logo) logo.textContent = "Linh Ngọc Plinko 3D";
+  if (logo) logo.textContent = "Rơi Tự Do";
   if (sidebarTitle) sidebarTitle.textContent = "Bảng Điểm Linh Ngọc";
   document.getElementById("racer-progress-title").textContent = `Round ${getDurationSeconds()}s: 0 / ${names.length}`;
   document.getElementById("leaderboard-list").innerHTML = "";
@@ -310,8 +309,8 @@ function buildBoard() {
     );
     line.position.set(0, y, 0.42);
     plinkoGroup.add(line);
-    const label = createLabelSprite(`${milestone.label} +${milestone.score}`, "#fef08a", 560, 120, 4.8, 0.95);
-    label.position.set(-cfg.width / 2 + 4.6, y + 0.44, 0.78);
+    const label = createLabelSprite(`${milestone.label} +${milestone.score}`, "#fef08a", 620, 150, 7.2, 1.45);
+    label.position.set(-cfg.width / 2 + 5.8, y + 0.62, 0.78);
     plinkoGroup.add(label);
   });
 
@@ -345,8 +344,15 @@ function buildBoard() {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     slotGroup.add(mesh);
-    const label = createLabelSprite(slotCfg.label, slotCfg.color, slotCfg.jackpot ? 760 : 540, 154, slotCfg.jackpot ? 4.3 : 3.05, 0.86);
-    label.position.set(0, 1.48, 0.62);
+    const label = createLabelSprite(
+      slotCfg.label,
+      slotCfg.color,
+      slotCfg.jackpot ? 760 : 540,
+      180,
+      slotCfg.jackpot ? 4.75 : 3.55,
+      1.16
+    );
+    label.position.set(0, 1.62, 0.62);
     slotGroup.add(label);
     plinkoGroup.add(slotGroup);
     plinkoSlots.push({ ...slotCfg, index, x, width: slotWidth, mesh, group: slotGroup, pulse: 0 });
@@ -699,7 +705,7 @@ function syncPlinkoLeaderboard(force = false) {
   if (title) {
     const remaining = Math.max(0, Math.ceil(((plinkoRoundEndAt || plinkoStartMs + plinkoDurationMs) - now) / 1000));
     const current = Math.min(plinkoBalls.length, Math.max(plinkoCurrentBallIndex, plinkoBalls.length - plinkoQueue.length));
-    title.textContent = plinkoStageMode ? "Top 3 nhận giải" : `Còn ${remaining}s • Bi ${current}/${plinkoBalls.length}`;
+    title.textContent = plinkoStageMode ? `Top ${plinkoPrizeCount} nhận giải` : `Còn ${remaining}s • Bi ${current}/${plinkoBalls.length}`;
   }
   wireLeaderboardTracking(displayOrder);
   return displayOrder;
@@ -1012,6 +1018,9 @@ function handleBumperCollision(ball, bumper, dt, now) {
   const point = closestPointOnBumper(ball, bumper);
   const dx = ball.x - point.x;
   const dy = ball.y - point.y;
+  const tangentX = Math.cos(bumper.angle);
+  const tangentY = Math.sin(bumper.angle);
+  const localX = (ball.x - bumper.x) * tangentX + (ball.y - bumper.y) * tangentY;
   let dist = Math.sqrt(dx * dx + dy * dy);
   const minDist = getBallRadius(ball, now) + bumper.radius + 0.06;
   if (dist >= minDist) return false;
@@ -1021,12 +1030,30 @@ function handleBumperCollision(ball, bumper, dt, now) {
   ball.x = point.x + nx * minDist;
   ball.y = point.y + ny * minDist;
   const dot = ball.vx * nx + ball.vy * ny;
-  ball.vx -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * nx;
-  ball.vy -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * ny;
-  ball.vx += nx * 0.06 * dt;
-  ball.vy += ny * 0.06 * dt;
+  if (dot < 0) {
+    ball.vx -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * nx;
+    ball.vy -= (1 + PLINKO_CONFIG.physics.bumperBounce) * dot * ny;
+  }
+
+  const tangentVelocity = ball.vx * tangentX + ball.vy * tangentY;
+  const escapeDirection = Math.abs(localX) > 0.08
+    ? Math.sign(localX)
+    : (Math.abs(tangentVelocity) > 0.025 ? Math.sign(tangentVelocity) : (ball.index % 2 === 0 ? 1 : -1));
+  const slideImpulse = PLINKO_CONFIG.physics.bumperSlideImpulse * dt;
+  ball.vx += tangentX * escapeDirection * slideImpulse;
+  ball.vy += tangentY * escapeDirection * slideImpulse;
+
+  const escapedRepeatedCollision = noteCollision(ball, key, tangentX * escapeDirection, now);
+  if (escapedRepeatedCollision) {
+    ball.x += tangentX * escapeDirection * PLINKO_CONFIG.physics.bumperEscapePush;
+    ball.y += tangentY * escapeDirection * PLINKO_CONFIG.physics.bumperEscapePush;
+    ball.vx = tangentX * escapeDirection * Math.max(
+      Math.abs(ball.vx),
+      PLINKO_CONFIG.physics.bumperEscapeVelocity
+    );
+    ball.vy = Math.min(ball.vy, -0.1);
+  }
   clampBallVelocity(ball, PLINKO_CONFIG.physics.maxSpeed * 1.35);
-  noteCollision(ball, key, nx, now);
   bumper.pulse = 1;
   createParticleBurst(point.x, point.y, "#f8fafc", 4);
   return true;
@@ -1227,6 +1254,17 @@ function updateBoardPulses(dt, now) {
 
 function updatePlinkoCamera(now) {
   if (!plinkoCamera) return;
+  if (plinkoStageMode) {
+    const podiumWidth = plinkoPrizeCount >= 4 ? 23 : 20;
+    const fovRad = (PLINKO_CONFIG.renderer.fov * Math.PI) / 180;
+    const fitWidthZ = podiumWidth / (2 * Math.tan(fovRad / 2) * Math.max(plinkoCamera.aspect, 0.34));
+    const targetZ = Math.max(plinkoBaseCameraZ, fitWidthZ + 8);
+    plinkoCamera.position.x = lerp(plinkoCamera.position.x, 0, 0.065);
+    plinkoCamera.position.y = lerp(plinkoCamera.position.y, -3.15, 0.065);
+    plinkoCamera.position.z = lerp(plinkoCamera.position.z, targetZ, 0.065);
+    plinkoCamera.lookAt(0, -3.35, 0.8);
+    return;
+  }
   const activeFocus = plinkoFocusBall && now < plinkoFocusBall.pingUntil + 900 ? plinkoFocusBall : null;
   const leader = getSortedPlinkoBalls()[0];
   const focus = activeFocus || plinkoActiveBall || leader;
@@ -1239,7 +1277,7 @@ function updatePlinkoCamera(now) {
   plinkoCamera.lookAt(targetX * 0.35, targetY * 0.35 - 0.45, 0);
 }
 
-function createPodiumLabel(lines, color) {
+function createPodiumLabel(lines, color, width = 4.8) {
   const canvas = document.createElement("canvas");
   canvas.width = 640;
   canvas.height = 220;
@@ -1262,7 +1300,7 @@ function createPodiumLabel(lines, color) {
   ctx.fillStyle = "#bfdbfe";
   ctx.font = "800 24px Inter, sans-serif";
   ctx.fillText(lines[2] || "", 320, 154);
-  return createCanvasSprite(canvas, 4.8, 1.65).sprite;
+  return createCanvasSprite(canvas, width, width * 0.344).sprite;
 }
 
 function buildPodium(sorted) {
@@ -1272,15 +1310,11 @@ function buildPodium(sorted) {
   }
   plinkoPodiumGroup = new THREE.Group();
   plinkoScene.add(plinkoPodiumGroup);
-  const positions = [
-    { rank: 1, x: 0, y: -3.2, h: 1.25, color: "#facc15" },
-    { rank: 2, x: -7.2, y: -4.2, h: 0.92, color: "#cbd5e1" },
-    { rank: 3, x: 7.2, y: -4.5, h: 0.76, color: "#fdba74" }
-  ];
+  const positions = getPodiumPositions(plinkoPrizeCount);
   positions.forEach((pos) => {
     const ball = sorted[pos.rank - 1];
     const block = new THREE.Mesh(
-      new THREE.BoxGeometry(4.8, pos.h, 2.2),
+      new THREE.BoxGeometry(pos.width, pos.h, 2.2),
       makeMaterial(pos.color, { emissive: pos.color, emissiveIntensity: 0.22, roughness: 0.42 })
     );
     block.position.set(pos.x, pos.y - pos.h / 2 - 1.4, 1.2);
@@ -1291,7 +1325,7 @@ function buildPodium(sorted) {
       `Hạng ${pos.rank}`,
       ball ? `${shortName(ball.name, 13)} • ${ball.score}đ` : "Đang chờ",
       getPrizeText(pos.rank)
-    ], pos.color);
+    ], pos.color, pos.width);
     label.position.set(pos.x, pos.y + 1.25, 1.8);
     plinkoPodiumGroup.add(label);
     if (ball) {
@@ -1318,11 +1352,12 @@ function updateStageAnimation(dt) {
   });
 }
 
-function finishPlinkoGame() {
+function finishPlinkoGame(now = performance.now(), reason = "time") {
   if (plinkoFinishTriggered) return;
-  const finishNow = plinkoRoundEndAt || plinkoStartMs + plinkoDurationMs;
+  const finishNow = Math.min(now, plinkoRoundEndAt || now);
   plinkoFinishTriggered = true;
   plinkoStageMode = true;
+  plinkoFocusBall = null;
   plinkoBalls.forEach((ball) => {
     syncBallScore(ball, finishNow);
     ball.active = false;
@@ -1343,7 +1378,11 @@ function finishPlinkoGame() {
   plinkoLegacy?.stopRaceTimer?.(true);
   plinkoLegacy?.playVictorySound?.();
   plinkoLegacy?.showPostGameActions?.(sorted, { camera: false });
-  plinkoLegacy?.updateCommentaryText?.(`🏆 Hết giờ! Top 3 linh ngọc đang bay lên bục nhận giải.`);
+  plinkoLegacy?.updateCommentaryText?.(
+    reason === "all-balls-complete"
+      ? `🏆 Tất cả linh ngọc đã rơi xong! Top ${plinkoPrizeCount} đang bay lên bục nhận giải.`
+      : `🏆 Hết giờ! Top ${plinkoPrizeCount} linh ngọc đang bay lên bục nhận giải.`
+  );
 }
 
 function animatePlinko(now = performance.now()) {
@@ -1352,7 +1391,7 @@ function animatePlinko(now = performance.now()) {
   plinkoLastFrameMs = now;
   plinkoLegacy?.updateRaceTimerDisplay?.();
 
-  if (!plinkoStageMode && now >= plinkoRoundEndAt) finishPlinkoGame();
+  if (!plinkoStageMode && now >= plinkoRoundEndAt) finishPlinkoGame(now, "time");
 
   if (plinkoStageMode) {
     updateStageAnimation(dt);
@@ -1367,6 +1406,10 @@ function animatePlinko(now = performance.now()) {
       if (ball.active && ball.completed && now >= ball.completedAt) completeBall(ball, now, true);
     });
     updateCollectibles(dt, now);
+    const allBallsComplete = plinkoQueue.length === 0
+      && plinkoBalls.length > 0
+      && plinkoBalls.every((ball) => ball.completed && !ball.active);
+    if (allBallsComplete) finishPlinkoGame(now, "all-balls-complete");
   }
 
   updateBallVisuals(dt, now);
@@ -1495,6 +1538,7 @@ export async function startPlinko3DGame(context, names) {
   plinkoLegacy?.initAudioContext?.();
   plinkoLegacy?.cleanupWebGLScene?.();
   plinkoDurationMs = getDurationSeconds() * 1000;
+  plinkoPrizeCount = getSelectedPrizeCount();
   plinkoFinishTriggered = false;
   plinkoStageMode = false;
   plinkoRunning = true;
@@ -1558,4 +1602,5 @@ export function cleanupPlinko3DGame() {
   plinkoRoundEndAt = 0;
   plinkoBallStartedAt = 0;
   plinkoNextBallAt = 0;
+  plinkoPrizeCount = 3;
 }

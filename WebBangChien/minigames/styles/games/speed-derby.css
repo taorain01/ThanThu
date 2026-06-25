@@ -1,0 +1,280 @@
+
+    .derby-camera-layer {
+
+      position: absolute;
+
+      inset: -8% -6%;
+
+      z-index: 0;
+
+      display: none;
+
+      pointer-events: none;
+
+      background-position: center center;
+
+      background-size: cover;
+
+      background-repeat: no-repeat;
+
+      mix-blend-mode: screen;
+
+      transform-origin: 50% 58%;
+
+      will-change: transform, opacity;
+
+    }
+
+    .webgl-canvas {
+
+      width: 100%;
+
+      height: 100%;
+
+      display: block;
+
+      position: relative;
+
+      z-index: 1;
+
+      background: transparent;
+
+    }
+
+    .derby-label-overlay {
+
+      position: absolute;
+
+      inset: 0;
+
+      z-index: 4;
+
+      pointer-events: none;
+
+      overflow: hidden;
+
+    }
+
+    .derby-race-label {
+
+      position: absolute;
+
+      left: 0;
+
+      top: 0;
+
+      max-width: 118px;
+
+      min-width: 64px;
+
+      padding: 4px 8px 5px;
+
+      border: 1px solid color-mix(in srgb, var(--label-color, #10b981) 72%, rgba(255, 255, 255, 0.25));
+
+      border-radius: 7px;
+
+      background: rgba(2, 10, 6, 0.72);
+
+      color: #f8fafc;
+
+      box-shadow: 0 5px 12px rgba(0, 0, 0, 0.34);
+
+      font-size: 10.5px;
+
+      font-weight: 900;
+
+      line-height: 1;
+
+      text-align: center;
+
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+
+      transform: translate3d(-50%, -100%, 0);
+
+      opacity: 0;
+
+      transition: opacity 0.14s ease, filter 0.14s ease;
+
+      will-change: transform, opacity;
+
+    }
+
+    .derby-race-label.visible {
+
+      opacity: 0.88;
+
+    }
+
+    .derby-race-label::after {
+
+      content: "";
+
+      position: absolute;
+
+      left: 50%;
+
+      bottom: -5px;
+
+      width: 0;
+
+      height: 0;
+
+      border-left: 4px solid transparent;
+
+      border-right: 4px solid transparent;
+
+      border-top: 5px solid color-mix(in srgb, var(--label-color, #10b981) 72%, rgba(255, 255, 255, 0.25));
+
+      transform: translateX(-50%);
+
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+
+    }
+
+    .derby-race-label .label-rank {
+
+      display: inline-block;
+
+      margin-right: 3px;
+
+      color: #fbbf24;
+
+      font-size: 9px;
+
+    }
+
+    .derby-race-label .label-name {
+
+      display: inline-block;
+
+      max-width: 86px;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
+
+      vertical-align: bottom;
+
+    }
+
+    .derby-race-label.compact {
+
+      max-width: 96px;
+
+      min-width: 52px;
+
+      padding: 3px 6px 4px;
+
+      font-size: 9px;
+
+      opacity: 0.74;
+
+    }
+
+    .derby-race-label.soft {
+
+      opacity: 0.58;
+
+      filter: saturate(0.82);
+
+    }
+
+    .derby-race-label.finished-pop {
+
+      border-color: rgba(251, 191, 36, 0.82);
+
+      background: linear-gradient(180deg, rgba(54, 36, 8, 0.86), rgba(2, 10, 6, 0.76));
+
+      color: #fff7d1;
+
+      opacity: 0.9;
+
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4), 0 0 12px rgba(251, 191, 36, 0.22);
+
+    }
+
+    .derby-race-label.leader {
+
+      max-width: 152px;
+
+      min-width: 94px;
+
+      padding: 6px 10px 7px;
+
+      border-color: #fbbf24;
+
+      background: linear-gradient(180deg, rgba(58, 32, 5, 0.86), rgba(8, 18, 9, 0.82));
+
+      color: #fff4bf;
+
+      font-size: 12.5px;
+
+      box-shadow: 0 7px 16px rgba(0, 0, 0, 0.44), 0 0 14px rgba(251, 191, 36, 0.24);
+
+      z-index: 80;
+
+    }
+
+    .derby-race-label.leader .label-name {
+
+      max-width: 112px;
+
+    }
+
+    .derby-race-label.leader::before {
+
+      content: "👑";
+
+      position: absolute;
+
+      left: 50%;
+
+      top: -16px;
+
+      transform: translateX(-50%);
+
+      font-size: 14px;
+
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.75));
+
+    }
+
+    @media (max-width: 720px) {
+
+      .derby-race-label {
+
+        max-width: 92px;
+
+        min-width: 50px;
+
+        padding: 3px 6px 4px;
+
+        font-size: 9px;
+
+      }
+
+      .derby-race-label .label-name {
+
+        max-width: 66px;
+
+      }
+
+      .derby-race-label.leader {
+
+        max-width: 120px;
+
+        min-width: 76px;
+
+        font-size: 11px;
+
+      }
+
+      .derby-race-label.leader .label-name {
+
+        max-width: 88px;
+
+      }
+
+    }

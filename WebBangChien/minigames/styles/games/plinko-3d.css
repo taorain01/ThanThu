@@ -1,0 +1,246 @@
+/* Plinko 3D */
+
+.plinko-card {
+  border-color: rgba(56, 189, 248, 0.28);
+  background:
+    radial-gradient(circle at 50% 14%, rgba(250, 204, 21, 0.16), transparent 34%),
+    radial-gradient(circle at 24% 82%, rgba(34, 197, 94, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(4, 14, 28, 0.98), rgba(2, 6, 23, 0.98));
+}
+
+.plinko-card.active {
+  border-color: rgba(250, 204, 21, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.26),
+    0 18px 42px rgba(0, 0, 0, 0.54),
+    0 0 30px rgba(56, 189, 248, 0.24),
+    inset 0 0 26px rgba(250, 204, 21, 0.08);
+}
+
+.plinko-card .game-card-icon {
+  text-shadow:
+    0 0 14px rgba(250, 204, 21, 0.55),
+    0 3px 10px rgba(0, 0, 0, 0.9);
+}
+
+.plinko-card .game-card-name {
+  color: #fff7cc;
+}
+
+.plinko-preview {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(250, 204, 21, 0.25), transparent 30%),
+    radial-gradient(circle at 50% 86%, rgba(56, 189, 248, 0.22), transparent 38%),
+    linear-gradient(180deg, rgba(3, 14, 30, 0.96), rgba(2, 6, 23, 0.98));
+}
+
+.plinko-preview::before {
+  content: "";
+  position: absolute;
+  inset: 14% 12% 17%;
+  border-left: 1px solid rgba(56, 189, 248, 0.34);
+  border-right: 1px solid rgba(56, 189, 248, 0.34);
+  transform: perspective(160px) rotateX(10deg);
+  opacity: 0.9;
+}
+
+.plinko-preview-peg {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a7f3d0;
+  box-shadow: 0 0 8px rgba(167, 243, 208, 0.8);
+}
+
+.plinko-preview-peg.p1 { left: 34%; top: 29%; }
+.plinko-preview-peg.p2 { left: 48%; top: 38%; background: #facc15; box-shadow: 0 0 10px rgba(250, 204, 21, 0.9); }
+.plinko-preview-peg.p3 { left: 62%; top: 29%; }
+.plinko-preview-peg.p4 { left: 40%; top: 52%; }
+.plinko-preview-peg.p5 { left: 56%; top: 58%; background: #f87171; box-shadow: 0 0 10px rgba(248, 113, 113, 0.86); }
+
+.plinko-preview-ball {
+  position: absolute;
+  left: 48%;
+  top: 14%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #fff7cc, #38bdf8 44%, #7c3aed);
+  box-shadow:
+    0 0 12px rgba(56, 189, 248, 0.88),
+    0 0 18px rgba(250, 204, 21, 0.28);
+  animation: plinkoPreviewDrop 2.6s cubic-bezier(0.36, 0, 0.24, 1) infinite;
+}
+
+.plinko-preview-slots {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 9px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+
+.plinko-preview-slots span {
+  height: 12px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(167, 243, 208, 0.2);
+}
+
+.plinko-preview-slots span:nth-child(3) {
+  background: rgba(250, 204, 21, 0.46);
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
+}
+
+.webgl-canvas-container.plinko-3d-active {
+  background:
+    radial-gradient(circle at 50% 14%, rgba(250, 204, 21, 0.12), transparent 28%),
+    radial-gradient(circle at 52% 82%, rgba(56, 189, 248, 0.14), transparent 42%),
+    linear-gradient(180deg, #020817 0%, #05111e 56%, #020617 100%);
+  --derby-glow-opacity: 1;
+  --derby-vignette-opacity: 0.7;
+}
+
+.webgl-canvas-container.plinko-3d-active::before {
+  background:
+    radial-gradient(ellipse at 50% 16%, rgba(250, 204, 21, 0.24), transparent 24%),
+    radial-gradient(circle at 24% 66%, rgba(34, 197, 94, 0.18), transparent 24%),
+    radial-gradient(circle at 78% 38%, rgba(56, 189, 248, 0.18), transparent 22%);
+  animation: plinkoArenaGlow 5.6s ease-in-out infinite;
+}
+
+.webgl-canvas-container.plinko-3d-active::after {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.64) 0%, transparent 18%, transparent 82%, rgba(0, 0, 0, 0.64) 100%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.34) 0%, transparent 34%, transparent 60%, rgba(1, 7, 13, 0.78) 100%);
+}
+
+.webgl-canvas-container.plinko-3d-active canvas {
+  filter: saturate(1.1) contrast(1.04);
+}
+
+#leaderboard-list .leaderboard-item.plinko-live-item {
+  background: rgba(15, 23, 42, 0.58);
+  border-color: rgba(56, 189, 248, 0.16);
+}
+
+#leaderboard-list .leaderboard-item.plinko-live-item.rank-1,
+#leaderboard-list .leaderboard-item.plinko-live-item.rank-2,
+#leaderboard-list .leaderboard-item.plinko-live-item.rank-3 {
+  background: rgba(15, 23, 42, 0.62);
+}
+
+#leaderboard-list .leaderboard-item.plinko-live-item .leaderboard-rank {
+  min-width: 42px;
+  width: 42px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.18);
+  color: #e0f2fe;
+  font-size: 14px;
+}
+
+#leaderboard-list .leaderboard-item.plinko-final-item.rank-1 .leaderboard-rank {
+  background: rgba(250, 204, 21, 0.92);
+  color: #020617;
+}
+
+#leaderboard-list .leaderboard-item.plinko-leaderboard-flyin {
+  animation: plinkoLeaderboardFlyIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  border-color: rgba(250, 204, 21, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.22),
+    0 0 26px rgba(250, 204, 21, 0.24),
+    inset 0 0 18px rgba(56, 189, 248, 0.12);
+}
+
+.plinko-score-flyer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(var(--sx), var(--sy)) translate(-50%, -50%) scale(0.78);
+  z-index: 9999;
+  pointer-events: none;
+  padding: 9px 13px;
+  border-radius: 10px;
+  color: #fff7cc;
+  background: rgba(2, 6, 23, 0.92);
+  border: 2px solid var(--ball-color, #38bdf8);
+  box-shadow:
+    0 0 18px var(--ball-color, #38bdf8),
+    0 10px 26px rgba(0, 0, 0, 0.35);
+  font: 900 16px/1 Inter, sans-serif;
+  white-space: nowrap;
+  animation: plinkoScoreFlyer 1.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes plinkoPreviewDrop {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  24% {
+    transform: translate(-16px, 24px) scale(0.96, 1.04);
+  }
+  48% {
+    transform: translate(12px, 42px) scale(1.04, 0.96);
+  }
+  73% {
+    transform: translate(-4px, 58px) scale(1);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes plinkoArenaGlow {
+  0%, 100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes plinkoScoreFlyer {
+  0% {
+    opacity: 0;
+    transform: translate(var(--sx), var(--sy)) translate(-50%, -50%) scale(0.68);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(var(--sx), var(--sy)) translate(-50%, -50%) scale(1.06);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--ex), var(--ey)) translate(-50%, -50%) scale(0.56);
+  }
+}
+
+@keyframes plinkoLeaderboardFlyIn {
+  0% {
+    opacity: 0.28;
+    transform: translateX(34px) scale(0.94);
+  }
+  45% {
+    opacity: 1;
+    transform: translateX(0) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plinko-preview-ball,
+  .webgl-canvas-container.plinko-3d-active::before,
+  #leaderboard-list .leaderboard-item.plinko-leaderboard-flyin,
+  .plinko-score-flyer {
+    animation: none;
+  }
+}

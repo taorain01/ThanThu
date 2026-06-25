@@ -1,0 +1,140 @@
+
+    :root {
+
+      --bg: #030c05;
+
+      --bg-gradient: radial-gradient(circle at center, #0a1f0f 0%, #030c05 100%);
+
+      --emerald: #10b981;
+
+      --emerald-glow: rgba(16, 185, 129, 0.4);
+
+      --gold: #fbbf24;
+
+      --gold-deep: #f59e0b;
+
+      --gold-glow: rgba(251, 191, 36, 0.35);
+
+      --ruby: #ef4444;
+
+      --ruby-glow: rgba(239, 68, 68, 0.4);
+
+      --text: #e2e8f0;
+
+      --text-dim: #94a3b8;
+
+      --panel-bg: rgba(10, 31, 15, 0.45);
+
+      --panel-border: rgba(16, 185, 129, 0.18);
+
+      --panel-border-gold: rgba(251, 191, 36, 0.22);
+
+      --glass-shadow: 0 16px 42px rgba(0, 0, 0, 0.6);
+
+      --mp-radius: 18px;
+
+      --mp-radius-sm: 10px;
+
+      --mp-glass-bg: linear-gradient(135deg, rgba(7, 25, 14, 0.92), rgba(13, 35, 20, 0.88));
+
+      --mp-border: rgba(251, 191, 36, 0.28);
+
+      --mp-gold-soft: rgba(251, 191, 36, 0.62);
+
+      --mp-text: #fff7cc;
+
+      --mp-text-dim: rgba(226, 232, 240, 0.58);
+
+      --mp-shadow: 0 18px 44px rgba(0, 0, 0, 0.62);
+
+      --mp-focus: 0 0 0 3px rgba(251, 191, 36, 0.28);
+
+    }
+
+
+
+    * {
+
+      margin: 0;
+
+      padding: 0;
+
+      box-sizing: border-box;
+
+    }
+
+
+
+    body {
+
+      font-family: 'Inter', sans-serif;
+
+      background: var(--bg);
+
+      background-image: var(--bg-gradient);
+
+      color: var(--text);
+
+      min-height: 100vh;
+
+      overflow-x: hidden;
+
+      display: flex;
+
+      flex-direction: column;
+
+      user-select: none;
+
+    }
+
+
+
+    /* Tiêu đề góc trang trí */
+
+    .bg-deco-grid {
+
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 0;
+
+      background-image: 
+
+        linear-gradient(rgba(16, 185, 129, 0.02) 1px, transparent 1px),
+
+        linear-gradient(90deg, rgba(16, 185, 129, 0.02) 1px, transparent 1px);
+
+      background-size: 50px 50px;
+
+      pointer-events: none;
+
+    }
+
+
+
+    /* Hình nền sảnh game với hiệu ứng mờ */
+
+    .lobby-bg-image {
+
+      position: fixed;
+
+      inset: 0;
+
+      z-index: -1;
+
+      background-image: url('../../anh/bg_lobby_beasts.png');
+
+      background-size: cover;
+
+      background-position: center;
+
+      background-repeat: no-repeat;
+
+      filter: blur(10px) brightness(0.25) saturate(0.85);
+
+      transform: scale(1.05); /* Tránh viền trắng khi mờ */
+
+      pointer-events: none;
+
+    }

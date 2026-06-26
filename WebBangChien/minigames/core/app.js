@@ -2168,26 +2168,26 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         container.classList.remove("plinko-3d-active", "tower-climb-active", "has-3d-stage");
       }
 
-      ["webgl-canvas", "fallback-canvas"].forEach((canvasId) => {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) return;
+      const fallbackCanvas = document.getElementById("fallback-canvas");
+      if (fallbackCanvas) {
         try {
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          } else {
-            const width = canvas.width;
-            const height = canvas.height;
-            canvas.width = width;
-            canvas.height = height;
-          }
+          const ctx = fallbackCanvas.getContext("2d");
+          if (ctx) ctx.clearRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
         } catch (_) {
-          const width = canvas.width;
-          const height = canvas.height;
-          canvas.width = width;
-          canvas.height = height;
+          const width = fallbackCanvas.width;
+          const height = fallbackCanvas.height;
+          fallbackCanvas.width = width;
+          fallbackCanvas.height = height;
         }
-      });
+      }
+
+      const webglCanvas = document.getElementById("webgl-canvas");
+      if (webglCanvas) {
+        const width = webglCanvas.width;
+        const height = webglCanvas.height;
+        webglCanvas.width = width;
+        webglCanvas.height = height;
+      }
     }
 
     function setSelectedLobbyGame(legacyId) {

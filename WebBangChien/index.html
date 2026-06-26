@@ -1143,6 +1143,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 10px rgba(0,0,0,.55),0 0 15px rgba(251,191,36,.18);
 }
 .feedback-btn svg{width:17px;height:17px;flex-shrink:0}
+.feedback-btn.has-info-hub-badge,
+.info-hub-tab.has-info-hub-badge{position:relative}
+.info-hub-badge{
+  position:absolute;top:-5px;right:-5px;z-index:2;
+  min-width:17px;height:17px;padding:0 5px;border-radius:999px;
+  display:none;align-items:center;justify-content:center;
+  background:#ef4444;color:#fff;border:2px solid rgba(5,14,9,.96);
+  font-size:10px;font-weight:950;line-height:1;box-shadow:0 5px 14px rgba(239,68,68,.45);
+  pointer-events:none;
+}
+.info-hub-badge.active{display:flex}
 .info-hub-trigger{
   border-color:rgba(34,197,94,.34);
   color:#bbf7d0;
@@ -1163,6 +1174,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
   color:var(--gold);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.24);
   font-size:11px;font-weight:900;letter-spacing:.7px;text-transform:uppercase;
 }
+.release-version{display:flex;flex-direction:column;gap:10px}
 .release-list{display:flex;flex-direction:column;gap:10px}
 .release-item{
   display:flex;gap:12px;padding:14px 15px;border-radius:14px;
@@ -1327,6 +1339,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);displ
 }
 .feedback-compose-label::before{content:'';flex:1;height:1px;background:rgba(34,197,94,.14)}
 .feedback-compose-label::after{content:'';flex:1;height:1px;background:rgba(34,197,94,.14)}
+.feedback-compose-head{display:flex;flex-direction:column;gap:10px}
+.feedback-compose-desc{
+  margin:0;color:var(--text3);font-size:12.5px;line-height:1.6;text-align:center;
+}
 .feedback-form{
   display:flex;flex-direction:column;gap:18px;
 }
@@ -3009,7 +3025,7 @@ select option:hover,select option:checked{background:var(--green-700);color:#fff
     border-right:0;border-bottom:1px solid rgba(255,255,255,.07);
   }
   .info-hub-tab{
-    flex:0 0 auto;width:auto;min-width:104px;min-height:38px;
+    flex:0 0 auto;width:auto;min-width:124px;min-height:38px;
     justify-content:center;padding:0 12px;font-size:12px;
   }
   .info-hub-tab:hover{transform:none}
@@ -3832,7 +3848,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
 
 
     <div class="header-actions">
-      <button class="feedback-btn info-hub-trigger" id="btnInfoHub" type="button" onclick="openInfoHub(event, 'feedback')" title="Góp ý, Cập nhật và Log">
+      <button class="feedback-btn info-hub-trigger has-info-hub-badge" id="btnInfoHub" type="button" onclick="openInfoHub(event, 'release')" title="Cập nhật, Góp ý ẩn danh và Log">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
           <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
@@ -3840,6 +3856,7 @@ body:not(.theme-dark) .theme-toggle-btn .moon-icon { display: block; }
           <path d="M14 15h7"></path><path d="M14 20h7"></path>
         </svg>
         <span class="feedback-btn-label">Trung tâm</span>
+        <span class="info-hub-badge" id="infoHubMainBadge">1</span>
       </button>
       <button id="btnSketch" class="feedback-btn" type="button" onclick="openTacticSketch()" title="DLAM - phác thảo chiến thuật">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -10117,7 +10134,81 @@ logout = async function(e) {
 // ═══ INFO HUB: GÓP Ý + CẬP NHẬT + LOG ═══
 let _feedbackLoadedOnce = false;
 let _infoHubBackdropPointerDown = false;
-let _infoHubActiveTab = 'feedback';
+let _infoHubActiveTab = 'release';
+const INFO_HUB_RELEASE_KEY = 'langgiawar-release-1.4-preview';
+const INFO_HUB_RELEASE_READ_STORAGE = 'langgiawar.infoHub.releaseReadKey';
+const INFO_HUB_FEEDBACK_SEEN_STORAGE = 'langgiawar.infoHub.feedbackSeenCount';
+let _infoHubReleaseUnread = true;
+let _infoHubFeedbackUnread = false;
+let _latestFeedbackCount = 0;
+
+function getInfoHubStorage(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch (error) {
+        return null;
+    }
+}
+
+function setInfoHubStorage(key, value) {
+    try {
+        localStorage.setItem(key, String(value));
+    } catch (error) {
+        // localStorage can be unavailable in strict privacy modes.
+    }
+}
+
+function updateInfoHubBadges() {
+    _infoHubReleaseUnread = getInfoHubStorage(INFO_HUB_RELEASE_READ_STORAGE) !== INFO_HUB_RELEASE_KEY;
+    const mainBadge = document.getElementById('infoHubMainBadge');
+    const releaseBadge = document.getElementById('infoHubReleaseBadge');
+    const feedbackBadge = document.getElementById('infoHubFeedbackBadge');
+    const hasUnread = _infoHubReleaseUnread || _infoHubFeedbackUnread;
+    mainBadge?.classList.toggle('active', hasUnread);
+    releaseBadge?.classList.toggle('active', _infoHubReleaseUnread);
+    feedbackBadge?.classList.toggle('active', _infoHubFeedbackUnread);
+}
+
+function markInfoHubReleaseSeen() {
+    setInfoHubStorage(INFO_HUB_RELEASE_READ_STORAGE, INFO_HUB_RELEASE_KEY);
+    _infoHubReleaseUnread = false;
+    updateInfoHubBadges();
+}
+
+function markInfoHubFeedbackSeen(count = _latestFeedbackCount) {
+    const safeCount = Math.max(0, Number(count) || 0);
+    _latestFeedbackCount = safeCount;
+    setInfoHubStorage(INFO_HUB_FEEDBACK_SEEN_STORAGE, safeCount);
+    _infoHubFeedbackUnread = false;
+    updateInfoHubBadges();
+}
+
+function syncInfoHubFeedbackUnread(count) {
+    const safeCount = Math.max(0, Number(count) || 0);
+    _latestFeedbackCount = safeCount;
+    const stored = getInfoHubStorage(INFO_HUB_FEEDBACK_SEEN_STORAGE);
+    if (stored === null) {
+        setInfoHubStorage(INFO_HUB_FEEDBACK_SEEN_STORAGE, safeCount);
+        _infoHubFeedbackUnread = false;
+    } else {
+        _infoHubFeedbackUnread = safeCount > (Number(stored) || 0);
+    }
+    updateInfoHubBadges();
+}
+
+async function refreshInfoHubFeedbackBadge() {
+    if (!sb) return;
+    try {
+        const { count, error } = await sb
+            .from('bc_feedback')
+            .select('id', { count: 'exact', head: true })
+            .eq('guild_id', GUILD_ID);
+        if (error) throw error;
+        syncInfoHubFeedbackUnread(count || 0);
+    } catch (error) {
+        console.warn('[Index] refresh feedback badge failed:', error);
+    }
+}
 
 function getFeedbackCategoryLabel(category) {
     return FEEDBACK_CATEGORY_LABELS[category] || FEEDBACK_CATEGORY_LABELS.feedback;
@@ -10187,27 +10278,29 @@ function ensureInfoHubModal() {
             </div>
             <div class="feedback-head-text">
               <div class="info-hub-title" id="infoHubTitle">Trung tâm Lang Gia</div>
-              <div class="info-hub-sub">Góp ý, cập nhật và log hoạt động trong một popup gọn gàng.</div>
+              <div class="info-hub-sub">Cập nhật, góp ý ẩn danh và log hoạt động trong một popup gọn gàng.</div>
             </div>
           </div>
           <button class="feedback-close" type="button" onclick="closeInfoHub()">✕</button>
         </div>
         <div class="info-hub-shell">
           <div class="info-hub-rail" id="infoHubTabs" role="tablist" aria-label="Trung tâm Lang Gia">
-            <button class="info-hub-tab active" type="button" role="tab" aria-selected="true" data-info-tab="feedback">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
-                <path d="M8 9h8"></path><path d="M8 13h5"></path>
-              </svg>
-              Góp ý
-            </button>
-            <button class="info-hub-tab" type="button" role="tab" aria-selected="false" data-info-tab="release">
+            <button class="info-hub-tab active has-info-hub-badge" type="button" role="tab" aria-selected="true" data-info-tab="release">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                 <path d="M9 7h7"></path><path d="M9 11h5"></path>
               </svg>
               Cập nhật
+              <span class="info-hub-badge" id="infoHubReleaseBadge">1</span>
+            </button>
+            <button class="info-hub-tab has-info-hub-badge" type="button" role="tab" aria-selected="false" data-info-tab="feedback">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+                <path d="M8 9h8"></path><path d="M8 13h5"></path>
+              </svg>
+              Góp ý "ẩn danh"
+              <span class="info-hub-badge" id="infoHubFeedbackBadge">1</span>
             </button>
             <button class="info-hub-tab" type="button" role="tab" aria-selected="false" data-info-tab="log">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -10218,10 +10311,13 @@ function ensureInfoHubModal() {
             </button>
           </div>
           <div class="info-hub-content">
-            <section class="info-hub-panel active" data-info-tab="feedback" role="tabpanel">
+            <section class="info-hub-panel" data-info-tab="feedback" role="tabpanel">
               <div class="feedback-body">
                 <div class="feedback-col-left">
-                  <div class="feedback-compose-label">Viết bình luận</div>
+                  <div class="feedback-compose-head">
+                    <div class="feedback-compose-label">Viết bình luận</div>
+                    <p class="feedback-compose-desc">Góp ý tất tần tật các vấn đề về team, web, bot Discord, game Where Winds Meet,... Yên tâm là ẩn danh nhé anh em.</p>
+                  </div>
                   <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
                     <select class="feedback-select" id="feedbackCategory" style="display:none">
                       <option value="feedback">Góp ý</option>
@@ -10274,83 +10370,107 @@ function ensureInfoHubModal() {
                 </div>
               </div>
             </section>
-            <section class="info-hub-panel" data-info-tab="release" role="tabpanel">
+            <section class="info-hub-panel active" data-info-tab="release" role="tabpanel">
               <div class="release-body">
-                <div class="release-badge">LangGiaWar V1.3</div>
-                <div class="release-list">
-                  <div class="release-item">
-                    <div class="release-item-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                      </svg>
-                    </div>
-                    <div>
-                      <div class="release-item-title">Nâng cấp đồ họa Minigame 3D</div>
-                      <div class="release-item-text">Tích hợp ảnh nền bầu trời ảo ảnh mới, nâng cấp hiệu ứng xa gần cho bảng tên đấu sĩ và tối ưu cơ chế tải tài nguyên 3D.</div>
-                    </div>
-                  </div>
-                  <div class="release-item">
-                    <div class="release-item-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
-                        <path d="M10 21h4"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <div class="release-item-title">Đồng bộ listmem Discord - Web</div>
-                      <div class="release-item-text">Danh sách thành viên trên web được đồng bộ với bot Discord, giúp roster, đội hình và trạng thái thành viên cập nhật thống nhất hơn.</div>
-                    </div>
-                  </div>
-                  <div class="release-item">
-                    <div class="release-item-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="9" cy="7" r="4"></circle>
-                        <path d="M19 8v6"></path><path d="M22 11h-6"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <div class="release-item-title">Thêm thành viên trực tiếp trên web</div>
-                      <div class="release-item-text">Người có quyền có thể thêm member ngay trên web, giảm thao tác qua lệnh bot và cập nhật danh sách nhanh hơn.</div>
-                    </div>
-                  </div>
-                  <div class="release-item">
-                    <div class="release-item-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M20 7h-9"></path><path d="M14 17H5"></path>
-                        <circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
-                      </svg>
-                    </div>
-                    <div>
-                      <div class="release-item-title">Pick Role trực tiếp trên web</div>
-                      <div class="release-item-text">Thành viên có thể tự chọn vai trò DPS, Tanker hoặc Healer ngay trên web để chuẩn bị đội hình tiện hơn.</div>
-                    </div>
-                  </div>
-                  <div class="release-item">
-                    <div class="release-item-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <div class="release-item-title">Quản lý roster tiện hơn</div>
-                      <div class="release-item-text">Bổ sung chỉnh sửa thông tin member, thống kê roster, log hoạt động và giao diện danh sách gọn hơn cho người quản lý.</div>
-                    </div>
-                  </div>
-                  <div class="release-item">
-                    <div class="release-item-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
-                        <path d="M8 9h8"></path><path d="M8 13h5"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <div class="release-item-title">Góp ý dạng Comment</div>
-                      <div class="release-item-text">Khu góp ý được làm lại theo dạng comment, có danh mục, đếm ký tự, nút tải lại và quyền xóa cho người quản lý.</div>
+                <div class="release-version">
+                  <div class="release-badge">LangGiaWar V1.4 sắp ra mắt</div>
+                  <div class="release-list">
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M12 18.5a3 3 0 0 0 3-3v-7a3 3 0 1 0-6 0v7a3 3 0 0 0 3 3z"></path>
+                          <path d="M5 10v5.5a7 7 0 0 0 14 0V10"></path>
+                          <path d="M12 22v-3.5"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Giao tiếp bot đa kênh Discord</div>
+                        <div class="release-item-text">Chia 30 thành 10-10-10 mỗi room, Leader sẽ nghe call của lead khác trực tiếp qua bot. 10 người trong 1 team dễ dàng call với nhau.</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div class="release-note">Tạm thời ẩn Chiến thuật bản đồ trong lúc chờ bản đồ mới và bỏ Timer vì thời gian boss đã thay đổi.</div>
+                <div class="release-version">
+                  <div class="release-badge">LangGiaWar V1.3</div>
+                  <div class="release-list">
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Thêm 3 minigame mới</div>
+                        <div class="release-item-text">Thêm 3 minigame mới phục vụ nhu cầu roll thưởng cho anh em.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="release-version">
+                  <div class="release-badge">LangGiaWar V1.2</div>
+                  <div class="release-list">
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
+                          <path d="M10 21h4"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Đồng bộ listmem Discord - Web</div>
+                        <div class="release-item-text">Danh sách thành viên trên web được đồng bộ với bot Discord, giúp roster, đội hình và trạng thái thành viên cập nhật thống nhất hơn.</div>
+                      </div>
+                    </div>
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                          <path d="M19 8v6"></path><path d="M22 11h-6"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Thêm thành viên trực tiếp trên web</div>
+                        <div class="release-item-text">Người có quyền có thể thêm member ngay trên web, giảm thao tác qua lệnh bot và cập nhật danh sách nhanh hơn.</div>
+                      </div>
+                    </div>
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M20 7h-9"></path><path d="M14 17H5"></path>
+                          <circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Pick Role trực tiếp trên web</div>
+                        <div class="release-item-text">Thành viên có thể tự chọn vai trò DPS, Tanker hoặc Healer ngay trên web để chuẩn bị đội hình tiện hơn.</div>
+                      </div>
+                    </div>
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Quản lý roster tiện hơn</div>
+                        <div class="release-item-text">Bổ sung chỉnh sửa thông tin member, thống kê roster, log hoạt động và giao diện danh sách gọn hơn cho người quản lý.</div>
+                      </div>
+                    </div>
+                    <div class="release-item">
+                      <div class="release-item-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+                          <path d="M8 9h8"></path><path d="M8 13h5"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="release-item-title">Góp ý dạng Comment</div>
+                        <div class="release-item-text">Khu góp ý được làm lại theo dạng comment, có danh mục, đếm ký tự, nút tải lại và quyền xóa cho người quản lý.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
             <section class="info-hub-panel" data-info-tab="log" role="tabpanel">
@@ -10402,11 +10522,12 @@ function ensureInfoHubModal() {
             closeInfoHub();
         }
     });
+    updateInfoHubBadges();
 }
 
-async function setInfoHubTab(tab = 'feedback') {
+async function setInfoHubTab(tab = 'release') {
     ensureInfoHubModal();
-    const safeTab = ['feedback', 'release', 'log'].includes(tab) ? tab : 'feedback';
+    const safeTab = ['feedback', 'release', 'log'].includes(tab) ? tab : 'release';
     _infoHubActiveTab = safeTab;
 
     document.querySelectorAll('#infoHubTabs .info-hub-tab').forEach((btn) => {
@@ -10428,6 +10549,7 @@ async function setInfoHubTab(tab = 'feedback') {
         } else {
             await loadFeedbackList(false);
         }
+        markInfoHubFeedbackSeen();
     } else if (safeTab === 'log') {
         indexRosterLogOpen = true;
         document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'false');
@@ -10439,10 +10561,11 @@ async function setInfoHubTab(tab = 'feedback') {
     } else {
         indexRosterLogOpen = false;
         document.getElementById('indexRosterLogPanel')?.setAttribute('aria-hidden', 'true');
+        markInfoHubReleaseSeen();
     }
 }
 
-async function openInfoHub(e, tab = 'feedback') {
+async function openInfoHub(e, tab = 'release') {
     if (e) e.stopPropagation();
     document.getElementById('userBadge')?.classList.remove('open');
     ensureInfoHubModal();
@@ -10527,6 +10650,10 @@ function renderFeedbackList(items) {
     const totalCount = document.getElementById('feedbackTotalCount');
     if (countBadge) countBadge.textContent = items.length;
     if (totalCount) totalCount.textContent = items.length;
+    syncInfoHubFeedbackUnread(items.length);
+    if (_infoHubActiveTab === 'feedback') {
+        markInfoHubFeedbackSeen(items.length);
+    }
 
     if (!items.length) {
         list.innerHTML = `<div class="feedback-empty">💬 Chưa có góp ý nào.<br><span style="font-size:11px;opacity:.6">Hãy là người đầu tiên chia sẻ!</span></div>`;
@@ -10715,6 +10842,9 @@ async function deleteFeedback(id) {
         setFeedbackStatus(`Không xóa được góp ý: ${err.message || err}`, 'error');
     }
 }
+
+updateInfoHubBadges();
+refreshInfoHubFeedbackBadge();
 
 // ═══ PROFILE MODAL ═══
 let _profileData = null;

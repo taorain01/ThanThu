@@ -13,6 +13,25 @@ const bangchienRoster = require('../../utils/bangchienRoster');
 
 const BC_ROLE_NAME = 'bc';
 
+function parseLeaderIds(session) {
+    try {
+        return typeof session?.leader_ids === 'string'
+            ? JSON.parse(session.leader_ids || '{}')
+            : (session?.leader_ids || {});
+    } catch (error) {
+        return {};
+    }
+}
+
+function isSessionCreator(session, userId) {
+    if (!session || !userId) return false;
+    const leaderIds = parseLeaderIds(session);
+    return [leaderIds.creator_id, session.leader_id]
+        .filter(Boolean)
+        .map((id) => String(id))
+        .includes(String(userId));
+}
+
 module.exports = {
     name: 'bcend',
     aliases: ['ketthucbc', 'endbc'],
@@ -36,10 +55,7 @@ module.exports = {
         const quanLyRole = message.guild.roles.cache.find(r => r.name === 'Quản Lý');
         const isKyCuu = kyCuuRole && message.member.roles.cache.has(kyCuuRole.id);
         const isQuanLy = quanLyRole && message.member.roles.cache.has(quanLyRole.id);
-
-        if (message.author.id !== OWNER_ID && !isKyCuu && !isQuanLy) {
-            return message.reply('❌ Chỉ Kỳ Cựu hoặc Quản Lý mới được kết thúc BC!');
-        }
+        const isElevatedEnder = message.author.id === OWNER_ID || isKyCuu || isQuanLy;
 
         // Parse day từ args (MULTI-DAY)
         const parsedDayArg = parseDayArg(args);
@@ -222,6 +238,9 @@ module.exports = {
             const history = db.getBangchienHistory(guildId, 1);
 
             if (activeSessions.length > 0) {
+                if (!isElevatedEnder && activeSessions.length > 1) {
+                    return message.reply('❌ Bạn là người tạo session thì hãy chỉ định ngày/giờ cần kết thúc, ví dụ `?bcend t7` hoặc `?bcend t7 21h`.');
+                }
                 session = activeSessions[0];
                 isActive = true;
             } else if (history.length > 0) {
@@ -231,6 +250,10 @@ module.exports = {
 
         if (!session) {
             return message.reply('📭 Không có bang chiến nào để kết thúc!');
+        }
+
+        if (!isElevatedEnder && !isSessionCreator(session, message.author.id)) {
+            return message.reply('❌ Chỉ người tạo session, Kỳ Cựu hoặc Quản Lý mới được kết thúc BC này!');
         }
 
         const sessionDay = session.day || null;

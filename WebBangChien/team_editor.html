@@ -2545,10 +2545,6 @@
         return;
       }
       const actualSourceTeam = location.teamKey || sourceTeam;
-      if (isLeaderMember(location.member) && actualSourceTeam !== 'waiting_list') {
-        customAlert('Leader không thể rời team. Hãy đổi leader trước.');
-        return;
-      }
 
       mobileMoveContext = { userId: String(userId), fromTeam: actualSourceTeam };
       const sheet = document.getElementById('mobileMoveSheet');
@@ -4075,11 +4071,6 @@
       const movingMember = sourceList[sourceInfo.index];
       if (!movingMember) return { ok: false, reason: 'Không tìm thấy thành viên.' };
 
-      // Leader không được rời team
-      if (isLeaderMember(movingMember) && intent.targetTeam !== sourceInfo.teamKey) {
-        return { ok: false, reason: 'Leader không thể rời team. Hãy đổi leader trước.' };
-      }
-
       const targetList = nextState[intent.targetTeam] || [];
 
       if (intent.targetTeam === sourceInfo.teamKey) {
@@ -4108,11 +4099,6 @@
             // Hoàn lại
             sourceList.splice(sourceInfo.index, 0, member);
             return { ok: false, reason: 'Team đích đã đầy. Hãy thả ở trên hoặc giữa một người trong team.' };
-          }
-          const overflowCandidate = targetList[targetList.length - 1];
-          if (isLeaderMember(overflowCandidate)) {
-            sourceList.splice(sourceInfo.index, 0, member);
-            return { ok: false, reason: 'Không thể đẩy leader xuống hàng chờ. Hãy đổi leader trước.' };
           }
         }
       }
@@ -4153,10 +4139,6 @@
         return { ok: false, reason: 'Sort nhanh chỉ cho phép hoán đổi trực tiếp.', silent: true };
       }
 
-      if (isLeaderMember(movingMember) && intent.targetTeam !== sourceInfo.teamKey) {
-        return { ok: false, reason: 'Leader không thể rời team. Hãy đổi leader trước.' };
-      }
-
       if (intent.placement === 'swap') {
         if (!Number.isInteger(intent.targetIndex) || intent.targetIndex < 0) {
           return { ok: false, reason: 'Hãy thả vào đúng tên người cần hoán đổi.', silent: true };
@@ -4166,14 +4148,12 @@
         if (targetMember.id === movingMember.id && intent.targetTeam === sourceInfo.teamKey) {
           return { ok: false, reason: null, silent: true };
         }
-        if (intent.targetTeam !== sourceInfo.teamKey && isLeaderMember(targetMember)) {
-          return { ok: false, reason: 'Không thể hoán đổi leader sang team khác. Hãy đổi leader trước.' };
-        }
-
         if (intent.targetTeam === sourceInfo.teamKey) {
           const list = nextState[intent.targetTeam] || [];
           [list[sourceInfo.index], list[intent.targetIndex]] = [list[intent.targetIndex], list[sourceInfo.index]];
         } else {
+          clearLeaderFlag(movingMember);
+          clearLeaderFlag(targetMember);
           nextState[sourceInfo.teamKey][sourceInfo.index] = targetMember;
           nextState[intent.targetTeam][intent.targetIndex] = movingMember;
         }
@@ -4208,10 +4188,6 @@
         const isAfterLast = intent.placement === 'append' || (intent.placement === 'after' && intent.targetIndex === targetList.length - 1);
         if (targetWasFull && isAfterLast) {
           return { ok: false, reason: 'Team đích đã đầy. Hãy thả ở trên hoặc giữa một người trong team.' };
-        }
-        const overflowCandidate = targetWasFull ? targetList[targetList.length - 1] : null;
-        if (overflowCandidate && isLeaderMember(overflowCandidate)) {
-          return { ok: false, reason: 'Không thể đẩy leader xuống hàng chờ. Hãy đổi leader trước.' };
         }
       }
 
@@ -4790,17 +4766,10 @@
           if (point) {
             maybeAutoScroll(point);
           }
-          // Validate: kiểm tra member đang kéo có phải leader không
           if (dragPayload) {
-            const movingId = dragPayload.userId;
             const fromTeam = dragPayload.fromTeam;
             const toPanel = evt.to?.closest?.('[data-team]');
             const toTeam = toPanel?.dataset?.team || teamKey;
-            // Leader không được rời team
-            const movingMember = (localState?.[fromTeam] || []).find(m => m.id === movingId);
-            if (movingMember && isLeaderMember(movingMember) && toTeam !== fromTeam) {
-              return false;
-            }
             // Nếu đang ở sort mode (swapOnly) → chỉ cho swap, không cho insert
             if (shouldSwapOnly(fromTeam) || shouldSwapOnly(toTeam)) {
               return false;
@@ -5307,11 +5276,6 @@
       if (!(await customConfirm('Đưa người này xuống hàng chờ?'))) return;
       const sourceTeam = TEAM_ORDER.find((teamKey) => (localState[teamKey] || []).some((member) => member.id === userId));
       if (!sourceTeam) return;
-      const member = (localState[sourceTeam] || []).find((item) => item.id === userId);
-      if (member?.isTeamLeader || member?.ld) {
-        await customAlert('Hãy đổi leader team trước khi đưa người này xuống hàng chờ.');
-        return;
-      }
       const moved = await moveMember(userId, sourceTeam, 'waiting_list');
       if (!moved) return;
       renderEditor();

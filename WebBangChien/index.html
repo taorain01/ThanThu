@@ -4770,7 +4770,15 @@ function parseSessionLeaderIds(session) {
 function isCurrentUserSessionCreator(session = currentSessionData) {
     if (!session || !window.currentDiscordId) return false;
     const leaderIds = parseSessionLeaderIds(session);
-    return Boolean(leaderIds.creator_id) && String(leaderIds.creator_id) === String(window.currentDiscordId);
+    const ownerIds = [
+        leaderIds.creator_id,
+        session.leader_id
+    ].filter(Boolean).map((id) => String(id));
+    return ownerIds.includes(String(window.currentDiscordId));
+}
+
+function canDeleteSession(session = currentSessionData) {
+    return hasElevatedRosterRole() || isCurrentUserSessionCreator(session);
 }
 
 function updateTacticsButtonTarget(day) {
@@ -6498,9 +6506,8 @@ async function loadAllSessions() {
         const kindText = getSessionKindText(selectedForDay);
         const kind = kindText ? ` <span class="day-session-kind">${escHtml(kindText)}</span>` : '';
         const dateStr = getDateForDay(dayKey);
-        // Chỉ Kỳ Cựu (kc), Phó Bang Chủ (pbc), Bang Chủ (bc), Quản Lý mới thấy nút xoá session
-        const canDelete = hasElevatedRosterRole();
         const deleteKey = daySessions.length === 1 ? getSessionCacheKey(primarySession) : '';
+        const canDelete = deleteKey ? canDeleteSession(primarySession) : false;
         const delBtn = canDelete && deleteKey ? `<span class="del-x" title="Xoa session ${label}" onclick="event.preventDefault();event.stopPropagation(); deleteSession('${deleteKey}', '${label}')">✕</span>` : '';
         const timeOptions = hasTimeSelect
             ? `<select class="session-time-select" title="Chon gio Bang Chien" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()" onchange="event.stopPropagation(); renderDaySessions('${dayKey}', this.value)">
@@ -7718,7 +7725,6 @@ function renderDaySessions(day, preferredKey = null) {
     selectSessionByKey(selectedKey);
     updateDayTabSelectedSession(selected);
 
-    const canDelete = hasElevatedRosterRole();
     const renderHeaderActions = (session) => {
         const key = getSessionCacheKey(session);
         const encodedKey = encodeIndexInlineArg(key);
@@ -7730,7 +7736,7 @@ function renderDaySessions(day, preferredKey = null) {
             </svg>
             <span class="bc-copy-team-label">Copy toàn đội</span>
         </button>`;
-        const deleteButton = canDelete
+        const deleteButton = canDeleteSession(session)
             ? `<span class="del-x" title="Xoa session" onclick="event.preventDefault();event.stopPropagation(); deleteSession(decodeURIComponent('${encodedKey}'), decodeURIComponent('${encodedTitle}'))">&times;</span>`
             : '';
         return `<div class="bc-session-actions">${copyButton}${deleteButton}</div>`;
@@ -8368,14 +8374,13 @@ function removeCustomTab(x) {
 
 // Xóa session BC (từ web → Supabase → bot sync)
 async function deleteSession(sessionKey, label) {
-    // Kiểm tra quyền: chỉ Kỳ Cựu (kc) / Phó BC (pbc) / Bang Chủ (bc) mới được xoá (đồng bộ với bot ?bcend)
-    if (!hasElevatedRosterRole()) {
-        await customAlert('❌ Chỉ Kỳ Cựu hoặc quản lý mới được xóa session Bang Chiến!');
-        return;
-    }
     const session = getCachedSessionByKey(sessionKey);
     if (!session) {
         await customAlert('Khong tim thay session can xoa.');
+        return;
+    }
+    if (!canDeleteSession(session)) {
+        await customAlert('❌ Chỉ người tạo session hoặc quản lý mới được xóa session Bang Chiến!');
         return;
     }
     if (!(await customConfirm(`Xoa phien Bang Chien ${label}?\n\nBot Discord se tu dong cap nhat.`))) return;

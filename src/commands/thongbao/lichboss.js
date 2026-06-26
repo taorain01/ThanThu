@@ -1,5 +1,6 @@
 const { createScheduleOnlyEmbed } = require('./bossguild');
 const { bossChannels, lastScheduleEmbed } = require('../../utils/bossState');
+const db = require('../../database/db');
 
 module.exports = {
     name: 'lichboss',
@@ -11,6 +12,11 @@ module.exports = {
         const channelId = message.channel.id;
 
         // Xóa embed lịch cũ nếu có
+        const dbLastEmbedId = db.getConfig(`boss_schedule_msg_${channelId}`);
+        if (dbLastEmbedId && !lastScheduleEmbed.has(channelId)) {
+            lastScheduleEmbed.set(channelId, dbLastEmbedId);
+        }
+
         const oldEmbedId = lastScheduleEmbed.get(channelId);
         if (oldEmbedId) {
             try {
@@ -25,11 +31,13 @@ module.exports = {
 
         // Lưu message ID mới
         lastScheduleEmbed.set(channelId, newMessage.id);
+        db.setConfig(`boss_schedule_msg_${channelId}`, newMessage.id);
 
         // Đăng ký kênh để theo dõi (nếu chưa có)
         if (!bossChannels.has(guildId)) {
             bossChannels.set(guildId, message.channel.id);
         }
+        db.setBossChannelId(guildId, message.channel.id);
 
         // Xóa tin nhắn lệnh
         try { await message.delete(); } catch (e) { }

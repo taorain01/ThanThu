@@ -48,12 +48,8 @@ const {
 // Import thongbao commands
 const bossguildCommand = require('../../commands/thongbao/bossguild');
 const bangchienCommand = require('../../commands/bangchien/bangchien');
-const { finalizedParties, scheduleTimers, bossChannels, lastScheduleEmbed, PRE_REGISTER_CHANNEL_ID, addPreRegistration, removePreRegistration, getPreRegistrations, clearPreRegistrations } = require('../../utils/bossState');
+const { finalizedParties, scheduleTimers, bossChannels, PRE_REGISTER_CHANNEL_ID, addPreRegistration, removePreRegistration, getPreRegistrations, clearPreRegistrations } = require('../../utils/bossState');
 const { bangchienFinalizedParties } = require('../../utils/bangchienState');
-const { createScheduleOnlyEmbed } = require('../../commands/thongbao/bossguild');
-// Thời gian chờ trước khi gửi schedule embed
-const SCHEDULE_DELAY_NORMAL = 60 * 60 * 1000; // 1 giờ khi không có party
-const SCHEDULE_DELAY_ACTIVE = 15 * 60 * 1000; // 15 phút khi có party đang mở
 
 
 module.exports = {
@@ -457,43 +453,8 @@ module.exports = {
                 clearTimeout(existingTimer.timeoutId);
             }
 
-            // Nếu có party đang mở, KHÔNG sử dụng timer để gửi schedule nữa (chỉ dùng refreshBossEmbed ở trên)
-            // Nếu KHÔNG có party, mới dùng timer 60 phút để gửi lịch
             if (activeParties.length > 0) {
                 if (!isBangchienCommand) return;
-            } else {
-                const delay = SCHEDULE_DELAY_NORMAL;
-
-            // Đặt timer mới
-            const timeoutId = setTimeout(async () => {
-                try {
-                    const channel = await client.channels.fetch(channelId);
-                    if (channel) {
-                        // Xóa embed lịch cũ nếu có
-                        const oldEmbedId = lastScheduleEmbed.get(channelId);
-                        if (oldEmbedId) {
-                            try {
-                                const oldMessage = await channel.messages.fetch(oldEmbedId);
-                                if (oldMessage) await oldMessage.delete();
-                            } catch (e) { /* Embed cũ có thể đã bị xóa */ }
-                        }
-
-                        // Gửi embed lịch mới
-                        const scheduleEmbed = createScheduleOnlyEmbed();
-                        const newMessage = await channel.send({ embeds: [scheduleEmbed] });
-
-                        // Lưu message ID mới
-                        lastScheduleEmbed.set(channelId, newMessage.id);
-
-                        console.log(`[Schedule] Gửi embed lịch sau ${delay / 60000} phút tại ${channel.name}`);
-                    }
-                    scheduleTimers.delete(channelId);
-                } catch (e) {
-                    console.error('[Schedule] Lỗi khi gửi embed:', e);
-                }
-            }, delay);
-
-                scheduleTimers.set(channelId, { timeoutId, lastActivity: Date.now(), delay });
             }
         }
 

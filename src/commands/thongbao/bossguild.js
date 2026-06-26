@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { bossNotifications, bossRegistrations, MAX_PARTIES_PER_GUILD, getGuildPartyKeys, getUserRegisteredParty, bossChannels, bossSchedule, getPreRegistrations, clearPreRegistrations, bossRefreshTimers, BOSS_REFRESH_DEBOUNCE, bossAutoCloseTimers, BOSS_AUTO_CLOSE_DURATION, finalizedParties } = require('../../utils/bossState');
+const { bossNotifications, bossRegistrations, MAX_PARTIES_PER_GUILD, getGuildPartyKeys, getUserRegisteredParty, bossChannels, bossSchedule, lastScheduleEmbed, getPreRegistrations, clearPreRegistrations, bossRefreshTimers, BOSS_REFRESH_DEBOUNCE, bossAutoCloseTimers, BOSS_AUTO_CLOSE_DURATION, finalizedParties } = require('../../utils/bossState');
 
 // Hàm tính thời gian đến buổi boss tiếp theo
 function getNextBossSession() {
@@ -148,7 +148,7 @@ function createScheduleOnlyEmbed() {
                 inline: false
             }
         )
-        .setFooter({ text: '💡 Chat "+1" hoặc "xin slot" để đăng ký • Kỳ Cựu sẽ tag bạn khi tạo party' })
+        .setFooter({ text: '💡 +1 thì xin vào pt, ?bg là mở boss guild' })
         .setTimestamp();
 
     return embed;
@@ -306,9 +306,25 @@ module.exports = {
                     if (notifData.message) await notifData.message.delete();
                 } catch (e) { }
 
+                // Xóa embed lịch cũ nếu có
+                const dbLastEmbedId = db.getConfig(`boss_schedule_msg_${notifData.channelId}`);
+                if (dbLastEmbedId && !lastScheduleEmbed.has(notifData.channelId)) {
+                    lastScheduleEmbed.set(notifData.channelId, dbLastEmbedId);
+                }
+
+                const oldScheduleEmbedId = lastScheduleEmbed.get(notifData.channelId);
+                if (oldScheduleEmbedId) {
+                    try {
+                        const oldScheduleMsg = await channel.messages.fetch(oldScheduleEmbedId).catch(() => null);
+                        if (oldScheduleMsg) await oldScheduleMsg.delete();
+                    } catch (e) { }
+                }
+
                 // Gửi embed lịch mới
                 const scheduleEmbed = createScheduleOnlyEmbed();
-                await channel.send({ embeds: [scheduleEmbed] });
+                const scheduleMessage = await channel.send({ embeds: [scheduleEmbed] });
+                lastScheduleEmbed.set(notifData.channelId, scheduleMessage.id);
+                db.setConfig(`boss_schedule_msg_${notifData.channelId}`, scheduleMessage.id);
 
                 // Dọn dữ liệu party
                 bossNotifications.delete(partyKey);

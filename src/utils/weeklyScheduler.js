@@ -13,6 +13,7 @@ const {
     lastPhongAnhMessage,
     lastGieoQueGuideWeekly,
     phongAnhGuideSentMonth,
+    getCurrentWeekMonday8AM,
     getCurrentMonth1st8AM
 } = require('./weeklyState');
 const { sendTacticsStorageReport } = require('./tacticsStorageReport');
@@ -26,6 +27,14 @@ const MAX_TIMEOUT_MS = 2 ** 31 - 1;
  */
 async function sendBossScheduleEmbed(client) {
     try {
+        const currentWeek = getCurrentWeekMonday8AM();
+
+        for (const guildId of ALLOWED_GUILD_IDS) {
+            if (bossChannels.has(guildId)) continue;
+            const savedChannelId = db.getBossChannelId(guildId);
+            if (savedChannelId) bossChannels.set(guildId, savedChannelId);
+        }
+
         // Lấy tất cả guild channels từ bossChannels Map
         for (const [guildId, channelId] of bossChannels) {
             if (!isAllowedGuildId(guildId)) continue;
@@ -34,7 +43,18 @@ async function sendBossScheduleEmbed(client) {
                 const channel = await client.channels.fetch(channelId).catch(() => null);
                 if (!channel || !isAllowedGuildId(channel.guild?.id)) continue;
 
+                const sentWeekKey = `boss_schedule_week_${channelId}`;
+                if (db.getConfig(sentWeekKey) === currentWeek) {
+                    console.log(`[WeeklyScheduler] Đã gửi lịch Boss Guild tuần ${currentWeek} tại ${channel.name}, bỏ qua`);
+                    continue;
+                }
+
                 // Xóa embed cũ nếu có
+                const dbLastEmbedId = db.getConfig(`boss_schedule_msg_${channelId}`);
+                if (dbLastEmbedId && !lastScheduleEmbed.has(channelId)) {
+                    lastScheduleEmbed.set(channelId, dbLastEmbedId);
+                }
+
                 const oldEmbedId = lastScheduleEmbed.get(channelId);
                 if (oldEmbedId) {
                     try {
@@ -50,8 +70,10 @@ async function sendBossScheduleEmbed(client) {
 
                 // Lưu message ID mới
                 lastScheduleEmbed.set(channelId, newMessage.id);
+                db.setConfig(`boss_schedule_msg_${channelId}`, newMessage.id);
+                db.setConfig(sentWeekKey, currentWeek);
 
-                console.log(`[WeeklyScheduler] 📅 Gửi lịch Boss Guild tại ${channel.name}`);
+                console.log(`[WeeklyScheduler] 📅 Gửi lịch Boss Guild tại ${channel.name} (tuần ${currentWeek})`);
             } catch (e) {
                 console.error(`[WeeklyScheduler] Lỗi gửi boss schedule cho guild ${guildId}:`, e.message);
             }

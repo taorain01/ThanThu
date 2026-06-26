@@ -111,7 +111,6 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       let trackLoadSeq = 0;
 
       const MUSIC_FADE_MS = 520;
-      const PLAYING_VOLUME_SCALE = 0.1;
 
 
 
@@ -234,8 +233,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       }
 
       function getModeVolume() {
-        const scale = musicMode === 'playing' ? PLAYING_VOLUME_SCALE : 1;
-        return Math.max(0, Math.min(1, userVolume * scale));
+        return Math.max(0, Math.min(1, userVolume));
       }
 
 

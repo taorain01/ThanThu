@@ -1519,7 +1519,8 @@ function updateTowerRacers(now) {
     }
     // Top 1 to hơn, các vị trí sau nhỏ dần nhẹ
     racer.label.material.opacity = 1;
-    racer.label.position.y = racer.finished ? (racer.rank <= towerPrizeCount ? 2.1 : 1.85) : 1.4;
+    const podiumLabelY = racer.rank === 1 ? 2.55 : 2.1;
+    racer.label.position.y = racer.finished ? (racer.rank <= towerPrizeCount ? podiumLabelY : 1.85) : 1.4;
     const s = rank === 0 ? 4.2 : 3.2;
     const h = rank === 0 ? 1.4 : 1.05;
     racer.label.scale.set(s, h, 1);

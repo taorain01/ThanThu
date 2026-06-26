@@ -138,6 +138,7 @@ function setupFallbackDom(names) {
   const sidebarTitle = document.querySelector("#arena-sidebar .sidebar-title span");
   if (logo) logo.textContent = "Rơi Tự Do";
   if (sidebarTitle) sidebarTitle.textContent = "Bảng Điểm Linh Ngọc";
+  fallbackLegacy?.setPlinkoRulesButtonVisible?.(true);
   document.getElementById("racer-progress-title").textContent = `Round ${getDurationSeconds()}s: 0 / ${names.length}`;
   document.getElementById("leaderboard-list").innerHTML = "";
   fallbackLegacy?.updateCommentaryText?.("🔮 Plinko 2D dự phòng: ăn mốc, nhặt sao, né bẫy và giữ điểm đến hết giờ.");
@@ -1250,6 +1251,7 @@ export function cleanupPlinkoFallback2D() {
     fallbackResizeHandler = null;
   }
   document.getElementById("webgl-container")?.classList.remove("plinko-3d-active");
+  fallbackLegacy?.setPlinkoRulesButtonVisible?.(false);
   const derbyLayer = document.getElementById("derby-camera-layer");
   if (derbyLayer) derbyLayer.style.display = "";
 

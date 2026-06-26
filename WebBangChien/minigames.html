@@ -588,7 +588,12 @@
 
         <div class="sidebar-title">
 
-          <span>Xếp Hạng Đua</span>
+          <div class="sidebar-heading-group">
+            <span>Xếp Hạng Đua</span>
+            <button class="plinko-rules-btn" id="plinko-rules-btn" type="button" onclick="openPlinkoRulesModal(event)" title="Xem luật Rơi Tự Do" aria-label="Xem luật Rơi Tự Do">
+              Luật
+            </button>
+          </div>
 
           <span style="color: var(--text-dim); font-size: 10px;" id="racer-progress-title">Hoàn thành: 0 / 40</span>
 
@@ -719,6 +724,59 @@
         <button class="btn-action" style="border-color: rgba(255, 255, 255, 0.15); color: #fff; padding: 8px 24px; font-size: 13px; border-radius: 8px;" onclick="closeLockedAlertModal()">
           Đã hiểu
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal luật Rơi Tự Do -->
+  <div class="supabase-modal plinko-rules-modal" id="plinko-rules-modal" onclick="closePlinkoRulesModal(event)" style="display: none;">
+    <div class="supabase-panel plinko-rules-panel" onclick="event.stopPropagation()">
+      <div class="plinko-rules-head">
+        <h3 class="panel-header-title">
+          <span>Luật Rơi Tự Do</span>
+        </h3>
+        <button class="plinko-rules-close" type="button" onclick="closePlinkoRulesModal(event)" aria-label="Đóng luật">×</button>
+      </div>
+
+      <div class="plinko-rules-body">
+        <section>
+          <h4>Cách chơi</h4>
+          <p>Mỗi người là một viên Linh Ngọc. Các viên được thả lần lượt từ vị trí ngẫu nhiên, rơi qua đinh, thanh bật, vật phẩm và bẫy cho tới khi vào ô điểm hoặc hết thời gian.</p>
+        </section>
+
+        <section>
+          <h4>Cộng điểm</h4>
+          <ul>
+            <li>Qua các mốc 10m, 20m, 30m, 40m, 50m: mỗi mốc cộng 1000 điểm một lần.</li>
+            <li>Rơi vào ô cuối bàn: 500, 800, 1200, 1800, 2500 hoặc JACKPOT 5000 điểm.</li>
+            <li>Nhặt vật phẩm: xu +80, sao +250, sao may mắn +500 điểm.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h4>Trừ điểm và bẫy</h4>
+          <ul>
+            <li>Thời gian rơi càng lâu càng bị trừ: 20 điểm mỗi giây.</li>
+            <li>Rơi khỏi bàn bị trừ 300 điểm.</li>
+            <li>Dính cú đá bị trừ 250 điểm.</li>
+            <li>Hố đen có thể hút giữ Linh Ngọc trong thời gian ngắn rồi đẩy ra, làm mất nhịp rơi.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h4>Hiệu ứng đặc biệt</h4>
+          <ul>
+            <li>Nam châm hút vật phẩm ở gần.</li>
+            <li>Khiên giúp chặn một số bất lợi.</li>
+            <li>Thu nhỏ hoặc phóng to làm đổi kích thước va chạm trong vài giây.</li>
+            <li>Dính keo khiến Linh Ngọc khựng lại rất ngắn khi va chạm.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h4>Xếp hạng</h4>
+          <p>Bảng điểm ưu tiên tổng điểm cao nhất. Nếu bằng điểm, viên rơi xa hơn trên bàn sẽ đứng trước; nếu vẫn bằng nhau thì giữ theo thứ tự danh sách ban đầu. Khi kết thúc, Top theo số giải đã chọn sẽ lên bục nhận giải.</p>
+        </section>
       </div>
     </div>
   </div>
@@ -935,7 +993,7 @@
 
   <!-- ==================== LẬP TRÌNH LOGIC JAVASCRIPT ==================== -->
 
-  <script type="module" src="./minigames/core/app.js?v=20260625-9"></script>
+  <script type="module" src="./minigames/core/app.js?v=20260626-2"></script>
 
 </body>
 

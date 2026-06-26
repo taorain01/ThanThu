@@ -1,4 +1,4 @@
-import { startTowerClimbGame, cleanupTowerClimbGame } from "./engine3d.js?v=20260625-4";
+import { startTowerClimbGame, cleanupTowerClimbGame } from "./engine3d.js?v=20260626-1";
 import { startTowerClimbFallback2D, cleanupTowerClimbFallback2D } from "./fallback2d.js?v=20260625-3";
 
 const towerClimbGame = {

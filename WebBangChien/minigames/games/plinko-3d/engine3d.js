@@ -252,6 +252,7 @@ function setupPlinkoDom(names) {
   const sidebarTitle = document.querySelector("#arena-sidebar .sidebar-title span");
   if (logo) logo.textContent = "Rơi Tự Do";
   if (sidebarTitle) sidebarTitle.textContent = "Bảng Điểm Linh Ngọc";
+  plinkoLegacy?.setPlinkoRulesButtonVisible?.(true);
   document.getElementById("racer-progress-title").textContent = `Round ${getDurationSeconds()}s: 0 / ${names.length}`;
   document.getElementById("leaderboard-list").innerHTML = "";
   plinkoLegacy?.updateCommentaryText?.("🔮 Một lượt Plinko bắt đầu: ăn mốc, nhặt sao, né bẫy và giữ điểm đến khi hết giờ.");
@@ -1582,6 +1583,7 @@ export function cleanupPlinko3DGame() {
   }
   if (plinkoRenderer) plinkoRenderer.dispose();
   document.getElementById("webgl-container")?.classList.remove("plinko-3d-active");
+  plinkoLegacy?.setPlinkoRulesButtonVisible?.(false);
   const derbyLayer = document.getElementById("derby-camera-layer");
   if (derbyLayer) derbyLayer.style.display = "";
 

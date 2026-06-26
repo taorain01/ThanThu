@@ -104,12 +104,14 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       let autoplayEnabled = readAutoplayEnabled();
 
       let userVolume = 0.4;
+      let musicMode = 'lobby';
 
       let fadeTimer = null;
 
       let trackLoadSeq = 0;
 
       const MUSIC_FADE_MS = 520;
+      const PLAYING_VOLUME_SCALE = 0.1;
 
 
 
@@ -219,7 +221,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
         userVolume = value / 100;
 
-        audio.volume = userVolume;
+        audio.volume = getModeVolume();
 
         const slider = $('mpVolSl');
 
@@ -229,6 +231,11 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
         if (label) label.textContent = value < 10 ? '🔇' : value < 50 ? '🔉' : '🔊';
 
+      }
+
+      function getModeVolume() {
+        const scale = musicMode === 'playing' ? PLAYING_VOLUME_SCALE : 1;
+        return Math.max(0, Math.min(1, userVolume * scale));
       }
 
 
@@ -375,7 +382,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
           audio.src = trackSrc(track);
 
-          audio.volume = shouldPlay ? 0 : userVolume;
+          audio.volume = shouldPlay ? 0 : getModeVolume();
 
           if ($('mpTname')) $('mpTname').textContent = displayName(track);
 
@@ -399,7 +406,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
                 syncPlayerUI(true);
 
-                fadeTo(userVolume, MUSIC_FADE_MS);
+                fadeTo(getModeVolume(), MUSIC_FADE_MS);
 
               })
 
@@ -523,7 +530,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
               syncPlayerUI(true);
 
-              fadeTo(userVolume, MUSIC_FADE_MS);
+              fadeTo(getModeVolume(), MUSIC_FADE_MS);
 
             })
 
@@ -537,7 +544,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
             audio.pause();
 
-            audio.volume = userVolume;
+            audio.volume = getModeVolume();
 
             syncPlayerUI(false);
 
@@ -573,7 +580,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
           audio.pause();
 
-          audio.volume = userVolume;
+          audio.volume = getModeVolume();
 
           syncPlayerUI(false);
 
@@ -667,7 +674,16 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
       window.mngMusicSetMode = function(mode) {
 
-        switchPlaylist(mode === 'playing' ? 1 : 0, true);
+        const nextMode = mode === 'playing' ? 'playing' : 'lobby';
+        const nextPlaylist = nextMode === 'playing' ? 1 : 0;
+        const playlistChanged = nextPlaylist !== curPl;
+        musicMode = nextMode;
+        switchPlaylist(nextPlaylist, true);
+        if (!playlistChanged && !audio.paused && !audio.ended) {
+          fadeTo(getModeVolume(), MUSIC_FADE_MS);
+        } else if (!playlistChanged) {
+          audio.volume = getModeVolume();
+        }
 
       };
 
@@ -775,7 +791,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
             syncPlayerUI(true);
 
-            fadeTo(userVolume, MUSIC_FADE_MS);
+            fadeTo(getModeVolume(), MUSIC_FADE_MS);
 
             removeAutoListeners();
 
@@ -1976,6 +1992,24 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       }
     }
 
+    function openPlinkoRulesModal(event) {
+      if (event) event.stopPropagation();
+      const modal = document.getElementById("plinko-rules-modal");
+      if (modal) modal.style.display = "flex";
+    }
+
+    function closePlinkoRulesModal(event) {
+      if (event) event.stopPropagation();
+      const modal = document.getElementById("plinko-rules-modal");
+      if (modal) modal.style.display = "none";
+    }
+
+    function setPlinkoRulesButtonVisible(isVisible) {
+      const sidebar = document.getElementById("arena-sidebar");
+      if (sidebar) sidebar.classList.toggle("plinko-rules-visible", Boolean(isVisible));
+      if (!isVisible) closePlinkoRulesModal();
+    }
+
     function closeSupabaseImportModal(event) {
       document.getElementById("supabase-modal").style.display = "none";
     }
@@ -2114,6 +2148,8 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         showLockedGameMessage(game.name, game.status || "Đã đóng - Không khả dụng");
         return;
       }
+      cleanupActiveMinigameModule();
+      resetSharedArenaSurface();
       activeMinigameModule = game;
       return game.start(MINIGAME_MODULE_CONTEXT, names);
     }
@@ -2124,6 +2160,34 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
       if (game && typeof game.cleanup === "function") {
         game.cleanup(MINIGAME_MODULE_CONTEXT);
       }
+    }
+
+    function resetSharedArenaSurface() {
+      const container = document.getElementById("webgl-container");
+      if (container) {
+        container.classList.remove("plinko-3d-active", "tower-climb-active", "has-3d-stage");
+      }
+
+      ["webgl-canvas", "fallback-canvas"].forEach((canvasId) => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        try {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          } else {
+            const width = canvas.width;
+            const height = canvas.height;
+            canvas.width = width;
+            canvas.height = height;
+          }
+        } catch (_) {
+          const width = canvas.width;
+          const height = canvas.height;
+          canvas.width = width;
+          canvas.height = height;
+        }
+      });
     }
 
     function setSelectedLobbyGame(legacyId) {
@@ -6029,6 +6093,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
     function cleanupWebGLScene() {
 
       threeIsRunning = false;
+      resetSharedArenaSurface();
       showDerbyShowcaseActions(false);
       derbyPostRaceMode = false;
       derbyShowcaseCameraState = null;
@@ -6964,6 +7029,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
 
       document.getElementById("countdown-overlay").style.display = "none";
       showDerbyShowcaseActions(false);
+      setPlinkoRulesButtonVisible(false);
 
       document.getElementById("arena-sidebar").classList.remove("show-mobile");
 
@@ -7347,6 +7413,9 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         showLockedRandomMessage,
         showLockedGameMessage,
         closeLockedAlertModal,
+        openPlinkoRulesModal,
+        closePlinkoRulesModal,
+        setPlinkoRulesButtonVisible,
         triggerDirectStartGame,
         triggerRandomSelectionWheel,
         toggleMobileSidebar,
@@ -7371,6 +7440,7 @@ const loadThreeJSDynamic = loadThreeJsDynamic;
         startRaceTimer,
         updateRaceTimerDisplay,
         stopRaceTimer,
+        setPlinkoRulesButtonVisible,
         showPostGameActions,
         playTickSound,
         playHornSound,

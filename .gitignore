@@ -61,6 +61,7 @@ test_models_2.py
 .vscode/
 .idea/
 .agents/
+.kiro/
 
 # === OS ===
 Thumbs.db

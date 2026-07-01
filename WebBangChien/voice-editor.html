@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lang Gia - Voice Bot</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./anh/langgia_icon.png">
+  <meta name="theme-color" content="#0a1a0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      /* LIGHT THEME (Imperial Jade & Shimmering Gold) */
+      --bg:#f4f9f6; --panel:rgba(255,255,255,0.85); --panel-2:#ffffff;
+      --line:rgba(16,185,129,0.14); --line-strong:rgba(217,119,6,0.22);
+      --text:#111c15; --muted:#4a5c51; --gold:#d97706;
+      --green:#059669; --green-2:#047857; --danger:#ea580c; --danger-2:#9a3412;
+      --shadow:rgba(16,185,129,0.06);
+    }
+    body.theme-dark{
+      /* FOREST DARK THEME */
+      --bg:#07140c; --panel:#0d1b12; --panel-2:#112218;
+      --line:rgba(141,255,183,.14); --line-strong:rgba(141,255,183,.3);
+      --text:#e8f6ec; --muted:#93b3a0; --gold:#f6c453;
+      --green:#3ad07e; --green-2:#1f8f53; --danger:#ff6b6b; --danger-2:#a43d3d;
+      --shadow:rgba(0,0,0,0.4);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    a{color:var(--gold)}
+    .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--green),var(--gold));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900}
+    .brand h1{font-size:18px;font-weight:900;margin:0;color:var(--gold)}
+    .brand .sub{font-size:11px;color:var(--muted)}
+    .top-actions{display:flex;align-items:center;gap:8px}
+    .btn{border:1px solid var(--line-strong);background:var(--panel);color:var(--text);border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer;transition:.15s}
+    .btn:hover{border-color:var(--gold);transform:translateY(-1px)}
+    .btn.gold{background:linear-gradient(135deg,var(--gold),var(--green-2));color:#0a1a0f;border:none}
+    .btn.ghost{background:transparent}
+    .btn.danger{border-color:var(--danger);color:var(--danger)}
+    .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .icon-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;font-size:15px}
+
+    .landing,.loading,.denied{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px;max-width:420px;box-shadow:0 10px 30px var(--shadow)}
+    .card h2{margin:0 0 8px;color:var(--gold)}
+    .card p{color:var(--muted);font-size:13px;margin:0 0 18px}
+    .hidden{display:none!important}
+
+    .tabs{display:flex;gap:8px;margin-bottom:16px}
+    .tab{flex:1;padding:11px;border:1px solid var(--line);background:var(--panel);border-radius:12px;font-weight:900;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:8px}
+    .tab.active{color:var(--gold);border-color:var(--gold);background:var(--panel-2)}
+    .tab .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+    .tab.online .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+
+    .bot-pane{display:none}
+    .bot-pane.active{display:block}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}}
+    .section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+    .section h3{margin:0 0 14px;font-size:14px;color:var(--gold);display:flex;align-items:center;gap:8px}
+    .field{margin-bottom:14px}
+    .field label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px}
+    .field .hint{font-size:11px;color:var(--muted);margin-top:4px;font-weight:500}
+    select,input[type=text]{width:100%;padding:9px 11px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);border-radius:9px;font-size:13px;font-family:inherit}
+    .seg{display:flex;gap:6px}
+    .seg button{flex:1;padding:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);border-radius:8px;font-weight:800;cursor:pointer;font-size:12px}
+    .seg button.active{background:var(--gold);color:#0a1a0f;border-color:var(--gold)}
+    .checklist{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:9px;padding:6px;background:var(--panel-2)}
+    .checklist .row{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:7px;font-size:12.5px;cursor:pointer}
+    .checklist .row:hover{background:var(--bg)}
+    .checklist .row input{accent-color:var(--gold);width:15px;height:15px}
+    .checklist .empty{color:var(--muted);font-size:12px;padding:8px;text-align:center}
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line)}
+    .toggle-row:last-child{border-bottom:none}
+    .toggle-row span{font-size:13px;font-weight:700}
+    .switch{position:relative;width:44px;height:24px;flex:0 0 auto}
+    .switch input{opacity:0;width:0;height:0}
+    .slider{position:absolute;inset:0;background:var(--line-strong);border-radius:999px;transition:.2s;cursor:pointer}
+    .slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+    .switch input:checked+.slider{background:var(--green)}
+    .switch input:checked+.slider:before{transform:translateX(20px)}
+
+    .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .status-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+    .status-item .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .status-item .v{font-size:13px;font-weight:800;margin-top:2px}
+    .status-item .v.ok{color:var(--green)}
+    .status-item .v.off{color:var(--danger)}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900}
+    .pill.ok{background:rgba(58,208,126,.18);color:var(--green)}
+    .pill.off{background:rgba(255,107,107,.16);color:var(--danger)}
+
+    .save-bar{position:sticky;bottom:0;margin-top:14px;display:flex;gap:10px;justify-content:flex-end;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;flex-wrap:wrap}
+    .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--gold);color:var(--text);padding:12px 18px;border-radius:10px;font-weight:700;font-size:13px;box-shadow:0 8px 24px var(--shadow);z-index:100;opacity:0;pointer-events:none;transition:.2s}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+    .toast.err{border-color:var(--danger);color:var(--danger)}
+    .err-note{color:var(--danger);font-size:12px;font-weight:700;margin-top:8px;min-height:16px}
+  </style>
+</head>
+<body class="theme-dark">
+  <!-- Landing / login -->
+  <div class="landing" id="landingPage">
+    <div class="card">
+      <h2>🎙️ Voice Bot - Lang Gia</h2>
+      <p>Cấu hình cầu nối voice cho 2 bot. Đăng nhập bằng Discord để tiếp tục (chỉ quản trị viên được phép chỉnh).</p>
+      <button class="btn gold" id="btnLogin" style="width:100%">Đăng nhập với Discord</button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading hidden" id="loadingScreen">
+    <div class="card"><h2>Đang tải...</h2><p>Đang lấy cấu hình từ Supabase.</p></div>
+  </div>
+
+  <!-- Denied -->
+  <div class="denied hidden" id="deniedScreen">
+    <div class="card">
+      <h2>Không có quyền</h2>
+      <p id="deniedMsg">Tài khoản này không nằm trong danh sách quản trị Voice Bot.</p>
+      <button class="btn ghost" onclick="logout()">Đăng xuất</button>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div class="wrap hidden" id="editorShell">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">VB</div>
+        <div><h1>Voice Bot</h1><div class="sub" id="userLabel">—</div></div>
+      </div>
+      <div class="top-actions">
+        <button class="btn icon-btn ghost" id="btnTheme" title="Đổi giao diện" onclick="toggleTheme()">◐</button>
+        <a class="btn ghost" href="./index.html">← Bang Chiến</a>
+        <button class="btn ghost" onclick="logout()">Đăng xuất</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab1" data-bot="1" onclick="switchBot(1)"><span class="dot"></span> Bot 1</div>
+      <div class="tab" id="tab2" data-bot="2" onclick="switchBot(2)"><span class="dot"></span> Bot 2</div>
+    </div>
+
+    <div id="paneHost"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
+    const GUILD_ID = '450633680000385036';
+    // Allowlist UI (server vẫn kiểm tra lại qua VOICE_ADMIN_DISCORD_IDS). Đồng bộ với fallback trong api/voice-config.js.
+    const ADMIN_IDS = new Set(['403644798667325440', '395151484179841024']);
+
+    let sb = null, session = null, currentDiscordId = '', currentUserName = '';
+    let guildMeta = { voice_channels: [], roles: [] };
+    const configs = { 1: null, 2: null };
+    const drafts = { 1: {}, 2: {} };
+    const statuses = { 1: null, 2: null };
+    let activeBot = 1;
+  </script>
+  <script src="./voice-editor.app.js"></script>
+</body>
+</html>

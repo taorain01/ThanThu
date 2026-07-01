@@ -1,0 +1,16 @@
+{
+  "name": "bot-2-tieu-ngong",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node --check index.js"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "@snazzah/davey": "^0.1.10",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.3.1"
+  }
+}

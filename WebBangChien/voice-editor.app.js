@@ -6,6 +6,7 @@ const FIXED_ROLES = [
   { key: 'kycuu', label: 'Kỳ Cựu', aliases: ['ky cuu', 'kycuu', 'kỳ cựu'] },
   { key: 'chihuy', label: 'Chỉ Huy', aliases: ['chi huy', 'chihuy', 'chỉ huy'] }
 ];
+const BOT_AVATAR_FALLBACKS = { 1: '🦢', 2: '🐥', 3: '⚔️' };
 
 let masterState = { enabled: false };
 let managedChannels = [];
@@ -71,6 +72,27 @@ function defaultCallerRoleIds() {
 function memberName(row) {
   return row?.game_username || row?.discord_name || row?.discord_id || 'Không rõ';
 }
+
+function botAvatarFallback(botId) {
+  return BOT_AVATAR_FALLBACKS[botId] || '●';
+}
+
+function botAvatarUrl(botId) {
+  return statuses[botId]?.bot_avatar_url || '';
+}
+
+function botAvatarHtml(botId) {
+  const url = botAvatarUrl(botId);
+  if (!url) return esc(botAvatarFallback(botId));
+  return `<img src="${esc(url)}" alt="${esc(BOT_NAMES[botId])}" loading="lazy" referrerpolicy="no-referrer" onerror="handleBotAvatarError(this)">`;
+}
+
+function handleBotAvatarError(img) {
+  const parent = img?.parentElement;
+  if (!parent) return;
+  parent.textContent = parent.dataset.fallback || '●';
+}
+window.handleBotAvatarError = handleBotAvatarError;
 
 function toast(msg, isErr) {
   const el = document.getElementById('toast');
@@ -234,12 +256,29 @@ function setupRealtime() {
 }
 
 /* ---------------- Render ---------------- */
+function botTabActions(botId) {
+  const name = esc(BOT_NAMES[botId]);
+  return `
+    <div class="tab-actions">
+      <button type="button" class="tab-action leave" title="Rời kênh ${name}" aria-label="Rời kênh ${name}" onclick="event.stopPropagation();doAction(${botId},'leave')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M21 19V5a2 2 0 0 0-2-2h-6"></path><path d="M13 21h6a2 2 0 0 0 2-2"></path>
+        </svg>
+      </button>
+      <button type="button" class="tab-action rejoin" title="Vào lại kênh ${name}" aria-label="Vào lại kênh ${name}" onclick="event.stopPropagation();doAction(${botId},'rejoin')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 17l-5-5 5-5"></path><path d="M9 12h12"></path><path d="M3 5v14a2 2 0 0 0 2 2h6"></path><path d="M11 3H5a2 2 0 0 0-2 2"></path>
+        </svg>
+      </button>
+    </div>`;
+}
+
 function renderBotTabs() {
   const tabs = document.querySelector('.tabs');
   tabs.innerHTML = BOT_IDS.map((botId) => `
     <div class="tab ${botId === activeBot ? 'active' : ''}" id="tab${botId}" data-bot="${botId}" onclick="switchBot(${botId})">
-      <div class="avatar">${botId === 1 ? '🦢' : botId === 2 ? '🐥' : '⚔️'}</div>
-      <div class="meta"><div class="name">${esc(BOT_NAMES[botId])}</div><div class="role">Bot ${botId}</div></div>
+      <div class="avatar" data-fallback="${esc(botAvatarFallback(botId))}">${botAvatarHtml(botId)}</div>
+      <div class="meta"><div class="name-row"><div class="name">${esc(BOT_NAMES[botId])}</div>${botTabActions(botId)}</div><div class="role">Bot ${botId}</div></div>
       <div class="state"><span class="dot"></span><span class="lbl">offline</span></div>
     </div>`).join('');
   updateTabDots();
@@ -257,10 +296,26 @@ function updateTabDots() {
     const online = statuses[botId]?.discord_connected === true;
     const tab = document.getElementById('tab' + botId);
     if (!tab) continue;
+    updateTabAvatar(botId, tab);
     tab.classList.toggle('online', online);
     const lbl = tab.querySelector('.lbl');
     if (lbl) lbl.textContent = online ? 'online' : 'offline';
   }
+}
+
+function updateTabAvatar(botId, tab = null) {
+  const root = tab || document.getElementById('tab' + botId);
+  const avatar = root?.querySelector('.avatar');
+  if (!avatar) return;
+
+  const url = botAvatarUrl(botId);
+  const img = avatar.querySelector('img');
+  if (url) {
+    if (!img || img.getAttribute('src') !== url) avatar.innerHTML = botAvatarHtml(botId);
+    return;
+  }
+
+  if (!avatar.textContent.trim()) avatar.textContent = botAvatarFallback(botId);
 }
 
 function fixedRoleChecklist(key, selected) {
@@ -342,65 +397,61 @@ function renderPane(botId) {
   host.innerHTML = `
     ${quickSetupHtml()}
     <div class="bot-pane active">
-      <div class="grid">
-        <div>
-          <div class="section">
-            <h3>🎧 Bot & kênh</h3>
-            <div class="field">
-              <label>Kênh voice của ${esc(BOT_NAMES[botId])}</label>
-              <select data-field="voice_channel_id">${channelOptions(d.voice_channel_id)}</select>
-              <div class="hint">Setup nhanh sẽ tự điền kênh. Vẫn có thể chỉnh tay khi cần.</div>
+      <div class="pane-scroll">
+        <div class="grid">
+          <div>
+            <div class="section">
+              <h3>🎧 Bot & kênh</h3>
+              <div class="field">
+                <label>Kênh voice của ${esc(BOT_NAMES[botId])}</label>
+                <select data-field="voice_channel_id">${channelOptions(d.voice_channel_id)}</select>
+                <div class="hint">Setup nhanh sẽ tự điền kênh. Vẫn có thể chỉnh tay khi cần.</div>
+              </div>
+              <div class="field">
+                <label>Phát âm thanh tới bot</label>
+                ${targetChecklist(botId, d.relay_targets)}
+                <div class="hint">Mặc định mesh: mỗi bot phát sang 2 bot còn lại.</div>
+              </div>
+              <div class="field">
+                <label>Prefix lệnh</label>
+                <input type="text" data-field="command_prefix" value="${esc(d.command_prefix)}" placeholder="${botId === 1 ? '?relay' : botId === 2 ? '!relay' : '#relay'}">
+              </div>
             </div>
-            <div class="field">
-              <label>Phát âm thanh tới bot</label>
-              ${targetChecklist(botId, d.relay_targets)}
-              <div class="hint">Mặc định mesh: mỗi bot phát sang 2 bot còn lại.</div>
-            </div>
-            <div class="field">
-              <label>Prefix lệnh</label>
-              <input type="text" data-field="command_prefix" value="${esc(d.command_prefix)}" placeholder="${botId === 1 ? '?relay' : botId === 2 ? '!relay' : '#relay'}">
+
+            <div class="section">
+              <h3>⚙️ Bật/tắt bot này</h3>
+              <div class="toggle-row"><span>Bật relay</span>${sw('relay_enabled', d.relay_enabled)}</div>
+              <div class="toggle-row"><span>Tự động vào kênh</span>${sw('auto_join', d.auto_join)}</div>
             </div>
           </div>
 
-          <div class="section">
-            <h3>⚙️ Bật/tắt bot này</h3>
-            <div class="toggle-row"><span>Bật relay</span>${sw('relay_enabled', d.relay_enabled)}</div>
-            <div class="toggle-row"><span>Tự động vào kênh</span>${sw('auto_join', d.auto_join)}</div>
+          <div>
+            <div class="section">
+              <h3>🛡️ Ai được nói</h3>
+              <div class="field">
+                <label>Role được nói</label>
+                ${fixedRoleChecklist('caller_role_ids', d.caller_role_ids)}
+              </div>
+              <div class="field">
+                <label>Thêm người được nói riêng</label>
+                ${memberChips(botId, 'caller_user_ids')}
+                <button class="btn ghost small" onclick="openMemberPicker(${botId},'caller_user_ids')">+ Thêm người</button>
+              </div>
+              <div class="field">
+                <label>Mute người cụ thể</label>
+                ${memberChips(botId, 'muted_user_ids')}
+                <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
+              </div>
+              <div class="field">
+                <label>Blocked role</label>
+                ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div>
-          <div class="section">
-            <h3>🛡️ Ai được nói</h3>
-            <div class="field">
-              <label>Role được nói</label>
-              ${fixedRoleChecklist('caller_role_ids', d.caller_role_ids)}
-            </div>
-            <div class="field">
-              <label>Thêm người được nói riêng</label>
-              ${memberChips(botId, 'caller_user_ids')}
-              <button class="btn ghost small" onclick="openMemberPicker(${botId},'caller_user_ids')">+ Thêm người</button>
-            </div>
-            <div class="field">
-              <label>Mute người cụ thể</label>
-              ${memberChips(botId, 'muted_user_ids')}
-              <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
-            </div>
-            <div class="field">
-              <label>Blocked role</label>
-              ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section" id="statusSection">${statusHtml(botId)}</div>
-      <div class="err-note" id="errNote"></div>
-
-      <div class="save-bar">
-        <button class="btn ghost" onclick="doAction(${botId},'leave')">Rời kênh</button>
-        <button class="btn" onclick="doAction(${botId},'rejoin')">Vào lại kênh</button>
-        <button class="btn gold" onclick="saveConfig(${botId})">Lưu ${esc(BOT_NAMES[botId])}</button>
+        <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
+        <div class="err-note" id="errNote"></div>
       </div>
     </div>`;
 
@@ -529,8 +580,16 @@ window.removeMemberPick = removeMemberPick;
 
 /* ---------------- Save / actions ---------------- */
 function validateDraft(d) {
-  if (!d.caller_role_ids.length && !d.caller_user_ids.length) return 'Chọn ít nhất 1 role hoặc 1 người được nói.';
+  if (!(d.caller_role_ids || []).length && !(d.caller_user_ids || []).length) return 'Chọn ít nhất 1 role hoặc 1 người được nói.';
   return '';
+}
+
+function validateAllDrafts() {
+  for (const botId of BOT_IDS) {
+    const err = validateDraft(drafts[botId] || {});
+    if (err) return { botId, err };
+  }
+  return null;
 }
 
 async function api(body) {
@@ -544,21 +603,35 @@ async function api(body) {
   return json;
 }
 
-async function saveConfig(botId) {
-  const d = drafts[botId];
-  const err = validateDraft(d);
+async function saveAllConfigs() {
+  const invalid = validateAllDrafts();
   const note = document.getElementById('errNote');
-  if (err) { if (note) note.textContent = err; toast(err, true); return; }
+  if (invalid) {
+    switchBot(invalid.botId);
+    const activeNote = document.getElementById('errNote');
+    if (activeNote) activeNote.textContent = invalid.err;
+    toast(BOT_NAMES[invalid.botId] + ': ' + invalid.err, true);
+    return;
+  }
   if (note) note.textContent = '';
   try {
-    const json = await api({ action: 'saveConfig', guild_id: GUILD_ID, bot_id: botId, payload: d });
-    if (json.config) { configs[botId] = { ...defaultConfig(botId), ...normalizeRow(json.config) }; }
-    toast('Đã lưu cấu hình ' + BOT_NAMES[botId] + '.');
+    const payload = {
+      configs: Object.fromEntries(BOT_IDS.map((botId) => [String(botId), drafts[botId]]))
+    };
+    const json = await api({ action: 'saveAllConfigs', guild_id: GUILD_ID, payload });
+    const rows = Array.isArray(json.configs) ? json.configs : [];
+    for (const botId of BOT_IDS) {
+      const row = rows.find((item) => Number(item.bot_id) === botId);
+      if (row) configs[botId] = { ...defaultConfig(botId), ...normalizeRow(row) };
+      drafts[botId] = { ...configs[botId] };
+    }
+    renderPane(activeBot);
+    toast('Đã lưu cấu hình cả 3 bot.');
   } catch (e) {
-    toast('Lưu thất bại: ' + e.message, true);
+    toast('Lưu tất cả thất bại: ' + e.message, true);
   }
 }
-window.saveConfig = saveConfig;
+window.saveAllConfigs = saveAllConfigs;
 
 async function doAction(botId, action) {
   try {

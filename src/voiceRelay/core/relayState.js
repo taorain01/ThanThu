@@ -5,6 +5,8 @@ class RelayState extends EventEmitter {
     super();
     this.state = {
       botId: env.botId,
+      botUsername: null,
+      botAvatarUrl: null,
       discordConnected: false,
       voiceChannelId: null,
       voiceChannelName: null,

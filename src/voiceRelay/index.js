@@ -22,6 +22,7 @@ async function initVoiceRelay(client, options = {}) {
 
   const relayState = new RelayState(env);
   relayState.update({ discordConnected: client.isReady?.() === true });
+  syncBotIdentity(client, relayState);
 
   const supabaseConfig = new SupabaseConfig(env, logger);
   const voiceManager = new VoiceRelayVoiceManager(client, env, relayState, supabaseConfig, logger);
@@ -67,6 +68,11 @@ async function initVoiceRelay(client, options = {}) {
     }
   };
 
+  client.on('userUpdate', (_oldUser, newUser) => {
+    if (!client.user?.id || newUser?.id !== client.user.id) return;
+    syncBotIdentity(client, relayState);
+  });
+
   async function applyConfig(config) {
     runtime.config = config;
     capture.updateConfig(config);
@@ -111,6 +117,20 @@ async function initVoiceRelay(client, options = {}) {
   client.voiceRelay = runtime;
   logger.info('Voice relay đã khởi động');
   return runtime;
+}
+
+function syncBotIdentity(client, relayState) {
+  const user = client.user;
+  if (!user) return;
+
+  const avatarUrl = typeof user.displayAvatarURL === 'function'
+    ? user.displayAvatarURL({ extension: 'png', size: 128 })
+    : null;
+
+  relayState.update({
+    botUsername: user.tag || user.username || null,
+    botAvatarUrl: avatarUrl
+  });
 }
 
 async function quickSetup(runtime) {

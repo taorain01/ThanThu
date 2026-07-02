@@ -16,6 +16,28 @@ log() {
   printf '[start.sh] %s\n' "$*"
 }
 
+prefix_output() {
+  local label="$1"
+  local line=""
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    printf '[%s] %s\n' "$label" "$line"
+  done
+}
+
+run_bot() {
+  local label="$1"
+  local dir="$2"
+
+  if [ "$dir" != "." ]; then
+    cd "$dir"
+  fi
+
+  exec node index.js \
+    > >(prefix_output "$label") \
+    2> >(prefix_output "$label")
+}
+
 has_env() {
   local dir="$1"
   local name="$2"
@@ -60,7 +82,7 @@ start_bot2() {
   fi
 
   log "Khởi động Bot 2 (Tiểu Ngỗng)..."
-  ( cd "$BOT2_DIR" && node index.js ) &
+  run_bot "Tiểu Ngỗng" "$BOT2_DIR" &
   BOT2_PID=$!
   log "Bot 2 PID=$BOT2_PID"
 }
@@ -77,7 +99,7 @@ start_bot3() {
   fi
 
   log "Khởi động Bot 3 (Chiến Ngỗng)..."
-  ( cd "$BOT3_DIR" && node index.js ) &
+  run_bot "Chiến Ngỗng" "$BOT3_DIR" &
   BOT3_PID=$!
   log "Bot 3 PID=$BOT3_PID"
 }
@@ -91,7 +113,7 @@ if ! has_env "." "Bot 1"; then
 fi
 
 log "Khởi động Bot 1 (Đại Ngỗng / bot chính)..."
-node index.js &
+run_bot "Đại Ngỗng" "." &
 BOT1_PID=$!
 log "Bot 1 PID=$BOT1_PID"
 

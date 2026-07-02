@@ -9,6 +9,7 @@ class StatusReporter {
     this.commandTimer = null;
     this.pendingWrite = null;
     this.actionHandler = null;
+    this.warnedMissingIdentityColumns = false;
   }
 
   start(actionHandler) {
@@ -43,6 +44,8 @@ class StatusReporter {
       const row = {
         guild_id: this.env.guildId,
         bot_id: this.env.botId,
+        bot_username: s.botUsername || null,
+        bot_avatar_url: s.botAvatarUrl || null,
         discord_connected: s.discordConnected === true,
         voice_channel_id: s.voiceChannelId || null,
         voice_channel_name: s.voiceChannelName || null,
@@ -52,13 +55,32 @@ class StatusReporter {
         last_error: s.lastError || null,
         heartbeat_at: new Date().toISOString()
       };
-      const { error } = await this.supabaseConfig.getClient()
-        .from('voice_relay_status')
-        .upsert(row, { onConflict: 'guild_id,bot_id' });
+      const { error } = await this.writeStatusRow(row);
       if (error) throw error;
     } catch (error) {
       this.logger.warn('Không ghi được trạng thái voice relay', error.message);
     }
+  }
+
+  async writeStatusRow(row) {
+    const client = this.supabaseConfig.getClient();
+    const result = await client
+      .from('voice_relay_status')
+      .upsert(row, { onConflict: 'guild_id,bot_id' });
+
+    if (!result.error || !isMissingIdentityColumn(result.error)) return result;
+
+    if (!this.warnedMissingIdentityColumns) {
+      this.warnedMissingIdentityColumns = true;
+      this.logger.warn('Bảng voice_relay_status chưa có cột avatar bot. Chạy lại db/voice_relay_3bot.sql để web hiện avatar thật.');
+    }
+
+    const fallback = { ...row };
+    delete fallback.bot_username;
+    delete fallback.bot_avatar_url;
+    return client
+      .from('voice_relay_status')
+      .upsert(fallback, { onConflict: 'guild_id,bot_id' });
   }
 
   async pollAction() {
@@ -72,6 +94,11 @@ class StatusReporter {
       this.logger.warn('Không đọc được pending_action voice relay', error.message);
     }
   }
+}
+
+function isMissingIdentityColumn(error) {
+  const text = String(error?.message || error?.details || '');
+  return /bot_username|bot_avatar_url/i.test(text);
 }
 
 module.exports = { StatusReporter };

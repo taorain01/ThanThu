@@ -1,24 +1,20 @@
 require("dotenv").config({ path: require("node:path").join(__dirname, ".env") });
 
 const {
-  ChannelType,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
-  PermissionFlagsBits,
 } = require("discord.js");
+const { getVoiceConnection } = require("@discordjs/voice");
 const {
-  VoiceConnectionStatus,
-  entersState,
-  getVoiceConnection,
-  joinVoiceChannel,
-} = require("@discordjs/voice");
+  executeTtsCommand,
+  handleTtsAutoRead,
+} = require("../src/utils/ttsCommandHelper");
 
 const token = process.env.BOT3_TOKEN || process.env.CHIEN_NGONG_TOKEN;
 const prefix = process.env.BOT3_PREFIX || "#";
 const allowedGuildId = process.env.BOT3_GUILD_ID || process.env.VOICE_RELAY_GUILD_ID || "";
 const defaultVoiceChannelId = process.env.BOT3_VOICE_CHANNEL_ID || "";
-const adminOnly = String(process.env.BOT3_ADMIN_ONLY || "true").toLowerCase() !== "false";
 
 if (!token) {
   console.error("[Bot3] Missing BOT3_TOKEN in Bot 3 - Chien Ngong/.env");
@@ -53,6 +49,8 @@ client.on("messageCreate", async (message) => {
   const { handleVoiceRelayMessage } = require("../src/voiceRelay");
   if (await handleVoiceRelayMessage(message, client)) return;
 
+  if (await handleTtsAutoRead(message, { client, botName: "Chiến Ngỗng" })) return;
+
   if (!message.content.startsWith(prefix)) return;
 
   const [commandName, ...args] = message.content.slice(prefix.length).trim().split(/\s+/);
@@ -68,29 +66,53 @@ client.on("messageCreate", async (message) => {
     }
 
     if (command === "join") {
-      if (!canControlBot(message)) return message.reply("Ban khong co quyen dieu khien Bot 3.");
-      return joinVoice(message, args);
+      return executeTtsCommand(message, args, {
+        client,
+        prefix,
+        commandName: command,
+        botName: "Chiến Ngỗng",
+        allowVoiceChannelId: true,
+        defaultVoiceChannelId,
+      });
     }
 
     if (command === "leave") {
-      if (!canControlBot(message)) return message.reply("Ban khong co quyen dieu khien Bot 3.");
-      return leaveVoice(message);
+      return executeTtsCommand(message, args, {
+        client,
+        prefix,
+        commandName: command,
+        botName: "Chiến Ngỗng",
+        allowVoiceChannelId: true,
+        defaultVoiceChannelId,
+      });
+    }
+
+    if (command === "stop") {
+      return executeTtsCommand(message, args, {
+        client,
+        prefix,
+        commandName: command,
+        botName: "Chiến Ngỗng",
+        allowVoiceChannelId: true,
+        defaultVoiceChannelId,
+      });
+    }
+
+    if (command === "bot3help") {
+      return message.reply([
+        "`#ping` - test Bot 3",
+        "`#bot3` - xem trang thai",
+        "`#join [voiceChannelId]` - cho Bot 3 vào voice TTS",
+        "`#leave` - cho Bot 3 rời voice TTS",
+        "`#stop` - dừng đọc TTS",
+        "`.nội dung` - đọc TTS khi bạn ở cùng voice với bot",
+      ].join("\n").replaceAll("#", prefix));
     }
   } catch (error) {
     console.error(`[Bot3] Command ${command} failed:`, error);
     return message.reply(`Loi Bot 3: ${error.message}`);
   }
 });
-
-function canControlBot(message) {
-  if (!adminOnly) return true;
-
-  const permissions = message.member?.permissions;
-  return Boolean(
-    permissions?.has(PermissionFlagsBits.Administrator) ||
-    permissions?.has(PermissionFlagsBits.ManageGuild)
-  );
-}
 
 async function sendStatus(message) {
   const connection = getVoiceConnection(message.guild.id);
@@ -105,61 +127,6 @@ async function sendStatus(message) {
     .setTimestamp();
 
   return message.reply({ embeds: [embed] });
-}
-
-async function joinVoice(message, args) {
-  const channel = await resolveVoiceChannel(message, args);
-  if (!channel) {
-    return message.reply("Hay vao voice truoc, hoac dung `#join <voiceChannelId>`.".replace("#", prefix));
-  }
-
-  const connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: channel.guild.id,
-    adapterCreator: channel.guild.voiceAdapterCreator,
-    selfDeaf: false,
-    selfMute: false,
-  });
-
-  connection.on(VoiceConnectionStatus.Disconnected, async () => {
-    try {
-      await Promise.race([
-        entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-        entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-      ]);
-    } catch {
-      connection.destroy();
-    }
-  });
-
-  await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-  return message.reply(`Bot 3 da vao voice: ${channel.name}`);
-}
-
-async function leaveVoice(message) {
-  const connection = getVoiceConnection(message.guild.id);
-  if (!connection) return message.reply("Bot 3 chua o trong voice.");
-
-  connection.destroy();
-  return message.reply("Bot 3 da roi voice.");
-}
-
-async function resolveVoiceChannel(message, args) {
-  const requestedId = args[0]?.match(/\d{15,25}/)?.[0] || defaultVoiceChannelId;
-
-  if (requestedId) {
-    const channel = await message.guild.channels.fetch(requestedId).catch(() => null);
-    if (channel?.type === ChannelType.GuildVoice || channel?.type === ChannelType.GuildStageVoice) {
-      return channel;
-    }
-  }
-
-  const memberVoice = message.member?.voice?.channel;
-  if (memberVoice?.type === ChannelType.GuildVoice || memberVoice?.type === ChannelType.GuildStageVoice) {
-    return memberVoice;
-  }
-
-  return null;
 }
 
 process.on("SIGINT", shutdown);

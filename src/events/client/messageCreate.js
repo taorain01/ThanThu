@@ -98,46 +98,30 @@ module.exports = {
 
         // ============== TTS AUTO-READ (tin nhắn bắt đầu bằng .) ==============
         if (message.content.startsWith('.') && message.content.length > 1) {
-            const ttsService = require('../../utils/ttsService');
+            const { handleTtsAutoRead } = require('../../utils/ttsCommandHelper');
+            const ttsHandled = await handleTtsAutoRead(message, {
+                client,
+                botName: 'Đại Ngỗng',
+                beforeAutoRead: (msg, context) => {
+                    // Kiểm tra xem có đang chơi loto trong kênh này không
+                    const { guildId: autoReadGuildId } = context;
+                    const lotoState = require('../../commands/loto/lotoState');
+                    const activeLotoChannelId = lotoState.getActiveLotoChannelId(autoReadGuildId);
 
-            if (guildId && ttsService.isConnected(guildId)) {
-                // Kiểm tra xem có đang chơi loto trong kênh này không
-                const lotoState = require('../../commands/loto/lotoState');
-                const activeLotoChannelId = lotoState.getActiveLotoChannelId(guildId);
-
-                if (activeLotoChannelId && message.channel.id === activeLotoChannelId) {
-                    // Kiểm tra có đang KINH check không → cho phép TTS
-                    const lotoHandlers = require('../../utils/lotoHandlers');
-                    if (lotoHandlers.isKinhChecking(guildId)) {
-                        // Đang KINH check → cho phép TTS hoạt động
-                        const botConnection = ttsService.getConnection(guildId);
-                        const userVoiceChannel = message.member?.voice?.channel;
-                        if (botConnection && userVoiceChannel && botConnection.joinConfig.channelId === userVoiceChannel.id) {
-                            const textToSpeak = message.content.slice(1).trim();
-                            if (textToSpeak) {
-                                ttsService.speak(guildId, textToSpeak);
-                            }
+                    if (activeLotoChannelId && msg.channel.id === activeLotoChannelId) {
+                        // Kiểm tra có đang KINH check không → cho phép TTS
+                        const lotoHandlers = require('../../utils/lotoHandlers');
+                        if (lotoHandlers.isKinhChecking(autoReadGuildId)) {
+                            return true;
                         }
-                        return; // Không xử lý như command
+                        // Không đang KINH → xoá lệnh TTS, không đọc
+                        return { allowed: false, delete: true };
                     }
-                    // Không đang KINH → xoá lệnh TTS, không đọc
-                    return message.delete().catch(() => { });
-                }
 
-                // Kiểm tra user có trong cùng voice channel với bot không
-                const botConnection = ttsService.getConnection(guildId);
-                const userVoiceChannel = message.member?.voice?.channel;
-
-                // Chỉ đọc nếu user đang ở cùng voice channel với bot
-                if (botConnection && userVoiceChannel && botConnection.joinConfig.channelId === userVoiceChannel.id) {
-                    const textToSpeak = message.content.slice(1).trim();
-                    if (textToSpeak) {
-                        ttsService.speak(guildId, textToSpeak);
-                        // Không react nữa theo yêu cầu
-                    }
+                    return true;
                 }
-                return; // Không xử lý như command
-            }
+            });
+            if (ttsHandled) return; // Không xử lý như command
         }
 
 

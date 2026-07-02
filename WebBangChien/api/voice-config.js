@@ -15,7 +15,7 @@ function getAdminAllowlist() {
 const VALID_MODES = new Set(['bridge', 'broadcast']);
 const VALID_PRIORITIES = new Set(['mix', 'priority']);
 const VALID_CREATE_POSITIONS = new Set(['above', 'below']);
-const VALID_ACTIONS = new Set(['saveConfig', 'rejoin', 'leave', 'quickSetup', 'globalStop']);
+const VALID_ACTIONS = new Set(['saveConfig', 'saveAllConfigs', 'rejoin', 'leave', 'quickSetup', 'globalStop']);
 const VALID_BOT_IDS = [1, 2, 3];
 const MAX_PAYLOAD_CHARS = 60000;
 
@@ -190,6 +190,39 @@ function sanitizeConfig(payload) {
   return clean;
 }
 
+function buildSaveAllRows(guildId, payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    const error = new Error('Payload cau hinh khong hop le.');
+    error.statusCode = 400;
+    throw error;
+  }
+  assertReasonablePayload(payload);
+
+  const source = payload.configs;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    const error = new Error('Payload saveAllConfigs phai co configs cho 3 bot.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const now = new Date().toISOString();
+  return VALID_BOT_IDS.map((botId) => {
+    const draft = source[String(botId)];
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) {
+      const error = new Error(`Thieu cau hinh Bot ${botId}.`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return {
+      guild_id: guildId,
+      bot_id: botId,
+      ...sanitizeConfig(draft),
+      updated_at: now
+    };
+  });
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'POST, OPTIONS');
@@ -229,6 +262,14 @@ module.exports = async function handler(req, res) {
 
     if (action === 'globalStop') {
       const result = await handleGlobalStop(admin, guildId, body.payload || {});
+      return send(res, 200, { ok: true, ...result });
+    }
+
+    if (action === 'saveAllConfigs') {
+      const result = await handleSaveAllConfigs(admin, guildId, body.payload || {}, {
+        discordId,
+        actorName: authData.user.user_metadata?.name || authData.user.user_metadata?.full_name || discordId
+      });
       return send(res, 200, { ok: true, ...result });
     }
 
@@ -283,6 +324,37 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+async function handleSaveAllConfigs(admin, guildId, payload, actor = {}) {
+  const rows = buildSaveAllRows(guildId, payload);
+  const { data, error } = await admin
+    .from('voice_relay_config')
+    .upsert(rows, { onConflict: 'guild_id,bot_id' })
+    .select('*');
+  if (error) throw error;
+
+  try {
+    await admin.from('bc_logs').insert({
+      guild_id: guildId,
+      action: 'voice_config',
+      details: {
+        category: 'voice_relay',
+        summary: 'Voice config saveAllConfigs 3 bot',
+        actor_id: actor.discordId,
+        actor_name: actor.actorName || actor.discordId,
+        bot_ids: VALID_BOT_IDS,
+        action: 'saveAllConfigs',
+        edited_at: new Date().toISOString()
+      },
+      performed_by: actor.discordId,
+      source: 'web'
+    });
+  } catch (_) {
+    // Ghi log lỗi không được làm hỏng thao tác lưu cấu hình.
+  }
+
+  return { action: 'saveAllConfigs', configs: Array.isArray(data) ? data : [] };
+}
 
 async function handleQuickSetup(admin, guildId, payload) {
   const anchorId = String(payload.bang_chien_channel_id || payload.voice_channel_id || '').trim();
@@ -353,5 +425,7 @@ async function handleGlobalStop(admin, guildId, payload) {
 module.exports.sanitizeConfig = sanitizeConfig;
 module.exports.toStringArray = toStringArray;
 module.exports.getAdminAllowlist = getAdminAllowlist;
+module.exports.buildSaveAllRows = buildSaveAllRows;
+module.exports.handleSaveAllConfigs = handleSaveAllConfigs;
 module.exports.handleQuickSetup = handleQuickSetup;
 module.exports.handleGlobalStop = handleGlobalStop;

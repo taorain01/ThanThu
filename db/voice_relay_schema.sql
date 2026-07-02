@@ -31,6 +31,8 @@
     create table if not exists public.voice_relay_status (
       guild_id           text        not null,
       bot_id             int         not null,
+      bot_username       text,
+      bot_avatar_url     text,
       discord_connected  boolean     not null default false,
       voice_channel_id   text,
       voice_channel_name text,

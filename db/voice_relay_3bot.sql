@@ -12,6 +12,12 @@ alter table public.voice_relay_config
 alter table public.voice_relay_status
   add column if not exists channel_member_count int not null default 0;
 
+alter table public.voice_relay_status
+  add column if not exists bot_username text;
+
+alter table public.voice_relay_status
+  add column if not exists bot_avatar_url text;
+
 create table if not exists public.voice_relay_master (
   guild_id   text        not null primary key,
   enabled    boolean     not null default false,

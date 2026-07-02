@@ -240,21 +240,25 @@ module.exports = async function handler(req, res) {
       .maybeSingle();
     if (error) throw error;
 
-    await admin.from('bc_logs').insert({
-      guild_id: guildId,
-      action: 'voice_config',
-      details: {
-        category: 'voice_relay',
-        summary: `Voice config ${action} bot ${botId}`,
-        actor_id: discordId,
-        actor_name: authData.user.user_metadata?.name || authData.user.user_metadata?.full_name || discordId,
-        bot_id: botId,
-        action,
-        edited_at: new Date().toISOString()
-      },
-      performed_by: discordId,
-      source: 'web'
-    }).catch(() => null);
+    try {
+      await admin.from('bc_logs').insert({
+        guild_id: guildId,
+        action: 'voice_config',
+        details: {
+          category: 'voice_relay',
+          summary: `Voice config ${action} bot ${botId}`,
+          actor_id: discordId,
+          actor_name: authData.user.user_metadata?.name || authData.user.user_metadata?.full_name || discordId,
+          bot_id: botId,
+          action,
+          edited_at: new Date().toISOString()
+        },
+        performed_by: discordId,
+        source: 'web'
+      });
+    } catch (_) {
+      // Ghi log lỗi không được làm hỏng thao tác lưu cấu hình.
+    }
 
     return send(res, 200, { ok: true, config: data });
   } catch (error) {

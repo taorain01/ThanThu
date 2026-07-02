@@ -7,6 +7,7 @@ const FIXED_ROLES = [
   { key: 'chihuy', label: 'Chỉ Huy', aliases: ['chi huy', 'chihuy', 'chỉ huy'] }
 ];
 const BOT_AVATAR_FALLBACKS = { 1: '🦢', 2: '🐥', 3: '⚔️' };
+const BOT_ROLE_TAGS = { 1: 'Chủ lực', 2: 'Hỗ trợ', 3: 'Xung kích' };
 
 let masterState = { enabled: false };
 let managedChannels = [];
@@ -100,6 +101,10 @@ async function canAccessVoiceEditor() {
 
 function botAvatarFallback(botId) {
   return BOT_AVATAR_FALLBACKS[botId] || '●';
+}
+
+function botRoleTag(botId) {
+  return BOT_ROLE_TAGS[botId] || '';
 }
 
 function botAvatarUrl(botId) {
@@ -287,15 +292,17 @@ function botTabActions(botId) {
   const name = esc(BOT_NAMES[botId]);
   return `
     <div class="tab-actions">
-      <button type="button" class="tab-action leave" title="Rời kênh ${name}" aria-label="Rời kênh ${name}" onclick="event.stopPropagation();doAction(${botId},'leave')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M21 19V5a2 2 0 0 0-2-2h-6"></path><path d="M13 21h6a2 2 0 0 0 2-2"></path>
-        </svg>
-      </button>
-      <button type="button" class="tab-action rejoin" title="Vào lại kênh ${name}" aria-label="Vào lại kênh ${name}" onclick="event.stopPropagation();doAction(${botId},'rejoin')">
+      <button type="button" class="tab-action rejoin" title="Cho ${name} vào lại kênh" aria-label="Cho ${name} vào lại kênh" onclick="event.stopPropagation();doAction(${botId},'rejoin')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M14 17l-5-5 5-5"></path><path d="M9 12h12"></path><path d="M3 5v14a2 2 0 0 0 2 2h6"></path><path d="M11 3H5a2 2 0 0 0-2 2"></path>
         </svg>
+        <span>Vào</span>
+      </button>
+      <button type="button" class="tab-action leave" title="Cho ${name} rời kênh" aria-label="Cho ${name} rời kênh" onclick="event.stopPropagation();doAction(${botId},'leave')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M21 19V5a2 2 0 0 0-2-2h-6"></path><path d="M13 21h6a2 2 0 0 0 2-2"></path>
+        </svg>
+        <span>Rời</span>
       </button>
     </div>`;
 }
@@ -304,8 +311,9 @@ function renderBotTabs() {
   const tabs = document.querySelector('.tabs');
   tabs.innerHTML = BOT_IDS.map((botId) => `
     <div class="tab ${botId === activeBot ? 'active' : ''}" id="tab${botId}" data-bot="${botId}" onclick="switchBot(${botId})">
+      <span class="ribbon">${esc(botRoleTag(botId))}</span>
       <div class="avatar" data-fallback="${esc(botAvatarFallback(botId))}">${botAvatarHtml(botId)}</div>
-      <div class="meta"><div class="name-row"><div class="name">${esc(BOT_NAMES[botId])}</div>${botTabActions(botId)}</div><div class="role">Bot ${botId}</div></div>
+      <div class="meta"><div class="name-row"><div class="name">${esc(BOT_NAMES[botId])}</div>${botTabActions(botId)}</div><div class="role">Kênh ${esc(BOT_NAMES[botId])}</div></div>
       <div class="state"><span class="dot"></span><span class="lbl">offline</span></div>
     </div>`).join('');
   updateTabDots();
@@ -318,6 +326,12 @@ function switchBot(botId) {
 }
 window.switchBot = switchBot;
 
+function updateOnlineSummary() {
+  const on = BOT_IDS.filter((id) => statuses[id]?.discord_connected === true).length;
+  const el = document.getElementById('onlineSummary');
+  if (el) el.innerHTML = `<span class="dot"></span>${on}/${BOT_IDS.length} online`;
+}
+
 function updateTabDots() {
   for (const botId of BOT_IDS) {
     const online = statuses[botId]?.discord_connected === true;
@@ -328,6 +342,7 @@ function updateTabDots() {
     const lbl = tab.querySelector('.lbl');
     if (lbl) lbl.textContent = online ? 'online' : 'offline';
   }
+  updateOnlineSummary();
 }
 
 function updateTabAvatar(botId, tab = null) {
@@ -429,13 +444,13 @@ function botMiniAvatar(botId) {
   return `<span class="room-avatar" data-fallback="${esc(botAvatarFallback(botId))}">${botAvatarHtml(botId)}</span>`;
 }
 
-function discordRoomPreview({ name, botId, muted = false, badge = '', selectHtml = '' }) {
+function discordRoomPreview({ name, botId, muted = false, badge = '', tone = 'default', selectHtml = '' }) {
   return `
     <div class="discord-room ${muted ? 'muted' : ''}">
       <div class="room-main">
         <span class="room-icon">⌁</span>
         <span class="room-name">${esc(name)}</span>
-        ${badge ? `<span class="room-badge">${esc(badge)}</span>` : ''}
+        ${badge ? `<span class="room-badge" data-tone="${esc(tone)}">${esc(badge)}</span>` : ''}
       </div>
       <div class="room-bot">
         ${botMiniAvatar(botId)}
@@ -450,9 +465,9 @@ function autoRoomMap() {
   return `
     <div class="discord-map">
       <div class="discord-category">VOICE</div>
-      ${discordRoomPreview({ name: anchorName, botId: 1, muted: !quickAnchorId, badge: quickAnchorId ? 'mặc định' : 'chưa tìm thấy' })}
-      ${discordRoomPreview({ name: '⚡ Tiểu Ngỗng', botId: 2, badge: 'sẽ tạo' })}
-      ${discordRoomPreview({ name: '⚡ Chiến Ngỗng', botId: 3, badge: 'sẽ tạo' })}
+      ${discordRoomPreview({ name: anchorName, botId: 1, muted: !quickAnchorId, badge: quickAnchorId ? 'mặc định' : 'chưa tìm thấy', tone: quickAnchorId ? 'default' : 'empty' })}
+      ${discordRoomPreview({ name: '⚡ Tiểu Ngỗng', botId: 2, badge: 'sẽ tạo', tone: 'create' })}
+      ${discordRoomPreview({ name: '⚡ Chiến Ngỗng', botId: 3, badge: 'sẽ tạo', tone: 'create' })}
     </div>`;
 }
 
@@ -460,12 +475,17 @@ function manualRoomMap() {
   return `
     <div class="discord-map manual">
       <div class="discord-category">VOICE · CHỌN THỦ CÔNG</div>
-      ${BOT_IDS.map((botId) => discordRoomPreview({
-        name: channelName(manualChannelIds[botId], 'Chưa chọn kênh'),
-        botId,
-        muted: !manualChannelIds[botId],
-        selectHtml: channelSelectHtml(manualChannelIds[botId], `onchange="setManualChannel(${botId},this.value)" aria-label="Chọn kênh cho ${esc(BOT_NAMES[botId])}"`)
-      })).join('')}
+      ${BOT_IDS.map((botId) => {
+        const selectedId = manualChannelIds[botId];
+        return discordRoomPreview({
+          name: channelName(selectedId, 'Chưa chọn kênh'),
+          botId,
+          muted: !selectedId,
+          badge: selectedId ? '' : 'chưa chọn',
+          tone: selectedId ? 'default' : 'empty',
+          selectHtml: channelSelectHtml(selectedId, `onchange="setManualChannel(${botId},this.value)" aria-label="Chọn kênh cho ${esc(BOT_NAMES[botId])}"`)
+        });
+      }).join('')}
     </div>`;
 }
 
@@ -482,7 +502,7 @@ function quickSetupHtml() {
           <div class="hint">${quickSetupMode === 'manual' ? 'Bật: 3 bot vào 3 kênh đã chọn, không tạo room mới.' : 'Bật: Bot 1 vào Bang Chiến, Bot 2/3 tạo phòng relay bên dưới và vào kênh.'}</div>
           <div class="hint relay-lock-hint">Khi bật Relay, lệnh ?join sẽ không hoạt động. Tính năng voice của bot cũng sẽ không hoạt động.</div>
         </div>
-        <label class="switch" title="${disableOn ? esc(setupError) : ''}"><input type="checkbox" ${masterState.enabled ? 'checked' : ''} ${disableOn ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span></label>
+        <label class="switch" title="${disableOn ? esc(setupError) : ''}"><input type="checkbox" ${masterState.enabled ? 'checked' : ''} ${disableOn ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span><span class="lever-lbl lever-on">ON</span><span class="lever-lbl lever-off">OFF</span></label>
       </div>
       <div class="quick-mode" role="tablist" aria-label="Chế độ chọn room">
         <button type="button" class="${quickSetupMode === 'auto' ? 'active' : ''}" onclick="setQuickSetupMode('auto')">Tự động</button>
@@ -519,37 +539,10 @@ function renderPane(botId) {
   const host = document.getElementById('paneHost');
 
   host.innerHTML = `
-    ${quickSetupHtml()}
-    <div class="bot-pane active">
-      <div class="pane-scroll">
-        <div class="grid">
-          <div>
-            <div class="section">
-              <h3>🎧 Bot & kênh</h3>
-              <div class="field">
-                <label>Kênh voice của ${esc(BOT_NAMES[botId])}</label>
-                ${currentVoiceRoomCard(botId)}
-              </div>
-              <div class="field">
-                <label>Phát âm thanh tới bot</label>
-                ${targetChecklist(botId, d.relay_targets)}
-                <div class="hint">Mặc định mesh: mỗi bot phát sang 2 bot còn lại.</div>
-              </div>
-              <div class="field">
-                <label>Prefix lệnh</label>
-                <input type="text" data-field="command_prefix" value="${esc(d.command_prefix)}" placeholder="${botId === 1 ? '?relay' : botId === 2 ? '!relay' : '#relay'}">
-              </div>
-            </div>
-
-            <div class="section">
-              <h3>⚙️ Bật/tắt bot này</h3>
-              <div class="toggle-row"><span>Bật relay</span>${sw('relay_enabled', masterState.enabled ? d.relay_enabled : false, !masterState.enabled)}</div>
-              <div class="toggle-row"><span>Tự động vào kênh</span>${sw('auto_join', masterState.enabled ? d.auto_join : false, !masterState.enabled)}</div>
-              ${!masterState.enabled ? '<div class="hint">Nút tổng đang tắt nên relay của cả 3 bot bị khóa off.</div>' : ''}
-            </div>
-          </div>
-
-          <div>
+    <div class="editor-grid">
+      ${quickSetupHtml()}
+      <div class="bot-pane active">
+        <div class="pane-scroll">
             <div class="section">
               <h3>🛡️ Ai được nói</h3>
               <div class="field">
@@ -566,16 +559,19 @@ function renderPane(botId) {
                 ${memberChips(botId, 'muted_user_ids')}
                 <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
               </div>
+            </div>
+
+            <div class="section block-danger">
+              <h3>⛔ Blocked role</h3>
               <div class="field">
                 <label>Blocked role</label>
                 ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
               </div>
             </div>
-          </div>
-        </div>
 
-        <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
-        <div class="err-note" id="errNote"></div>
+            <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
+            <div class="err-note" id="errNote"></div>
+        </div>
       </div>
     </div>`;
 
@@ -767,6 +763,10 @@ async function saveAllConfigs() {
 window.saveAllConfigs = saveAllConfigs;
 
 async function doAction(botId, action) {
+  const message = action === 'rejoin'
+    ? `Cho ${BOT_NAMES[botId]} vào lại kênh voice?`
+    : `Cho ${BOT_NAMES[botId]} rời kênh voice?`;
+  if (!window.confirm(message)) return;
   try {
     await api({ action, guild_id: GUILD_ID, bot_id: botId });
     toast(action === 'rejoin' ? 'Đã gửi lệnh vào lại kênh cho ' + BOT_NAMES[botId] + '.' : 'Đã gửi lệnh rời kênh cho ' + BOT_NAMES[botId] + '.');

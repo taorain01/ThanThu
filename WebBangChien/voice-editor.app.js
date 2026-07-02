@@ -11,7 +11,11 @@ function defaultConfig(botId) {
     priority_role_ids: [],
     relay_enabled: false,
     auto_join: true,
-    command_prefix: botId === 1 ? '?1' : '?2'
+    command_prefix: botId === 1 ? '?1' : '?2',
+    auto_create_channel: false,
+    created_channel_name: botId === 1 ? '🔊 Đại Ngỗng' : '🔊 Tiểu Ngỗng',
+    create_position: 'below',
+    create_anchor_channel_id: ''
   };
 }
 
@@ -119,7 +123,11 @@ function normalizeRow(row) {
     priority_role_ids: arr(row.priority_role_ids),
     relay_enabled: row.relay_enabled === true,
     auto_join: row.auto_join !== false,
-    command_prefix: row.command_prefix || ''
+    command_prefix: row.command_prefix || '',
+    auto_create_channel: row.auto_create_channel === true,
+    created_channel_name: row.created_channel_name || '',
+    create_position: row.create_position === 'above' ? 'above' : 'below',
+    create_anchor_channel_id: row.create_anchor_channel_id || ''
   };
 }
 
@@ -198,6 +206,13 @@ function channelFieldHtml(botId, d) {
     <div class="hint">Bot đứng ở kênh này để vừa thu vừa phát.</div>`;
 }
 
+function anchorSelectHtml(d) {
+  if (!guildMeta.voice_channels.length) {
+    return `<input type="text" data-field="create_anchor_channel_id" value="${esc(d.create_anchor_channel_id)}" placeholder="Dán ID kênh mốc...">`;
+  }
+  return `<select data-field="create_anchor_channel_id">${channelOptions(d.create_anchor_channel_id)}</select>`;
+}
+
 function renderPane(botId) {
   const d = drafts[botId];
   const otherBot = botId === 1 ? 2 : 1;
@@ -238,6 +253,29 @@ function renderPane(botId) {
             <h3>⚙️ Bật/tắt</h3>
             <div class="toggle-row"><span>Bật relay</span>${sw('relay_enabled', d.relay_enabled)}</div>
             <div class="toggle-row"><span>Tự động vào kênh</span>${sw('auto_join', d.auto_join)}</div>
+          </div>
+
+          <div class="section">
+            <h3>🏗️ Tạo kênh tự động</h3>
+            <div class="toggle-row"><span>Tự tạo kênh voice khi bật</span>${sw('auto_create_channel', d.auto_create_channel)}</div>
+            <div data-show="autocreate" style="${d.auto_create_channel ? 'margin-top:14px' : 'display:none'}">
+              <div class="field">
+                <label>Tên kênh sẽ tạo</label>
+                <input type="text" data-field="created_channel_name" value="${esc(d.created_channel_name)}" placeholder="🔊 Tên kênh">
+              </div>
+              <div class="field">
+                <label>Vị trí</label>
+                <div class="seg" data-seg="create_position">
+                  <button data-val="above" class="${d.create_position === 'above' ? 'active' : ''}">Trên kênh mốc</button>
+                  <button data-val="below" class="${d.create_position === 'below' ? 'active' : ''}">Dưới kênh mốc</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Kênh mốc (đặt kênh mới kế bên)</label>
+                ${anchorSelectHtml(d)}
+                <div class="hint">Kênh mới tạo cùng danh mục với kênh mốc, nằm ${d.create_position === 'above' ? 'phía TRÊN' : 'phía DƯỚI'} kênh này.</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -315,8 +353,12 @@ function bindPane(botId) {
   host.querySelectorAll('[data-field]').forEach((el) => {
     el.addEventListener('change', () => {
       const f = el.dataset.field;
-      if (el.type === 'checkbox') d[f] = el.checked;
-      else d[f] = el.value;
+      if (el.type === 'checkbox') {
+        d[f] = el.checked;
+        if (f === 'auto_create_channel') renderPane(botId); // hiện/ẩn phần cấu hình tạo kênh
+      } else {
+        d[f] = el.value;
+      }
     });
   });
 
@@ -342,6 +384,10 @@ function bindPane(botId) {
 /* ---------------- Save / actions ---------------- */
 function validateDraft(d) {
   if (d.mode === 'broadcast' && d.relay_targets.length === 0) return 'Chế độ broadcast phải chọn ít nhất 1 đích.';
+  if (d.auto_create_channel) {
+    if (!String(d.created_channel_name || '').trim()) return 'Bật tự tạo kênh thì phải đặt tên kênh.';
+    if (!String(d.create_anchor_channel_id || '').trim()) return 'Chọn kênh mốc (trên/dưới) để đặt vị trí kênh sẽ tạo.';
+  }
   return '';
 }
 

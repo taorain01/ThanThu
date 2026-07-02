@@ -14,6 +14,7 @@ function getAdminAllowlist() {
 
 const VALID_MODES = new Set(['bridge', 'broadcast']);
 const VALID_PRIORITIES = new Set(['mix', 'priority']);
+const VALID_CREATE_POSITIONS = new Set(['above', 'below']);
 const VALID_ACTIONS = new Set(['saveConfig', 'rejoin', 'leave']);
 const MAX_PAYLOAD_CHARS = 60000;
 
@@ -135,6 +136,24 @@ function sanitizeConfig(payload) {
     clean.command_prefix = String(payload.command_prefix || '').trim().slice(0, 16) || null;
   }
 
+  // --- Tự tạo kênh voice ---
+  if (payload.auto_create_channel !== undefined) clean.auto_create_channel = payload.auto_create_channel === true;
+  if (payload.created_channel_name !== undefined) {
+    clean.created_channel_name = String(payload.created_channel_name || '').trim().slice(0, 100) || null;
+  }
+  if (payload.create_position !== undefined) {
+    const pos = String(payload.create_position || '').trim().toLowerCase();
+    if (!VALID_CREATE_POSITIONS.has(pos)) {
+      const error = new Error('Vi tri tao kenh khong hop le (chi above/below).');
+      error.statusCode = 400;
+      throw error;
+    }
+    clean.create_position = pos;
+  }
+  if (payload.create_anchor_channel_id !== undefined) {
+    clean.create_anchor_channel_id = String(payload.create_anchor_channel_id || '').trim() || null;
+  }
+
   // Luật R9.6: broadcast phải có ít nhất 1 đích.
   const effectiveMode = clean.mode;
   const effectiveTargets = clean.relay_targets;
@@ -142,6 +161,20 @@ function sanitizeConfig(payload) {
     const error = new Error('Che do broadcast phai chon it nhat 1 kenh/bot dich.');
     error.statusCode = 400;
     throw error;
+  }
+
+  // Bật tự tạo kênh thì phải có tên kênh và kênh mốc.
+  if (clean.auto_create_channel === true) {
+    if (!clean.created_channel_name) {
+      const error = new Error('Bat tu tao kenh thi phai dat ten kenh.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!clean.create_anchor_channel_id) {
+      const error = new Error('Chon kenh moc (tren/duoi) de dat vi tri kenh se tao.');
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   if (Object.keys(clean).length === 0) {

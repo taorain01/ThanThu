@@ -69,6 +69,7 @@ function loadVoiceRelayEnv(options = {}) {
           : ['VOICE_RELAY_ALT_PREFIXES'],
       botMeta.altPrefixes
     ),
+    relayBotUserIds: listEnv(['VOICE_RELAY_BOT_USER_IDS', 'TTS_BOT_IDS'], []),
     requireAdminCommands: boolEnv(['VOICE_RELAY_REQUIRE_ADMIN_COMMANDS', 'REQUIRE_ADMIN_COMMANDS'], true),
     commandAdminIds: listEnv(['VOICE_RELAY_COMMAND_ADMIN_IDS', 'COMMAND_ADMIN_IDS'], []),
     defaultVoiceChannelId: firstEnv(botMeta.voiceKeys),

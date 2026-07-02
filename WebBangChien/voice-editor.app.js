@@ -12,6 +12,8 @@ let masterState = { enabled: false };
 let managedChannels = [];
 let memberRows = [];
 let quickAnchorId = '';
+let quickSetupMode = 'auto';
+let manualChannelIds = { 1: '', 2: '', 3: '' };
 let pickerState = null;
 
 function defaultConfig(botId) {
@@ -71,6 +73,29 @@ function defaultCallerRoleIds() {
 
 function memberName(row) {
   return row?.game_username || row?.discord_name || row?.discord_id || 'Không rõ';
+}
+
+function isKcPosition(position) {
+  const normalized = normalizeText(position);
+  return normalized === 'kc' || normalized === 'ky cuu';
+}
+
+async function canAccessVoiceEditor() {
+  if (ADMIN_IDS.has(currentDiscordId)) return true;
+
+  try {
+    const { data } = await sb.from('bc_users')
+      .select('discord_id,position,lang_gia_member,left_at')
+      .eq('guild_id', GUILD_ID)
+      .eq('discord_id', currentDiscordId)
+      .eq('lang_gia_member', true)
+      .is('left_at', null)
+      .limit(1);
+    const row = Array.isArray(data) ? data[0] : null;
+    return Boolean(row && isKcPosition(row.position));
+  } catch (_) {
+    return false;
+  }
 }
 
 function botAvatarFallback(botId) {
@@ -142,9 +167,9 @@ async function checkAuth() {
   currentDiscordId = String(meta.provider_id || meta.sub || '').trim();
   currentUserName = meta.full_name || meta.name || 'User';
 
-  if (!ADMIN_IDS.has(currentDiscordId)) {
+  if (!(await canAccessVoiceEditor())) {
     document.getElementById('deniedMsg').textContent =
-      'Discord ID ' + currentDiscordId + ' không nằm trong danh sách quản trị Voice Bot.';
+      'Discord ID ' + currentDiscordId + ' cần role Kỳ Cựu hoặc quyền quản trị Voice Bot.';
     show('deniedScreen');
     return;
   }
@@ -153,7 +178,9 @@ async function checkAuth() {
   await Promise.all([loadGuildMeta(), loadMaster(), loadManagedChannels(), loadMembers()]);
   await Promise.all([loadConfigs(), loadStatuses()]);
   for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
-  quickAnchorId = findBangChienChannelId() || guildMeta.voice_channels[0]?.id || '';
+  quickAnchorId = findBangChienChannelId() || '';
+  manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || '']));
+  if (!quickAnchorId) quickSetupMode = 'manual';
   show('editorShell');
   renderBotTabs();
   renderPane(activeBot);
@@ -355,29 +382,114 @@ function channelOptions(selected) {
   return opts;
 }
 
+function channelName(channelId, fallback = '—') {
+  const channel = guildMeta.voice_channels.find((c) => String(c.id) === String(channelId || ''));
+  return channel?.name || fallback;
+}
+
+function channelSelectHtml(selected, attrs = '') {
+  return `<select ${attrs}>${channelOptions(selected)}</select>`;
+}
+
 function findBangChienChannelId() {
   const wanted = ['bang chien', 'bangchien'];
   const channel = guildMeta.voice_channels.find((c) => wanted.some((w) => normalizeText(c.name).includes(w)));
   return channel?.id || '';
 }
 
+function setQuickSetupMode(mode) {
+  quickSetupMode = mode === 'manual' ? 'manual' : 'auto';
+  renderPane(activeBot);
+}
+window.setQuickSetupMode = setQuickSetupMode;
+
+function setManualChannel(botId, channelId) {
+  manualChannelIds[botId] = String(channelId || '');
+  renderPane(activeBot);
+}
+window.setManualChannel = setManualChannel;
+
+function manualChannelList() {
+  return BOT_IDS.map((botId) => String(manualChannelIds[botId] || '').trim());
+}
+
+function manualSetupError() {
+  const ids = manualChannelList();
+  if (ids.some((id) => !id)) return 'Chọn đủ 3 kênh voice cho 3 bot.';
+  if (new Set(ids).size !== ids.length) return 'Mỗi bot phải ở một kênh khác nhau.';
+  return '';
+}
+
+function quickSetupError() {
+  if (quickSetupMode === 'manual') return manualSetupError();
+  return quickAnchorId ? '' : 'Không tìm thấy phòng BANG CHIẾN, hãy chọn thủ công đủ 3 kênh.';
+}
+
+function botMiniAvatar(botId) {
+  return `<span class="room-avatar" data-fallback="${esc(botAvatarFallback(botId))}">${botAvatarHtml(botId)}</span>`;
+}
+
+function discordRoomPreview({ name, botId, muted = false, badge = '', selectHtml = '' }) {
+  return `
+    <div class="discord-room ${muted ? 'muted' : ''}">
+      <div class="room-main">
+        <span class="room-icon">⌁</span>
+        <span class="room-name">${esc(name)}</span>
+        ${badge ? `<span class="room-badge">${esc(badge)}</span>` : ''}
+      </div>
+      <div class="room-bot">
+        ${botMiniAvatar(botId)}
+        <span>${esc(BOT_NAMES[botId])}</span>
+      </div>
+      ${selectHtml ? `<div class="room-select">${selectHtml}</div>` : ''}
+    </div>`;
+}
+
+function autoRoomMap() {
+  const anchorName = quickAnchorId ? channelName(quickAnchorId, 'BANG CHIẾN') : 'BANG CHIẾN';
+  return `
+    <div class="discord-map">
+      <div class="discord-category">VOICE</div>
+      ${discordRoomPreview({ name: anchorName, botId: 1, muted: !quickAnchorId, badge: quickAnchorId ? 'mặc định' : 'chưa tìm thấy' })}
+      ${discordRoomPreview({ name: '⚡ Tiểu Ngỗng', botId: 2, badge: 'sẽ tạo' })}
+      ${discordRoomPreview({ name: '⚡ Chiến Ngỗng', botId: 3, badge: 'sẽ tạo' })}
+    </div>`;
+}
+
+function manualRoomMap() {
+  return `
+    <div class="discord-map manual">
+      <div class="discord-category">VOICE · CHỌN THỦ CÔNG</div>
+      ${BOT_IDS.map((botId) => discordRoomPreview({
+        name: channelName(manualChannelIds[botId], 'Chưa chọn kênh'),
+        botId,
+        muted: !manualChannelIds[botId],
+        selectHtml: channelSelectHtml(manualChannelIds[botId], `onchange="setManualChannel(${botId},this.value)" aria-label="Chọn kênh cho ${esc(BOT_NAMES[botId])}"`)
+      })).join('')}
+    </div>`;
+}
+
 function quickSetupHtml() {
   const totalPeople = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
+  const setupError = quickSetupError();
+  const disableOn = !masterState.enabled && !!setupError;
   return `
     <div class="section quick-panel">
       <h3>⚡ Setup nhanh 3 bot</h3>
       <div class="quick-row">
         <div>
           <div class="quick-title">Bật/tắt tổng</div>
-          <div class="hint">Bật: Bot 1 vào phòng Bang Chiến, Bot 2/3 tạo phòng relay bên dưới và vào kênh.</div>
+          <div class="hint">${quickSetupMode === 'manual' ? 'Bật: 3 bot vào 3 kênh đã chọn, không tạo room mới.' : 'Bật: Bot 1 vào Bang Chiến, Bot 2/3 tạo phòng relay bên dưới và vào kênh.'}</div>
+          <div class="hint relay-lock-hint">Khi bật Relay, lệnh ?join sẽ không hoạt động. Tính năng voice của bot cũng sẽ không hoạt động.</div>
         </div>
-        <label class="switch"><input type="checkbox" ${masterState.enabled ? 'checked' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span></label>
+        <label class="switch" title="${disableOn ? esc(setupError) : ''}"><input type="checkbox" ${masterState.enabled ? 'checked' : ''} ${disableOn ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span></label>
       </div>
-      <div class="field">
-        <label>Phòng mốc Bot 1</label>
-        <select id="quickAnchor" onchange="quickAnchorId=this.value">${channelOptions(quickAnchorId)}</select>
-        <div class="hint">Mặc định tự tìm phòng có tên BANG CHIẾN. Bot 2/3 sẽ tạo phòng relay bên dưới phòng này.</div>
+      <div class="quick-mode" role="tablist" aria-label="Chế độ chọn room">
+        <button type="button" class="${quickSetupMode === 'auto' ? 'active' : ''}" onclick="setQuickSetupMode('auto')">Tự động</button>
+        <button type="button" class="${quickSetupMode === 'manual' ? 'active' : ''}" onclick="setQuickSetupMode('manual')">Chọn thủ công</button>
       </div>
+      ${quickSetupMode === 'manual' ? manualRoomMap() : autoRoomMap()}
+      ${setupError ? `<div class="quick-warning">${esc(setupError)}</div>` : ''}
       ${totalPeople ? `<div class="hint">Hiện có ${totalPeople} người thật trong các kênh relay. Khi tắt tổng web sẽ hỏi trước nếu cần xóa phòng.</div>` : ''}
     </div>`;
 }
@@ -388,6 +500,18 @@ function targetChecklist(botId, selected) {
     return `<label class="fixed-check"><input type="checkbox" data-key="relay_targets" value="${id}" ${checked}> <span>${esc(BOT_NAMES[id])}</span></label>`;
   }).join('');
   return `<div class="fixed-checks">${rows}</div>`;
+}
+
+function currentVoiceRoomCard(botId) {
+  const configuredId = drafts[botId]?.voice_channel_id || '';
+  const statusName = statuses[botId]?.voice_channel_name || '';
+  const name = configuredId ? channelName(configuredId, statusName || configuredId) : (statusName || 'Chưa gán kênh');
+  const badge = statuses[botId]?.voice_channel_id ? 'đang ở voice' : (configuredId ? 'đã cấu hình' : '');
+  return `
+    <div class="current-room">
+      ${discordRoomPreview({ name, botId, muted: !configuredId && !statusName, badge })}
+    </div>
+    <div class="hint">Đổi phòng ở phần Setup nhanh phía trên. Chọn thủ công chỉ bật được khi đủ cả 3 kênh.</div>`;
 }
 
 function renderPane(botId) {
@@ -404,8 +528,7 @@ function renderPane(botId) {
               <h3>🎧 Bot & kênh</h3>
               <div class="field">
                 <label>Kênh voice của ${esc(BOT_NAMES[botId])}</label>
-                <select data-field="voice_channel_id">${channelOptions(d.voice_channel_id)}</select>
-                <div class="hint">Setup nhanh sẽ tự điền kênh. Vẫn có thể chỉnh tay khi cần.</div>
+                ${currentVoiceRoomCard(botId)}
               </div>
               <div class="field">
                 <label>Phát âm thanh tới bot</label>
@@ -420,8 +543,9 @@ function renderPane(botId) {
 
             <div class="section">
               <h3>⚙️ Bật/tắt bot này</h3>
-              <div class="toggle-row"><span>Bật relay</span>${sw('relay_enabled', d.relay_enabled)}</div>
-              <div class="toggle-row"><span>Tự động vào kênh</span>${sw('auto_join', d.auto_join)}</div>
+              <div class="toggle-row"><span>Bật relay</span>${sw('relay_enabled', masterState.enabled ? d.relay_enabled : false, !masterState.enabled)}</div>
+              <div class="toggle-row"><span>Tự động vào kênh</span>${sw('auto_join', masterState.enabled ? d.auto_join : false, !masterState.enabled)}</div>
+              ${!masterState.enabled ? '<div class="hint">Nút tổng đang tắt nên relay của cả 3 bot bị khóa off.</div>' : ''}
             </div>
           </div>
 
@@ -459,8 +583,8 @@ function renderPane(botId) {
   updateTabDots();
 }
 
-function sw(field, on) {
-  return `<label class="switch"><input type="checkbox" data-field="${field}" ${on ? 'checked' : ''}><span class="slider"></span></label>`;
+function sw(field, on, disabled = false) {
+  return `<label class="switch"><input type="checkbox" data-field="${field}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="slider"></span></label>`;
 }
 
 function statusHtml(botId) {
@@ -592,6 +716,15 @@ function validateAllDrafts() {
   return null;
 }
 
+function effectiveDraftForSave(botId) {
+  const draft = { ...(drafts[botId] || {}) };
+  if (!masterState.enabled) {
+    draft.relay_enabled = false;
+    draft.auto_join = false;
+  }
+  return draft;
+}
+
 async function api(body) {
   const res = await fetch('/api/voice-config', {
     method: 'POST',
@@ -616,7 +749,7 @@ async function saveAllConfigs() {
   if (note) note.textContent = '';
   try {
     const payload = {
-      configs: Object.fromEntries(BOT_IDS.map((botId) => [String(botId), drafts[botId]]))
+      configs: Object.fromEntries(BOT_IDS.map((botId) => [String(botId), effectiveDraftForSave(botId)]))
     };
     const json = await api({ action: 'saveAllConfigs', guild_id: GUILD_ID, payload });
     const rows = Array.isArray(json.configs) ? json.configs : [];
@@ -643,20 +776,52 @@ async function doAction(botId, action) {
 }
 window.doAction = doAction;
 
+function quickSetupPayload() {
+  const callerRoleIds = defaultCallerRoleIds();
+  if (quickSetupMode === 'manual') {
+    const err = manualSetupError();
+    if (err) throw new Error(err);
+    return {
+      setup_mode: 'manual',
+      manual_channel_ids: Object.fromEntries(BOT_IDS.map((botId) => [String(botId), manualChannelIds[botId]])),
+      caller_role_ids: callerRoleIds
+    };
+  }
+
+  if (!quickAnchorId) throw new Error('Không tìm thấy phòng BANG CHIẾN, hãy chọn thủ công đủ 3 kênh.');
+  return {
+    setup_mode: 'auto',
+    voice_channel_id: quickAnchorId,
+    caller_role_ids: callerRoleIds
+  };
+}
+
+function applyLocalGlobalStop() {
+  masterState = { ...masterState, enabled: false };
+  for (const botId of BOT_IDS) {
+    configs[botId] = { ...defaultConfig(botId), ...(configs[botId] || {}), relay_enabled: false, auto_join: false };
+    drafts[botId] = { ...(drafts[botId] || configs[botId]), relay_enabled: false, auto_join: false };
+    statuses[botId] = { ...(statuses[botId] || {}), relay_enabled: false };
+  }
+}
+
 async function toggleMaster(on) {
   try {
     if (on) {
-      const callerRoleIds = defaultCallerRoleIds();
-      await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: { voice_channel_id: quickAnchorId, caller_role_ids: callerRoleIds } });
+      await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: quickSetupPayload() });
       toast('Đã bật setup nhanh 3 bot.');
     } else {
       const people = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
       const mode = people > 0 && window.confirm('Kênh relay đang có người. OK = xóa phòng relay tự tạo, Cancel = chỉ cho bot rời kênh.') ? 'delete' : 'leave';
       await api({ action: 'globalStop', guild_id: GUILD_ID, payload: { mode } });
+      applyLocalGlobalStop();
+      renderPane(activeBot);
       toast('Đã tắt voice relay tổng.');
     }
     await Promise.all([loadMaster(), loadConfigs(), loadStatuses(), loadManagedChannels()]);
     for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
+    manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
+    if (!on) applyLocalGlobalStop();
     renderPane(activeBot);
   } catch (e) {
     toast('Thao tác tổng thất bại: ' + e.message, true);

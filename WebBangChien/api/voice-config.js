@@ -70,6 +70,37 @@ function getDiscordIdFromUser(user) {
   ).trim();
 }
 
+function normalizeAccessRole(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function isKcPosition(position) {
+  const normalized = normalizeAccessRole(position);
+  return normalized === 'kc' || normalized === 'ky cuu';
+}
+
+async function canAccessVoiceConfig(admin, guildId, discordId) {
+  if (getAdminAllowlist().has(discordId)) return true;
+
+  const { data, error } = await admin
+    .from('bc_users')
+    .select('discord_id,position,lang_gia_member,left_at')
+    .eq('guild_id', guildId)
+    .eq('discord_id', discordId)
+    .eq('lang_gia_member', true)
+    .is('left_at', null)
+    .limit(1);
+  if (error) throw error;
+
+  const row = Array.isArray(data) ? data[0] : null;
+  return Boolean(row && isKcPosition(row.position));
+}
+
 function toStringArray(value) {
   let arr = value;
   if (typeof value === 'string') {
@@ -223,6 +254,92 @@ function buildSaveAllRows(guildId, payload) {
   });
 }
 
+function relayTargetsFor(botId) {
+  return VALID_BOT_IDS.filter((id) => id !== botId).map(String);
+}
+
+function buildQuickSetupRows(guildId, payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    const error = new Error('Payload quick setup khong hop le.');
+    error.statusCode = 400;
+    throw error;
+  }
+  assertReasonablePayload(payload);
+
+  const setupMode = String(payload.setup_mode || 'auto').trim().toLowerCase() === 'manual' ? 'manual' : 'auto';
+  const callerRoleIds = toStringArray(payload.caller_role_ids);
+  const now = new Date().toISOString();
+
+  if (setupMode === 'manual') {
+    const manualChannelIds = payload.manual_channel_ids || {};
+    const channelIds = VALID_BOT_IDS.map((botId) => String(manualChannelIds[botId] || manualChannelIds[String(botId)] || '').trim());
+    if (channelIds.some((id) => !id)) {
+      const error = new Error('Chon thu cong phai du 3 kenh voice cho 3 bot.');
+      error.statusCode = 400;
+      throw error;
+    }
+    if (new Set(channelIds).size !== channelIds.length) {
+      const error = new Error('Moi bot phai dung mot kenh voice khac nhau.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return {
+      setupMode,
+      rows: VALID_BOT_IDS.map((botId, index) => ({
+        guild_id: guildId,
+        bot_id: botId,
+        voice_channel_id: channelIds[index],
+        mode: 'bridge',
+        relay_targets: relayTargetsFor(botId),
+        caller_role_ids: callerRoleIds,
+        relay_enabled: true,
+        auto_join: true,
+        pending_action: 'rejoin',
+        updated_at: now
+      }))
+    };
+  }
+
+  const anchorId = String(payload.bang_chien_channel_id || payload.voice_channel_id || '').trim();
+  if (!anchorId) {
+    const error = new Error('Quick setup can voice_channel_id cua phong BANG CHIEN.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    setupMode,
+    rows: VALID_BOT_IDS.map((botId) => ({
+      guild_id: guildId,
+      bot_id: botId,
+      voice_channel_id: botId === 1 ? anchorId : null,
+      mode: 'bridge',
+      relay_targets: relayTargetsFor(botId),
+      caller_role_ids: callerRoleIds,
+      relay_enabled: true,
+      auto_join: true,
+      pending_action: botId === 1 ? 'quickSetup' : null,
+      updated_at: now
+    }))
+  };
+}
+
+function buildGlobalStopRows(guildId, payload) {
+  const mode = String(payload?.mode || 'leave') === 'delete' ? 'delete' : 'leave';
+  const pendingAction = mode === 'delete' ? 'stopDelete' : 'stopLeave';
+  const now = new Date().toISOString();
+  const rows = VALID_BOT_IDS.map((botId) => ({
+    guild_id: guildId,
+    bot_id: botId,
+    relay_enabled: false,
+    auto_join: false,
+    pending_action: pendingAction,
+    updated_at: now
+  }));
+  return { mode, rows };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'POST, OPTIONS');
@@ -244,9 +361,6 @@ module.exports = async function handler(req, res) {
 
     const discordId = getDiscordIdFromUser(authData.user);
     if (!discordId) return send(res, 401, { error: 'Khong tim thay Discord ID.' });
-    if (!getAdminAllowlist().has(discordId)) {
-      return send(res, 403, { error: 'Tai khoan nay khong co quyen cau hinh Voice Bot.' });
-    }
 
     const body = parseBody(req);
     const action = String(body.action || 'saveConfig');
@@ -254,6 +368,9 @@ module.exports = async function handler(req, res) {
 
     const guildId = String(body.guild_id || DEFAULT_GUILD_ID);
     if (guildId !== DEFAULT_GUILD_ID) return send(res, 403, { error: 'Guild khong hop le.' });
+    if (!(await canAccessVoiceConfig(admin, guildId, discordId))) {
+      return send(res, 403, { error: 'Tai khoan nay can role Ky Cuu hoac quyen quan tri Voice Bot.' });
+    }
 
     if (action === 'quickSetup') {
       const result = await handleQuickSetup(admin, guildId, body.payload || {});
@@ -357,26 +474,8 @@ async function handleSaveAllConfigs(admin, guildId, payload, actor = {}) {
 }
 
 async function handleQuickSetup(admin, guildId, payload) {
-  const anchorId = String(payload.bang_chien_channel_id || payload.voice_channel_id || '').trim();
-  if (!anchorId) {
-    const error = new Error('Quick setup can voice_channel_id cua phong BANG CHIEN.');
-    error.statusCode = 400;
-    throw error;
-  }
-  const callerRoleIds = toStringArray(payload.caller_role_ids);
+  const { setupMode, rows } = buildQuickSetupRows(guildId, payload);
   const now = new Date().toISOString();
-  const rows = VALID_BOT_IDS.map((botId) => ({
-    guild_id: guildId,
-    bot_id: botId,
-    voice_channel_id: botId === 1 ? anchorId : null,
-    mode: 'bridge',
-    relay_targets: VALID_BOT_IDS.filter((id) => id !== botId).map(String),
-    caller_role_ids: callerRoleIds,
-    relay_enabled: true,
-    auto_join: true,
-    pending_action: botId === 1 ? 'quickSetup' : null,
-    updated_at: now
-  }));
 
   const { error } = await admin
     .from('voice_relay_config')
@@ -390,21 +489,12 @@ async function handleQuickSetup(admin, guildId, payload) {
     updated_at: now
   }, { onConflict: 'guild_id' });
 
-  return { action: 'quickSetup', bot_ids: VALID_BOT_IDS };
+  return { action: 'quickSetup', setup_mode: setupMode, bot_ids: VALID_BOT_IDS };
 }
 
 async function handleGlobalStop(admin, guildId, payload) {
-  const mode = String(payload.mode || 'leave') === 'delete' ? 'delete' : 'leave';
-  const pendingAction = mode === 'delete' ? 'stopDelete' : 'stopLeave';
+  const { mode, rows } = buildGlobalStopRows(guildId, payload);
   const now = new Date().toISOString();
-  const rows = VALID_BOT_IDS.map((botId) => ({
-    guild_id: guildId,
-    bot_id: botId,
-    relay_enabled: false,
-    auto_join: false,
-    pending_action: pendingAction,
-    updated_at: now
-  }));
 
   const { error } = await admin
     .from('voice_relay_config')
@@ -425,7 +515,12 @@ async function handleGlobalStop(admin, guildId, payload) {
 module.exports.sanitizeConfig = sanitizeConfig;
 module.exports.toStringArray = toStringArray;
 module.exports.getAdminAllowlist = getAdminAllowlist;
+module.exports.normalizeAccessRole = normalizeAccessRole;
+module.exports.isKcPosition = isKcPosition;
+module.exports.canAccessVoiceConfig = canAccessVoiceConfig;
 module.exports.buildSaveAllRows = buildSaveAllRows;
+module.exports.buildQuickSetupRows = buildQuickSetupRows;
+module.exports.buildGlobalStopRows = buildGlobalStopRows;
 module.exports.handleSaveAllConfigs = handleSaveAllConfigs;
 module.exports.handleQuickSetup = handleQuickSetup;
 module.exports.handleGlobalStop = handleGlobalStop;

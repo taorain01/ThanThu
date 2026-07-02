@@ -1,7 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { sanitizeConfig, toStringArray, getAdminAllowlist, buildSaveAllRows } = require('../api/voice-config.js');
+const {
+  sanitizeConfig,
+  toStringArray,
+  getAdminAllowlist,
+  isKcPosition,
+  canAccessVoiceConfig,
+  buildSaveAllRows,
+  buildQuickSetupRows,
+  buildGlobalStopRows
+} = require('../api/voice-config.js');
 
 function validBotConfig(botId) {
   return {
@@ -84,6 +93,47 @@ test('getAdminAllowlist: dùng env khi có, fallback khi không', () => {
   if (prev !== undefined) process.env.VOICE_ADMIN_DISCORD_IDS = prev;
 });
 
+test('isKcPosition: nhận role Kỳ Cựu từ DB', () => {
+  assert.strictEqual(isKcPosition('kc'), true);
+  assert.strictEqual(isKcPosition('Kỳ Cựu'), true);
+  assert.strictEqual(isKcPosition('ky cuu'), true);
+  assert.strictEqual(isKcPosition('mem'), false);
+});
+
+test('canAccessVoiceConfig: cho Kỳ Cựu đang hoạt động vào', async () => {
+  const prev = process.env.VOICE_ADMIN_DISCORD_IDS;
+  process.env.VOICE_ADMIN_DISCORD_IDS = 'admin-only';
+  const chain = {
+    from(table) { this.table = table; return this; },
+    select() { return this; },
+    eq() { return this; },
+    is() { return this; },
+    limit() {
+      return { data: [{ discord_id: 'user-1', position: 'kc', lang_gia_member: true, left_at: null }], error: null };
+    }
+  };
+  assert.strictEqual(await canAccessVoiceConfig(chain, 'guild-1', 'user-1'), true);
+  if (prev === undefined) delete process.env.VOICE_ADMIN_DISCORD_IDS;
+  else process.env.VOICE_ADMIN_DISCORD_IDS = prev;
+});
+
+test('canAccessVoiceConfig: chặn thành viên không phải Kỳ Cựu', async () => {
+  const prev = process.env.VOICE_ADMIN_DISCORD_IDS;
+  process.env.VOICE_ADMIN_DISCORD_IDS = 'admin-only';
+  const chain = {
+    from() { return this; },
+    select() { return this; },
+    eq() { return this; },
+    is() { return this; },
+    limit() {
+      return { data: [{ discord_id: 'user-1', position: 'mem', lang_gia_member: true, left_at: null }], error: null };
+    }
+  };
+  assert.strictEqual(await canAccessVoiceConfig(chain, 'guild-1', 'user-1'), false);
+  if (prev === undefined) delete process.env.VOICE_ADMIN_DISCORD_IDS;
+  else process.env.VOICE_ADMIN_DISCORD_IDS = prev;
+});
+
 test('buildSaveAllRows: nhận đủ 3 config hợp lệ', () => {
   const rows = buildSaveAllRows('guild-1', {
     configs: {
@@ -120,4 +170,58 @@ test('buildSaveAllRows: draft bot không hợp lệ -> lỗi trước upsert', (
     }),
     (e) => e.statusCode === 400
   );
+});
+
+test('buildQuickSetupRows: auto setup gửi quickSetup cho Bot 1', () => {
+  const built = buildQuickSetupRows('guild-1', {
+    setup_mode: 'auto',
+    voice_channel_id: 'bangchien',
+    caller_role_ids: ['role-kycuu']
+  });
+  assert.strictEqual(built.setupMode, 'auto');
+  assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
+  assert.strictEqual(built.rows[0].voice_channel_id, 'bangchien');
+  assert.strictEqual(built.rows[0].pending_action, 'quickSetup');
+  assert.strictEqual(built.rows[1].pending_action, null);
+  assert.deepStrictEqual(built.rows[2].relay_targets, ['1', '2']);
+});
+
+test('buildQuickSetupRows: manual thiếu kênh -> lỗi 400', () => {
+  assert.throws(
+    () => buildQuickSetupRows('guild-1', {
+      setup_mode: 'manual',
+      manual_channel_ids: { 1: 'a', 2: 'b' }
+    }),
+    (e) => e.statusCode === 400
+  );
+});
+
+test('buildQuickSetupRows: manual trùng kênh -> lỗi 400', () => {
+  assert.throws(
+    () => buildQuickSetupRows('guild-1', {
+      setup_mode: 'manual',
+      manual_channel_ids: { 1: 'a', 2: 'a', 3: 'c' }
+    }),
+    (e) => e.statusCode === 400
+  );
+});
+
+test('buildQuickSetupRows: manual đủ 3 kênh -> cả 3 bot rejoin', () => {
+  const built = buildQuickSetupRows('guild-1', {
+    setup_mode: 'manual',
+    manual_channel_ids: { 1: 'a', 2: 'b', 3: 'c' },
+    caller_role_ids: ['role-kycuu']
+  });
+  assert.strictEqual(built.setupMode, 'manual');
+  assert.deepStrictEqual(built.rows.map((row) => row.voice_channel_id), ['a', 'b', 'c']);
+  assert.ok(built.rows.every((row) => row.pending_action === 'rejoin'));
+  assert.ok(built.rows.every((row) => row.relay_enabled === true && row.auto_join === true));
+});
+
+test('buildGlobalStopRows: tắt đủ 3 bot relay và auto_join', () => {
+  const built = buildGlobalStopRows('guild-1', { mode: 'delete' });
+  assert.strictEqual(built.mode, 'delete');
+  assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
+  assert.ok(built.rows.every((row) => row.relay_enabled === false && row.auto_join === false));
+  assert.ok(built.rows.every((row) => row.pending_action === 'stopDelete'));
 });

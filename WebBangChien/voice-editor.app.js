@@ -155,7 +155,10 @@ window.switchBot = switchBot;
 function updateTabDots() {
   for (const botId of [1, 2]) {
     const online = statuses[botId]?.discord_connected === true;
-    document.getElementById('tab' + botId).classList.toggle('online', online);
+    const tab = document.getElementById('tab' + botId);
+    tab.classList.toggle('online', online);
+    const lbl = tab.querySelector('.lbl');
+    if (lbl) lbl.textContent = online ? 'online' : 'offline';
   }
 }
 
@@ -182,6 +185,19 @@ function channelOptions(selected) {
   return opts;
 }
 
+function channelFieldHtml(botId, d) {
+  if (!guildMeta.voice_channels.length) {
+    return `
+      <label>Kênh voice của ${esc(BOT_NAMES[botId])}</label>
+      <input type="text" data-field="voice_channel_id" value="${esc(d.voice_channel_id)}" placeholder="Dán ID kênh voice...">
+      <div class="hint">Chưa có danh sách kênh (bot chưa quét & đồng bộ lên Supabase). Tạm nhập ID kênh bằng tay: chuột phải kênh voice trong Discord → Copy Channel ID (cần bật Developer Mode).</div>`;
+  }
+  return `
+    <label>Kênh voice của ${esc(BOT_NAMES[botId])}</label>
+    <select data-field="voice_channel_id">${channelOptions(d.voice_channel_id)}</select>
+    <div class="hint">Bot đứng ở kênh này để vừa thu vừa phát.</div>`;
+}
+
 function renderPane(botId) {
   const d = drafts[botId];
   const otherBot = botId === 1 ? 2 : 1;
@@ -195,9 +211,7 @@ function renderPane(botId) {
           <div class="section">
             <h3>🎧 Kênh & chế độ</h3>
             <div class="field">
-              <label>Kênh voice của Bot ${botId}</label>
-              <select data-field="voice_channel_id">${channelOptions(d.voice_channel_id)}</select>
-              <div class="hint">Bot đứng ở kênh này để vừa thu vừa phát.</div>
+              ${channelFieldHtml(botId, d)}
             </div>
             <div class="field">
               <label>Chế độ relay</label>
@@ -209,7 +223,7 @@ function renderPane(botId) {
             <div class="field" data-show="broadcast" style="${d.mode === 'broadcast' ? '' : 'display:none'}">
               <label>Đích nhận âm thanh (định tuyến)</label>
               <div class="checklist">
-                <label class="row"><input type="checkbox" data-key="relay_targets" value="${otherBot}" ${targetChecked}> Bot ${otherBot}</label>
+                <label class="row"><input type="checkbox" data-key="relay_targets" value="${otherBot}" ${targetChecked}> ${esc(BOT_NAMES[otherBot])} (Bot ${otherBot})</label>
               </div>
               <div class="hint">Broadcast phải chọn ít nhất 1 đích.</div>
             </div>
@@ -259,7 +273,7 @@ function renderPane(botId) {
       <div class="save-bar">
         <button class="btn ghost" onclick="doAction(${botId},'leave')">Rời kênh</button>
         <button class="btn" onclick="doAction(${botId},'rejoin')">Vào lại kênh</button>
-        <button class="btn gold" onclick="saveConfig(${botId})">Lưu cấu hình Bot ${botId}</button>
+        <button class="btn gold" onclick="saveConfig(${botId})">Lưu cấu hình ${esc(BOT_NAMES[botId])}</button>
       </div>
     </div>`;
 
@@ -278,7 +292,7 @@ function statusHtml(botId) {
   const relay = s?.relay_enabled === true;
   const pill = (ok, t, f) => `<span class="pill ${ok ? 'ok' : 'off'}">${ok ? t : f}</span>`;
   return `
-    <h3>📡 Trạng thái realtime ${pill(online, 'ONLINE', 'OFFLINE')}</h3>
+    <h3>📡 Trạng thái ${esc(BOT_NAMES[botId])} ${pill(online, 'ONLINE', 'OFFLINE')}</h3>
     <div class="status-grid">
       <div class="status-item"><div class="k">Kênh voice</div><div class="v">${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</div></div>
       <div class="status-item"><div class="k">Relay</div><div class="v ${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</div></div>
@@ -351,7 +365,7 @@ async function saveConfig(botId) {
   try {
     const json = await api({ action: 'saveConfig', guild_id: GUILD_ID, bot_id: botId, payload: d });
     if (json.config) { configs[botId] = { ...defaultConfig(botId), ...normalizeRow(json.config) }; }
-    toast('Đã lưu cấu hình Bot ' + botId + '.');
+    toast('Đã lưu cấu hình ' + BOT_NAMES[botId] + '.');
   } catch (e) {
     toast('Lưu thất bại: ' + e.message, true);
   }
@@ -361,7 +375,7 @@ window.saveConfig = saveConfig;
 async function doAction(botId, action) {
   try {
     await api({ action, guild_id: GUILD_ID, bot_id: botId });
-    toast(action === 'rejoin' ? 'Đã gửi lệnh vào lại kênh cho Bot ' + botId + '.' : 'Đã gửi lệnh rời kênh cho Bot ' + botId + '.');
+    toast(action === 'rejoin' ? 'Đã gửi lệnh vào lại kênh cho ' + BOT_NAMES[botId] + '.' : 'Đã gửi lệnh rời kênh cho ' + BOT_NAMES[botId] + '.');
   } catch (e) {
     toast('Thất bại: ' + e.message, true);
   }

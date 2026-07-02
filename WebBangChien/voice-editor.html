@@ -162,6 +162,23 @@
     .fixed-check input{accent-color:var(--gold);width:17px;height:17px;flex:0 0 auto}
     .fixed-check.disabled{opacity:.55}
     .fixed-check .missing{font-size:10px;color:var(--danger);font-weight:700;margin-left:auto}
+    .fixed-check.role-check{position:relative;gap:8px;min-height:38px;padding:8px 10px;overflow:hidden;border-color:rgba(141,255,183,.18);background:linear-gradient(135deg,rgba(255,255,255,.055),rgba(58,208,126,.045));box-shadow:inset 0 1px 0 rgba(255,255,255,.04);cursor:pointer}
+    .fixed-check.role-check::before{content:"";position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,rgba(246,196,83,.18),rgba(58,208,126,.12));transition:inset .18s ease;pointer-events:none}
+    .fixed-check.role-check:hover{border-color:var(--line-strong);transform:translateY(-1px);box-shadow:0 6px 14px var(--shadow),inset 0 1px 0 rgba(255,255,255,.06)}
+    .fixed-check.role-check:has(input:checked){border-color:var(--gold);background:linear-gradient(135deg,rgba(246,196,83,.16),rgba(58,208,126,.10));box-shadow:0 0 0 1px rgba(246,196,83,.12),0 8px 18px var(--shadow)}
+    .fixed-check.role-check:has(input:checked)::before{inset:0}
+    .fixed-check.role-check.disabled{cursor:not-allowed}
+    .fixed-check.role-check.disabled:hover{transform:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .fixed-check.role-check input{position:relative;z-index:1;appearance:none;-webkit-appearance:none;width:18px;height:18px;margin:0;border:1.5px solid var(--line-strong);border-radius:5px;background:rgba(255,255,255,.10);box-shadow:inset 0 1px 2px rgba(0,0,0,.18);display:grid;place-items:center;transition:.16s}
+    .fixed-check.role-check input::after{content:"";width:8px;height:4px;border-left:2px solid #08140d;border-bottom:2px solid #08140d;transform:rotate(-45deg) scale(.55);opacity:0;transition:.16s}
+    .fixed-check.role-check input:checked{border-color:transparent;background:linear-gradient(135deg,var(--gold),var(--green));box-shadow:0 0 12px rgba(246,196,83,.26)}
+    .fixed-check.role-check input:checked::after{opacity:1;transform:rotate(-45deg) scale(1)}
+    .fixed-check.role-check .role-name{position:relative;z-index:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.15px;color:var(--text)}
+    .fixed-check.role-check .role-name::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(58,208,126,.42);vertical-align:1px}
+    .fixed-check.role-check:has(input:checked) .role-name{color:var(--gold-glow)}
+    body:not(.theme-dark) .fixed-check.role-check{border-color:rgba(16,185,129,.16);background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(236,253,245,.75))}
+    body:not(.theme-dark) .fixed-check.role-check input{background:#fff;border-color:rgba(5,150,105,.32)}
+    body:not(.theme-dark) .fixed-check.role-check:has(input:checked) .role-name{color:var(--gold-dark)}
     .member-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px}
     .member-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:5px 8px;font-size:11.5px;font-weight:800}
     .member-chip button{border:0;background:transparent;color:var(--danger);font-weight:900;cursor:pointer}

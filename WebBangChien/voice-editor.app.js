@@ -7,7 +7,7 @@ const FIXED_ROLES = [
   { key: 'chihuy', label: 'Chỉ Huy', aliases: ['chi huy', 'chihuy', 'chỉ huy'] }
 ];
 const BOT_AVATAR_FALLBACKS = { 1: '🦢', 2: '🐥', 3: '⚔️' };
-const BOT_ROLE_TAGS = { 1: 'Chủ lực', 2: 'Hỗ trợ', 3: 'Xung kích' };
+const BOT_ROLE_TAGS = { 1: 'Team 1', 2: 'Team 2', 3: 'Team 3' };
 
 let masterState = { enabled: false };
 let managedChannels = [];
@@ -367,9 +367,9 @@ function fixedRoleChecklist(key, selected) {
     const disabled = role ? '' : 'disabled';
     const checked = role && selected.includes(String(role.id)) ? 'checked' : '';
     const missing = role ? '' : '<span class="missing">chưa thấy role</span>';
-    return `<label class="fixed-check ${disabled}">
+    return `<label class="fixed-check role-check ${disabled}">
       <input type="checkbox" data-key="${key}" value="${esc(role?.id || '')}" ${checked} ${disabled}>
-      <span>${esc(def.label)}</span>${missing}
+      <span class="role-name">${esc(def.label)}</span>${missing}
     </label>`;
   }).join('');
   return `<div class="fixed-checks" data-list="${key}">${rows}</div>`;

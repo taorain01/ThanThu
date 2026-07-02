@@ -67,7 +67,7 @@
     .hidden{display:none!important}
 
     /* ---------- Bot tabs ---------- */
-    .tabs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+    .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
     .tab{display:flex;align-items:center;gap:13px;padding:14px 16px;border:1.5px solid var(--line);background:var(--panel);border-radius:16px;cursor:pointer;transition:.2s;position:relative;overflow:hidden}
     .tab:hover{border-color:var(--line-strong);transform:translateY(-1px)}
     .tab.active{border-color:var(--gold);box-shadow:0 8px 22px var(--shadow)}
@@ -106,6 +106,24 @@
     .checklist .row:hover{background:var(--bg)}
     .checklist .row input{accent-color:var(--gold);width:16px;height:16px}
     .checklist .empty{color:var(--muted);font-size:12px;padding:12px;text-align:center;line-height:1.5}
+    .fixed-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .fixed-check{display:flex;align-items:center;gap:8px;min-height:40px;padding:9px 11px;border:1px solid var(--line);background:var(--panel-2);border-radius:10px;font-size:12px;font-weight:800;color:var(--text)}
+    .fixed-check input{accent-color:var(--gold);width:17px;height:17px;flex:0 0 auto}
+    .fixed-check.disabled{opacity:.55}
+    .fixed-check .missing{font-size:10px;color:var(--danger);font-weight:700;margin-left:auto}
+    .member-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px}
+    .member-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800}
+    .member-chip button{border:0;background:transparent;color:var(--danger);font-weight:900;cursor:pointer}
+    .btn.small{padding:7px 10px;font-size:12px;border-radius:9px}
+    .quick-panel .quick-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+    .quick-title{font-weight:900;font-size:14px}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:18px}
+    .modal-panel{width:min(560px,100%);max-height:82vh;overflow:hidden;background:var(--panel);border:1px solid var(--line-strong);border-radius:16px;padding:16px;box-shadow:0 18px 48px var(--shadow)}
+    .modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .member-results{margin-top:12px;max-height:55vh;overflow:auto;display:grid;gap:7px}
+    .member-result{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;border:1px solid var(--line);background:var(--panel-2);color:var(--text);border-radius:10px;padding:9px 11px;cursor:pointer;font-family:inherit}
+    .member-result:hover,.member-result.picked{border-color:var(--gold)}
+    .member-result small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
     .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px dashed var(--line)}
     .toggle-row:last-child{border-bottom:none}
     .toggle-row span{font-size:13px;font-weight:700}
@@ -140,7 +158,7 @@
     <div class="card">
       <div class="card-ico">🎙️</div>
       <h2>Voice Bot · Lang Gia</h2>
-      <p>Cấu hình cầu nối voice cho <b>Đại Ngỗng</b> và <b>Tiểu Ngỗng</b>. Đăng nhập bằng Discord để tiếp tục — chỉ quản trị viên được phép chỉnh.</p>
+      <p>Cấu hình cầu nối voice cho <b>Đại Ngỗng</b>, <b>Tiểu Ngỗng</b> và <b>Chiến Ngỗng</b>. Đăng nhập bằng Discord để tiếp tục — chỉ quản trị viên được phép chỉnh.</p>
       <button class="btn gold" id="btnLogin" style="width:100%;justify-content:center;padding:12px">Đăng nhập với Discord</button>
     </div>
   </div>
@@ -196,15 +214,15 @@
     const SUPABASE_URL = 'https://wwrzjsgqmxwhjnqhphph.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cnpqc2dxbXh3aGpucWhwaHBoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MzAxMjgsImV4cCI6MjA5MDUwNjEyOH0.F4BARXdexWqEWOplG6NigJK5Twti9VZY2VwTqhR4dK0';
     const GUILD_ID = '450633680000385036';
-    const BOT_NAMES = { 1: 'Đại Ngỗng', 2: 'Tiểu Ngỗng' };
+    const BOT_NAMES = { 1: 'Đại Ngỗng', 2: 'Tiểu Ngỗng', 3: 'Chiến Ngỗng' };
     // Allowlist UI (server vẫn kiểm tra lại qua VOICE_ADMIN_DISCORD_IDS). Đồng bộ với fallback trong api/voice-config.js.
     const ADMIN_IDS = new Set(['403644798667325440', '395151484179841024']);
 
     let sb = null, session = null, currentDiscordId = '', currentUserName = '';
     let guildMeta = { voice_channels: [], roles: [] };
-    const configs = { 1: null, 2: null };
-    const drafts = { 1: {}, 2: {} };
-    const statuses = { 1: null, 2: null };
+    const configs = { 1: null, 2: null, 3: null };
+    const drafts = { 1: {}, 2: {}, 3: {} };
+    const statuses = { 1: null, 2: null, 3: null };
     let activeBot = 1;
   </script>
   <script src="./voice-editor.app.js"></script>

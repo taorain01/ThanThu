@@ -15,7 +15,8 @@ function getAdminAllowlist() {
 const VALID_MODES = new Set(['bridge', 'broadcast']);
 const VALID_PRIORITIES = new Set(['mix', 'priority']);
 const VALID_CREATE_POSITIONS = new Set(['above', 'below']);
-const VALID_ACTIONS = new Set(['saveConfig', 'rejoin', 'leave']);
+const VALID_ACTIONS = new Set(['saveConfig', 'rejoin', 'leave', 'quickSetup', 'globalStop']);
+const VALID_BOT_IDS = [1, 2, 3];
 const MAX_PAYLOAD_CHARS = 60000;
 
 let adminClient = null;
@@ -126,6 +127,8 @@ function sanitizeConfig(payload) {
 
   if (payload.caller_role_ids !== undefined) clean.caller_role_ids = toStringArray(payload.caller_role_ids);
   if (payload.blocked_role_ids !== undefined) clean.blocked_role_ids = toStringArray(payload.blocked_role_ids);
+  if (payload.caller_user_ids !== undefined) clean.caller_user_ids = toStringArray(payload.caller_user_ids);
+  if (payload.muted_user_ids !== undefined) clean.muted_user_ids = toStringArray(payload.muted_user_ids);
   if (payload.relay_targets !== undefined) clean.relay_targets = toStringArray(payload.relay_targets);
   if (payload.priority_role_ids !== undefined) clean.priority_role_ids = toStringArray(payload.priority_role_ids);
 
@@ -219,8 +222,18 @@ module.exports = async function handler(req, res) {
     const guildId = String(body.guild_id || DEFAULT_GUILD_ID);
     if (guildId !== DEFAULT_GUILD_ID) return send(res, 403, { error: 'Guild khong hop le.' });
 
+    if (action === 'quickSetup') {
+      const result = await handleQuickSetup(admin, guildId, body.payload || {});
+      return send(res, 200, { ok: true, ...result });
+    }
+
+    if (action === 'globalStop') {
+      const result = await handleGlobalStop(admin, guildId, body.payload || {});
+      return send(res, 200, { ok: true, ...result });
+    }
+
     const botId = Number(body.bot_id);
-    if (![1, 2].includes(botId)) return send(res, 400, { error: 'bot_id phai la 1 hoac 2.' });
+    if (!VALID_BOT_IDS.includes(botId)) return send(res, 400, { error: 'bot_id phai la 1, 2 hoac 3.' });
 
     let row = { guild_id: guildId, bot_id: botId };
 
@@ -228,8 +241,10 @@ module.exports = async function handler(req, res) {
       const clean = sanitizeConfig(body.payload);
       row = { ...row, ...clean };
     } else {
-      // rejoin | leave -> ghi pending_action de bot doc va thuc thi (Requirement 5.9)
+      // rejoin | leave -> ghi pending_action để bot đọc và thực thi.
+      // Đồng bộ auto_join để nút "Rời kênh" không bị bot tự vào lại ngay sau đó.
       row.pending_action = action;
+      row.auto_join = action === 'rejoin';
       row.updated_at = new Date().toISOString();
     }
 
@@ -269,7 +284,74 @@ module.exports = async function handler(req, res) {
   }
 };
 
+async function handleQuickSetup(admin, guildId, payload) {
+  const anchorId = String(payload.bang_chien_channel_id || payload.voice_channel_id || '').trim();
+  if (!anchorId) {
+    const error = new Error('Quick setup can voice_channel_id cua phong BANG CHIEN.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const callerRoleIds = toStringArray(payload.caller_role_ids);
+  const now = new Date().toISOString();
+  const rows = VALID_BOT_IDS.map((botId) => ({
+    guild_id: guildId,
+    bot_id: botId,
+    voice_channel_id: botId === 1 ? anchorId : null,
+    mode: 'bridge',
+    relay_targets: VALID_BOT_IDS.filter((id) => id !== botId).map(String),
+    caller_role_ids: callerRoleIds,
+    relay_enabled: true,
+    auto_join: true,
+    pending_action: botId === 1 ? 'quickSetup' : null,
+    updated_at: now
+  }));
+
+  const { error } = await admin
+    .from('voice_relay_config')
+    .upsert(rows, { onConflict: 'guild_id,bot_id' });
+  if (error) throw error;
+
+  await admin.from('voice_relay_master').upsert({
+    guild_id: guildId,
+    enabled: true,
+    stop_mode: null,
+    updated_at: now
+  }, { onConflict: 'guild_id' });
+
+  return { action: 'quickSetup', bot_ids: VALID_BOT_IDS };
+}
+
+async function handleGlobalStop(admin, guildId, payload) {
+  const mode = String(payload.mode || 'leave') === 'delete' ? 'delete' : 'leave';
+  const pendingAction = mode === 'delete' ? 'stopDelete' : 'stopLeave';
+  const now = new Date().toISOString();
+  const rows = VALID_BOT_IDS.map((botId) => ({
+    guild_id: guildId,
+    bot_id: botId,
+    relay_enabled: false,
+    auto_join: false,
+    pending_action: pendingAction,
+    updated_at: now
+  }));
+
+  const { error } = await admin
+    .from('voice_relay_config')
+    .upsert(rows, { onConflict: 'guild_id,bot_id' });
+  if (error) throw error;
+
+  await admin.from('voice_relay_master').upsert({
+    guild_id: guildId,
+    enabled: false,
+    stop_mode: mode,
+    updated_at: now
+  }, { onConflict: 'guild_id' });
+
+  return { action: 'globalStop', mode };
+}
+
 // Export các hàm thuần để unit test (không ảnh hưởng handler mặc định của Vercel).
 module.exports.sanitizeConfig = sanitizeConfig;
 module.exports.toStringArray = toStringArray;
 module.exports.getAdminAllowlist = getAdminAllowlist;
+module.exports.handleQuickSetup = handleQuickSetup;
+module.exports.handleGlobalStop = handleGlobalStop;

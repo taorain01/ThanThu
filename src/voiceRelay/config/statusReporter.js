@@ -1,9 +1,10 @@
 class StatusReporter {
-  constructor(env, supabaseConfig, relayState, logger) {
+  constructor(env, supabaseConfig, relayState, logger, voiceManager = null) {
     this.env = env;
     this.supabaseConfig = supabaseConfig;
     this.relayState = relayState;
     this.logger = logger;
+    this.voiceManager = voiceManager;
     this.statusTimer = null;
     this.commandTimer = null;
     this.pendingWrite = null;
@@ -38,6 +39,7 @@ class StatusReporter {
   async writeStatus() {
     try {
       const s = this.relayState.snapshot();
+      const channelMemberCount = this.voiceManager?.getCurrentHumanCount?.() ?? s.channelMemberCount ?? 0;
       const row = {
         guild_id: this.env.guildId,
         bot_id: this.env.botId,
@@ -46,6 +48,7 @@ class StatusReporter {
         voice_channel_name: s.voiceChannelName || null,
         relay_enabled: s.relayEnabled === true,
         link_connected: s.linkConnected === true,
+        channel_member_count: Number(channelMemberCount || 0),
         last_error: s.lastError || null,
         heartbeat_at: new Date().toISOString()
       };
@@ -62,7 +65,7 @@ class StatusReporter {
     try {
       const cfg = await this.supabaseConfig.loadConfig({ createIfMissing: true });
       const action = cfg.pending_action;
-      if (!['rejoin', 'leave'].includes(action)) return;
+      if (!['rejoin', 'leave', 'quickSetup', 'stopLeave', 'stopDelete'].includes(action)) return;
       await this.supabaseConfig.clearPendingAction();
       if (this.actionHandler) await this.actionHandler(action);
     } catch (error) {

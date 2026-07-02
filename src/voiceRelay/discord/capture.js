@@ -11,6 +11,7 @@ class VoiceRelayCapture {
     this.connection = null;
     this.guild = null;
     this.active = new Map();
+    this.skipLogAt = new Map();
     this.onSpeakingStart = (userId) => this.handleSpeakingStart(userId);
   }
 
@@ -27,6 +28,7 @@ class VoiceRelayCapture {
     this.connection = connection;
     this.guild = guild;
     connection.receiver.speaking.on('start', this.onSpeakingStart);
+    this.logger.info(`Đã gắn bộ thu voice ở guild ${guild?.id || 'unknown'}`);
   }
 
   detach() {
@@ -41,26 +43,65 @@ class VoiceRelayCapture {
   }
 
   async handleSpeakingStart(userId) {
-    if (!this.connection || !this.guild || !this.config?.relay_enabled) return;
+    if (!this.connection || !this.guild) return;
+    if (!this.config?.relay_enabled) {
+      this.logSkip(userId, 'relay_disabled');
+      return;
+    }
     if (this.active.has(userId)) return;
 
     try {
       const member = await this.guild.members.fetch(userId).catch(() => null);
       const decision = evaluateSpeaker(member, this.config);
-      if (!decision.allowed) return;
+      if (!decision.allowed) {
+        this.logSkip(userId, decision.reason, member);
+        return;
+      }
+
+      const targets = this.targets();
+      if (!targets.length) {
+        this.logSkip(userId, 'no_targets', member);
+        return;
+      }
 
       const roleIds = roleIdsOf(member);
       const stream = this.connection.receiver.subscribe(userId, {
         end: { behavior: EndBehaviorType.AfterSilence, duration: 150 }
       });
 
-      this.active.set(userId, { userId, roleIds, stream, startedAt: Date.now() });
+      this.active.set(userId, {
+        userId,
+        roleIds,
+        stream,
+        startedAt: Date.now(),
+        chunks: 0,
+        bytes: 0,
+        forwardedChunks: 0,
+        forwardedBytes: 0,
+        loggedFirstForward: false,
+        label: speakerLabel(member, userId)
+      });
       this.updateActiveState();
+      this.logger.info(`Bắt đầu thu voice: ${speakerLabel(member, userId)}`);
 
       stream.on('data', (chunk) => {
+        const item = this.active.get(userId);
+        if (item) {
+          item.chunks += 1;
+          item.bytes += chunk.length || 0;
+        }
         if (!this.shouldForward(userId)) return;
-        if (!this.targetsPeer()) return;
-        this.link?.sendAudio(userId, chunk);
+        const currentTargets = this.targets();
+        if (!currentTargets.length) return;
+        if (item) {
+          item.forwardedChunks += 1;
+          item.forwardedBytes += chunk.length || 0;
+          if (!item.loggedFirstForward) {
+            item.loggedFirstForward = true;
+            this.logger.info(`Đang chuyển audio sang ${currentTargets.map((id) => `Bot${id}`).join(', ')}: ${item.label}`);
+          }
+        }
+        this.link?.sendAudio(this.env.botId, currentTargets, userId, chunk);
       });
       stream.on('end', () => this.removeActive(userId));
       stream.on('close', () => this.removeActive(userId));
@@ -79,14 +120,24 @@ class VoiceRelayCapture {
     return chosen.some((speaker) => String(speaker.userId) === String(userId));
   }
 
-  targetsPeer() {
-    return resolveTargets(this.config, this.env.botId).includes(this.env.peerBotId);
+  targets() {
+    return resolveTargets(this.config, this.env.botId, this.env.allBotIds || [1, 2, 3]);
   }
 
   removeActive(userId) {
     const item = this.active.get(userId);
     if (item?.stream && !item.stream.destroyed) item.stream.destroy();
     this.active.delete(userId);
+    if (item) {
+      const durationMs = Date.now() - item.startedAt;
+      this.logger.info(`Kết thúc thu voice: ${item.label}`, {
+        durationMs,
+        chunks: item.chunks,
+        bytes: item.bytes,
+        forwardedChunks: item.forwardedChunks,
+        forwardedBytes: item.forwardedBytes
+      });
+    }
     this.updateActiveState();
   }
 
@@ -94,5 +145,31 @@ class VoiceRelayCapture {
     this.relayState.update({ activeSpeakers: [...this.active.keys()] });
   }
 }
+
+function speakerLabel(member, userId) {
+  const name = member?.displayName || member?.user?.username || 'unknown';
+  return `${name} (${userId})`;
+}
+
+function reasonLabel(reason) {
+  return {
+    relay_disabled: 'relay đang tắt',
+    member_not_found: 'không tìm thấy member',
+    bot_user: 'người nói là bot',
+    muted_user: 'bị mute riêng',
+    blocked_role: 'dính blocked role',
+    no_callers_configured: 'chưa chọn role/người được nói',
+    missing_caller_permission: 'không có quyền nói',
+    no_targets: 'không có bot đích'
+  }[reason] || reason;
+}
+
+VoiceRelayCapture.prototype.logSkip = function logSkip(userId, reason, member = null) {
+  const key = `${userId}:${reason}`;
+  const now = Date.now();
+  if (now - (this.skipLogAt.get(key) || 0) < 5000) return;
+  this.skipLogAt.set(key, now);
+  this.logger.info(`Bỏ qua voice: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}`);
+};
 
 module.exports = { VoiceRelayCapture };

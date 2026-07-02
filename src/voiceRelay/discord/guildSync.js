@@ -1,4 +1,4 @@
-const { ChannelType } = require('discord.js');
+const { ChannelType, PermissionsBitField } = require('discord.js');
 
 class VoiceRelayGuildSync {
   constructor(client, env, supabaseConfig, logger) {
@@ -31,6 +31,10 @@ class VoiceRelayGuildSync {
 
     const voiceChannels = [...guild.channels.cache.values()]
       .filter((channel) => channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice)
+      .filter((channel) => {
+        const perms = channel.permissionsFor(guild.roles.everyone);
+        return !perms || perms.has(PermissionsBitField.Flags.ViewChannel);
+      })
       .sort((a, b) => (a.rawPosition ?? a.position ?? 0) - (b.rawPosition ?? b.position ?? 0))
       .map((channel) => ({
         id: channel.id,

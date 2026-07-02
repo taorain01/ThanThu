@@ -7,22 +7,33 @@ function evaluateSpeaker(member, config) {
   if (!member) return { allowed: false, reason: 'member_not_found' };
   if (member.user?.bot) return { allowed: false, reason: 'bot_user' };
 
+  const memberId = String(member.id || member.user?.id || '');
+  const mutedUsers = (config.muted_user_ids || []).map(String);
+  if (memberId && mutedUsers.includes(memberId)) return { allowed: false, reason: 'muted_user' };
+
   const roles = new Set(roleIdsOf(member));
   const blocked = (config.blocked_role_ids || []).map(String);
   if (blocked.some((id) => roles.has(id))) return { allowed: false, reason: 'blocked_role' };
 
   const callers = (config.caller_role_ids || []).map(String);
-  if (!callers.length) return { allowed: false, reason: 'no_caller_roles_configured' };
-  if (!callers.some((id) => roles.has(id))) return { allowed: false, reason: 'missing_caller_role' };
+  const callerUsers = (config.caller_user_ids || []).map(String);
+  if (!callers.length && !callerUsers.length) return { allowed: false, reason: 'no_callers_configured' };
+  if (!callerUsers.includes(memberId) && !callers.some((id) => roles.has(id))) {
+    return { allowed: false, reason: 'missing_caller_permission' };
+  }
 
   return { allowed: true, reason: 'allowed' };
 }
 
-function resolveTargets(config, botId) {
+function resolveTargets(config, botId, allBotIds = [1, 2, 3]) {
+  const self = Number(botId);
+  const validTargets = (targets) => (targets || [])
+    .map((x) => Number(x))
+    .filter((x, index, arr) => allBotIds.includes(x) && x !== self && arr.indexOf(x) === index);
   if (config.mode === 'broadcast') {
-    return (config.relay_targets || []).map((x) => Number(x)).filter((x) => x === 1 || x === 2);
+    return validTargets(config.relay_targets);
   }
-  return [Number(botId) === 1 ? 2 : 1];
+  return validTargets(allBotIds);
 }
 
 function priorityIndex(roleIds, priorityRoleIds) {

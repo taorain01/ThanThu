@@ -6,7 +6,8 @@ const {
   verifyAuth,
   encodeAudioFrame,
   decodeAudioFrame,
-  isAudioFrame
+  isAudioFrame,
+  targetsToMask
 } = require('./protocol');
 
 class LinkPeer extends EventEmitter {
@@ -116,7 +117,9 @@ class LinkPeer extends EventEmitter {
     const data = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
     if (isAudioFrame(data)) {
       const frame = decodeAudioFrame(data);
-      if (frame) this.emit('audio', frame);
+      if (!frame) return;
+      if (this.env.linkMode === 'server') this.routeAudioFrame(frame, data);
+      else if (frame.targets.includes(this.env.botId) && frame.srcBotId !== this.env.botId) this.emit('audio', frame);
       return;
     }
 
@@ -138,8 +141,30 @@ class LinkPeer extends EventEmitter {
     this.emit(value ? 'connect' : 'disconnect');
   }
 
-  sendAudio(userId, opus) {
-    const frame = encodeAudioFrame(userId, opus);
+  routeAudioFrame(frame, encoded) {
+    if (frame.targets.includes(this.env.botId) && frame.srcBotId !== this.env.botId) this.emit('audio', frame);
+    for (const targetId of frame.targets) {
+      if (targetId === this.env.botId || targetId === frame.srcBotId) continue;
+      this.sendToBot(targetId, encoded);
+    }
+  }
+
+  sendToBot(botId, data) {
+    for (const client of this.clients) {
+      if (client.peerBotId === Number(botId) && client.readyState === WebSocket.OPEN && client.isAuthed) {
+        client.send(data);
+      }
+    }
+  }
+
+  sendAudio(srcBotId, targets, userId, opus) {
+    const targetsMask = Array.isArray(targets) ? targetsToMask(targets) : Number(targets) || 0;
+    const frame = encodeAudioFrame(srcBotId, targetsMask, userId, opus);
+    if (this.env.linkMode === 'server') {
+      const decoded = decodeAudioFrame(frame);
+      if (decoded) this.routeAudioFrame(decoded, frame);
+      return;
+    }
     this.sendRaw(frame);
   }
 

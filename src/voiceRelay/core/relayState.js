@@ -11,6 +11,8 @@ class RelayState extends EventEmitter {
       relayEnabled: false,
       linkConnected: false,
       linkPeerBotId: env.peerBotId,
+      linkPeerBotIds: env.peerBotIds || [],
+      channelMemberCount: 0,
       lastError: null,
       activeSpeakers: []
     };

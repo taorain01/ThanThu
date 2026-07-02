@@ -17,6 +17,8 @@ test('sanitizeConfig: chỉ giữ field hợp lệ, ép kiểu đúng', () => {
     mode: 'bridge',
     caller_role_ids: ['r1', 'r2'],
     blocked_role_ids: [],
+    caller_user_ids: ['u1'],
+    muted_user_ids: ['u2'],
     relay_enabled: 'yes',      // không phải true -> false
     auto_join: true,
     command_prefix: '?relay',
@@ -25,6 +27,8 @@ test('sanitizeConfig: chỉ giữ field hợp lệ, ép kiểu đúng', () => {
   assert.strictEqual(clean.voice_channel_id, '123');
   assert.strictEqual(clean.mode, 'bridge');
   assert.deepStrictEqual(clean.caller_role_ids, ['r1', 'r2']);
+  assert.deepStrictEqual(clean.caller_user_ids, ['u1']);
+  assert.deepStrictEqual(clean.muted_user_ids, ['u2']);
   assert.strictEqual(clean.relay_enabled, false);
   assert.strictEqual(clean.auto_join, true);
   assert.strictEqual(clean.command_prefix, '?relay');

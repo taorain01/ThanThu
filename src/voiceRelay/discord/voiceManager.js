@@ -55,6 +55,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
       this.relayState.update({
         voiceChannelId: channel.id,
         voiceChannelName: channel.name,
+        channelMemberCount: countHumanMembers(channel),
         lastError: null
       });
       return existing;
@@ -86,6 +87,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
     this.relayState.update({
       voiceChannelId: channel.id,
       voiceChannelName: channel.name,
+      channelMemberCount: countHumanMembers(channel),
       lastError: null
     });
     if (options.persist !== false) await this.supabaseConfig.patchConfig({ voice_channel_id: channel.id });
@@ -99,7 +101,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
     const connection = getVoiceConnection(guild.id) || this.connection;
     if (connection) connection.destroy();
     this.connection = null;
-    this.relayState.update({ voiceChannelId: null, voiceChannelName: null, activeSpeakers: [] });
+    this.relayState.update({ voiceChannelId: null, voiceChannelName: null, channelMemberCount: 0, activeSpeakers: [] });
   }
 
   scheduleRejoin() {
@@ -115,7 +117,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
     const anchorId = this.config.create_anchor_channel_id;
     const anchor = anchorId ? await guild.channels.fetch(anchorId).catch(() => null) : null;
     const parent = anchor?.parent || null;
-    const name = this.config.created_channel_name || (this.env.botId === 1 ? 'Đại Ngỗng' : 'Tiểu Ngỗng');
+    const name = this.config.created_channel_name || (this.env.botId === 1 ? 'Đại Ngỗng' : this.env.botId === 2 ? 'Tiểu Ngỗng' : 'Chiến Ngỗng');
     const channel = await guild.channels.create({
       name,
       type: ChannelType.GuildVoice,
@@ -127,8 +129,68 @@ class VoiceRelayVoiceManager extends EventEmitter {
       await channel.setPosition(pos).catch(() => null);
     }
     await this.supabaseConfig.patchConfig({ voice_channel_id: channel.id });
+    await this.markManagedChannel(channel.id).catch((error) => this.logger.warn('Không đánh dấu được kênh relay tự tạo', error.message));
     this.logger.info(`Đã tự tạo kênh voice ${channel.name}`);
     return channel.id;
+  }
+
+  async markManagedChannel(channelId, ownerBotId = this.env.botId) {
+    const { error } = await this.supabaseConfig.getClient()
+      .from('voice_relay_managed_channels')
+      .upsert({
+        guild_id: this.env.guildId,
+        channel_id: String(channelId),
+        owner_bot_id: Number(ownerBotId),
+        created_at: new Date().toISOString()
+      }, { onConflict: 'guild_id,channel_id' });
+    if (error) throw error;
+  }
+
+  async isManagedChannel(channelId) {
+    if (!channelId) return false;
+    const { data, error } = await this.supabaseConfig.getClient()
+      .from('voice_relay_managed_channels')
+      .select('channel_id')
+      .eq('guild_id', this.env.guildId)
+      .eq('channel_id', String(channelId))
+      .maybeSingle();
+    if (error) throw error;
+    return Boolean(data);
+  }
+
+  async deleteManagedChannel(channelId, { force = false } = {}) {
+    if (!channelId || !(await this.isManagedChannel(channelId))) return false;
+    const guild = await this.resolveGuild();
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel) {
+      await this.removeManagedChannel(channelId);
+      return false;
+    }
+    if (!force && countHumanMembers(channel) > 0) return false;
+    await channel.delete('Voice relay managed channel cleanup');
+    await this.removeManagedChannel(channelId);
+    return true;
+  }
+
+  async removeManagedChannel(channelId) {
+    await this.supabaseConfig.getClient()
+      .from('voice_relay_managed_channels')
+      .delete()
+      .eq('guild_id', this.env.guildId)
+      .eq('channel_id', String(channelId));
+  }
+
+  async stopAndDeleteManaged({ force = false } = {}) {
+    const channelId = this.config?.voice_channel_id || this.relayState.snapshot().voiceChannelId;
+    await this.leave();
+    if (channelId) await this.deleteManagedChannel(channelId, { force });
+  }
+
+  getCurrentHumanCount() {
+    const channelId = this.connection?.joinConfig?.channelId || this.relayState.snapshot().voiceChannelId;
+    const guild = this.client.guilds.cache.get(this.env.guildId);
+    const channel = channelId ? guild?.channels.cache.get(channelId) : null;
+    return countHumanMembers(channel);
   }
 
   async resolveGuild() {
@@ -144,8 +206,12 @@ class VoiceRelayVoiceManager extends EventEmitter {
   }
 }
 
+function countHumanMembers(channel) {
+  return channel?.members?.filter((member) => !member.user?.bot).size || 0;
+}
+
 function isVoiceChannel(channel) {
   return channel?.type === ChannelType.GuildVoice || channel?.type === ChannelType.GuildStageVoice;
 }
 
-module.exports = { VoiceRelayVoiceManager, isVoiceChannel };
+module.exports = { VoiceRelayVoiceManager, isVoiceChannel, countHumanMembers };

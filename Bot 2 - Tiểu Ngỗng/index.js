@@ -30,18 +30,30 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildVoiceStates,
   ],
 });
 
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`[Bot2] Logged in as ${client.user.tag}`);
   console.log(`[Bot2] Prefix: ${prefix}`);
+  try {
+    const { initVoiceRelay } = require("../src/voiceRelay");
+    await initVoiceRelay(client, { defaultBotId: 2, botName: "Tiểu Ngỗng" });
+  } catch (error) {
+    console.error("[Bot2][VoiceRelay] Khong khoi dong duoc:", error.message);
+  }
 });
 
 client.on("messageCreate", async (message) => {
-  if (message.author.bot || !message.guild || !message.content.startsWith(prefix)) return;
+  if (message.author.bot || !message.guild) return;
   if (allowedGuildId && message.guild.id !== allowedGuildId) return;
+
+  const { handleVoiceRelayMessage } = require("../src/voiceRelay");
+  if (await handleVoiceRelayMessage(message, client)) return;
+
+  if (!message.content.startsWith(prefix)) return;
 
   const [commandName, ...args] = message.content.slice(prefix.length).trim().split(/\s+/);
   const command = commandName?.toLowerCase();

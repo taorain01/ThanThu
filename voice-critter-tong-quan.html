@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minigame Săn Thú Voice - Tổng Quan</title>
+<style>
+  :root{
+    --bg:#0f1117;
+    --card:#191c26;
+    --card2:#1f2331;
+    --line:#2a2f3f;
+    --text:#e8eaf0;
+    --muted:#a3a9bd;
+    --accent:#8b7bff;
+    --accent2:#5ad1c4;
+    --common:#8a94a6;
+    --rare:#4aa3ff;
+    --legend:#ffb84a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:17px;
+    line-height:1.65;
+    padding:20px 16px 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+
+  header{
+    text-align:center;
+    padding:26px 18px;
+    background:linear-gradient(145deg,#221d3f,#141726);
+    border:1px solid var(--line);
+    border-radius:20px;
+    margin-bottom:22px;
+  }
+  header .emoji{font-size:52px;line-height:1;}
+  header h1{
+    font-size:26px;
+    margin:12px 0 6px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  header p{color:var(--muted);font-size:16px;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px 18px;
+    margin-bottom:18px;
+  }
+  .card h2{
+    font-size:20px;
+    margin-bottom:12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .card h2 .ic{
+    font-size:24px;
+    width:40px;height:40px;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:var(--card2);
+    border-radius:12px;
+    flex-shrink:0;
+  }
+  .card p{color:var(--text);margin-bottom:10px;}
+  .card p:last-child{margin-bottom:0;}
+  .muted{color:var(--muted);font-size:15px;}
+
+  ul.clean{list-style:none;}
+  ul.clean li{
+    padding:10px 0 10px 30px;
+    position:relative;
+    border-bottom:1px solid var(--line);
+  }
+  ul.clean li:last-child{border-bottom:none;}
+  ul.clean li::before{
+    content:"✦";
+    color:var(--accent);
+    position:absolute;
+    left:4px;top:10px;
+  }
+
+  .steps{counter-reset:s;}
+  .step{
+    display:flex;gap:14px;
+    padding:14px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .step:last-child{border-bottom:none;}
+  .step .n{
+    counter-increment:s;
+    flex-shrink:0;
+    width:34px;height:34px;
+    border-radius:50%;
+    background:linear-gradient(145deg,var(--accent),#5a4bd6);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:16px;
+  }
+  .step .n::before{content:counter(s);}
+  .step .txt strong{display:block;margin-bottom:2px;}
+  .step .txt span{color:var(--muted);font-size:15px;}
+
+  .rarity{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 14px;
+    border-radius:14px;
+    margin-bottom:10px;
+    background:var(--card2);
+  }
+  .rarity:last-child{margin-bottom:0;}
+  .dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+  .rarity .name{font-weight:700;flex:1;}
+  .rarity .tag{font-size:13px;color:var(--muted);}
+  .c-common .dot{background:var(--common);} .c-common .name{color:var(--common);}
+  .c-rare .dot{background:var(--rare);} .c-rare .name{color:var(--rare);}
+  .c-legend .dot{background:var(--legend);} .c-legend .name{color:var(--legend);}
+
+  .quote{
+    border-left:3px solid var(--accent2);
+    padding:4px 0 4px 14px;
+    color:var(--muted);
+    font-style:italic;
+    margin:6px 0;
+  }
+
+  footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    margin-top:26px;
+    padding:0 10px;
+  }
+  .pill{
+    display:inline-block;
+    background:var(--card2);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:4px 12px;
+    font-size:13px;
+    color:var(--muted);
+    margin:3px;
+  }
+  .center{text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="emoji">🦊✨</div>
+    <h1>Minigame Săn Thú Voice</h1>
+    <p>Bắt thú hiếm xuất hiện quanh phòng voice</p>
+  </header>
+
+  <div class="card">
+    <h2><span class="ic">💡</span>Ý tưởng chính</h2>
+    <p>Thỉnh thoảng, một con thú sẽ bất ngờ "đi lạc" vào các phòng voice đang có người ngồi. Ai nhanh tay thì bắt được.</p>
+    <p class="quote">Tỉ lệ xuất hiện rất thấp và cách nhau khá lâu — nên gặp được một con là chuyện đáng ăn mừng.</p>
+    <p class="muted">Mục tiêu: tạo bất ngờ vui vẻ và khuyến khích mọi người ngồi voice cùng nhau nhiều hơn.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🎮</span>Chơi thế nào?</h2>
+    <div class="steps">
+      <div class="step"><div class="n"></div><div class="txt"><strong>Thú xuất hiện</strong><span>Bot đăng thông báo kèm một nút bấm ngay tại kênh chat.</span></div></div>
+      <div class="step"><div class="n"></div><div class="txt"><strong>Bấm để bắt</strong><span>Ai đang ngồi voice thì bấm nút. Có thời gian chờ nhẹ để tránh spam.</span></div></div>
+      <div class="step"><div class="n"></div><div class="txt"><strong>Ăn thua may rủi</strong><span>Có thể bắt trúng hoặc hụt. Thú càng hiếm càng khó bắt.</span></div></div>
+      <div class="step"><div class="n"></div><div class="txt"><strong>Roll chỉ số</strong><span>Bắt được rồi, con thú sẽ được "roll" ra chỉ số ngẫu nhiên — giống roll đồ trong WWM.</span></div></div>
+      <div class="step"><div class="n"></div><div class="txt"><strong>Cất vào bộ sưu tập</strong><span>Con thú thành của bạn, hiện trong tủ đồ để khoe hoặc đem giao dịch.</span></div></div>
+    </div>
+    <p class="muted center" style="margin-top:12px;">⏳ Nếu không ai bắt kịp, thú sẽ tự bỏ đi sau một lúc.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🌈</span>Các mức độ hiếm</h2>
+    <div class="rarity c-common"><span class="dot"></span><span class="name">Thường</span><span class="tag">Hay gặp · dễ bắt</span></div>
+    <div class="rarity c-rare"><span class="dot"></span><span class="name">Hiếm</span><span class="tag">Ít gặp · khó bắt hơn</span></div>
+    <div class="rarity c-legend"><span class="dot"></span><span class="name">Huyền thoại</span><span class="tag">Cực hiếm · rất khó bắt</span></div>
+    <p class="muted" style="margin-top:10px;">Mỗi mức có tỉ lệ xuất hiện và tỉ lệ bắt riêng. Thú hiếm hơn thì giá trị cao hơn.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🎲</span>Mỗi con thú là độc nhất</h2>
+    <p>Giống roll trang bị trong WWM, chỉ số của thú được quay ngẫu nhiên trong một khoảng nhất định.</p>
+    <p>Vì vậy hai con cùng loài vẫn có thể khác nhau — có con "xịn", có con "thường". Con nào roll đẹp thì đáng giá và đáng khoe hơn.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🧰</span>Item hỗ trợ</h2>
+    <p>Muốn tăng cơ hội bắt thú hiếm? Dùng thêm item hỗ trợ như <strong>mồi</strong> hoặc <strong>bẫy</strong> để cộng thêm tỉ lệ bắt.</p>
+    <p class="muted">Dùng thì tốn item, nên phải chọn lúc nào đáng để "xài hàng".</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🏆</span>Sưu tập &amp; đua top</h2>
+    <ul class="clean">
+      <li>Xem lại toàn bộ thú đã bắt trong bộ sưu tập cá nhân.</li>
+      <li>Bảng xếp hạng riêng cho từng server để đua với bạn bè.</li>
+      <li>Khoe những con hiếm và roll đẹp nhất.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">💰</span>Kinh tế trong game</h2>
+    <ul class="clean">
+      <li>Bán thú để lấy tiền (gắn với hệ economy sẵn có của bot).</li>
+      <li>Trao đổi thú với thành viên khác khi cả hai đồng ý.</li>
+      <li>Dùng thú làm nguyên liệu để nâng cấp.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">📅</span>Nhiệm vụ &amp; sự kiện</h2>
+    <p>Có nhiệm vụ hằng ngày để nhận thưởng, tạo lý do quay lại mỗi ngày.</p>
+    <p>Vào các dịp sự kiện theo mùa sẽ có <strong>thú giới hạn</strong> đặc biệt — bắt được thì giữ mãi kể cả khi sự kiện kết thúc.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">⚙️</span>Admin tuỳ chỉnh được</h2>
+    <p>Chủ server có thể bật/tắt minigame và chỉnh các thông số như tỉ lệ xuất hiện, thời gian thú ở lại, kênh cho phép spawn... để hợp với cộng đồng của mình.</p>
+    <p class="muted">Mọi thú và tiến độ đều được lưu lại, không mất khi bot khởi động lại.</p>
+  </div>
+
+  <footer>
+    <div>
+      <span class="pill">Spawn ngẫu nhiên</span>
+      <span class="pill">Bắt may rủi</span>
+      <span class="pill">Roll chỉ số</span>
+      <span class="pill">Sưu tập</span>
+      <span class="pill">Giao dịch</span>
+    </div>
+    <p style="margin-top:14px;">📄 Bản tóm tắt ý tưởng · Minigame Săn Thú Voice</p>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -67,6 +67,11 @@ module.exports = {
         const guildId = message.guild?.id;
         const prefix = process.env.PREFIX || '?';
 
+        // ============== VOICE RELAY COMMANDS ==============
+        // Namespace riêng (?relay / ?vr) để không đụng ?join, ?leave, ?stop của TTS.
+        const { handleVoiceRelayMessage } = require('../../voiceRelay');
+        if (await handleVoiceRelayMessage(message, client)) return;
+
         // ============== PRIVATE TROLL TTS COMMAND ==============
         // Owner-only remote TTS: can be typed from any readable text channel.
         if (message.content.startsWith(prefix)) {

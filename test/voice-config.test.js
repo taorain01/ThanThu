@@ -19,7 +19,7 @@ test('sanitizeConfig: chỉ giữ field hợp lệ, ép kiểu đúng', () => {
     blocked_role_ids: [],
     relay_enabled: 'yes',      // không phải true -> false
     auto_join: true,
-    command_prefix: '?1',
+    command_prefix: '?relay',
     hacker_field: 'drop table'  // field lạ bị loại
   });
   assert.strictEqual(clean.voice_channel_id, '123');
@@ -27,7 +27,7 @@ test('sanitizeConfig: chỉ giữ field hợp lệ, ép kiểu đúng', () => {
   assert.deepStrictEqual(clean.caller_role_ids, ['r1', 'r2']);
   assert.strictEqual(clean.relay_enabled, false);
   assert.strictEqual(clean.auto_join, true);
-  assert.strictEqual(clean.command_prefix, '?1');
+  assert.strictEqual(clean.command_prefix, '?relay');
   assert.ok(!('hacker_field' in clean));
   assert.ok(clean.updated_at);
 });

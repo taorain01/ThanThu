@@ -14,3 +14,10 @@
 - Do not rewrite whole files unless the requested change requires it.
 - Keep changes scoped to the user's request.
 - Do not revert user changes unless the user explicitly asks for that.
+
+## Ngôn ngữ giao tiếp
+
+- Luôn giao tiếp, trả lời, giải thích và làm việc với người dùng bằng tiếng Việt.
+- Mọi phản hồi trong chat, mô tả thay đổi, tóm tắt công việc và thông báo lỗi đều dùng tiếng Việt.
+- Khi viết tài liệu (spec, requirements, design, tasks, README...) ưu tiên dùng tiếng Việt, trừ khi người dùng yêu cầu ngôn ngữ khác.
+- Giữ nguyên tên biến, tên hàm, từ khóa kỹ thuật và cú pháp lập trình bằng tiếng Anh theo chuẩn thông thường.

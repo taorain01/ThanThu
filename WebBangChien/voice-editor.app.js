@@ -11,7 +11,7 @@ function defaultConfig(botId) {
     priority_role_ids: [],
     relay_enabled: false,
     auto_join: true,
-    command_prefix: botId === 1 ? '?1' : '?2',
+    command_prefix: botId === 1 ? '?relay' : '!relay',
     auto_create_channel: false,
     created_channel_name: botId === 1 ? '🔊 Đại Ngỗng' : '🔊 Tiểu Ngỗng',
     create_position: 'below',
@@ -244,8 +244,8 @@ function renderPane(botId) {
             </div>
             <div class="field">
               <label>Prefix lệnh</label>
-              <input type="text" data-field="command_prefix" value="${esc(d.command_prefix)}" placeholder="?${botId}">
-              <div class="hint">Tránh trùng lệnh bot chính (join/leave/stop/lt/loto...).</div>
+              <input type="text" data-field="command_prefix" value="${esc(d.command_prefix)}" placeholder="${botId === 1 ? '?relay' : '!relay'}">
+              <div class="hint">Bot 1 dùng namespace riêng như ?relay hoặc ?vr; không dùng trực tiếp ?join/?leave/?stop vì đó là TTS.</div>
             </div>
           </div>
 

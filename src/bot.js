@@ -42,6 +42,14 @@ client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   await leaveUnauthorizedGuilds(client);
 
+  // Voice relay is opt-in so the existing bot keeps running without relay envs.
+  try {
+    const { initVoiceRelay } = require('./voiceRelay');
+    await initVoiceRelay(client, { defaultBotId: 1, botName: 'Đại Ngỗng' });
+  } catch (error) {
+    console.error('[VoiceRelay] Không khởi động được:', error.message);
+  }
+
   // Khởi tạo dịch vụ dịch tự động
   const { initTranslateService } = require('./utils/translateService');
   initTranslateService(client);

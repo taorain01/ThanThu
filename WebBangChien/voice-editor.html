@@ -45,7 +45,7 @@
     .wrap{width:min(1360px,100%);height:100dvh;max-height:100dvh;margin:0 auto;padding:14px 16px 12px;display:flex;flex-direction:column;overflow:hidden}
 
     /* ---------- Header ---------- */
-    .header{display:flex;align-items:center;gap:16px;margin:-14px -16px 12px;padding:12px 28px;
+    .header{display:flex;align-items:center;gap:18px;margin:-14px -16px 12px;padding:12px 28px;
       min-height:86px;flex:0 0 auto;position:relative;z-index:10;overflow:hidden;
       background:#07110b url('./anh/header_bg.png?v=20260529_v3') center 42%/cover no-repeat;
       border-bottom:1px solid rgba(251,191,36,.24);box-shadow:0 10px 24px rgba(0,0,0,.28)}
@@ -69,6 +69,8 @@
     @keyframes emberFloat{0%{transform:translateY(0) translateX(0);opacity:0}15%{opacity:1}75%{opacity:1}100%{transform:translateY(-100px) translateX(25px);opacity:0}}
     @keyframes shineSweep{0%{background-position:-200% center}100%{background-position:200% center}}
     .header>*{position:relative;z-index:1}
+    .voice-brand{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto}
+    .guild-stack{display:flex;flex-direction:column;justify-content:center;min-width:0}
     .header-coin{width:52px;height:52px;border-radius:50%;flex:0 0 auto;position:relative;overflow:hidden;
       background:linear-gradient(223deg,#463401 0%,#c5ad7c 40%,#9a803c 70%,#a79576 100%);
       border:1.5px solid rgba(255,215,0,.3);
@@ -79,7 +81,7 @@
     .header-coin::after{content:"";position:absolute;inset:0;border-radius:50%;
       background:radial-gradient(circle at 50% 50%,transparent 55%,rgba(0,0,0,.2) 75%,rgba(0,0,0,.4) 100%);
       pointer-events:none}
-    .guild-name-wrapper{filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)) drop-shadow(0 0 12px rgba(251,191,36,.3));display:inline-block;margin-top:8px;position:relative;flex:0 0 auto}
+    .guild-name-wrapper{filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)) drop-shadow(0 0 12px rgba(251,191,36,.3));display:inline-block;position:relative;flex:0 0 auto}
     .guild-name{font-family:'Playfair Display',serif;font-size:42px;font-weight:900;
       background:linear-gradient(to bottom,#fffdf2 0%,#fde68a 25%,#d9a036 50%,#f5c451 75%,#fffdf2 100%);
       -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -88,15 +90,13 @@
       background:linear-gradient(110deg,transparent 15%,rgba(255,255,255,0) 40%,rgba(255,255,255,.9) 50%,rgba(255,255,255,0) 60%,transparent 85%);
       background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
       animation:shineSweep 4s cubic-bezier(.4,0,.2,1) infinite;pointer-events:none;z-index:2}
-    .voice-header-meta{display:flex;flex-direction:column;gap:3px;min-width:190px;max-width:270px;margin-left:4px;padding:7px 11px 8px;
-      border-radius:13px;border:1px solid rgba(251,191,36,.22);
-      background:linear-gradient(135deg,rgba(8,18,12,.66),rgba(20,20,20,.50));
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px rgba(0,0,0,.25);
-      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-    .voice-title{font-size:12px;font-weight:950;letter-spacing:.9px;color:var(--gold);text-transform:uppercase;text-shadow:0 2px 5px rgba(0,0,0,.7)}
-    .voice-user{font-size:11px;color:rgba(232,246,236,.76);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .voice-badge{display:inline-flex;align-items:center;gap:5px;width:max-content;padding:2px 8px;border-radius:999px;font-size:9.5px;font-weight:950;letter-spacing:.55px;color:#0a1a0f;
+    .voice-header-meta{display:flex;align-items:center;gap:8px;min-width:0;margin-top:-4px;max-width:620px;
+      color:rgba(232,246,236,.78);text-shadow:0 2px 5px rgba(0,0,0,.72);white-space:nowrap}
+    .voice-title{font-size:12px;font-weight:950;letter-spacing:.9px;color:var(--gold);text-transform:uppercase}
+    .voice-user{min-width:0;max-width:360px;font-size:11px;color:rgba(232,246,236,.74);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .voice-badge{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:2px 8px;border-radius:999px;font-size:9.5px;font-weight:950;letter-spacing:.55px;color:#0a1a0f;
       background:linear-gradient(135deg,var(--gold),var(--green));box-shadow:0 4px 12px rgba(0,0,0,.24);text-transform:uppercase}
+    .voice-sep{width:3px;height:3px;border-radius:50%;background:rgba(251,191,36,.58);box-shadow:0 0 7px rgba(251,191,36,.3);flex:0 0 auto}
     .header-actions{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:0;flex:0 0 auto}
     .online-summary{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;
       font-size:11.5px;font-weight:900;color:#bbf7d0;white-space:nowrap;
@@ -122,7 +122,8 @@
     @media(max-width:980px){
       .header{gap:14px;padding:10px 18px;flex-wrap:wrap}
       .guild-name{font-size:32px;letter-spacing:4px}
-      .voice-header-meta{max-width:260px;flex:1 1 220px}
+      .voice-brand{flex:1 1 100%}
+      .voice-header-meta{max-width:100%}
       .header-actions{width:100%;justify-content:flex-end;gap:8px}
       .online-summary{margin-right:auto}
       .feedback-btn{height:36px;padding:0 11px}
@@ -177,13 +178,14 @@
       .wrap{padding:10px}
       .header{margin:-10px -10px 10px;padding:8px 10px;gap:8px;min-height:0}
       .header-fx::before{left:40px;width:220px;height:90px}
+      .voice-brand{gap:8px}
       .header-coin{width:36px;height:36px;margin-right:-2px}
-      .guild-name-wrapper{margin-top:4px}
       .guild-name{font-size:22px;letter-spacing:2px;padding-bottom:2px}
-      .voice-header-meta{flex:1 1 130px;min-width:0;max-width:none;margin-left:0;padding:5px 7px;border-radius:10px;gap:1px}
+      .voice-header-meta{max-width:100%;margin-top:-2px;gap:5px}
       .voice-title{font-size:10px;letter-spacing:.8px}
-      .voice-user{font-size:10px;max-width:100%}
+      .voice-user{font-size:10px;max-width:130px}
       .voice-badge{font-size:8.5px;padding:1px 6px}
+      .voice-sep{display:none}
       .header-actions{width:100%;justify-content:flex-end;gap:5px}
       .online-summary{display:none}
       .feedback-btn{height:34px;min-width:34px;padding:0 9px;border-radius:10px}
@@ -368,14 +370,19 @@
   <div class="wrap hidden" id="editorShell">
     <div class="header">
       <div class="header-fx"></div>
-      <div class="header-coin">
-        <img src="./anh/langgia_icon.png" alt="Lang Gia">
-      </div>
-      <div class="guild-name-wrapper"><div class="guild-name" data-text="LANG GIA">LANG GIA</div></div>
-      <div class="voice-header-meta">
-        <div class="voice-title">VOICE BOT</div>
-        <div class="voice-user" id="userLabel">—</div>
-        <span class="voice-badge">⚔ BANG CHIẾN</span>
+      <div class="voice-brand">
+        <div class="header-coin">
+          <img src="./anh/langgia_icon.png" alt="Lang Gia">
+        </div>
+        <div class="guild-stack">
+          <div class="guild-name-wrapper"><div class="guild-name" data-text="LANG GIA">LANG GIA</div></div>
+          <div class="voice-header-meta">
+            <span class="voice-title">VOICE BOT</span>
+            <span class="voice-sep"></span>
+            <span class="voice-user" id="userLabel">—</span>
+            <span class="voice-badge">⚔ BANG CHIẾN</span>
+          </div>
+        </div>
       </div>
       <div class="header-actions">
         <span class="online-summary" id="onlineSummary"><span class="dot"></span>—/3 online</span>

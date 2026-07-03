@@ -107,12 +107,12 @@ start_bot3() {
 log "Thư mục chạy: $(pwd)"
 log "Node: $(node -v 2>/dev/null || printf 'không tìm thấy')"
 
-# Bot Discord không dùng các folder web (chỉ phục vụ deploy Vercel).
-# Sau mỗi lần host git pull, xóa chúng khỏi bản chạy để tiết kiệm dung lượng.
-# Repo trên GitHub vẫn giữ nguyên các folder này, chỉ dọn bản copy trên host.
-for web_dir in "WebBangChien" "WebTimer"; do
+# Bot Discord không dùng các folder web/tài nguyên (WebBangChien/WebTimer phục vụ Vercel,
+# anh = ảnh gốc, rac = lưu trữ). Sau mỗi lần host git pull, xóa chúng khỏi bản chạy
+# để tiết kiệm dung lượng. Repo trên GitHub và Vercel vẫn giữ nguyên các folder này.
+for web_dir in "WebBangChien" "WebTimer" "anh" "rac"; do
   if [ -d "$web_dir" ]; then
-    log "Dọn folder web không cần cho bot: $web_dir"
+    log "Dọn folder không cần cho bot: $web_dir"
     rm -rf "$web_dir" || true
   fi
 done

@@ -13,19 +13,20 @@
   <style>
     :root{
       /* LIGHT THEME (Imperial Jade & Shimmering Gold) */
-      --bg:#f4f9f6; --panel:rgba(255,255,255,0.85); --panel-2:#ffffff;
-      --line:rgba(16,185,129,0.16); --line-strong:rgba(217,119,6,0.24);
-      --text:#111c15; --muted:#4a5c51; --gold:#d97706; --gold-glow:#f59e0b;
-      --green:#059669; --green-2:#047857; --danger:#ea580c; --danger-2:#9a3412;
-      --shadow:rgba(16,185,129,0.10); --glass:rgba(255,255,255,0.55);
+      --bg:#eef5f0; --panel:rgba(255,255,255,0.92); --panel-2:#ffffff;
+      --line:rgba(16,185,129,0.16); --line-strong:rgba(217,119,6,0.26);
+      --text:#0f1a13; --muted:#516357; --gold:#c67d0a; --gold-glow:#f59e0b; --gold-dark:#a45f06;
+      --green:#059669; --green-2:#047857; --danger:#e04a1f; --danger-2:#9a3412;
+      --shadow:rgba(16,120,90,0.12); --glass:rgba(255,255,255,0.6);
+      --radius:16px; --radius-sm:11px;
     }
     body.theme-dark{
-      /* FOREST DARK THEME */
-      --bg:#07140c; --panel:#0d1b12; --panel-2:#112218;
-      --line:rgba(141,255,183,.14); --line-strong:rgba(141,255,183,.3);
-      --text:#e8f6ec; --muted:#93b3a0; --gold:#f6c453; --gold-glow:#fde68a;
-      --green:#3ad07e; --green-2:#1f8f53; --danger:#ff6b6b; --danger-2:#a43d3d;
-      --shadow:rgba(0,0,0,0.5); --glass:rgba(255,255,255,.04);
+      /* FOREST DARK THEME (refined) */
+      --bg:#050f09; --panel:rgba(17,32,22,0.78); --panel-2:rgba(23,42,29,0.72);
+      --line:rgba(141,255,183,.12); --line-strong:rgba(141,255,183,.26);
+      --text:#eaf7ee; --muted:#8ba895; --gold:#f7cd5f; --gold-glow:#ffe49b; --gold-dark:#e0a83a;
+      --green:#42d986; --green-2:#219a5b; --danger:#ff7a6b; --danger-2:#a43d3d;
+      --shadow:rgba(0,0,0,0.55); --glass:rgba(255,255,255,.035);
     }
     :root{--ribbon:linear-gradient(135deg,var(--gold),var(--green-2))}
     @keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 rgba(58,208,126,.55)}70%{box-shadow:0 0 0 6px rgba(58,208,126,0)}}
@@ -36,8 +37,9 @@
       margin:0;font-family:'Inter',Segoe UI,Arial,sans-serif;color:var(--text);
       background:var(--bg);
       background-image:
-        radial-gradient(circle at 15% -10%, rgba(58,208,126,.10), transparent 40%),
-        radial-gradient(circle at 90% 0%, rgba(246,196,83,.10), transparent 42%);
+        radial-gradient(circle at 12% -8%, rgba(66,217,134,.14), transparent 42%),
+        radial-gradient(circle at 92% 4%, rgba(247,205,95,.12), transparent 46%),
+        radial-gradient(circle at 50% 120%, rgba(33,154,91,.10), transparent 55%);
       background-attachment:fixed;
       min-height:100dvh;overflow:hidden;
     }
@@ -149,9 +151,9 @@
 
     /* ---------- Bot tabs ---------- */
     .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;flex:0 0 auto}
-    .tab{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--line);background:var(--panel);border-radius:14px;cursor:pointer;transition:.2s;position:relative;overflow:hidden;min-width:0}
-    .tab:hover{border-color:var(--line-strong);transform:translateY(-1px)}
-    .tab.active{border-color:var(--gold);box-shadow:0 8px 22px var(--shadow)}
+    .tab{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1.5px solid var(--line);background:var(--panel);border-radius:var(--radius);cursor:pointer;transition:.22s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;min-width:0;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    .tab:hover{border-color:var(--line-strong);transform:translateY(-2px);box-shadow:0 8px 20px var(--shadow)}
+    .tab.active{border-color:var(--gold);box-shadow:0 10px 26px var(--shadow),0 0 0 1px rgba(247,205,95,.18)}
     .tab.active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(var(--gold),var(--green))}
     .tab .ribbon{position:absolute;top:6px;right:8px;font-size:8.5px;font-weight:900;letter-spacing:.4px;color:#0a1a0f;background:var(--ribbon);border-radius:6px;padding:1px 6px;text-transform:uppercase;pointer-events:none}
     .tab .avatar{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:21px;
@@ -220,17 +222,17 @@
       .pane-scroll{overflow:visible}
     }
     @media(max-width:760px){.grid{grid-template-columns:1fr}}
-    .section{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:0 6px 18px var(--shadow);backdrop-filter:blur(8px)}
-    .section::before{content:"";position:absolute;top:0;left:0;right:0;height:2.5px;background:linear-gradient(90deg,var(--gold),var(--green),transparent)}
-    .section::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 100% 0%, rgba(246,196,83,.06), transparent 45%)}
+    .section{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;margin-bottom:12px;box-shadow:0 8px 24px var(--shadow),inset 0 1px 0 rgba(255,255,255,.04);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+    .section::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),var(--green),transparent);opacity:.85}
+    .section::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(130% 100% at 100% 0%, rgba(247,205,95,.05), transparent 48%)}
     .section > *{position:relative;z-index:1}
-    .section h3{margin:0 0 10px;font-size:12px;color:var(--gold);display:flex;align-items:center;gap:7px;font-weight:900;letter-spacing:.4px;text-transform:uppercase}
+    .section h3{margin:0 0 12px;font-size:12px;color:var(--gold);display:flex;align-items:center;gap:7px;font-weight:900;letter-spacing:.6px;text-transform:uppercase}
     .field{margin-bottom:10px}
     .field:last-child{margin-bottom:0}
     .field label{display:block;font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:5px}
     .field .hint{font-size:10.5px;color:var(--muted);margin-top:4px;font-weight:500;line-height:1.35}
-    select,input[type=text]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);border-radius:10px;font-size:12.5px;font-family:inherit;outline:none;transition:.15s}
-    select:focus,input[type=text]:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--shadow)}
+    select,input[type=text]{width:100%;padding:9px 11px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);border-radius:var(--radius-sm);font-size:12.5px;font-family:inherit;outline:none;transition:.16s}
+    select:focus,input[type=text]:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(247,205,95,.16)}
     .seg{display:flex;gap:6px}
     .seg button{flex:1;padding:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);border-radius:10px;font-weight:800;cursor:pointer;font-size:12px;font-family:inherit;transition:.15s}
     .seg button:hover{border-color:var(--line-strong)}
@@ -375,7 +377,7 @@
           <img src="./anh/langgia_icon.png" alt="Lang Gia">
         </div>
         <div class="guild-stack">
-          <div class="guild-name-wrapper"><div class="guild-name" data-text="LANG GIA">LANG GIA</div></div>
+          <div class="guild-name-wrapper"><div class="guild-name" data-text="VOICEBOT">VOICEBOT</div></div>
           <div class="voice-header-meta">
             <span class="voice-title">VOICE BOT</span>
             <span class="voice-sep"></span>

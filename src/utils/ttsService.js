@@ -75,7 +75,6 @@ async function joinChannel(voiceChannel) {
 
     // Nếu bị disconnect (kick), hủy connection luôn để không tự rejoin
     connection.on('stateChange', (oldState, newState) => {
-        console.log(`[TTS] Connection state: ${oldState.status} → ${newState.status}`);
         if (newState.status === VoiceConnectionStatus.Disconnected) {
             console.log(`[TTS] ⚠️ Bị disconnect! Hủy connection, không tự rejoin.`);
             storage.removeVoiceState(voiceChannel.guild.id);
@@ -87,7 +86,6 @@ async function joinChannel(voiceChannel) {
                 const q = queues.get(gId);
                 q.items = [];
                 q.processing = false;
-                console.log(`[TTS] ♻️ Reset queue cho guild ${gId}`);
             }
         }
     });
@@ -163,7 +161,6 @@ async function processQueue(guildId) {
 
     while (queue.items.length > 0) {
         if (!isConnected(guildId)) {
-            console.log(`[TTS] Queue dừng: bot không còn connected`);
             queue.items = [];
             break;
         }
@@ -214,7 +211,6 @@ function playText(guildId, text) {
             // Kiểm tra connection TRƯỚC khi fetch audio (tránh fetch vô ích)
             const connection = getVoiceConnection(guildId);
             if (!connection || connection.state.status === 'destroyed') {
-                console.log(`[TTS] ❌ Không có connection khi chuẩn bị play → skip`);
                 cleanup();
                 return resolve();
             }
@@ -225,13 +221,11 @@ function playText(guildId, text) {
                 host: 'https://translate.google.com'
             });
 
-            console.log(`[TTS] Fetching audio cho: "${text.substring(0, 30)}"`);
             const response = await fetch(audioUrl);
             if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
 
             const arrayBuffer = await response.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
-            console.log(`[TTS] Audio buffer size: ${buffer.length} bytes`);
             const stream = Readable.from(buffer);
 
             const resource = createAudioResource(stream, { inputType: 'arbitrary' });
@@ -239,22 +233,18 @@ function playText(guildId, text) {
             // Re-check connection sau khi fetch (có thể bot bị kick trong lúc fetch)
             const conn = getVoiceConnection(guildId);
             if (!conn || conn.state.status === 'destroyed') {
-                console.log(`[TTS] ❌ Connection mất sau khi fetch audio → skip`);
                 cleanup();
                 return resolve();
             }
 
             // Re-subscribe nếu mất subscription
             if (!conn.state.subscription) {
-                console.log(`[TTS] ⚠️ Mất subscription! Re-subscribe...`);
                 conn.subscribe(player);
             }
 
             player.on(AudioPlayerStatus.Idle, onIdle);
             player.on('error', onError);
             player.play(resource);
-
-            console.log(`[TTS] Speaking: "${text.substring(0, 50)}"`);
         } catch (error) {
             console.error('[TTS] PlayText error:', error.message);
             cleanup();
@@ -269,15 +259,12 @@ function playText(guildId, text) {
  * @param {string} text - Text to speak
  */
 async function speak(guildId, text) {
-    console.log(`[TTS] speak() được gọi, guildId: ${guildId}, connected: ${isConnected(guildId)}`);
     if (!isConnected(guildId)) {
-        console.log(`[TTS] ❌ Không connected → bỏ qua`);
         return false;
     }
 
     const sanitizedText = sanitizeTtsText(text);
     if (!sanitizedText || sanitizedText.trim().length === 0) {
-        console.log(`[TTS] ❌ Text rỗng → bỏ qua`);
         return false;
     }
 
@@ -290,7 +277,6 @@ async function speak(guildId, text) {
     }
     const queue = queues.get(guildId);
     queue.items.push(textToSpeak);
-    console.log(`[TTS] Đã thêm vào queue, queue size: ${queue.items.length}, processing: ${queue.processing}`);
 
     // Bắt đầu xử lý nếu chưa đang xử lý
     processQueue(guildId);

@@ -3,8 +3,9 @@ const { VoiceConnectionStatus } = require('@discordjs/voice');
 const ttsService = require('./ttsService');
 
 const FALLBACK_TTS_BOT_IDS = [
-    '1484078950312316968',
-    '513423712582762502'
+    '1249314016371675258', // Bot 1 - Đại Ngỗng
+    '1484078950312316968', // Bot 2 - Tiểu Ngỗng
+    '1484855462233899150'  // Bot 3 - Chiến Ngỗng
 ];
 
 const DEFAULT_RELAY_BLOCK_MESSAGE = '🔇 Voice relay đang bật. Hãy tắt relay trước khi dùng TTS.';

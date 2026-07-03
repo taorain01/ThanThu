@@ -19,10 +19,13 @@ const JOIN_FAIL_JOKES = [
 
 async function execute(message, args) {
     return executeTtsCommand(message, args, {
+        client: message.client,
         prefix: process.env.PREFIX || '?',
         botName: 'Đại Ngỗng',
         joinFailMessages: JOIN_FAIL_JOKES,
-        silentLeaveWhenDisconnected: true
+        silentLeaveWhenDisconnected: true,
+        smartPool: true,
+        isResponder: true // '?' là prefix gốc của Đại Ngỗng nên nó phát thông báo chung
     });
 }
 

@@ -57,12 +57,151 @@ function canJoinTtsChannel(channel, options = {}) {
     };
 }
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Thời gian mỗi bậc "backup" chờ trước khi thế chỗ bot ưu tiên hơn (nếu bot đó offline/không vào được).
+const SMART_JOIN_BACKUP_STEP_MS = 2500;
+
+// Thứ tự ưu tiên các bot TTS (bot đứng trước được ưu tiên vào phòng trước).
+function getTtsBotPriority(options = {}) {
+    const env = options.env || process.env;
+    const currentBotId = normalizeDiscordId(options.currentBotId);
+    const ordered = parseIdList(env.TTS_BOT_PRIORITY);
+    const ids = ordered.length > 0 ? ordered : getConfiguredTtsBotIds({ env, currentBotId });
+    return [...new Set(ids.map(normalizeDiscordId).filter(Boolean))];
+}
+
+// Kênh voice hiện tại của một bot (quan sát qua voice state của guild — mọi bot đều thấy được).
+function getBotVoiceChannelId(guild, botId) {
+    const id = normalizeDiscordId(botId);
+    if (!id) return null;
+    const voiceState = guild?.voiceStates?.cache?.get?.(id);
+    return voiceState?.channelId || null;
+}
+
+function voiceChannelHasHumanById(guild, channelId) {
+    if (!channelId) return false;
+    const channel = guild?.channels?.cache?.get?.(channelId);
+    return channelHasHuman(channel);
+}
+
+// Bot đang ở trong phòng target (nếu có).
+function findTtsBotInChannel(guild, channelId, ttsBotIds) {
+    return ttsBotIds.find((id) => getBotVoiceChannelId(guild, id) === channelId) || null;
+}
+
+// Bot "bận" = đang ở một phòng khác target và phòng đó còn người thật.
+function isBotBusyElsewhere(guild, botId, targetChannelId) {
+    const channelId = getBotVoiceChannelId(guild, botId);
+    if (!channelId) return false;                 // không ở voice → rảnh
+    if (channelId === targetChannelId) return false;
+    return voiceChannelHasHumanById(guild, channelId);
+}
+
+/**
+ * Quyết định hành động cho bot HIỆN TẠI khi có lệnh ?join chung (pool 3 bot).
+ * Trả về { action, ... } với action:
+ *   - 'already-here'  : chính bot này đang ở phòng target
+ *   - 'occupied'      : phòng target đã có bot TTS khác (bot này im lặng)
+ *   - 'busy-self'     : bot này đang bận phòng khác (im lặng, nhường bot khác)
+ *   - 'all-busy'      : không bot nào rảnh
+ *   - 'join'          : bot này nên vào (kèm myPos = thứ hạng trong danh sách bot rảnh)
+ */
+function decideSmartJoin({ guild, targetChannel, myBotId, env }) {
+    const ttsBotIds = getConfiguredTtsBotIds({ env, currentBotId: myBotId });
+    const priority = getTtsBotPriority({ env, currentBotId: myBotId });
+    const rankOf = (id) => {
+        const index = priority.indexOf(normalizeDiscordId(id));
+        return index === -1 ? 999 : index;
+    };
+    const me = normalizeDiscordId(myBotId);
+    const targetId = targetChannel.id;
+
+    const botInTarget = findTtsBotInChannel(guild, targetId, ttsBotIds);
+    if (botInTarget) {
+        return botInTarget === me ? { action: 'already-here' } : { action: 'occupied', by: botInTarget };
+    }
+
+    const freeBots = ttsBotIds
+        .filter((id) => !isBotBusyElsewhere(guild, id, targetId))
+        .sort((a, b) => rankOf(a) - rankOf(b));
+
+    if (freeBots.length === 0) return { action: 'all-busy' };
+
+    const myPos = freeBots.indexOf(me);
+    if (myPos === -1) return { action: 'busy-self' }; // mình đang bận phòng khác, nhường bot rảnh
+
+    return { action: 'join', myPos, freeBots };
+}
+
+async function handleSmartJoin(message, voiceChannel, options) {
+    const guild = message.guild;
+    const myBotId = message.client?.user?.id;
+    const env = options.env || process.env;
+    const botName = options.botName || message.client?.user?.username || 'Bot TTS';
+
+    const decision = decideSmartJoin({ guild, targetChannel: voiceChannel, myBotId, env });
+
+    if (decision.action === 'already-here') {
+        await message.reply(`🎤 ${botName} đã ở **${voiceChannel.name}** rồi! Gõ \`.nội dung\` để bot đọc.`);
+        return true;
+    }
+    if (decision.action === 'occupied' || decision.action === 'busy-self') {
+        return true; // im lặng, để bot phù hợp xử lý
+    }
+    if (decision.action === 'all-busy') {
+        if (options.isResponder) {
+            await message.reply('😴 Tất cả bot TTS đang bận ở phòng khác rồi, chờ chút hoặc gõ `?leave` ở phòng đó nhé.');
+        }
+        return true;
+    }
+
+    // action === 'join'. Bot đứng đầu danh sách rảnh (myPos 0) vào ngay;
+    // các bot backup chờ theo bậc rồi mới thế chỗ nếu phòng vẫn trống (bot ưu tiên offline).
+    if (decision.myPos > 0) {
+        await delay(decision.myPos * SMART_JOIN_BACKUP_STEP_MS);
+        const stillEmpty = !findTtsBotInChannel(
+            guild,
+            voiceChannel.id,
+            getConfiguredTtsBotIds({ env, currentBotId: myBotId })
+        );
+        if (!stillEmpty) return true;                 // bot khác đã vào
+        if (isBotBusyElsewhere(guild, myBotId, voiceChannel.id)) return true; // mình vừa bận
+    }
+
+    return performTtsJoin(message, voiceChannel, options, botName);
+}
+
+async function performTtsJoin(message, voiceChannel, options, botName) {
+    // Nếu bot đang có connection cũ (phòng trống/đã destroy) thì rời trước khi vào phòng mới.
+    const currentConnection = ttsService.getConnection(message.guild.id);
+    if (currentConnection) {
+        try { ttsService.leaveChannel(message.guild.id); } catch (error) { /* ignore */ }
+    }
+
+    const permissions = voiceChannel.permissionsFor?.(message.client.user);
+    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions?.has(PermissionFlagsBits.Speak)) {
+        return message.reply('❌ Bot không có quyền vào hoặc nói trong voice channel này!');
+    }
+
+    try {
+        await ttsService.joinChannel(voiceChannel);
+        await message.reply(`🎤 ${botName} đã vào **${voiceChannel.name}**! Gõ \`.nội dung\` để bot đọc.`);
+    } catch (error) {
+        console.error('[TTS] Join error:', error.message);
+        await message.reply(getJoinFailMessage(options, botName));
+    }
+    return true;
+}
+
 async function executeTtsCommand(message, args = [], options = {}) {
     const command = (options.commandName || getCommandFromMessage(message, options.prefix)).toLowerCase();
     if (!['join', 'leave', 'stop'].includes(command)) return false;
 
     if (isRelayTtsBlocked(options.client || message.client)) {
-        await message.reply(options.relayBlockMessage || DEFAULT_RELAY_BLOCK_MESSAGE);
+        if (!options.smartPool || options.isResponder) {
+            await message.reply(options.relayBlockMessage || DEFAULT_RELAY_BLOCK_MESSAGE);
+        }
         return true;
     }
 
@@ -116,7 +255,12 @@ async function handleJoin(message, args, options) {
     const voiceChannel = await resolveVoiceChannel(message, args, options);
 
     if (!voiceChannel) {
+        if (options.smartPool && !options.isResponder) return true; // tránh 3 bot cùng báo lỗi
         return message.reply(`❌ Bạn cần vào voice channel trước, hoặc dùng \`${prefix}join <voiceChannelId>\`.`);
+    }
+
+    if (options.smartPool) {
+        return handleSmartJoin(message, voiceChannel, options);
     }
 
     const currentConnection = ttsService.getConnection(message.guild.id);
@@ -188,7 +332,23 @@ async function handleCurrentConnection(message, targetChannel, currentConnection
 
 async function handleLeave(message, options) {
     const connection = ttsService.getConnection(message.guild.id);
-    if (!connection || connection.state?.status === VoiceConnectionStatus.Destroyed) {
+    const disconnected = !connection || connection.state?.status === VoiceConnectionStatus.Destroyed;
+
+    if (options.smartPool) {
+        if (disconnected) return true; // bot này không ở voice → im lặng
+        const callerChannel = message.member?.voice?.channel;
+        const myChannelId = connection.joinConfig?.channelId;
+        if (callerChannel) {
+            if (myChannelId !== callerChannel.id) return true; // không phải phòng của người gọi
+        } else if (!options.isResponder) {
+            return true; // người gọi không ở voice → chỉ bot responder xử lý
+        }
+        ttsService.leaveChannel(message.guild.id);
+        await message.reply('👋 Đã rời voice channel!');
+        return true;
+    }
+
+    if (disconnected) {
         if (options.silentLeaveWhenDisconnected) return true;
         return message.reply('❌ Bot không ở trong voice channel nào!');
     }
@@ -200,7 +360,23 @@ async function handleLeave(message, options) {
 
 async function handleStop(message, options) {
     const connection = ttsService.getConnection(message.guild.id);
-    if (!connection || connection.state?.status === VoiceConnectionStatus.Destroyed) {
+    const disconnected = !connection || connection.state?.status === VoiceConnectionStatus.Destroyed;
+
+    if (options.smartPool) {
+        if (disconnected) return true;
+        const callerChannel = message.member?.voice?.channel;
+        const myChannelId = connection.joinConfig?.channelId;
+        if (callerChannel) {
+            if (myChannelId !== callerChannel.id) return true;
+        } else if (!options.isResponder) {
+            return true;
+        }
+        ttsService.stop(message.guild.id);
+        await message.reply('⏹️ Đã dừng đọc!');
+        return true;
+    }
+
+    if (disconnected) {
         return message.reply('❌ Bot không ở trong voice channel nào!');
     }
 
@@ -321,9 +497,12 @@ module.exports = {
     FALLBACK_TTS_BOT_IDS,
     DEFAULT_RELAY_BLOCK_MESSAGE,
     canJoinTtsChannel,
+    decideSmartJoin,
     executeTtsCommand,
     findOtherTtsBotsInChannel,
+    findTtsBotInChannel,
     getConfiguredTtsBotIds,
+    getTtsBotPriority,
     handleTtsAutoRead,
     isRelayTtsBlocked
 };

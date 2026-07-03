@@ -51,6 +51,25 @@ client.on("messageCreate", async (message) => {
 
   if (await handleTtsAutoRead(message, { client, botName: "Tiểu Ngỗng" })) return;
 
+  // Lệnh TTS chung ?join/?leave/?stop — pool 3 bot, bot nào rảnh thì vào, mỗi phòng 1 bot.
+  const ttsPrefix = process.env.TTS_COMMAND_PREFIX || "?";
+  if (ttsPrefix !== prefix && message.content.startsWith(ttsPrefix)) {
+    const [sharedCmd, ...sharedArgs] = message.content.slice(ttsPrefix.length).trim().split(/\s+/);
+    const sc = sharedCmd?.toLowerCase();
+    if (["join", "leave", "stop"].includes(sc)) {
+      return executeTtsCommand(message, sharedArgs, {
+        client,
+        prefix: ttsPrefix,
+        commandName: sc,
+        botName: "Tiểu Ngỗng",
+        allowVoiceChannelId: true,
+        defaultVoiceChannelId,
+        smartPool: true,
+        isResponder: false, // prefix gốc của Tiểu Ngỗng là '!' nên không phát thông báo chung
+      });
+    }
+  }
+
   if (!message.content.startsWith(prefix)) return;
 
   const [commandName, ...args] = message.content.slice(prefix.length).trim().split(/\s+/);

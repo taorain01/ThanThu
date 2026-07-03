@@ -56,6 +56,23 @@ async function joinChannel(voiceChannel) {
         selfDeaf: false,
         selfMute: false
     });
+    // Bắt lỗi connection để tránh unhandled 'error' làm crash cả tiến trình
+    // (ví dụ "Cannot perform IP discovery - socket closed" trên một số host).
+    connection.on('error', (error) => {
+        console.error(`[TTS] ⚠️ Voice connection error: ${error?.message || error}`);
+        try {
+            storage.removeVoiceState(voiceChannel.guild.id);
+        } catch (e) { }
+        try { connection.destroy(); } catch (e) { }
+        players.delete(voiceChannel.guild.id);
+        const gId = voiceChannel.guild.id;
+        if (queues.has(gId)) {
+            const q = queues.get(gId);
+            q.items = [];
+            q.processing = false;
+        }
+    });
+
     // Nếu bị disconnect (kick), hủy connection luôn để không tự rejoin
     connection.on('stateChange', (oldState, newState) => {
         console.log(`[TTS] Connection state: ${oldState.status} → ${newState.status}`);

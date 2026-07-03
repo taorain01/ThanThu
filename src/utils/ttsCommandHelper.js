@@ -62,6 +62,9 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // Thời gian mỗi bậc "backup" chờ trước khi thế chỗ bot ưu tiên hơn (nếu bot đó offline/không vào được).
 const SMART_JOIN_BACKUP_STEP_MS = 2500;
 
+// Sau khi join, chờ voice-state của các bot ổn định rồi mới tự hoà giải "1 bot/phòng".
+const SMART_JOIN_RECONCILE_MS = 1500;
+
 // Thứ tự ưu tiên các bot TTS (bot đứng trước được ưu tiên vào phòng trước).
 function getTtsBotPriority(options = {}) {
     const env = options.env || process.env;
@@ -172,6 +175,33 @@ async function handleSmartJoin(message, voiceChannel, options) {
     return performTtsJoin(message, voiceChannel, options, botName);
 }
 
+// Lưới an toàn chống race: nếu vì độ trễ voice-state mà >1 bot cùng vào 1 phòng,
+// bot có ưu tiên thấp hơn sẽ tự rời, chỉ giữ lại bot ưu tiên cao nhất.
+// Trả về true nếu bot HIỆN TẠI đã tự rời (nhường phòng).
+async function reconcileOnePerRoom(guild, channelId, myBotId, env) {
+    await delay(SMART_JOIN_RECONCILE_MS);
+
+    const me = normalizeDiscordId(myBotId);
+    const ttsBotIds = getConfiguredTtsBotIds({ env, currentBotId: me });
+    const priority = getTtsBotPriority({ env, currentBotId: me });
+    const rankOf = (id) => {
+        const index = priority.indexOf(normalizeDiscordId(id));
+        return index === -1 ? 999 : index;
+    };
+
+    const botsHere = ttsBotIds
+        .filter((id) => getBotVoiceChannelId(guild, id) === channelId)
+        .sort((a, b) => rankOf(a) - rankOf(b));
+
+    if (botsHere.length <= 1) return false;      // chỉ 1 bot → ổn
+    if (botsHere[0] === me) return false;         // mình là bot ưu tiên nhất → ở lại
+
+    // Có bot ưu tiên cao hơn cùng phòng → mình rời để tránh 2 bot chung phòng.
+    console.log(`[TTS] ⚖️ Race: ${botsHere.length} bot cùng phòng, ${me} nhường cho ${botsHere[0]}`);
+    try { ttsService.leaveChannel(guild.id); } catch (error) { /* ignore */ }
+    return true;
+}
+
 async function performTtsJoin(message, voiceChannel, options, botName) {
     // Nếu bot đang có connection cũ (phòng trống/đã destroy) thì rời trước khi vào phòng mới.
     const currentConnection = ttsService.getConnection(message.guild.id);
@@ -186,6 +216,18 @@ async function performTtsJoin(message, voiceChannel, options, botName) {
 
     try {
         await ttsService.joinChannel(voiceChannel);
+
+        // Chống race: nếu lỡ có bot khác cùng vào, nhường bot ưu tiên cao hơn.
+        if (options.smartPool) {
+            const yielded = await reconcileOnePerRoom(
+                message.guild,
+                voiceChannel.id,
+                message.client?.user?.id,
+                options.env || process.env
+            );
+            if (yielded) return true; // đã tự rời, không báo "đã vào"
+        }
+
         await message.reply(`🎤 ${botName} đã vào **${voiceChannel.name}**! Gõ \`.nội dung\` để bot đọc.`);
     } catch (error) {
         console.error('[TTS] Join error:', error.message);

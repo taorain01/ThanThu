@@ -160,8 +160,8 @@ async function quickSetup(runtime) {
 
   const created = [];
   const targets = [
-    { botId: 2, name: '⚡ Tiểu Ngỗng', offset: 1 },
-    { botId: 3, name: '⚡ Chiến Ngỗng', offset: 2 }
+    { botId: 2, name: '⚡ Bang Chiến Team 2', offset: 1 },
+    { botId: 3, name: '⚡ Bang Chiến Team 3', offset: 2 }
   ];
 
   for (const target of targets) {

@@ -466,8 +466,8 @@ function autoRoomMap() {
     <div class="discord-map">
       <div class="discord-category">VOICE</div>
       ${discordRoomPreview({ name: anchorName, botId: 1, muted: !quickAnchorId, badge: quickAnchorId ? 'mặc định' : 'chưa tìm thấy', tone: quickAnchorId ? 'default' : 'empty' })}
-      ${discordRoomPreview({ name: '⚡ Tiểu Ngỗng', botId: 2, badge: 'sẽ tạo', tone: 'create' })}
-      ${discordRoomPreview({ name: '⚡ Chiến Ngỗng', botId: 3, badge: 'sẽ tạo', tone: 'create' })}
+      ${discordRoomPreview({ name: '⚡ Bang Chiến Team 2', botId: 2, badge: 'sẽ tạo', tone: 'create' })}
+      ${discordRoomPreview({ name: '⚡ Bang Chiến Team 3', botId: 3, badge: 'sẽ tạo', tone: 'create' })}
     </div>`;
 }
 

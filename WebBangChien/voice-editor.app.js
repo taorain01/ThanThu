@@ -1222,14 +1222,21 @@ async function doAction(botId, action) {
 window.doAction = doAction;
 
 function quickSetupPayload() {
-  const callerRoleIds = defaultCallerRoleIds();
+  const policySource = settingScope === 'shared'
+    ? sharedDraft
+    : (drafts[1] || configs[1] || {});
+  const callerRoleIds = (policySource.caller_role_ids || []).length
+    ? [...policySource.caller_role_ids]
+    : defaultCallerRoleIds();
+  const callerUserIds = [...(policySource.caller_user_ids || [])];
   if (quickSetupMode === 'manual') {
     const err = manualSetupError();
     if (err) throw new Error(err);
     return {
       setup_mode: 'manual',
       manual_channel_ids: Object.fromEntries(BOT_IDS.map((botId) => [String(botId), manualChannelIds[botId]])),
-      caller_role_ids: callerRoleIds
+      caller_role_ids: callerRoleIds,
+      caller_user_ids: callerUserIds
     };
   }
 
@@ -1237,7 +1244,8 @@ function quickSetupPayload() {
   return {
     setup_mode: 'auto',
     voice_channel_id: quickAnchorId,
-    caller_role_ids: callerRoleIds
+    caller_role_ids: callerRoleIds,
+    caller_user_ids: callerUserIds
   };
 }
 

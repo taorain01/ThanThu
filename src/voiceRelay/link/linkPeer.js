@@ -21,6 +21,7 @@ class LinkPeer extends EventEmitter {
     this.reconnectTimer = null;
     this.heartbeatTimer = null;
     this.connected = false;
+    this.audioReceiveLogAt = new Map();
   }
 
   start() {
@@ -145,19 +146,28 @@ class LinkPeer extends EventEmitter {
   }
 
   routeAudioFrame(frame, encoded) {
-    if (frame.targets.includes(this.env.botId) && frame.srcBotId !== this.env.botId) this.emit('audio', frame);
+    let delivered = false;
+    if (frame.targets.includes(this.env.botId) && frame.srcBotId !== this.env.botId) {
+      this.logReceivedAudio(frame);
+      this.emit('audio', frame);
+      delivered = true;
+    }
     for (const targetId of frame.targets) {
       if (targetId === this.env.botId || targetId === frame.srcBotId) continue;
-      this.sendToBot(targetId, encoded);
+      if (this.sendToBot(targetId, encoded)) delivered = true;
     }
+    return delivered;
   }
 
   sendToBot(botId, data) {
+    let sent = false;
     for (const client of this.clients) {
       if (client.peerBotId === Number(botId) && client.readyState === WebSocket.OPEN && client.isAuthed) {
         client.send(data);
+        sent = true;
       }
     }
+    return sent;
   }
 
   sendAudio(srcBotId, targets, userId, opus) {
@@ -165,24 +175,32 @@ class LinkPeer extends EventEmitter {
     const frame = encodeAudioFrame(srcBotId, targetsMask, userId, opus);
     if (this.env.linkMode === 'server') {
       const decoded = decodeAudioFrame(frame);
-      if (decoded) this.routeAudioFrame(decoded, frame);
-      return;
+      if (decoded) return this.routeAudioFrame(decoded, frame);
+      return false;
     }
-    this.sendRaw(frame);
+    return this.sendRaw(frame);
   }
 
   sendControl(message) {
-    this.sendRaw(Buffer.from(JSON.stringify(message), 'utf8'));
+    return this.sendRaw(Buffer.from(JSON.stringify(message), 'utf8'));
   }
 
   sendRaw(data) {
     if (this.env.linkMode === 'server') {
+      let sent = false;
       for (const client of this.clients) {
-        if (client.readyState === WebSocket.OPEN && client.isAuthed) client.send(data);
+        if (client.readyState === WebSocket.OPEN && client.isAuthed) {
+          client.send(data);
+          sent = true;
+        }
       }
-      return;
+      return sent;
     }
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(data);
+      return true;
+    }
+    return false;
   }
 
   getPeerUserIds() {
@@ -190,6 +208,18 @@ class LinkPeer extends EventEmitter {
     return [...this.clients]
       .map((client) => client.peerUserId)
       .filter(isDiscordSnowflake);
+  }
+
+  logReceivedAudio(frame) {
+    if (this.env.linkMode !== 'server') return;
+    const key = `${frame.srcBotId}:${frame.userId}`;
+    const now = Date.now();
+    if (now - (this.audioReceiveLogAt.get(key) || 0) < 5000) return;
+    this.audioReceiveLogAt.set(key, now);
+    this.logger.info(`Đã nhận audio từ Bot${frame.srcBotId} cho Bot${this.env.botId}: user ${frame.userId}`, {
+      targets: frame.targets,
+      bytes: frame.opus?.length || 0
+    });
   }
 }
 

@@ -177,7 +177,8 @@ test('buildQuickSetupRows: auto setup gửi quickSetup cho Bot 1', () => {
   const built = buildQuickSetupRows('guild-1', {
     setup_mode: 'auto',
     voice_channel_id: 'bangchien',
-    caller_role_ids: ['role-kycuu']
+    caller_role_ids: ['role-kycuu'],
+    caller_user_ids: ['user-allowed']
   });
   assert.strictEqual(built.setupMode, 'auto');
   assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
@@ -185,6 +186,8 @@ test('buildQuickSetupRows: auto setup gửi quickSetup cho Bot 1', () => {
   assert.strictEqual(built.rows[0].pending_action, 'quickSetup');
   assert.strictEqual(built.rows[1].pending_action, null);
   assert.deepStrictEqual(built.rows[2].relay_targets, ['1', '2']);
+  assert.ok(built.rows.every((row) => JSON.stringify(row.caller_role_ids) === JSON.stringify(['role-kycuu'])));
+  assert.ok(built.rows.every((row) => JSON.stringify(row.caller_user_ids) === JSON.stringify(['user-allowed'])));
 });
 
 test('buildQuickSetupRows: manual thiếu kênh -> lỗi 400', () => {
@@ -211,12 +214,14 @@ test('buildQuickSetupRows: manual đủ 3 kênh -> cả 3 bot rejoin', () => {
   const built = buildQuickSetupRows('guild-1', {
     setup_mode: 'manual',
     manual_channel_ids: { 1: 'a', 2: 'b', 3: 'c' },
-    caller_role_ids: ['role-kycuu']
+    caller_role_ids: ['role-kycuu'],
+    caller_user_ids: ['user-allowed']
   });
   assert.strictEqual(built.setupMode, 'manual');
   assert.deepStrictEqual(built.rows.map((row) => row.voice_channel_id), ['a', 'b', 'c']);
   assert.ok(built.rows.every((row) => row.pending_action === 'rejoin'));
   assert.ok(built.rows.every((row) => row.relay_enabled === true && row.auto_join === true));
+  assert.ok(built.rows.every((row) => JSON.stringify(row.caller_user_ids) === JSON.stringify(['user-allowed'])));
 });
 
 test('buildGlobalStopRows: tắt đủ 3 bot relay và auto_join', () => {

@@ -346,6 +346,7 @@ function buildQuickSetupRows(guildId, payload) {
 
   const setupMode = String(payload.setup_mode || 'auto').trim().toLowerCase() === 'manual' ? 'manual' : 'auto';
   const callerRoleIds = toStringArray(payload.caller_role_ids);
+  const callerUserIds = toStringArray(payload.caller_user_ids);
   const now = new Date().toISOString();
 
   if (setupMode === 'manual') {
@@ -371,6 +372,7 @@ function buildQuickSetupRows(guildId, payload) {
         mode: 'bridge',
         relay_targets: relayTargetsFor(botId),
         caller_role_ids: callerRoleIds,
+        caller_user_ids: callerUserIds,
         relay_enabled: true,
         auto_join: true,
         pending_action: 'rejoin',
@@ -395,6 +397,7 @@ function buildQuickSetupRows(guildId, payload) {
       mode: 'bridge',
       relay_targets: relayTargetsFor(botId),
       caller_role_ids: callerRoleIds,
+      caller_user_ids: callerUserIds,
       relay_enabled: true,
       auto_join: true,
       pending_action: botId === 1 ? 'quickSetup' : null,

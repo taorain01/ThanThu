@@ -8,6 +8,7 @@ const {
   targetsToMask,
   verifyAuth
 } = require('../src/voiceRelay/link/protocol');
+const { SupabaseConfig } = require('../src/voiceRelay/config/supabaseConfig');
 const {
   evaluateSpeaker,
   pickActiveSpeakers,
@@ -76,4 +77,98 @@ test('rules: priority chỉ giữ speaker có role ưu tiên cao nhất', () => 
     priority_role_ids: ['high', 'low']
   });
   assert.deepStrictEqual(picked.map((x) => x.userId), ['b']);
+});
+
+test('config: realtime Bot 2 kế thừa policy người nói từ Bot 1 khi thiếu caller', async () => {
+  let realtimeHandler = null;
+  let timeout = null;
+  const bot1Row = {
+    guild_id: 'guild-1',
+    bot_id: 1,
+    caller_role_ids: ['role-kc'],
+    blocked_role_ids: ['role-blocked'],
+    caller_user_ids: ['user-allowed'],
+    muted_user_ids: ['user-muted'],
+    speaker_priority: 'priority',
+    priority_role_ids: ['role-priority']
+  };
+  const fakeClient = {
+    from(table) {
+      assert.strictEqual(table, 'voice_relay_config');
+      const eqs = [];
+      return {
+        select() { return this; },
+        eq(column, value) {
+          eqs.push([column, value]);
+          return this;
+        },
+        maybeSingle: async () => {
+          assert.deepStrictEqual(eqs, [['guild_id', 'guild-1'], ['bot_id', 1]]);
+          return { data: bot1Row, error: null };
+        }
+      };
+    },
+    channel(name) {
+      assert.strictEqual(name, 'voice_relay_config_guild-1_2');
+      return {
+        on(event, options, handler) {
+          assert.strictEqual(event, 'postgres_changes');
+          assert.strictEqual(options.filter, 'bot_id=eq.2');
+          realtimeHandler = handler;
+          return this;
+        },
+        subscribe(callback) {
+          callback('SUBSCRIBED');
+          return this;
+        }
+      };
+    },
+    removeChannel: async () => null
+  };
+
+  const config = new SupabaseConfig({
+    supabaseUrl: 'https://example.supabase.co',
+    supabaseServiceKey: 'test-key',
+    guildId: 'guild-1',
+    botId: 2,
+    commandPrefix: '!relay',
+    configPollIntervalMs: 60000
+  }, {
+    info() {},
+    warn() {}
+  });
+  config.client = fakeClient;
+
+  const changed = new Promise((resolve, reject) => {
+    timeout = setTimeout(() => reject(new Error('Không nhận được realtime config')), 1000);
+    config.subscribe((next) => {
+      clearTimeout(timeout);
+      resolve(next);
+    });
+  });
+
+  assert.ok(realtimeHandler);
+  realtimeHandler({
+    new: {
+      guild_id: 'guild-1',
+      bot_id: 2,
+      relay_enabled: true,
+      mode: 'bridge',
+      caller_role_ids: [],
+      caller_user_ids: []
+    }
+  });
+
+  try {
+    const next = await changed;
+    assert.deepStrictEqual(next.caller_role_ids, ['role-kc']);
+    assert.deepStrictEqual(next.caller_user_ids, ['user-allowed']);
+    assert.deepStrictEqual(next.blocked_role_ids, ['role-blocked']);
+    assert.deepStrictEqual(next.muted_user_ids, ['user-muted']);
+    assert.strictEqual(next.speaker_priority, 'priority');
+    assert.deepStrictEqual(next.priority_role_ids, ['role-priority']);
+  } finally {
+    clearTimeout(timeout);
+    config.stop();
+  }
 });

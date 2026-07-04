@@ -12,6 +12,7 @@ class VoiceRelayCapture {
     this.guild = null;
     this.active = new Map();
     this.skipLogAt = new Map();
+    this.sendFailLogAt = new Map();
     this.onSpeakingStart = (userId) => this.handleSpeakingStart(userId);
   }
 
@@ -51,6 +52,7 @@ class VoiceRelayCapture {
     if (this.active.has(userId)) return;
 
     try {
+      this.logger.info(`Nhận speaking event từ user ${userId}`);
       const member = await this.resolveMember(userId);
       const decision = evaluateSpeaker(member, this.config);
       if (!decision.allowed) {
@@ -93,15 +95,21 @@ class VoiceRelayCapture {
         if (!this.shouldForward(userId)) return;
         const currentTargets = this.targets();
         if (!currentTargets.length) return;
-        if (item) {
+        const sent = this.link?.sendAudio(this.env.botId, currentTargets, userId, chunk) === true;
+        if (item && sent) {
           item.forwardedChunks += 1;
           item.forwardedBytes += chunk.length || 0;
-          if (!item.loggedFirstForward) {
-            item.loggedFirstForward = true;
-            this.logger.info(`Đang chuyển audio sang ${currentTargets.map((id) => `Bot${id}`).join(', ')}: ${item.label}`);
+        }
+        if (item && !item.loggedFirstForward) {
+          item.loggedFirstForward = true;
+          const linkStatus = this.link?.connected ? 'connected' : 'not_connected';
+          if (sent) {
+            this.logger.info(`Đang chuyển audio sang ${currentTargets.map((id) => `Bot${id}`).join(', ')}: ${item.label}`, { linkStatus });
+          } else {
+            this.logger.warn(`Không gửi được frame audio sang link: ${item.label}`, { linkStatus, targets: currentTargets });
           }
         }
-        this.link?.sendAudio(this.env.botId, currentTargets, userId, chunk);
+        if (!sent) this.logSendFail(userId, currentTargets);
       });
       stream.on('end', () => this.removeActive(userId));
       stream.on('close', () => this.removeActive(userId));
@@ -145,6 +153,18 @@ class VoiceRelayCapture {
     this.relayState.update({ activeSpeakers: [...this.active.keys()] });
   }
 
+  logSendFail(userId, targets) {
+    const key = `${userId}:${targets.join(',')}`;
+    const now = Date.now();
+    if (now - (this.sendFailLogAt.get(key) || 0) < 5000) return;
+    this.sendFailLogAt.set(key, now);
+    this.logger.warn(`Gửi audio relay thất bại: user ${userId}`, {
+      reason: this.link?.connected === true ? 'send_failed' : 'link_not_connected',
+      targets,
+      linkConnected: this.link?.connected === true
+    });
+  }
+
   async resolveMember(userId) {
     const id = String(userId || '');
     if (!id || !this.guild) return null;
@@ -185,7 +205,7 @@ VoiceRelayCapture.prototype.logSkip = function logSkip(userId, reason, member = 
   if (now - (this.skipLogAt.get(key) || 0) < 5000) return;
   this.skipLogAt.set(key, now);
   const suffix = detail ? ` ${detail}` : '';
-  this.logger.info(`Bỏ qua voice: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}${suffix}`);
+  this.logger.info(`Bỏ qua voice [${reason}]: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}${suffix}`);
 };
 
 // Chi tiết chẩn đoán khi bỏ qua vì lý do liên quan role/cấu hình caller.

@@ -243,10 +243,10 @@ class SupabaseConfig {
   }
 
   subscribe(onChange) {
-    const apply = (row) => {
+    const apply = async (row) => {
       if (!row || String(row.guild_id) !== String(this.env.guildId)) return;
       if (Number(row.bot_id) !== Number(this.env.botId)) return;
-      const next = normalizeConfig(row, this.env);
+      const next = await this.applyInheritedPolicy(normalizeConfig(row, this.env));
       this.current = next;
       onChange(next);
     };
@@ -259,7 +259,9 @@ class SupabaseConfig {
           schema: 'public',
           table: 'voice_relay_config',
           filter: `bot_id=eq.${this.env.botId}`
-        }, (payload) => apply(payload.new))
+        }, (payload) => apply(payload.new).catch((error) => {
+          this.logger.warn('Áp dụng cấu hình realtime Supabase lỗi', error.message);
+        }))
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') this.logger.info('Đã subscribe cấu hình Supabase realtime');
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') this.startPolling(onChange);

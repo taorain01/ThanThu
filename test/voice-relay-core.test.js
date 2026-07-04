@@ -14,6 +14,7 @@ const {
   pickActiveSpeakers,
   resolveTargets
 } = require('../src/voiceRelay/discord/rules');
+const { shouldAutoJoin } = require('../src/voiceRelay/discord/voiceManager');
 
 function member({ id = 'u1', bot = false, roles = [] } = {}) {
   return {
@@ -77,6 +78,14 @@ test('rules: priority chỉ giữ speaker có role ưu tiên cao nhất', () => 
     priority_role_ids: ['high', 'low']
   });
   assert.deepStrictEqual(picked.map((x) => x.userId), ['b']);
+});
+
+test('voice manager: chỉ auto join khi relay bật hoặc có action join/setup', () => {
+  assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false }), false);
+  assert.strictEqual(shouldAutoJoin({ auto_join: false, relay_enabled: true }), false);
+  assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: true }), true);
+  assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false, pending_action: 'rejoin' }), true);
+  assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false, pending_action: 'quickSetup' }), true);
 });
 
 test('config: realtime Bot 2 kế thừa policy người nói từ Bot 1 khi thiếu caller', async () => {

@@ -28,13 +28,13 @@ async function handleVoiceRelayMessage(message, client) {
       return true;
     }
     if (subcommand === 'start') {
-      await runtime.patchConfig({ relay_enabled: true });
+      await runtime.patchConfig({ relay_enabled: true, auto_join: true });
       await runtime.voiceManager.ensureConnection();
       await message.react('✅').catch(() => null);
       return true;
     }
     if (subcommand === 'stop') {
-      await runtime.patchConfig({ relay_enabled: false });
+      await runtime.patchConfig({ relay_enabled: false, auto_join: false });
       await message.react('✅').catch(() => null);
       return true;
     }

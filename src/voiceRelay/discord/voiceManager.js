@@ -18,15 +18,22 @@ class VoiceRelayVoiceManager extends EventEmitter {
     this.config = null;
     this.connection = null;
     this.rejoinTimer = null;
+    this.joinQueue = Promise.resolve();
+    this.joinGeneration = 0;
   }
 
   updateConfig(config) {
     this.config = config;
-    this.relayState.update({ relayEnabled: config.relay_enabled === true });
+    const relayEnabled = config.relay_enabled === true;
+    this.relayState.update({
+      relayEnabled,
+      ...(relayEnabled ? {} : { lastError: null })
+    });
+    if (!shouldAutoJoin(config)) this.clearRejoinTimer();
   }
 
-  async ensureConnection() {
-    if (!this.config?.auto_join) return null;
+  async ensureConnection(options = {}) {
+    if (!options.force && !shouldAutoJoin(this.config)) return null;
     let channelId = this.config.voice_channel_id;
     if (!channelId && this.config.auto_create_channel) {
       channelId = await this.createRelayChannel();
@@ -36,6 +43,15 @@ class VoiceRelayVoiceManager extends EventEmitter {
   }
 
   async joinChannel(channelId, options = {}) {
+    const targetId = String(channelId || '');
+    const operation = this.joinQueue
+      .catch(() => null)
+      .then(() => this.doJoinChannel(targetId, options));
+    this.joinQueue = operation.catch(() => null);
+    return operation;
+  }
+
+  async doJoinChannel(channelId, options = {}) {
     const guild = await this.resolveGuild();
     const channel = await guild.channels.fetch(channelId).catch(() => null);
     if (!isVoiceChannel(channel)) {
@@ -64,6 +80,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
     }
     if (existing) existing.destroy();
 
+    const generation = ++this.joinGeneration;
     const connection = joinVoiceChannel({
       guildId: guild.id,
       channelId: channel.id,
@@ -84,7 +101,16 @@ class VoiceRelayVoiceManager extends EventEmitter {
       }
     });
 
-    await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+    try {
+      await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+    } catch (error) {
+      try { connection.destroy(); } catch (_) { /* noop */ }
+      throw error;
+    }
+    if (generation !== this.joinGeneration) {
+      try { connection.destroy(); } catch (_) { /* noop */ }
+      return null;
+    }
     this.connection = connection;
     this.relayState.update({
       voiceChannelId: channel.id,
@@ -100,14 +126,16 @@ class VoiceRelayVoiceManager extends EventEmitter {
 
   async leave() {
     const guild = await this.resolveGuild();
+    this.joinGeneration += 1;
+    this.clearRejoinTimer();
     const connection = getVoiceConnection(guild.id) || this.connection;
     if (connection) connection.destroy();
     this.connection = null;
-    this.relayState.update({ voiceChannelId: null, voiceChannelName: null, channelMemberCount: 0, activeSpeakers: [] });
+    this.relayState.update({ voiceChannelId: null, voiceChannelName: null, channelMemberCount: 0, activeSpeakers: [], lastError: null });
   }
 
   scheduleRejoin() {
-    if (this.rejoinTimer || !this.config?.auto_join) return;
+    if (this.rejoinTimer || !shouldAutoJoin(this.config)) return;
     this.rejoinTimer = setTimeout(() => {
       this.rejoinTimer = null;
       this.ensureConnection().catch((error) => {
@@ -115,6 +143,12 @@ class VoiceRelayVoiceManager extends EventEmitter {
         this.scheduleRejoin();
       });
     }, 5000);
+  }
+
+  clearRejoinTimer() {
+    if (!this.rejoinTimer) return;
+    clearTimeout(this.rejoinTimer);
+    this.rejoinTimer = null;
   }
 
   async createRelayChannel() {
@@ -260,7 +294,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
 
   reportError(error) {
     this.logger.warn('Voice manager lỗi', error.message);
-    this.relayState.update({ lastError: error.message });
+    this.relayState.update({ lastError: shouldAutoJoin(this.config) ? error.message : null });
   }
 }
 
@@ -272,4 +306,12 @@ function isVoiceChannel(channel) {
   return channel?.type === ChannelType.GuildVoice || channel?.type === ChannelType.GuildStageVoice;
 }
 
-module.exports = { VoiceRelayVoiceManager, isVoiceChannel, countHumanMembers };
+function shouldAutoJoin(config) {
+  return config?.auto_join === true && (
+    config.relay_enabled === true
+    || config.pending_action === 'rejoin'
+    || config.pending_action === 'quickSetup'
+  );
+}
+
+module.exports = { VoiceRelayVoiceManager, isVoiceChannel, countHumanMembers, shouldAutoJoin };

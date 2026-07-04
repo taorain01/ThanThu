@@ -52,7 +52,7 @@ class StatusReporter {
         relay_enabled: s.relayEnabled === true,
         link_connected: s.linkConnected === true,
         channel_member_count: Number(channelMemberCount || 0),
-        last_error: s.lastError || null,
+        last_error: s.relayEnabled === true ? (s.lastError || null) : null,
         heartbeat_at: new Date().toISOString()
       };
       const { error } = await this.writeStatusRow(row);

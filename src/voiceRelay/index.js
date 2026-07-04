@@ -71,7 +71,7 @@ async function initVoiceRelay(client, options = {}) {
     },
     async handleAction(action) {
       if (action === 'leave') return voiceManager.leave();
-      if (action === 'rejoin') return voiceManager.ensureConnection();
+      if (action === 'rejoin') return voiceManager.ensureConnection({ force: true });
       if (action === 'stopLeave') return voiceManager.leave();
       if (action === 'stopDelete') return voiceManager.stopAndDeleteManaged({ force: true });
       if (action === 'quickSetup') return quickSetup(runtime);
@@ -112,9 +112,13 @@ async function initVoiceRelay(client, options = {}) {
   link.on('connect', () => relayState.update({ linkConnected: true }));
   link.on('disconnect', () => relayState.update({ linkConnected: false }));
   link.on('error', (error) => relayState.update({ lastError: error.message }));
-  link.on('peer', () => {
+  link.on('peer', (peer) => {
     if (env.botId !== 1) return;
-    syncManagedRelayRoomPermissions(runtime).catch((error) => {
+    syncManagedRelayRoomPermissions(runtime).then(() => {
+      requestPeerRejoin(runtime, peer).catch((error) => {
+        logger.warn('Không yêu cầu bot phụ vào lại sau khi sync quyền', error.message);
+      });
+    }).catch((error) => {
       logger.warn('Đồng bộ quyền phòng relay theo bot phụ lỗi', error.message);
     });
   });
@@ -170,7 +174,7 @@ function syncBotIdentity(client, relayState, env = null) {
 
 async function quickSetup(runtime) {
   const { env, voiceManager, supabaseConfig, logger } = runtime;
-  if (env.botId !== 1) return voiceManager.ensureConnection();
+  if (env.botId !== 1) return voiceManager.ensureConnection({ force: true });
 
   const guild = await voiceManager.resolveGuild();
   const anchorId = runtime.config?.voice_channel_id || runtime.config?.create_anchor_channel_id;
@@ -372,6 +376,21 @@ async function syncManagedRelayRoomPermissions(runtime) {
   }
   if (synced > 0) logger.info(`Đã đồng bộ quyền cho ${synced} phòng relay theo bot phụ`);
   return synced;
+}
+
+async function requestPeerRejoin(runtime, peer) {
+  const { env, config, supabaseConfig, logger } = runtime;
+  const botId = Number(peer?.botId);
+  if (env.botId !== 1 || ![2, 3].includes(botId) || config?.relay_enabled !== true) return;
+
+  await supabaseConfig.upsertConfig({
+    guild_id: env.guildId,
+    bot_id: botId,
+    pending_action: 'rejoin',
+    auto_join: true,
+    updated_at: new Date().toISOString()
+  }, { select: null });
+  logger.info(`Đã yêu cầu Bot${botId} vào lại phòng relay sau khi đồng bộ quyền`);
 }
 
 function sleep(ms) {

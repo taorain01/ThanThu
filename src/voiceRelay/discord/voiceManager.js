@@ -166,10 +166,62 @@ class VoiceRelayVoiceManager extends EventEmitter {
       await this.removeManagedChannel(channelId);
       return false;
     }
-    if (!force && countHumanMembers(channel) > 0) return false;
+    // KHÔNG bao giờ xoá phòng còn người (kể cả khi force) để tránh đá người ra.
+    if (countHumanMembers(channel) > 0) return false;
     await channel.delete('Voice relay managed channel cleanup');
     await this.removeManagedChannel(channelId);
     return true;
+  }
+
+  async listManagedChannels() {
+    const { data, error } = await this.supabaseConfig.getClient()
+      .from('voice_relay_managed_channels')
+      .select('channel_id,owner_bot_id')
+      .eq('guild_id', this.env.guildId);
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Quét và xoá các phòng managed mồ côi: không còn ai (kể cả bot) trong đó.
+  // An toàn: phòng đang có bot ngồi chờ (>=1 thành viên) hoặc còn người sẽ KHÔNG bị xoá.
+  async sweepOrphanManagedChannels() {
+    const rows = await this.listManagedChannels().catch(() => []);
+    if (!rows.length) return 0;
+    const guild = await this.resolveGuild();
+    let removed = 0;
+    for (const row of rows) {
+      const channel = await guild.channels.fetch(row.channel_id).catch(() => null);
+      if (!channel) {
+        await this.removeManagedChannel(row.channel_id);
+        continue;
+      }
+      const totalMembers = channel.members?.size || 0;
+      if (totalMembers === 0) {
+        await channel.delete('Voice relay sweep phòng trống mồ côi').catch(() => null);
+        await this.removeManagedChannel(row.channel_id);
+        removed += 1;
+      }
+    }
+    if (removed > 0) this.logger.info(`Đã dọn ${removed} phòng relay trống mồ côi`);
+    return removed;
+  }
+
+  // Tự nhận diện lại kênh: tìm phòng managed đã có của bot (theo tên) để tái dùng thay vì tạo mới.
+  async findManagedChannelForBot(ownerBotId, name) {
+    const rows = await this.listManagedChannels().catch(() => []);
+    const guild = await this.resolveGuild();
+    let fallback = null;
+    for (const row of rows) {
+      if (Number(row.owner_bot_id) !== Number(ownerBotId)) continue;
+      const channel = await guild.channels.fetch(row.channel_id).catch(() => null);
+      if (!channel) {
+        await this.removeManagedChannel(row.channel_id);
+        continue;
+      }
+      if (name && channel.name === name) return channel; // khớp tên → ưu tiên tái dùng
+      if (!fallback) fallback = channel;
+    }
+    return fallback;
   }
 
   async removeManagedChannel(channelId) {

@@ -119,6 +119,15 @@ async function initVoiceRelay(client, options = {}) {
     });
   });
 
+  // Chỉ Bot 1 làm nhiệm vụ dọn phòng để tránh 3 bot cùng xoá.
+  if (env.botId === 1) {
+    voiceManager.sweepOrphanManagedChannels().catch((error) => logger.warn('Sweep phòng trống lỗi', error.message));
+    const sweepTimer = setInterval(() => {
+      voiceManager.sweepOrphanManagedChannels().catch((error) => logger.warn('Sweep phòng trống lỗi', error.message));
+    }, 60_000);
+    if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+  }
+
   client.voiceRelay = runtime;
   logger.info('Voice relay đã khởi động');
   return runtime;
@@ -183,7 +192,12 @@ async function ensureManagedChannelForBot(runtime, anchor, target) {
 
   const guild = anchor.guild;
   let channel = row?.voice_channel_id ? await guild.channels.fetch(row.voice_channel_id).catch(() => null) : null;
-  if (!channel || !(await voiceManager.isManagedChannel(channel.id))) {
+  if (channel && !(await voiceManager.isManagedChannel(channel.id))) channel = null;
+  // Tự nhận diện lại kênh: tìm phòng managed đã có của bot này (theo tên) để tái dùng, tránh tạo trùng gây spam.
+  if (!channel) {
+    channel = await voiceManager.findManagedChannelForBot(target.botId, target.name).catch(() => null);
+  }
+  if (!channel) {
     channel = await guild.channels.create({
       name: target.name,
       type: ChannelType.GuildVoice,
@@ -305,15 +319,9 @@ function isDiscordSnowflake(value) {
 }
 
 async function cleanupEmptyManagedChannel(runtime, channelId) {
-  const { supabaseConfig, voiceManager, env } = runtime;
-  const { data } = await supabaseConfig.getClient()
-    .from('voice_relay_master')
-    .select('enabled,stop_mode')
-    .eq('guild_id', env.guildId)
-    .maybeSingle();
-  if (data?.enabled === false) {
-    await voiceManager.deleteManagedChannel(channelId, { force: false });
-  }
+  const { voiceManager } = runtime;
+  // deleteManagedChannel chỉ xoá khi phòng không còn người → an toàn, không đá ai ra.
+  await voiceManager.deleteManagedChannel(channelId, { force: false });
 }
 
 module.exports = {

@@ -91,6 +91,7 @@ async function initVoiceRelay(client, options = {}) {
     }
     capture.updateConfig(config);
     voiceManager.updateConfig(config);
+    playback.setJitterMs(config.jitter_buffer_ms);
     relayState.update({ relayEnabled: config.relay_enabled === true });
     if (config.auto_join) await voiceManager.ensureConnection().catch((error) => {
       logger.warn('Auto-join voice relay lỗi', error.message);

@@ -18,6 +18,7 @@ class VoiceRelayPlayback {
 
     // Jitter buffer: gom bao nhiêu frame trước khi phát. Lớn hơn = trễ hơn nhưng đỡ giật hơn.
     const jitterMs = Number(env.jitterBufferMs) > 0 ? Number(env.jitterBufferMs) : DEFAULT_JITTER_MS;
+    this.envJitterMs = jitterMs;
     this.prebufferFrames = Math.max(MIN_PREBUFFER_FRAMES, Math.round(jitterMs / FRAME_MS));
     this.maxQueueFrames = Math.max(this.prebufferFrames * 2, Math.round((MAX_QUEUE_SECONDS * 1000) / FRAME_MS));
 
@@ -54,6 +55,18 @@ class VoiceRelayPlayback {
     this.activeSpeakerKey = null;
     this.startStream();
     this.startPacer();
+  }
+
+  // Cập nhật độ trễ jitter buffer lúc chạy (web chỉnh -> config đổi). ms<=0 hoặc rỗng => dùng env/mặc định.
+  setJitterMs(ms) {
+    const jitterMs = Number(ms) > 0 ? Number(ms) : (this.envJitterMs || DEFAULT_JITTER_MS);
+    const nextPrebuffer = Math.max(MIN_PREBUFFER_FRAMES, Math.round(jitterMs / FRAME_MS));
+    if (nextPrebuffer === this.prebufferFrames) return;
+    this.prebufferFrames = nextPrebuffer;
+    this.maxQueueFrames = Math.max(this.prebufferFrames * 2, Math.round((MAX_QUEUE_SECONDS * 1000) / FRAME_MS));
+    // Gom lại buffer theo mức mới để lần phát kế tiếp áp dụng ngay, không cắt ngang câu đang nói.
+    this.buffering = true;
+    if (this.logger?.info) this.logger.info(`Đã đổi jitter buffer phát audio: ${jitterMs}ms (${this.prebufferFrames} frame)`);
   }
 
   startStream() {

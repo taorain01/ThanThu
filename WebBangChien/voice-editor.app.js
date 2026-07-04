@@ -36,6 +36,7 @@ function defaultConfig(botId) {
     relay_enabled: false,
     auto_join: true,
     command_prefix: botId === 1 ? '?relay' : botId === 2 ? '!relay' : '#relay',
+    jitter_buffer_ms: 400,
     auto_create_channel: false,
     created_channel_name: BOT_NAMES[botId] || `Bot ${botId}`,
     create_position: 'below',
@@ -260,6 +261,7 @@ function normalizeRow(row) {
     relay_enabled: row.relay_enabled === true,
     auto_join: row.auto_join !== false,
     command_prefix: row.command_prefix || '',
+    jitter_buffer_ms: Number.isFinite(Number(row.jitter_buffer_ms)) && Number(row.jitter_buffer_ms) > 0 ? Number(row.jitter_buffer_ms) : 400,
     auto_create_channel: row.auto_create_channel === true,
     created_channel_name: row.created_channel_name || '',
     create_position: row.create_position === 'above' ? 'above' : 'below',
@@ -579,8 +581,152 @@ function quickSetupHtml() {
     </div>`;
 }
 
+/* ---------------- Panel chỉnh độ trễ chống giật (jitter buffer) ---------------- */
+const JITTER_MIN = 60;
+const JITTER_MAX = 1200;
+const JITTER_DEFAULT = 400;
+const JITTER_PRESETS = [
+  { ms: 150, label: 'Nhanh nhất', desc: 'Cùng máy / mạng LAN' },
+  { ms: 250, label: 'Nhanh', desc: 'VPS cùng khu vực' },
+  { ms: 400, label: 'Cân bằng', desc: 'Khuyên dùng' },
+  { ms: 600, label: 'Ổn định', desc: 'Mạng hơi chập chờn' },
+  { ms: 800, label: 'Chắc chắn', desc: 'Mạng yếu' },
+  { ms: 1000, label: 'Chống giật tối đa', desc: 'Mạng rất tệ' }
+];
+
+function currentJitterMs() {
+  for (const botId of BOT_IDS) {
+    const v = Number(configs[botId]?.jitter_buffer_ms);
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+  return JITTER_DEFAULT;
+}
+
+// Mô tả cảm nhận theo mức delay để người dùng dễ hình dung.
+function jitterFeel(ms) {
+  if (ms <= 200) return { tone: 'fast', tag: 'Độ trễ rất thấp', note: 'Nghe gần như tức thì, nhưng chỉ mượt khi mạng cực ổn (cùng máy/LAN). Mạng lag một chút là dễ giật.' };
+  if (ms <= 350) return { tone: 'fast', tag: 'Độ trễ thấp', note: 'Phản hồi nhanh, hợp VPS cùng khu vực. Vẫn có thể giật nhẹ khi mạng phập phù.' };
+  if (ms <= 550) return { tone: 'balance', tag: 'Cân bằng', note: 'Trễ khoảng nửa giây, đổi lại rất mượt trong đa số trường hợp. Đây là mức khuyên dùng.' };
+  if (ms <= 800) return { tone: 'stable', tag: 'Ưu tiên mượt', note: 'Trễ thấy rõ nhưng chịu được mạng chập chờn, hiếm khi hụt tiếng.' };
+  return { tone: 'max', tag: 'Chống giật tối đa', note: 'Trễ khá lâu (gần như bộ đàm), dùng khi mạng rất tệ mà vẫn cần nghe đủ tiếng.' };
+}
+
+function jitterPresetButtons(current) {
+  return JITTER_PRESETS.map((p) => {
+    const active = Math.abs(current - p.ms) <= 10 ? 'active' : '';
+    return `<button type="button" class="jitter-preset ${active}" onclick="setJitterDelay(${p.ms})" title="${esc(p.desc)}">
+      <b>${p.ms}ms</b><span>${esc(p.label)}</span>
+    </button>`;
+  }).join('');
+}
+
+function delayPanelHtml() {
+  const current = currentJitterMs();
+  const feel = jitterFeel(current);
+  const pct = Math.round(((current - JITTER_MIN) / (JITTER_MAX - JITTER_MIN)) * 100);
+  return `
+    <div class="section delay-panel">
+      <h3>🎚️ Độ trễ chống giật (delay)</h3>
+
+      <div class="delay-live">
+        <div class="delay-value"><span id="jitterValue">${current}</span><small>ms</small></div>
+        <div class="delay-feel" id="jitterFeel" data-tone="${feel.tone}">
+          <b>${esc(feel.tag)}</b>
+          <span id="jitterFeelNote">${esc(feel.note)}</span>
+        </div>
+      </div>
+
+      <div class="delay-slider-wrap">
+        <span class="delay-end">Nhanh<br><small>${JITTER_MIN}ms</small></span>
+        <input type="range" id="jitterRange" class="delay-slider" min="${JITTER_MIN}" max="${JITTER_MAX}" step="10"
+          value="${current}" style="--fill:${pct}%"
+          oninput="onJitterInput(this)" aria-label="Độ trễ chống giật (ms)">
+        <span class="delay-end">Mượt<br><small>${JITTER_MAX}ms</small></span>
+      </div>
+
+      <div class="jitter-presets">${jitterPresetButtons(current)}</div>
+
+      <div class="delay-actions">
+        <button class="btn primary small" onclick="applyJitterDelay()">Áp dụng độ trễ cho cả 3 bot</button>
+        <span class="hint" id="jitterApplyHint">Áp dụng riêng, không cần điền role — bot nhận trong ~10 giây.</span>
+      </div>
+
+      <div class="delay-explain">
+        <div class="delay-explain-title">Delay này là gì?</div>
+        <p>Khi bạn nói, tiếng được cắt thành nhiều mẩu nhỏ (mỗi mẩu 20ms) rồi gửi qua mạng sang bot khác. Mạng không bao giờ giao đều tăm tắp: có mẩu tới sớm, có mẩu tới trễ. Nếu bot phát ra ngay khi vừa nhận, chỉ cần một mẩu tới trễ là tiếng bị <b>hụt → nghe giật, rè, ngắt quãng</b>.</p>
+        <p><b>Delay</b> là khoảng thời gian bot <b>gom sẵn tiếng vào bộ đệm</b> trước khi bắt đầu phát. Ví dụ delay 400ms nghĩa là bot chứa sẵn 0.4 giây tiếng; nếu mạng trục trặc trong 0.4 giây đó thì vẫn có cái để phát liên tục, người nghe không thấy giật.</p>
+        <ul class="delay-list">
+          <li><b>Delay thấp</b> (nhỏ) → nghe nhanh, gần thời gian thực, nhưng <b>dễ giật</b> khi mạng yếu.</li>
+          <li><b>Delay cao</b> (lớn) → nghe <b>mượt, liền mạch</b> hơn, đổi lại <b>trễ</b> hơn (nói xong một lúc bên kia mới nghe).</li>
+        </ul>
+        <div class="delay-explain-title">Nên chọn bao nhiêu?</div>
+        <ul class="delay-list">
+          <li>3 bot chạy <b>cùng một máy / mạng LAN</b>: 150–250ms là đủ mượt.</li>
+          <li>Chạy trên <b>VPS cùng khu vực</b> (vd cùng Singapore): 300–450ms.</li>
+          <li>Mạng <b>hay chập chờn</b> hoặc bot ở khác vùng: 600–800ms.</li>
+          <li>Vẫn còn giật ở mức cao: tăng dần từng nấc 100ms tới khi hết, đừng nhảy vọt.</li>
+        </ul>
+        <p class="delay-note">Mẹo: cứ để <b>400ms (Cân bằng)</b> trước. Nếu thấy giật thì kéo lên; nếu thấy nói chuyện bị "vọng/chậm" khó chịu thì kéo xuống. Chỉnh xong bấm <b>Áp dụng</b>, nghe thử một lúc rồi tinh chỉnh tiếp.</p>
+      </div>
+    </div>`;
+}
+
+function onJitterInput(el) {
+  const ms = Number(el.value) || JITTER_DEFAULT;
+  const pct = Math.round(((ms - JITTER_MIN) / (JITTER_MAX - JITTER_MIN)) * 100);
+  el.style.setProperty('--fill', pct + '%');
+  const valEl = document.getElementById('jitterValue');
+  if (valEl) valEl.textContent = ms;
+  const feel = jitterFeel(ms);
+  const feelEl = document.getElementById('jitterFeel');
+  const noteEl = document.getElementById('jitterFeelNote');
+  if (feelEl) {
+    feelEl.dataset.tone = feel.tone;
+    const b = feelEl.querySelector('b');
+    if (b) b.textContent = feel.tag;
+  }
+  if (noteEl) noteEl.textContent = feel.note;
+  document.querySelectorAll('.jitter-preset').forEach((btn) => {
+    btn.classList.remove('active');
+  });
+}
+window.onJitterInput = onJitterInput;
+
+function setJitterDelay(ms) {
+  const range = document.getElementById('jitterRange');
+  if (range) {
+    range.value = ms;
+    onJitterInput(range);
+  }
+  document.querySelectorAll('.jitter-preset').forEach((btn) => {
+    const presetMs = Number(btn.querySelector('b')?.textContent);
+    btn.classList.toggle('active', Math.abs(presetMs - ms) <= 10);
+  });
+}
+window.setJitterDelay = setJitterDelay;
+
+async function applyJitterDelay() {
+  const range = document.getElementById('jitterRange');
+  const ms = Math.min(JITTER_MAX, Math.max(JITTER_MIN, Number(range?.value) || JITTER_DEFAULT));
+  const hint = document.getElementById('jitterApplyHint');
+  if (hint) hint.textContent = 'Đang áp dụng...';
+  try {
+    // Lưu riêng độ trễ cho từng bot (không cần điền role, không đụng cấu hình khác).
+    for (const botId of BOT_IDS) {
+      await api({ action: 'saveConfig', guild_id: GUILD_ID, bot_id: botId, payload: { jitter_buffer_ms: ms } });
+      if (configs[botId]) configs[botId].jitter_buffer_ms = ms;
+      if (drafts[botId]) drafts[botId].jitter_buffer_ms = ms;
+    }
+    if (hint) hint.textContent = 'Đã áp dụng, bot sẽ đổi trong ~10 giây.';
+    toast('Đã đặt độ trễ ' + ms + 'ms cho cả 3 bot.');
+  } catch (e) {
+    if (hint) hint.textContent = '';
+    toast('Đặt độ trễ thất bại: ' + e.message, true);
+  }
+}
+window.applyJitterDelay = applyJitterDelay;
+
 function targetChecklist(botId, selected) {
-  const rows = BOT_IDS.filter((id) => id !== botId).map((id) => {
     const checked = selected.includes(String(id)) ? 'checked' : '';
     return `<label class="fixed-check"><input type="checkbox" data-key="relay_targets" value="${id}" ${checked}> <span>${esc(BOT_NAMES[id])}</span></label>`;
   }).join('');
@@ -609,6 +755,7 @@ function renderPane(botId) {
   host.innerHTML = `
     <div class="editor-grid">
       ${quickSetupHtml()}
+      ${delayPanelHtml()}
       <div class="bot-pane active">
         <div class="pane-scroll">
             <div class="section">
@@ -682,6 +829,7 @@ function renderSharedPane() {
   host.innerHTML = `
     <div class="editor-grid">
       ${quickSetupHtml()}
+      ${delayPanelHtml()}
       <div class="bot-pane active">
         <div class="pane-scroll">
             <div class="scope-banner"><span class="ico">🌐</span><span>Cấu hình dùng chung — áp dụng cho cả Đại Ngỗng, Tiểu Ngỗng và Chiến Ngỗng.</span></div>

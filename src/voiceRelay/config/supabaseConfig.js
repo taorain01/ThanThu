@@ -64,6 +64,7 @@ function defaultRow(env) {
     relay_enabled: false,
     auto_join: true,
     command_prefix: env.commandPrefix,
+    jitter_buffer_ms: normalizeJitterMs(null, env),
     auto_create_channel: false,
     created_channel_name: env.botId === 1 ? 'Đại Ngỗng' : env.botId === 2 ? 'Tiểu Ngỗng' : 'Chiến Ngỗng',
     create_position: 'below',

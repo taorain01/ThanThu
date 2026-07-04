@@ -8,13 +8,19 @@ const {
 // Frame opus "im lặng" chuẩn của Discord — dùng để giữ luồng phát sống khi chưa có audio.
 const SILENCE_FRAME = Buffer.from([0xf8, 0xff, 0xfe]);
 const FRAME_MS = 20;              // 1 frame opus = 20ms
-const PREBUFFER_FRAMES = 5;       // gom ~100ms trước khi phát để chống jitter
-const MAX_QUEUE_FRAMES = 50;      // giới hạn ~1s để độ trễ không dồn vô hạn
-const CATCHUP_THRESHOLD = PREBUFFER_FRAMES * 3; // nếu dồn quá thì phát bù cho kịp
+const DEFAULT_JITTER_MS = 400;    // buffer chống jitter mặc định (~0.4s trễ, chịu nghẽn mạng tốt)
+const MIN_PREBUFFER_FRAMES = 3;   // luôn gom tối thiểu 60ms trước khi phát
+const MAX_QUEUE_SECONDS = 3;      // van an toàn: dồn quá 3s (mạng lỗi nặng) mới bỏ frame cũ
 
 class VoiceRelayPlayback {
-  constructor(logger) {
+  constructor(logger, env = {}) {
     this.logger = logger;
+
+    // Jitter buffer: gom bao nhiêu frame trước khi phát. Lớn hơn = trễ hơn nhưng đỡ giật hơn.
+    const jitterMs = Number(env.jitterBufferMs) > 0 ? Number(env.jitterBufferMs) : DEFAULT_JITTER_MS;
+    this.prebufferFrames = Math.max(MIN_PREBUFFER_FRAMES, Math.round(jitterMs / FRAME_MS));
+    this.maxQueueFrames = Math.max(this.prebufferFrames * 2, Math.round((MAX_QUEUE_SECONDS * 1000) / FRAME_MS));
+
     this.connection = null;
     this.player = createAudioPlayer();
     this.stream = null;
@@ -66,23 +72,25 @@ class VoiceRelayPlayback {
   tick() {
     if (!this.stream || this.stream.destroyed) return;
 
-    // Chờ gom đủ prebuffer (chỉ ở đầu mỗi lượt nói mới) — vẫn phát silence để giữ luồng.
+    // Chờ gom đủ prebuffer (đầu mỗi lượt nói, hoặc sau khi bị hụt) — vẫn phát silence để giữ luồng.
     if (this.buffering) {
-      if (this.queue.length < PREBUFFER_FRAMES) {
+      if (this.queue.length < this.prebufferFrames) {
         this.safeWrite(SILENCE_FRAME);
         return;
       }
       this.buffering = false;
     }
 
-    const frame = this.queue.shift();
-    this.safeWrite(frame || SILENCE_FRAME);
-
-    // Nếu bị dồn (writer chậm hơn frame tới), phát bù thêm 1 frame để độ trễ không tăng dần.
-    if (this.queue.length > CATCHUP_THRESHOLD) {
-      const extra = this.queue.shift();
-      if (extra) this.safeWrite(extra);
+    // Hết frame giữa chừng (underrun do mạng nghẽn): thay vì phát lắt nhắt từng frame gây giật,
+    // nạp lại buffer từ đầu để lần phát sau liền mạch.
+    if (this.queue.length === 0) {
+      this.buffering = true;
+      this.safeWrite(SILENCE_FRAME);
+      return;
     }
+
+    // Phát đều đặn 1 frame/tick. KHÔNG nhảy 2 frame để bù trễ (gây "vượt tốc" nghe như giật).
+    this.safeWrite(this.queue.shift());
   }
 
   safeWrite(buf) {
@@ -114,7 +122,7 @@ class VoiceRelayPlayback {
 
     this.lastFrameAt = now;
     this.queue.push(frame.opus);
-    if (this.queue.length > MAX_QUEUE_FRAMES) this.queue.shift(); // chống trễ dồn vô hạn
+    if (this.queue.length > this.maxQueueFrames) this.queue.shift(); // van an toàn: chống trễ dồn vô hạn
   }
 
   stop() {

@@ -74,11 +74,13 @@ class LinkPeer extends EventEmitter {
 
     socket.isAuthed = true;
     socket.peerBotId = Number(msg.botId);
+    socket.peerUserId = isDiscordSnowflake(msg.userId) ? String(msg.userId) : null;
     this.clients.add(socket);
     socket.on('message', (payload) => this.handleMessage(payload));
     socket.send(JSON.stringify({ type: 'HELLO_ACK', botId: this.env.botId }));
     this.setConnected(true);
     this.logger.info(`Link client Bot${socket.peerBotId || '?'} đã kết nối`);
+    this.emit('peer', { botId: socket.peerBotId, userId: socket.peerUserId });
   }
 
   startClient() {
@@ -89,6 +91,7 @@ class LinkPeer extends EventEmitter {
         this.ws.send(JSON.stringify({
           type: 'HELLO',
           botId: this.env.botId,
+          userId: this.env.botUserId || null,
           nonce,
           auth: createAuth(this.env.linkSecret, this.env.botId, nonce)
         }));
@@ -181,6 +184,17 @@ class LinkPeer extends EventEmitter {
     }
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);
   }
+
+  getPeerUserIds() {
+    if (this.env.linkMode !== 'server') return [];
+    return [...this.clients]
+      .map((client) => client.peerUserId)
+      .filter(isDiscordSnowflake);
+  }
+}
+
+function isDiscordSnowflake(value) {
+  return /^\d{15,25}$/.test(String(value || '').trim());
 }
 
 module.exports = { LinkPeer };

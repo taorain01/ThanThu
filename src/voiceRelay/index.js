@@ -31,7 +31,7 @@ async function initVoiceRelay(client, options = {}) {
 
   const relayState = new RelayState(env);
   relayState.update({ discordConnected: client.isReady?.() === true });
-  syncBotIdentity(client, relayState);
+  syncBotIdentity(client, relayState, env);
 
   const supabaseConfig = new SupabaseConfig(env, logger);
   const voiceManager = new VoiceRelayVoiceManager(client, env, relayState, supabaseConfig, logger);
@@ -81,7 +81,7 @@ async function initVoiceRelay(client, options = {}) {
 
   client.on('userUpdate', (_oldUser, newUser) => {
     if (!client.user?.id || newUser?.id !== client.user.id) return;
-    syncBotIdentity(client, relayState);
+    syncBotIdentity(client, relayState, env);
   });
 
   async function applyConfig(config) {
@@ -97,6 +97,7 @@ async function initVoiceRelay(client, options = {}) {
     if (config.auto_join) await voiceManager.ensureConnection().catch((error) => {
       logger.warn('Auto-join voice relay lỗi', error.message);
       relayState.update({ lastError: error.message });
+      voiceManager.scheduleRejoin();
     });
     // Cập nhật tên anchor theo trạng thái relay (bật + có người → Team Top, ngược lại trả tên gốc).
     maybeRenameAnchor(runtime).catch((error) => logger.warn('Đổi tên anchor lỗi', error.message));
@@ -111,6 +112,12 @@ async function initVoiceRelay(client, options = {}) {
   link.on('connect', () => relayState.update({ linkConnected: true }));
   link.on('disconnect', () => relayState.update({ linkConnected: false }));
   link.on('error', (error) => relayState.update({ lastError: error.message }));
+  link.on('peer', () => {
+    if (env.botId !== 1) return;
+    syncManagedRelayRoomPermissions(runtime).catch((error) => {
+      logger.warn('Đồng bộ quyền phòng relay theo bot phụ lỗi', error.message);
+    });
+  });
   capture.setLink(link);
 
   const config = await supabaseConfig.loadConfig({ createIfMissing: true });
@@ -146,9 +153,10 @@ async function initVoiceRelay(client, options = {}) {
   return runtime;
 }
 
-function syncBotIdentity(client, relayState) {
+function syncBotIdentity(client, relayState, env = null) {
   const user = client.user;
   if (!user) return;
+  if (env) env.botUserId = user.id || null;
 
   const avatarUrl = typeof user.displayAvatarURL === 'function'
     ? user.displayAvatarURL({ extension: 'png', size: 128 })
@@ -179,6 +187,7 @@ async function quickSetup(runtime) {
     mode: 'bridge',
     relay_targets: env.peerBotIds.map(String)
   });
+  await waitForRelayPeerUserIds(runtime, 2, 5000);
 
   const created = [];
   const targets = [
@@ -293,7 +302,8 @@ function relayRoomOverwrites(anchor, runtime) {
   }
 
   const configuredBotIds = (env.relayBotUserIds || []).filter(isDiscordSnowflake);
-  const botUserIds = new Set([client.user?.id, ...configuredBotIds].filter(Boolean).map(String));
+  const learnedBotIds = runtime.link?.getPeerUserIds?.() || [];
+  const botUserIds = new Set([client.user?.id, env.botUserId, ...configuredBotIds, ...learnedBotIds].filter(Boolean).map(String));
   const overwrites = new Map();
 
   for (const overwrite of anchor.permissionOverwrites.cache.values()) {
@@ -324,11 +334,48 @@ function relayRoomOverwrites(anchor, runtime) {
     botOverwrite.deny &= ~BOT_VOICE_PERMISSION_BITS;
   }
 
-  if (!configuredBotIds.length) {
-    logger?.warn?.('Không có VOICE_RELAY_BOT_USER_IDS/TTS_BOT_IDS hợp lệ; Bot 2/3 cần role LangGia hoặc quyền Administrator để vào phòng relay.');
+  if (botUserIds.size < 3) {
+    logger?.warn?.('Chưa biết đủ Discord user ID của 3 bot relay; nếu Bot 2/3 không thấy phòng, chờ link kết nối hoặc cấu hình VOICE_RELAY_BOT_USER_IDS.');
   }
 
   return [...overwrites.values()];
+}
+
+async function waitForRelayPeerUserIds(runtime, expectedCount, timeoutMs) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const ids = runtime.link?.getPeerUserIds?.() || [];
+    if (ids.length >= expectedCount) return ids;
+    await sleep(250);
+  }
+  return runtime.link?.getPeerUserIds?.() || [];
+}
+
+async function syncManagedRelayRoomPermissions(runtime) {
+  const { env, config, voiceManager, logger } = runtime;
+  if (env.botId !== 1 || !config?.voice_channel_id) return 0;
+
+  const guild = await voiceManager.resolveGuild();
+  const anchor = await guild.channels.fetch(config.voice_channel_id).catch(() => null);
+  if (!anchor || !(anchor.type === ChannelType.GuildVoice || anchor.type === ChannelType.GuildStageVoice)) return 0;
+
+  const rows = await voiceManager.listManagedChannels().catch(() => []);
+  let synced = 0;
+  for (const row of rows) {
+    const channel = await guild.channels.fetch(row.channel_id).catch(() => null);
+    if (!channel || !(channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice)) continue;
+    await channel.permissionOverwrites.set(
+      relayRoomOverwrites(anchor, runtime),
+      'Voice relay permissions: sync bot phụ'
+    );
+    synced += 1;
+  }
+  if (synced > 0) logger.info(`Đã đồng bộ quyền cho ${synced} phòng relay theo bot phụ`);
+  return synced;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function upsertOverwrite(overwrites, id, type) {

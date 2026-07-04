@@ -38,7 +38,9 @@ class VoiceRelayVoiceManager extends EventEmitter {
   async joinChannel(channelId, options = {}) {
     const guild = await this.resolveGuild();
     const channel = await guild.channels.fetch(channelId).catch(() => null);
-    if (!isVoiceChannel(channel)) throw new Error(`Không tìm thấy kênh voice ${channelId}`);
+    if (!isVoiceChannel(channel)) {
+      throw new Error(`Không thấy kênh voice ${channelId} (kênh đã bị xoá hoặc bot thiếu quyền View Channel)`);
+    }
 
     const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
     if (me) {
@@ -108,7 +110,10 @@ class VoiceRelayVoiceManager extends EventEmitter {
     if (this.rejoinTimer || !this.config?.auto_join) return;
     this.rejoinTimer = setTimeout(() => {
       this.rejoinTimer = null;
-      this.ensureConnection().catch((error) => this.reportError(error));
+      this.ensureConnection().catch((error) => {
+        this.reportError(error);
+        this.scheduleRejoin();
+      });
     }, 5000);
   }
 

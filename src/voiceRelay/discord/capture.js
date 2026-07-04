@@ -54,7 +54,7 @@ class VoiceRelayCapture {
       const member = await this.guild.members.fetch(userId).catch(() => null);
       const decision = evaluateSpeaker(member, this.config);
       if (!decision.allowed) {
-        this.logSkip(userId, decision.reason, member);
+        this.logSkip(userId, decision.reason, member, this.skipDetail(decision.reason, member));
         return;
       }
 
@@ -164,12 +164,22 @@ function reasonLabel(reason) {
   }[reason] || reason;
 }
 
-VoiceRelayCapture.prototype.logSkip = function logSkip(userId, reason, member = null) {
+VoiceRelayCapture.prototype.logSkip = function logSkip(userId, reason, member = null, detail = null) {
   const key = `${userId}:${reason}`;
   const now = Date.now();
   if (now - (this.skipLogAt.get(key) || 0) < 5000) return;
   this.skipLogAt.set(key, now);
-  this.logger.info(`Bỏ qua voice: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}`);
+  const suffix = detail ? ` ${detail}` : '';
+  this.logger.info(`Bỏ qua voice: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}${suffix}`);
+};
+
+// Chi tiết chẩn đoán khi bỏ qua vì lý do liên quan role/cấu hình caller.
+VoiceRelayCapture.prototype.skipDetail = function skipDetail(reason, member) {
+  if (reason !== 'missing_caller_permission' && reason !== 'no_callers_configured') return null;
+  const memberRoles = member ? roleIdsOf(member) : [];
+  const callerRoles = (this.config?.caller_role_ids || []).map(String);
+  const callerUsers = (this.config?.caller_user_ids || []).map(String);
+  return `| role người nói: [${memberRoles.join(', ')}] | caller role đã set: [${callerRoles.join(', ')}] | caller user: [${callerUsers.join(', ')}]`;
 };
 
 module.exports = { VoiceRelayCapture };

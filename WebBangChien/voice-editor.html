@@ -336,6 +336,29 @@
     .pill.ok{background:rgba(58,208,126,.18);color:var(--green)}
     .pill.off{background:rgba(255,107,107,.16);color:var(--danger)}
 
+    /* ---------- Scope switch (chung / riêng) ---------- */
+    .scope-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;flex:0 0 auto}
+    .scope-switch button{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:12px 14px;border:1.5px solid var(--line);background:var(--panel);color:var(--muted);border-radius:var(--radius);font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;transition:.2s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:relative;overflow:hidden}
+    .scope-switch button:hover{border-color:var(--line-strong);transform:translateY(-1px);box-shadow:0 6px 16px var(--shadow)}
+    .scope-switch button.active{border-color:var(--gold);color:var(--text);background:linear-gradient(135deg,rgba(246,196,83,.22),rgba(58,208,126,.12));box-shadow:0 8px 22px var(--shadow),0 0 0 1px rgba(247,205,95,.18)}
+    .scope-switch button .ico{font-size:17px;line-height:1;flex:0 0 auto}
+    .scope-switch button .txt{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;text-align:left}
+    .scope-switch button .txt small{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.2px}
+    .scope-switch button.active .txt small{color:var(--gold)}
+    .scope-banner{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:11px 13px;border:1px solid var(--line-strong);border-radius:12px;background:linear-gradient(135deg,rgba(246,196,83,.12),rgba(58,208,126,.06));font-size:12px;font-weight:800;color:var(--gold-glow);line-height:1.4}
+    .scope-banner .ico{font-size:17px;flex:0 0 auto}
+    .shared-status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    @media(max-width:760px){.shared-status-grid{grid-template-columns:1fr}}
+    .shared-status-card{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2),rgba(0,0,0,.04));border-radius:12px;padding:10px 11px}
+    .shared-status-card.online{border-color:var(--green-2);box-shadow:0 0 0 1px rgba(58,208,126,.14)}
+    .ss-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .ss-name{font-weight:900;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ss-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;padding:3px 0;color:var(--muted);font-weight:700}
+    .ss-row b{color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+    .ss-row b.ok{color:var(--green)}
+    .ss-row b.off{color:var(--muted)}
+    @media(max-width:640px){.scope-switch button{font-size:12px;padding:10px 8px;gap:6px}.scope-switch button .txt small{display:none}}
+
     .err-note{color:var(--danger);font-size:12px;font-weight:700;margin-top:8px;min-height:16px}
     .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--gold);color:var(--text);padding:13px 20px;border-radius:12px;font-weight:700;font-size:13px;box-shadow:0 12px 30px var(--shadow);z-index:100;opacity:0;pointer-events:none;transition:.22s}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
@@ -404,6 +427,17 @@
           <span class="feedback-btn-label">Đăng xuất</span>
         </button>
       </div>
+    </div>
+
+    <div class="scope-switch" id="scopeSwitch">
+      <button type="button" data-scope="shared" onclick="setSettingScope('shared')">
+        <span class="ico" aria-hidden="true">🌐</span>
+        <span class="txt">Cài chung 3 bot<small>Một cấu hình áp cho cả 3</small></span>
+      </button>
+      <button type="button" data-scope="perbot" onclick="setSettingScope('perbot')">
+        <span class="ico" aria-hidden="true">🎚️</span>
+        <span class="txt">Cài riêng từng bot<small>Chỉnh riêng mỗi bot</small></span>
+      </button>
     </div>
 
     <div class="tabs">

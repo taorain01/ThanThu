@@ -17,6 +17,11 @@ let quickSetupMode = 'auto';
 let manualChannelIds = { 1: '', 2: '', 3: '' };
 let pickerState = null;
 
+/* Chế độ cấu hình: 'shared' = chung cả 3 bot, 'perbot' = riêng từng bot. */
+let settingScope = 'shared';
+const SHARED_FIELDS = ['caller_role_ids', 'caller_user_ids', 'muted_user_ids', 'blocked_role_ids'];
+let sharedDraft = { caller_role_ids: [], caller_user_ids: [], muted_user_ids: [], blocked_role_ids: [] };
+
 function defaultConfig(botId) {
   return {
     voice_channel_id: '',
@@ -188,6 +193,7 @@ async function checkAuth() {
   if (!quickAnchorId) quickSetupMode = 'manual';
   show('editorShell');
   renderBotTabs();
+  initSettingScope();
   renderPane(activeBot);
   setupRealtime();
 }
@@ -325,6 +331,65 @@ function switchBot(botId) {
   renderPane(botId);
 }
 window.switchBot = switchBot;
+
+/* ---------------- Scope chung / riêng ---------------- */
+function refreshSharedDraft() {
+  // Lấy cấu hình chung làm chuẩn từ Bot 1 (hoặc draft hiện tại của Bot 1).
+  const base = drafts[1] || configs[1] || {};
+  sharedDraft = {
+    caller_role_ids: [...(base.caller_role_ids || [])],
+    caller_user_ids: [...(base.caller_user_ids || [])],
+    muted_user_ids: [...(base.muted_user_ids || [])],
+    blocked_role_ids: [...(base.blocked_role_ids || [])]
+  };
+}
+
+function syncSharedToDrafts() {
+  for (const botId of BOT_IDS) {
+    if (!drafts[botId]) drafts[botId] = { ...(configs[botId] || defaultConfig(botId)) };
+    for (const field of SHARED_FIELDS) {
+      drafts[botId][field] = [...(sharedDraft[field] || [])];
+    }
+  }
+}
+
+// Cả 3 bot đang có cấu hình chung giống nhau chưa? Dùng để cảnh báo nhẹ ở chế độ chung.
+function botsShareSameConfig() {
+  return SHARED_FIELDS.every((field) => {
+    const ref = JSON.stringify([...((drafts[1] || {})[field] || [])].map(String).sort());
+    return BOT_IDS.every((botId) => JSON.stringify([...((drafts[botId] || {})[field] || [])].map(String).sort()) === ref);
+  });
+}
+
+function applyScopeUI() {
+  document.querySelectorAll('#scopeSwitch button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.scope === settingScope);
+  });
+  document.querySelector('.tabs')?.classList.toggle('hidden', settingScope === 'shared');
+}
+
+function setSettingScope(scope) {
+  const next = scope === 'perbot' ? 'perbot' : 'shared';
+  if (next === settingScope) return;
+  if (next === 'perbot') {
+    // Vào chế độ riêng: đồng bộ cấu hình chung xuống cả 3 bot làm điểm khởi đầu.
+    syncSharedToDrafts();
+  } else {
+    // Vào chế độ chung: lấy cấu hình Bot 1 làm chuẩn.
+    refreshSharedDraft();
+  }
+  settingScope = next;
+  localStorage.setItem('lg-voice-scope', settingScope);
+  applyScopeUI();
+  renderPane(activeBot);
+}
+window.setSettingScope = setSettingScope;
+
+function initSettingScope() {
+  settingScope = localStorage.getItem('lg-voice-scope') === 'perbot' ? 'perbot' : 'shared';
+  refreshSharedDraft();
+  applyScopeUI();
+}
 
 function updateOnlineSummary() {
   const on = BOT_IDS.filter((id) => statuses[id]?.discord_connected === true).length;
@@ -535,6 +600,9 @@ function currentVoiceRoomCard(botId) {
 }
 
 function renderPane(botId) {
+  applyScopeUI();
+  if (settingScope === 'shared') { renderSharedPane(); return; }
+
   const d = drafts[botId];
   const host = document.getElementById('paneHost');
 
@@ -578,6 +646,110 @@ function renderPane(botId) {
   bindPane(botId);
   updateTabDots();
 }
+
+/* ---------------- Chế độ chung 3 bot ---------------- */
+function sharedMemberChips(key) {
+  const ids = sharedDraft[key] || [];
+  if (!ids.length) return '<div class="hint">Chưa chọn ai.</div>';
+  const rows = ids.map((id) => {
+    const row = memberRows.find((m) => String(m.discord_id) === String(id));
+    return `<span class="member-chip">${esc(memberName(row) || id)}<button type="button" onclick="removeSharedMemberPick('${key}','${esc(id)}')">×</button></span>`;
+  }).join('');
+  return `<div class="member-chips">${rows}</div>`;
+}
+
+function sharedStatusHtml() {
+  const cards = BOT_IDS.map((botId) => {
+    const s = statuses[botId];
+    const online = s?.discord_connected === true;
+    const relay = s?.relay_enabled === true;
+    return `
+      <div class="shared-status-card ${online ? 'online' : ''}">
+        <div class="ss-head">${botMiniAvatar(botId)}<span class="ss-name">${esc(BOT_NAMES[botId])}</span><span class="pill ${online ? 'ok' : 'off'}">${online ? 'ONLINE' : 'OFFLINE'}</span></div>
+        <div class="ss-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
+        <div class="ss-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
+      </div>`;
+  }).join('');
+  return `<h3>📡 Trạng thái 3 bot</h3><div class="shared-status-grid">${cards}</div>`;
+}
+
+function renderSharedPane() {
+  const host = document.getElementById('paneHost');
+  const diffWarn = !botsShareSameConfig()
+    ? '<div class="scope-banner"><span class="ico">⚠️</span><span>3 bot đang có cấu hình khác nhau. Lưu ở chế độ chung sẽ đồng bộ cả 3 bot theo cấu hình bên dưới.</span></div>'
+    : '';
+
+  host.innerHTML = `
+    <div class="editor-grid">
+      ${quickSetupHtml()}
+      <div class="bot-pane active">
+        <div class="pane-scroll">
+            <div class="scope-banner"><span class="ico">🌐</span><span>Cấu hình dùng chung — áp dụng cho cả Đại Ngỗng, Tiểu Ngỗng và Chiến Ngỗng.</span></div>
+            ${diffWarn}
+            <div class="section">
+              <h3>🛡️ Ai được nói</h3>
+              <div class="field">
+                <label>Role được nói</label>
+                ${fixedRoleChecklist('caller_role_ids', sharedDraft.caller_role_ids)}
+              </div>
+              <div class="field">
+                <label>Thêm người được nói riêng</label>
+                ${sharedMemberChips('caller_user_ids')}
+                <button class="btn ghost small" onclick="openSharedMemberPicker('caller_user_ids')">+ Thêm người</button>
+              </div>
+              <div class="field">
+                <label>Mute người cụ thể</label>
+                ${sharedMemberChips('muted_user_ids')}
+                <button class="btn ghost small" onclick="openSharedMemberPicker('muted_user_ids')">+ Chọn người mute</button>
+              </div>
+            </div>
+
+            <div class="section block-danger">
+              <h3>⛔ Blocked role</h3>
+              <div class="field">
+                <label>Blocked role</label>
+                ${fixedRoleChecklist('blocked_role_ids', sharedDraft.blocked_role_ids)}
+              </div>
+            </div>
+
+            <div class="section status-section" id="statusSection">${sharedStatusHtml()}</div>
+            <div class="err-note" id="errNote"></div>
+        </div>
+      </div>
+    </div>`;
+
+  bindSharedPane();
+  updateTabDots();
+}
+
+function bindSharedPane() {
+  const host = document.getElementById('paneHost');
+  host.querySelectorAll('input[data-key]').forEach((el) => {
+    el.addEventListener('change', () => {
+      const key = el.dataset.key;
+      const set = new Set((sharedDraft[key] || []).map(String));
+      if (el.checked) set.add(el.value); else set.delete(el.value);
+      sharedDraft[key] = [...set].filter(Boolean);
+    });
+  });
+}
+
+function removeSharedMemberPick(key, id) {
+  sharedDraft[key] = (sharedDraft[key] || []).filter((x) => String(x) !== String(id));
+  renderSharedPane();
+}
+window.removeSharedMemberPick = removeSharedMemberPick;
+
+function openSharedMemberPicker(key) {
+  pickerState = { scope: 'shared', key };
+  ensurePicker();
+  document.getElementById('pickerTitle').textContent = key === 'muted_user_ids' ? 'Mute người cụ thể' : 'Thêm người được nói';
+  document.getElementById('memberSearch').value = '';
+  document.getElementById('memberPicker').classList.remove('hidden');
+  renderMemberResults();
+  setTimeout(() => document.getElementById('memberSearch')?.focus(), 0);
+}
+window.openSharedMemberPicker = openSharedMemberPicker;
 
 function sw(field, on, disabled = false) {
   return `<label class="switch"><input type="checkbox" data-field="${field}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="slider"></span></label>`;
@@ -667,7 +839,8 @@ function renderMemberResults() {
   const host = document.getElementById('memberResults');
   if (!host || !pickerState) return;
   const q = normalizeText(document.getElementById('memberSearch')?.value || '');
-  const current = new Set((drafts[pickerState.botId][pickerState.key] || []).map(String));
+  const container = pickerState.scope === 'shared' ? sharedDraft : drafts[pickerState.botId];
+  const current = new Set((container[pickerState.key] || []).map(String));
   const rows = memberRows
     .filter((m) => !q || normalizeText([m.discord_name, m.game_username, m.game_uid, m.discord_id].join(' ')).includes(q))
     .slice(0, 80);
@@ -684,10 +857,12 @@ window.renderMemberResults = renderMemberResults;
 
 function pickMember(id) {
   if (!pickerState || !id) return;
-  const list = drafts[pickerState.botId][pickerState.key] || [];
+  const container = pickerState.scope === 'shared' ? sharedDraft : drafts[pickerState.botId];
+  const list = container[pickerState.key] || [];
   if (!list.includes(id)) list.push(id);
-  drafts[pickerState.botId][pickerState.key] = list;
-  renderPane(pickerState.botId);
+  container[pickerState.key] = list;
+  if (pickerState.scope === 'shared') renderSharedPane();
+  else renderPane(pickerState.botId);
   closeMemberPicker();
 }
 window.pickMember = pickMember;
@@ -733,9 +908,16 @@ async function api(body) {
 }
 
 async function saveAllConfigs() {
+  if (settingScope === 'shared') syncSharedToDrafts();
   const invalid = validateAllDrafts();
   const note = document.getElementById('errNote');
   if (invalid) {
+    if (settingScope === 'shared') {
+      const sharedNote = document.getElementById('errNote');
+      if (sharedNote) sharedNote.textContent = invalid.err;
+      toast(invalid.err, true);
+      return;
+    }
     switchBot(invalid.botId);
     const activeNote = document.getElementById('errNote');
     if (activeNote) activeNote.textContent = invalid.err;
@@ -754,8 +936,9 @@ async function saveAllConfigs() {
       if (row) configs[botId] = { ...defaultConfig(botId), ...normalizeRow(row) };
       drafts[botId] = { ...configs[botId] };
     }
+    refreshSharedDraft();
     renderPane(activeBot);
-    toast('Đã lưu cấu hình cả 3 bot.');
+    toast(settingScope === 'shared' ? 'Đã lưu cấu hình chung cho cả 3 bot.' : 'Đã lưu cấu hình cả 3 bot.');
   } catch (e) {
     toast('Lưu tất cả thất bại: ' + e.message, true);
   }

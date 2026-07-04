@@ -35,6 +35,7 @@ function normalizeConfig(row, env) {
     created_channel_name: row?.created_channel_name || (env.botId === 1 ? 'Đại Ngỗng' : env.botId === 2 ? 'Tiểu Ngỗng' : 'Chiến Ngỗng'),
     create_position: row?.create_position === 'above' ? 'above' : 'below',
     create_anchor_channel_id: row?.create_anchor_channel_id || '',
+    anchor_original_name: row?.anchor_original_name || null,
     updated_at: row?.updated_at || null
   };
 }

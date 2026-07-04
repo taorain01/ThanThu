@@ -15,6 +15,11 @@ const { findLangGiaRole } = require('../utils/langGiaRole');
 const ENTRY_PERMISSION_BITS = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.Connect;
 const BOT_VOICE_PERMISSION_BITS = ENTRY_PERMISSION_BITS | PermissionFlagsBits.Speak | PermissionFlagsBits.Stream | PermissionFlagsBits.UseVAD;
 
+// Tên hiển thị của kênh anchor (BANG CHIẾN) khi relay đang chạy có người.
+const TEAM_TOP_NAME = '⚡ Team Top';
+// Tên trả lại cho anchor khi hết người, nếu không lưu được tên gốc (fallback an toàn).
+const ANCHOR_RESTORE_FALLBACK = 'BANG CHIẾN';
+
 async function initVoiceRelay(client, options = {}) {
   const env = loadVoiceRelayEnv(options);
   const logger = new VoiceRelayLogger(env);
@@ -31,7 +36,7 @@ async function initVoiceRelay(client, options = {}) {
   const supabaseConfig = new SupabaseConfig(env, logger);
   const voiceManager = new VoiceRelayVoiceManager(client, env, relayState, supabaseConfig, logger);
   const capture = new VoiceRelayCapture(env, relayState, logger);
-  const playback = new VoiceRelayPlayback(logger);
+  const playback = new VoiceRelayPlayback(logger, env);
   const guildSync = new VoiceRelayGuildSync(client, env, supabaseConfig, logger);
   const link = new LinkPeer(env, logger);
   const statusReporter = new StatusReporter(env, supabaseConfig, relayState, logger, voiceManager);
@@ -50,6 +55,7 @@ async function initVoiceRelay(client, options = {}) {
     link,
     statusReporter,
     config: null,
+    anchorOriginalName: null,
     getCommandPrefixes() {
       const prefixes = new Set([
         this.config?.command_prefix,
@@ -80,6 +86,9 @@ async function initVoiceRelay(client, options = {}) {
 
   async function applyConfig(config) {
     runtime.config = config;
+    if (!runtime.anchorOriginalName && config.anchor_original_name) {
+      runtime.anchorOriginalName = config.anchor_original_name;
+    }
     capture.updateConfig(config);
     voiceManager.updateConfig(config);
     relayState.update({ relayEnabled: config.relay_enabled === true });
@@ -87,6 +96,8 @@ async function initVoiceRelay(client, options = {}) {
       logger.warn('Auto-join voice relay lỗi', error.message);
       relayState.update({ lastError: error.message });
     });
+    // Cập nhật tên anchor theo trạng thái relay (bật + có người → Team Top, ngược lại trả tên gốc).
+    maybeRenameAnchor(runtime).catch((error) => logger.warn('Đổi tên anchor lỗi', error.message));
   }
 
   voiceManager.on('connection', (connection, guild) => {
@@ -112,6 +123,9 @@ async function initVoiceRelay(client, options = {}) {
   statusReporter.start((action) => runtime.handleAction(action));
   client.on('voiceStateUpdate', (oldState) => {
     if (env.botId !== 1) return;
+    // Đổi tên anchor BANG CHIẾN <-> Team Top theo việc còn người hay không.
+    maybeRenameAnchor(runtime).catch((error) => logger.warn('Đổi tên anchor lỗi', error.message));
+
     const channel = oldState?.channel;
     if (!channel || channel.members.filter((member) => !member.user?.bot).size > 0) return;
     cleanupEmptyManagedChannel(runtime, channel.id).catch((error) => {
@@ -169,8 +183,8 @@ async function quickSetup(runtime) {
 
   const created = [];
   const targets = [
-    { botId: 2, name: '⚡ Bang Chiến Team 2', offset: 1 },
-    { botId: 3, name: '⚡ Bang Chiến Team 3', offset: 2 }
+    { botId: 2, name: '⚡ Team Mid', offset: 1 },
+    { botId: 3, name: '⚡ Team Bot', offset: 2 }
   ];
 
   for (const target of targets) {
@@ -322,6 +336,36 @@ async function cleanupEmptyManagedChannel(runtime, channelId) {
   const { voiceManager } = runtime;
   // deleteManagedChannel chỉ xoá khi phòng không còn người → an toàn, không đá ai ra.
   await voiceManager.deleteManagedChannel(channelId, { force: false });
+}
+
+// Đổi tên anchor (BANG CHIẾN) thành "Team Top" khi relay bật + có người,
+// và trả lại tên gốc khi hết người hoặc relay tắt. Chỉ Bot 1 làm.
+// Lưu ý: Discord giới hạn đổi tên kênh ~2 lần/10 phút nên tên có thể cập nhật trễ.
+async function maybeRenameAnchor(runtime) {
+  const { env, config, voiceManager, supabaseConfig, logger } = runtime;
+  if (env.botId !== 1 || !config) return;
+
+  const anchorId = config.voice_channel_id;
+  if (!anchorId) return;
+
+  const guild = await voiceManager.resolveGuild();
+  const anchor = await guild.channels.fetch(anchorId).catch(() => null);
+  if (!anchor || !(anchor.type === ChannelType.GuildVoice || anchor.type === ChannelType.GuildStageVoice)) return;
+
+  const humanCount = anchor.members.filter((member) => !member.user?.bot).size;
+  const shouldBeTop = config.relay_enabled === true && humanCount > 0;
+
+  if (shouldBeTop && anchor.name !== TEAM_TOP_NAME) {
+    // Lưu tên gốc lần đầu (memory + Supabase best-effort) để trả lại sau, kể cả khi restart.
+    if (!runtime.anchorOriginalName) {
+      runtime.anchorOriginalName = anchor.name;
+      supabaseConfig.patchConfig({ anchor_original_name: anchor.name }).catch(() => null);
+    }
+    await anchor.setName(TEAM_TOP_NAME).catch((error) => logger.warn('Đổi tên anchor → Team Top lỗi', error.message));
+  } else if (!shouldBeTop && anchor.name === TEAM_TOP_NAME) {
+    const original = runtime.anchorOriginalName || config.anchor_original_name || ANCHOR_RESTORE_FALLBACK;
+    await anchor.setName(original).catch((error) => logger.warn('Trả tên anchor lỗi', error.message));
+  }
 }
 
 module.exports = {

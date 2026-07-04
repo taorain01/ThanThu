@@ -286,7 +286,7 @@ function setupRealtime() {
       if (!row) return;
       statuses[Number(row.bot_id)] = payload.eventType === 'DELETE' ? null : row;
       updateTabDots();
-      if (settingScope === 'shared' || Number(row.bot_id) === activeBot) renderStatus(activeBot);
+      renderStatus();
     })
     .subscribe();
   sb.channel('voice_relay_master_rt')
@@ -558,28 +558,40 @@ function manualRoomMap() {
     </div>`;
 }
 
-function quickSetupHtml() {
-  const totalPeople = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
+function masterHeroHtml() {
   const setupError = quickSetupError();
   const disableOn = !masterState.enabled && !!setupError;
+  const on = masterState.enabled === true;
+  const totalPeople = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
+  return `
+    <div class="section master-hero ${on ? 'is-on' : 'is-off'}">
+      <div class="master-hero-top">
+        <div class="master-hero-info">
+          <div class="master-hero-title">
+            <span class="master-ico">${on ? '🔊' : '🔈'}</span>Bật/tắt tổng
+            <span class="master-badge ${on ? 'on' : 'off'}">${on ? 'Đang bật' : 'Đang tắt'}</span>
+          </div>
+          <div class="hint">${quickSetupMode === 'manual' ? 'Bật: 3 bot vào 3 kênh đã chọn, không tạo room mới.' : 'Bật: Bot 1 vào Bang Chiến, Bot 2/3 tạo phòng relay bên dưới và vào kênh.'}</div>
+        </div>
+        <label class="switch switch-lg" title="${disableOn ? esc(setupError) : ''}"><input type="checkbox" ${on ? 'checked' : ''} ${disableOn ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span><span class="lever-lbl lever-on">ON</span><span class="lever-lbl lever-off">OFF</span></label>
+      </div>
+      <div class="master-hero-note hint relay-lock-hint">⚠ Khi bật Relay, lệnh ?join sẽ không hoạt động. Tính năng voice của bot cũng sẽ không hoạt động.</div>
+      ${disableOn ? `<div class="quick-warning">${esc(setupError)}</div>` : ''}
+      ${totalPeople ? `<div class="hint master-hero-people">Hiện có ${totalPeople} người thật trong các kênh relay. Khi tắt tổng web sẽ hỏi trước nếu cần xóa phòng.</div>` : ''}
+    </div>`;
+}
+
+function quickSetupHtml() {
+  const setupError = quickSetupError();
   return `
     <div class="section quick-panel">
-      <h3>⚡ Setup nhanh 3 bot</h3>
-      <div class="quick-row">
-        <div>
-          <div class="quick-title">Bật/tắt tổng</div>
-          <div class="hint">${quickSetupMode === 'manual' ? 'Bật: 3 bot vào 3 kênh đã chọn, không tạo room mới.' : 'Bật: Bot 1 vào Bang Chiến, Bot 2/3 tạo phòng relay bên dưới và vào kênh.'}</div>
-          <div class="hint relay-lock-hint">Khi bật Relay, lệnh ?join sẽ không hoạt động. Tính năng voice của bot cũng sẽ không hoạt động.</div>
-        </div>
-        <label class="switch" title="${disableOn ? esc(setupError) : ''}"><input type="checkbox" ${masterState.enabled ? 'checked' : ''} ${disableOn ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span><span class="lever-lbl lever-on">ON</span><span class="lever-lbl lever-off">OFF</span></label>
-      </div>
+      <h3>⚡ Chọn kênh relay</h3>
       <div class="quick-mode" role="tablist" aria-label="Chế độ chọn room">
         <button type="button" class="${quickSetupMode === 'auto' ? 'active' : ''}" onclick="setQuickSetupMode('auto')">Tự động</button>
         <button type="button" class="${quickSetupMode === 'manual' ? 'active' : ''}" onclick="setQuickSetupMode('manual')">Chọn thủ công</button>
       </div>
       ${quickSetupMode === 'manual' ? manualRoomMap() : autoRoomMap()}
       ${setupError ? `<div class="quick-warning">${esc(setupError)}</div>` : ''}
-      ${totalPeople ? `<div class="hint">Hiện có ${totalPeople} người thật trong các kênh relay. Khi tắt tổng web sẽ hỏi trước nếu cần xóa phòng.</div>` : ''}
     </div>`;
 }
 
@@ -829,11 +841,13 @@ function renderPane(botId) {
 
   host.innerHTML = `
     <div class="editor-grid">
-      <div class="vcol">
+      <div class="vcol vcol-left">
+        <div class="section status-section" id="statusSection">${statusRailHtml()}</div>
         ${quickSetupHtml()}
       </div>
-      <div class="vcol">
-        <div class="section">
+      <div class="vcol vcol-main">
+        ${masterHeroHtml()}
+        <div class="section speaker-section">
           <h3>🛡️ Ai được nói</h3>
           <div class="field">
             <label>Role được nói</label>
@@ -850,6 +864,11 @@ function renderPane(botId) {
             <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
           </div>
         </div>
+        <div class="err-note" id="errNote"></div>
+      </div>
+      <div class="vcol">
+        ${delayPanelHtml()}
+        ${yieldPanelHtml()}
         <div class="section block-danger">
           <h3>⛔ Blocked role</h3>
           <div class="field">
@@ -857,12 +876,6 @@ function renderPane(botId) {
             ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
           </div>
         </div>
-        <div class="err-note" id="errNote"></div>
-      </div>
-      <div class="vcol">
-        ${delayPanelHtml()}
-        ${yieldPanelHtml()}
-        <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
       </div>
     </div>`;
 
@@ -881,19 +894,24 @@ function sharedMemberChips(key) {
   return `<div class="member-chips">${rows}</div>`;
 }
 
-function sharedStatusHtml() {
+function statusRailHtml() {
+  const clickable = settingScope === 'perbot';
   const cards = BOT_IDS.map((botId) => {
     const s = statuses[botId];
     const online = s?.discord_connected === true;
     const relay = s?.relay_enabled === true;
+    const active = clickable && botId === activeBot ? 'active' : '';
+    const attrs = clickable ? `role="button" tabindex="0" onclick="switchBot(${botId})"` : '';
     return `
-      <div class="shared-status-card ${online ? 'online' : ''}">
-        <div class="ss-head">${botMiniAvatar(botId)}<span class="ss-name">${esc(BOT_NAMES[botId])}</span><span class="pill ${online ? 'ok' : 'off'}">${online ? 'ONLINE' : 'OFFLINE'}</span></div>
-        <div class="ss-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
-        <div class="ss-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
+      <div class="rail-card ${online ? 'online' : ''} ${active}" ${attrs}>
+        <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span><span class="pill ${online ? 'ok' : 'off'}">${online ? 'ONLINE' : 'OFFLINE'}</span></div>
+        <div class="rail-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
+        <div class="rail-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
+        <div class="rail-row"><span>Người trong kênh</span><b>${Number(s?.channel_member_count || 0)}</b></div>
+        ${s?.last_error ? `<div class="rail-err">Lỗi gần nhất: ${esc(s.last_error)}</div>` : ''}
       </div>`;
   }).join('');
-  return `<h3>📡 Trạng thái 3 bot</h3><div class="shared-status-grid">${cards}</div>`;
+  return `<h3>📡 Trạng thái 3 bot</h3><div class="status-rail">${cards}</div>`;
 }
 
 function renderSharedPane() {
@@ -904,12 +922,14 @@ function renderSharedPane() {
 
   host.innerHTML = `
     <div class="editor-grid">
-      <div class="vcol">
+      <div class="vcol vcol-left">
+        <div class="section status-section" id="statusSection">${statusRailHtml()}</div>
         ${quickSetupHtml()}
       </div>
-      <div class="vcol">
+      <div class="vcol vcol-main">
+        ${masterHeroHtml()}
         ${diffWarn}
-        <div class="section">
+        <div class="section speaker-section">
           <h3>🛡️ Ai được nói</h3>
           <div class="field">
             <label>Role được nói</label>
@@ -926,6 +946,11 @@ function renderSharedPane() {
             <button class="btn ghost small" onclick="openSharedMemberPicker('muted_user_ids')">+ Chọn người mute</button>
           </div>
         </div>
+        <div class="err-note" id="errNote"></div>
+      </div>
+      <div class="vcol">
+        ${delayPanelHtml()}
+        ${yieldPanelHtml()}
         <div class="section block-danger">
           <h3>⛔ Blocked role</h3>
           <div class="field">
@@ -933,12 +958,6 @@ function renderSharedPane() {
             ${fixedRoleChecklist('blocked_role_ids', sharedDraft.blocked_role_ids)}
           </div>
         </div>
-        <div class="err-note" id="errNote"></div>
-      </div>
-      <div class="vcol">
-        ${delayPanelHtml()}
-        ${yieldPanelHtml()}
-        <div class="section status-section" id="statusSection">${sharedStatusHtml()}</div>
       </div>
     </div>`;
 
@@ -979,27 +998,10 @@ function sw(field, on, disabled = false) {
   return `<label class="switch"><input type="checkbox" data-field="${field}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span class="slider"></span></label>`;
 }
 
-function statusHtml(botId) {
-  const s = statuses[botId];
-  const online = s?.discord_connected === true;
-  const link = s?.link_connected === true;
-  const relay = s?.relay_enabled === true;
-  const pill = (ok, t, f) => `<span class="pill ${ok ? 'ok' : 'off'}">${ok ? t : f}</span>`;
-  return `
-    <h3>📡 Trạng thái ${esc(BOT_NAMES[botId])} ${pill(online, 'ONLINE', 'OFFLINE')}</h3>
-    <div class="status-grid">
-      <div class="status-item"><div class="k">Kênh voice</div><div class="v">${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</div></div>
-      <div class="status-item"><div class="k">Relay</div><div class="v ${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</div></div>
-      <div class="status-item"><div class="k">Link mesh</div><div class="v ${link ? 'ok' : 'off'}">${link ? 'Kết nối' : 'Mất'}</div></div>
-      <div class="status-item"><div class="k">Người trong kênh</div><div class="v">${Number(s?.channel_member_count || 0)}</div></div>
-    </div>
-    ${s?.last_error ? `<div class="err-note">Lỗi gần nhất: ${esc(s.last_error)}</div>` : ''}`;
-}
-
-function renderStatus(botId) {
+function renderStatus() {
   const sec = document.getElementById('statusSection');
   if (!sec) return;
-  sec.innerHTML = settingScope === 'shared' ? sharedStatusHtml() : statusHtml(botId);
+  sec.innerHTML = statusRailHtml();
 }
 
 /* ---------------- Bind inputs -> draft ---------------- */

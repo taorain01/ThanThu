@@ -626,7 +626,9 @@ function delayPanelHtml() {
   const pct = Math.round(((current - JITTER_MIN) / (JITTER_MAX - JITTER_MIN)) * 100);
   return `
     <div class="section delay-panel">
-      <h3>🎚️ Độ trễ chống giật (delay)</h3>
+      <h3>🎚️ Độ trễ chống giật (delay)
+        <button type="button" class="delay-help-toggle" onclick="toggleDelayHelp()" aria-label="Giải thích delay">❔ Delay là gì?</button>
+      </h3>
 
       <div class="delay-live">
         <div class="delay-value"><span id="jitterValue">${current}</span><small>ms</small></div>
@@ -647,11 +649,11 @@ function delayPanelHtml() {
       <div class="jitter-presets">${jitterPresetButtons(current)}</div>
 
       <div class="delay-actions">
-        <button class="btn primary small" onclick="applyJitterDelay()">Áp dụng độ trễ cho cả 3 bot</button>
+        <button class="btn gold small" onclick="applyJitterDelay()">Áp dụng cho cả 3 bot</button>
         <span class="hint" id="jitterApplyHint">Áp dụng riêng, không cần điền role — bot nhận trong ~10 giây.</span>
       </div>
 
-      <div class="delay-explain">
+      <div class="delay-explain collapsed" id="delayExplain">
         <div class="delay-explain-title">Delay này là gì?</div>
         <p>Khi bạn nói, tiếng được cắt thành nhiều mẩu nhỏ (mỗi mẩu 20ms) rồi gửi qua mạng sang bot khác. Mạng không bao giờ giao đều tăm tắp: có mẩu tới sớm, có mẩu tới trễ. Nếu bot phát ra ngay khi vừa nhận, chỉ cần một mẩu tới trễ là tiếng bị <b>hụt → nghe giật, rè, ngắt quãng</b>.</p>
         <p><b>Delay</b> là khoảng thời gian bot <b>gom sẵn tiếng vào bộ đệm</b> trước khi bắt đầu phát. Ví dụ delay 400ms nghĩa là bot chứa sẵn 0.4 giây tiếng; nếu mạng trục trặc trong 0.4 giây đó thì vẫn có cái để phát liên tục, người nghe không thấy giật.</p>
@@ -726,6 +728,11 @@ async function applyJitterDelay() {
 }
 window.applyJitterDelay = applyJitterDelay;
 
+function toggleDelayHelp() {
+  document.getElementById('delayExplain')?.classList.toggle('collapsed');
+}
+window.toggleDelayHelp = toggleDelayHelp;
+
 function targetChecklist(botId, selected) {
   const rows = BOT_IDS.filter((id) => id !== botId).map((id) => {
     const checked = selected.includes(String(id)) ? 'checked' : '';
@@ -755,39 +762,39 @@ function renderPane(botId) {
 
   host.innerHTML = `
     <div class="editor-grid">
-      ${quickSetupHtml()}
-      ${delayPanelHtml()}
-      <div class="bot-pane active">
-        <div class="pane-scroll">
-            <div class="section">
-              <h3>🛡️ Ai được nói</h3>
-              <div class="field">
-                <label>Role được nói</label>
-                ${fixedRoleChecklist('caller_role_ids', d.caller_role_ids)}
-              </div>
-              <div class="field">
-                <label>Thêm người được nói riêng</label>
-                ${memberChips(botId, 'caller_user_ids')}
-                <button class="btn ghost small" onclick="openMemberPicker(${botId},'caller_user_ids')">+ Thêm người</button>
-              </div>
-              <div class="field">
-                <label>Mute người cụ thể</label>
-                ${memberChips(botId, 'muted_user_ids')}
-                <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
-              </div>
-            </div>
-
-            <div class="section block-danger">
-              <h3>⛔ Blocked role</h3>
-              <div class="field">
-                <label>Blocked role</label>
-                ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
-              </div>
-            </div>
-
-            <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
-            <div class="err-note" id="errNote"></div>
+      <div class="vcol">
+        ${quickSetupHtml()}
+      </div>
+      <div class="vcol">
+        <div class="section">
+          <h3>🛡️ Ai được nói</h3>
+          <div class="field">
+            <label>Role được nói</label>
+            ${fixedRoleChecklist('caller_role_ids', d.caller_role_ids)}
+          </div>
+          <div class="field">
+            <label>Thêm người được nói riêng</label>
+            ${memberChips(botId, 'caller_user_ids')}
+            <button class="btn ghost small" onclick="openMemberPicker(${botId},'caller_user_ids')">+ Thêm người</button>
+          </div>
+          <div class="field">
+            <label>Mute người cụ thể</label>
+            ${memberChips(botId, 'muted_user_ids')}
+            <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
+          </div>
         </div>
+        <div class="section block-danger">
+          <h3>⛔ Blocked role</h3>
+          <div class="field">
+            <label>Blocked role</label>
+            ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
+          </div>
+        </div>
+        <div class="err-note" id="errNote"></div>
+      </div>
+      <div class="vcol">
+        ${delayPanelHtml()}
+        <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
       </div>
     </div>`;
 
@@ -829,41 +836,40 @@ function renderSharedPane() {
 
   host.innerHTML = `
     <div class="editor-grid">
-      ${quickSetupHtml()}
-      ${delayPanelHtml()}
-      <div class="bot-pane active">
-        <div class="pane-scroll">
-            <div class="scope-banner"><span class="ico">🌐</span><span>Cấu hình dùng chung — áp dụng cho cả Đại Ngỗng, Tiểu Ngỗng và Chiến Ngỗng.</span></div>
-            ${diffWarn}
-            <div class="section">
-              <h3>🛡️ Ai được nói</h3>
-              <div class="field">
-                <label>Role được nói</label>
-                ${fixedRoleChecklist('caller_role_ids', sharedDraft.caller_role_ids)}
-              </div>
-              <div class="field">
-                <label>Thêm người được nói riêng</label>
-                ${sharedMemberChips('caller_user_ids')}
-                <button class="btn ghost small" onclick="openSharedMemberPicker('caller_user_ids')">+ Thêm người</button>
-              </div>
-              <div class="field">
-                <label>Mute người cụ thể</label>
-                ${sharedMemberChips('muted_user_ids')}
-                <button class="btn ghost small" onclick="openSharedMemberPicker('muted_user_ids')">+ Chọn người mute</button>
-              </div>
-            </div>
-
-            <div class="section block-danger">
-              <h3>⛔ Blocked role</h3>
-              <div class="field">
-                <label>Blocked role</label>
-                ${fixedRoleChecklist('blocked_role_ids', sharedDraft.blocked_role_ids)}
-              </div>
-            </div>
-
-            <div class="section status-section" id="statusSection">${sharedStatusHtml()}</div>
-            <div class="err-note" id="errNote"></div>
+      <div class="vcol">
+        ${quickSetupHtml()}
+      </div>
+      <div class="vcol">
+        ${diffWarn}
+        <div class="section">
+          <h3>🛡️ Ai được nói</h3>
+          <div class="field">
+            <label>Role được nói</label>
+            ${fixedRoleChecklist('caller_role_ids', sharedDraft.caller_role_ids)}
+          </div>
+          <div class="field">
+            <label>Thêm người được nói riêng</label>
+            ${sharedMemberChips('caller_user_ids')}
+            <button class="btn ghost small" onclick="openSharedMemberPicker('caller_user_ids')">+ Thêm người</button>
+          </div>
+          <div class="field">
+            <label>Mute người cụ thể</label>
+            ${sharedMemberChips('muted_user_ids')}
+            <button class="btn ghost small" onclick="openSharedMemberPicker('muted_user_ids')">+ Chọn người mute</button>
+          </div>
         </div>
+        <div class="section block-danger">
+          <h3>⛔ Blocked role</h3>
+          <div class="field">
+            <label>Blocked role</label>
+            ${fixedRoleChecklist('blocked_role_ids', sharedDraft.blocked_role_ids)}
+          </div>
+        </div>
+        <div class="err-note" id="errNote"></div>
+      </div>
+      <div class="vcol">
+        ${delayPanelHtml()}
+        <div class="section status-section" id="statusSection">${sharedStatusHtml()}</div>
       </div>
     </div>`;
 

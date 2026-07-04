@@ -21,6 +21,7 @@ let pickerState = null;
 let settingScope = 'shared';
 const SHARED_FIELDS = ['caller_role_ids', 'caller_user_ids', 'muted_user_ids', 'blocked_role_ids'];
 let sharedDraft = { caller_role_ids: [], caller_user_ids: [], muted_user_ids: [], blocked_role_ids: [] };
+let lastAppliedMasterEnabled = null;
 
 function defaultConfig(botId) {
   return {
@@ -95,7 +96,10 @@ function applyKyCuuRelayStateToConfig(config, relayOn) {
   return config;
 }
 
-function applyKyCuuRelayState(relayOn = masterState.enabled === true) {
+function applyKyCuuRelayState(relayOn = masterState.enabled === true, options = {}) {
+  const enabled = relayOn === true;
+  if (!options.force && lastAppliedMasterEnabled === enabled) return false;
+
   applyKyCuuRelayStateToConfig(sharedDraft, relayOn);
   for (const botId of BOT_IDS) {
     if (!configs[botId]) configs[botId] = defaultConfig(botId);
@@ -103,6 +107,8 @@ function applyKyCuuRelayState(relayOn = masterState.enabled === true) {
     applyKyCuuRelayStateToConfig(configs[botId], relayOn);
     applyKyCuuRelayStateToConfig(drafts[botId], relayOn);
   }
+  lastAppliedMasterEnabled = enabled;
+  return true;
 }
 
 function memberName(row) {
@@ -222,7 +228,7 @@ async function checkAuth() {
   show('editorShell');
   renderBotTabs();
   initSettingScope();
-  applyKyCuuRelayState(masterState.enabled === true);
+  applyKyCuuRelayState(masterState.enabled === true, { force: true });
   renderPane(activeBot);
   setupRealtime();
 }
@@ -377,7 +383,6 @@ function refreshSharedDraft() {
 }
 
 function syncSharedToDrafts() {
-  applyKyCuuRelayStateToConfig(sharedDraft, masterState.enabled === true);
   for (const botId of BOT_IDS) {
     if (!drafts[botId]) drafts[botId] = { ...(configs[botId] || defaultConfig(botId)) };
     for (const field of SHARED_FIELDS) {
@@ -1002,10 +1007,6 @@ function bindSharedPane() {
       const set = new Set((sharedDraft[key] || []).map(String));
       if (el.checked) set.add(el.value); else set.delete(el.value);
       sharedDraft[key] = [...set].filter(Boolean);
-      if (key === 'caller_role_ids') applyKyCuuRelayStateToConfig(sharedDraft, masterState.enabled === true);
-      if (key === 'caller_role_ids' && String(el.value) === kyCuuRoleId()) {
-        el.checked = masterState.enabled === true;
-      }
     });
   });
 }
@@ -1056,10 +1057,6 @@ function bindPane(botId) {
       const set = new Set((d[key] || []).map(String));
       if (el.checked) set.add(el.value); else set.delete(el.value);
       d[key] = [...set].filter(Boolean);
-      if (key === 'caller_role_ids') applyKyCuuRelayStateToConfig(d, masterState.enabled === true);
-      if (key === 'caller_role_ids' && String(el.value) === kyCuuRoleId()) {
-        el.checked = masterState.enabled === true;
-      }
     });
   });
 }
@@ -1154,7 +1151,6 @@ function validateAllDrafts() {
 
 function effectiveDraftForSave(botId) {
   const draft = { ...(drafts[botId] || {}) };
-  applyKyCuuRelayStateToConfig(draft, masterState.enabled === true);
   if (!masterState.enabled) {
     draft.relay_enabled = false;
     draft.auto_join = false;
@@ -1175,7 +1171,6 @@ async function api(body) {
 
 async function saveAllConfigs() {
   if (settingScope === 'shared') syncSharedToDrafts();
-  applyKyCuuRelayState(masterState.enabled === true);
   const invalid = validateAllDrafts();
   const note = document.getElementById('errNote');
   if (invalid) {
@@ -1253,14 +1248,14 @@ function applyLocalGlobalStop() {
     drafts[botId] = { ...(drafts[botId] || configs[botId]), relay_enabled: false, auto_join: false };
     statuses[botId] = { ...(statuses[botId] || {}), relay_enabled: false };
   }
-  applyKyCuuRelayState(false);
+  applyKyCuuRelayState(false, { force: true });
 }
 
 async function toggleMaster(on) {
   try {
     if (on) {
       masterState = { ...masterState, enabled: true };
-      applyKyCuuRelayState(true);
+      applyKyCuuRelayState(true, { force: true });
       await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: quickSetupPayload() });
       toast('Đã bật setup nhanh 3 bot.');
     } else {
@@ -1275,9 +1270,8 @@ async function toggleMaster(on) {
     for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
     manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
     if (!on) applyLocalGlobalStop();
-    applyKyCuuRelayState(masterState.enabled === true);
     refreshSharedDraft();
-    applyKyCuuRelayState(masterState.enabled === true);
+    applyKyCuuRelayState(masterState.enabled === true, { force: true });
     renderPane(activeBot);
   } catch (e) {
     toast('Thao tác tổng thất bại: ' + e.message, true);

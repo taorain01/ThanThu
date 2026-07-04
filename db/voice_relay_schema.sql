@@ -113,3 +113,9 @@ alter table public.voice_relay_config add column if not exists create_anchor_cha
 -- Web ghi cột này, bot đọc và áp dụng runtime cho luồng phát.
 -- ============================================================================
 alter table public.voice_relay_config add column if not exists jitter_buffer_ms         int     not null default 400;
+
+-- ============================================================================
+-- BỔ SUNG: "nhường người nói" — người đang nói ngừng bao lâu (ms) thì nhả mic
+-- cho người khác. Nhỏ = luân phiên nhanh; lớn = giữ mic lâu, ít bị chen. Mặc định 500ms.
+-- ============================================================================
+alter table public.voice_relay_config add column if not exists speaker_release_ms       int     not null default 500;

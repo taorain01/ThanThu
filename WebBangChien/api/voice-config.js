@@ -173,6 +173,13 @@ function sanitizeConfig(payload) {
     clean.jitter_buffer_ms = Math.min(2000, Math.max(60, value));
   }
 
+  // "Nhường người nói": thời gian im (ms) trước khi nhả mic cho người khác. Kẹp 100..3000.
+  if (payload.speaker_release_ms !== undefined) {
+    const n = Number.parseInt(payload.speaker_release_ms, 10);
+    const value = Number.isFinite(n) ? n : 500;
+    clean.speaker_release_ms = Math.min(3000, Math.max(100, value));
+  }
+
   if (payload.command_prefix !== undefined) {
     clean.command_prefix = String(payload.command_prefix || '').trim().slice(0, 16) || null;
   }

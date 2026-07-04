@@ -37,6 +37,7 @@ function defaultConfig(botId) {
     auto_join: true,
     command_prefix: botId === 1 ? '?relay' : botId === 2 ? '!relay' : '#relay',
     jitter_buffer_ms: 400,
+    speaker_release_ms: 500,
     auto_create_channel: false,
     created_channel_name: BOT_NAMES[botId] || `Bot ${botId}`,
     create_position: 'below',
@@ -262,6 +263,7 @@ function normalizeRow(row) {
     auto_join: row.auto_join !== false,
     command_prefix: row.command_prefix || '',
     jitter_buffer_ms: Number.isFinite(Number(row.jitter_buffer_ms)) && Number(row.jitter_buffer_ms) > 0 ? Number(row.jitter_buffer_ms) : 400,
+    speaker_release_ms: Number.isFinite(Number(row.speaker_release_ms)) && Number(row.speaker_release_ms) > 0 ? Number(row.speaker_release_ms) : 500,
     auto_create_channel: row.auto_create_channel === true,
     created_channel_name: row.created_channel_name || '',
     create_position: row.create_position === 'above' ? 'above' : 'below',
@@ -733,6 +735,71 @@ function toggleDelayHelp() {
 }
 window.toggleDelayHelp = toggleDelayHelp;
 
+/* ---------------- Nhường người nói (speaker release) ---------------- */
+const YIELD_MODES = [
+  { ms: 900, key: 'hold', label: 'Giữ mic', desc: 'Người đang nói giữ chắc, khó bị chen ngang' },
+  { ms: 500, key: 'balance', label: 'Cân bằng', desc: 'Mặc định — nhả mic sau ~0.5s im' },
+  { ms: 200, key: 'quick', label: 'Nhường nhanh', desc: 'Thay phiên nhanh, dễ cướp lời' }
+];
+
+function currentReleaseMs() {
+  for (const botId of BOT_IDS) {
+    const v = Number(configs[botId]?.speaker_release_ms);
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+  return 500;
+}
+
+function yieldModeOf(ms) {
+  // Chọn mode gần nhất theo ms.
+  let best = YIELD_MODES[1];
+  let bestDiff = Infinity;
+  for (const m of YIELD_MODES) {
+    const diff = Math.abs(m.ms - ms);
+    if (diff < bestDiff) { bestDiff = diff; best = m; }
+  }
+  return best;
+}
+
+function yieldPanelHtml() {
+  const current = currentReleaseMs();
+  const activeMode = yieldModeOf(current);
+  const buttons = YIELD_MODES.map((m) => `
+    <button type="button" class="yield-opt ${m.key === activeMode.key ? 'active' : ''}" onclick="setSpeakerYield(${m.ms})" title="${esc(m.desc)}">
+      <b>${esc(m.label)}</b><span>${m.ms}ms</span>
+    </button>`).join('');
+  return `
+    <div class="section yield-panel">
+      <h3>🎙️ Nhường người nói
+        <span class="yield-hint-inline" id="yieldHint">${esc(activeMode.desc)}</span>
+      </h3>
+      <div class="yield-opts">${buttons}</div>
+      <div class="hint">Khi nhiều người cùng nói, bot chỉ phát tiếng 1 người mỗi lúc. Đây là thời gian người đang nói ngừng thì mới nhả mic cho người khác. Áp dụng ngay cho cả 3 bot.</div>
+    </div>`;
+}
+
+async function setSpeakerYield(ms) {
+  const value = Math.min(3000, Math.max(100, Number(ms) || 500));
+  // Cập nhật UI ngay.
+  document.querySelectorAll('.yield-opt').forEach((btn) => {
+    const btnMs = Number(btn.querySelector('span')?.textContent);
+    btn.classList.toggle('active', Math.abs(btnMs - value) <= 10);
+  });
+  const hintEl = document.getElementById('yieldHint');
+  if (hintEl) hintEl.textContent = yieldModeOf(value).desc;
+  try {
+    for (const botId of BOT_IDS) {
+      await api({ action: 'saveConfig', guild_id: GUILD_ID, bot_id: botId, payload: { speaker_release_ms: value } });
+      if (configs[botId]) configs[botId].speaker_release_ms = value;
+      if (drafts[botId]) drafts[botId].speaker_release_ms = value;
+    }
+    toast('Đã đặt nhường người nói: ' + value + 'ms cho cả 3 bot.');
+  } catch (e) {
+    toast('Đặt nhường người nói thất bại: ' + e.message, true);
+  }
+}
+window.setSpeakerYield = setSpeakerYield;
+
 function targetChecklist(botId, selected) {
   const rows = BOT_IDS.filter((id) => id !== botId).map((id) => {
     const checked = selected.includes(String(id)) ? 'checked' : '';
@@ -794,6 +861,7 @@ function renderPane(botId) {
       </div>
       <div class="vcol">
         ${delayPanelHtml()}
+        ${yieldPanelHtml()}
         <div class="section status-section" id="statusSection">${statusHtml(botId)}</div>
       </div>
     </div>`;
@@ -869,6 +937,7 @@ function renderSharedPane() {
       </div>
       <div class="vcol">
         ${delayPanelHtml()}
+        ${yieldPanelHtml()}
         <div class="section status-section" id="statusSection">${sharedStatusHtml()}</div>
       </div>
     </div>`;

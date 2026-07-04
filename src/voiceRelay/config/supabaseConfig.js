@@ -20,6 +20,12 @@ function normalizeJitterMs(value, env) {
   return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 400;
 }
 
+function normalizeReleaseMs(value) {
+  const n = Number(value);
+  if (Number.isFinite(n) && n > 0) return Math.min(3000, Math.max(100, Math.round(n)));
+  return 500;
+}
+
 function normalizeConfig(row, env) {
   const fallbackPrefix = env.commandPrefix || (env.botId === 1 ? '?relay' : '!relay');
   return {
@@ -38,6 +44,7 @@ function normalizeConfig(row, env) {
     auto_join: row?.auto_join !== false,
     command_prefix: row?.command_prefix || fallbackPrefix,
     jitter_buffer_ms: normalizeJitterMs(row?.jitter_buffer_ms, env),
+    speaker_release_ms: normalizeReleaseMs(row?.speaker_release_ms),
     pending_action: row?.pending_action || null,
     auto_create_channel: row?.auto_create_channel === true,
     created_channel_name: row?.created_channel_name || (env.botId === 1 ? 'Đại Ngỗng' : env.botId === 2 ? 'Tiểu Ngỗng' : 'Chiến Ngỗng'),
@@ -65,6 +72,7 @@ function defaultRow(env) {
     auto_join: true,
     command_prefix: env.commandPrefix,
     jitter_buffer_ms: normalizeJitterMs(null, env),
+    speaker_release_ms: 500,
     auto_create_channel: false,
     created_channel_name: env.botId === 1 ? 'Đại Ngỗng' : env.botId === 2 ? 'Tiểu Ngỗng' : 'Chiến Ngỗng',
     create_position: 'below',

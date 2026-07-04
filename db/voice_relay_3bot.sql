@@ -13,6 +13,10 @@ alter table public.voice_relay_config
 alter table public.voice_relay_config
   add column if not exists jitter_buffer_ms int not null default 400;
 
+-- "Nhường người nói": người đang nói ngừng bao lâu (ms) thì nhả mic cho người khác. Mặc định 500.
+alter table public.voice_relay_config
+  add column if not exists speaker_release_ms int not null default 500;
+
 alter table public.voice_relay_status
   add column if not exists channel_member_count int not null default 0;
 

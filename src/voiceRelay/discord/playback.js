@@ -34,7 +34,7 @@ class VoiceRelayPlayback {
     // Khoá 1 người nói tại một thời điểm để tránh trộn opus nhiều nguồn (gây giật/vỡ).
     this.activeSpeakerKey = null;
     this.lastFrameAt = 0;
-    this.SPEAKER_RELEASE_MS = 500; // người đang nói im quá lâu này thì nhả slot
+    this.speakerReleaseMs = 500; // người đang nói im quá lâu này thì nhả mic cho người khác ("nhường người nói")
 
     this.pacer = null;
 
@@ -67,6 +67,14 @@ class VoiceRelayPlayback {
     // Gom lại buffer theo mức mới để lần phát kế tiếp áp dụng ngay, không cắt ngang câu đang nói.
     this.buffering = true;
     if (this.logger?.info) this.logger.info(`Đã đổi jitter buffer phát audio: ${jitterMs}ms (${this.prebufferFrames} frame)`);
+  }
+
+  // Cập nhật "nhường người nói": người đang nói im bao lâu (ms) thì nhả mic cho người khác.
+  setSpeakerReleaseMs(ms) {
+    const value = Number(ms) > 0 ? Math.min(3000, Math.max(100, Math.round(Number(ms)))) : 500;
+    if (value === this.speakerReleaseMs) return;
+    this.speakerReleaseMs = value;
+    if (this.logger?.info) this.logger.info(`Đã đổi thời gian nhường người nói: ${value}ms`);
   }
 
   startStream() {
@@ -122,7 +130,7 @@ class VoiceRelayPlayback {
     const now = Date.now();
 
     // Slot trống hoặc người đang giữ slot im quá lâu → cho người này chiếm slot.
-    if (this.activeSpeakerKey === null || (now - this.lastFrameAt) > this.SPEAKER_RELEASE_MS) {
+    if (this.activeSpeakerKey === null || (now - this.lastFrameAt) > this.speakerReleaseMs) {
       if (this.activeSpeakerKey !== key) {
         this.activeSpeakerKey = key;
         this.queue = [];          // đổi người → bỏ queue cũ

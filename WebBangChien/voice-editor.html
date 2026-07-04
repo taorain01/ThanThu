@@ -350,6 +350,15 @@
     .delay-explain.collapsed{display:none}
     .delay-value span{font-size:26px}
     .delay-live{padding:9px 11px;gap:12px}
+    /* ---- Nhường người nói ---- */
+    .yield-panel{gap:8px}
+    .yield-hint-inline{margin-left:auto;font-size:9.5px;font-weight:700;color:var(--muted);text-transform:none;letter-spacing:0;text-align:right;max-width:55%;line-height:1.25}
+    .yield-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+    .yield-opt{display:flex;flex-direction:column;gap:1px;align-items:center;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);border-radius:10px;padding:8px 6px;font:inherit;cursor:pointer;transition:.14s}
+    .yield-opt b{font-size:12px;color:var(--text)}
+    .yield-opt span{font-size:9.5px;font-weight:800}
+    .yield-opt:hover{border-color:var(--line-strong)}
+    .yield-opt.active{border-color:var(--gold);background:linear-gradient(135deg,rgba(246,196,83,.25),rgba(58,208,126,.14))}
     @media(max-width:640px){
       .jitter-presets{grid-template-columns:repeat(2,1fr)}
       .delay-live{flex-direction:column;align-items:flex-start;gap:8px}

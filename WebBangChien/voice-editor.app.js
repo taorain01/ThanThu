@@ -282,7 +282,7 @@ function setupRealtime() {
       if (!row) return;
       statuses[Number(row.bot_id)] = payload.eventType === 'DELETE' ? null : row;
       updateTabDots();
-      if (Number(row.bot_id) === activeBot) renderStatus(activeBot);
+      if (settingScope === 'shared' || Number(row.bot_id) === activeBot) renderStatus(activeBot);
     })
     .subscribe();
   sb.channel('voice_relay_master_rt')
@@ -774,7 +774,8 @@ function statusHtml(botId) {
 
 function renderStatus(botId) {
   const sec = document.getElementById('statusSection');
-  if (sec) sec.innerHTML = statusHtml(botId);
+  if (!sec) return;
+  sec.innerHTML = settingScope === 'shared' ? sharedStatusHtml() : statusHtml(botId);
 }
 
 /* ---------------- Bind inputs -> draft ---------------- */
@@ -1005,6 +1006,7 @@ async function toggleMaster(on) {
     for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
     manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
     if (!on) applyLocalGlobalStop();
+    refreshSharedDraft();
     renderPane(activeBot);
   } catch (e) {
     toast('Thao tác tổng thất bại: ' + e.message, true);

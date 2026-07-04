@@ -727,6 +727,7 @@ async function applyJitterDelay() {
 window.applyJitterDelay = applyJitterDelay;
 
 function targetChecklist(botId, selected) {
+  const rows = BOT_IDS.filter((id) => id !== botId).map((id) => {
     const checked = selected.includes(String(id)) ? 'checked' : '';
     return `<label class="fixed-check"><input type="checkbox" data-key="relay_targets" value="${id}" ${checked}> <span>${esc(BOT_NAMES[id])}</span></label>`;
   }).join('');

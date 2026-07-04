@@ -79,6 +79,32 @@ function defaultCallerRoleIds() {
   return kyCuu?.id ? [String(kyCuu.id)] : [];
 }
 
+function kyCuuRoleId() {
+  const kyCuu = roleLookup().kycuu;
+  return kyCuu?.id ? String(kyCuu.id) : '';
+}
+
+function applyKyCuuRelayStateToConfig(config, relayOn) {
+  const roleId = kyCuuRoleId();
+  if (!roleId || !config) return config;
+
+  const set = new Set((config.caller_role_ids || []).map(String).filter(Boolean));
+  if (relayOn) set.add(roleId);
+  else set.delete(roleId);
+  config.caller_role_ids = [...set];
+  return config;
+}
+
+function applyKyCuuRelayState(relayOn = masterState.enabled === true) {
+  applyKyCuuRelayStateToConfig(sharedDraft, relayOn);
+  for (const botId of BOT_IDS) {
+    if (!configs[botId]) configs[botId] = defaultConfig(botId);
+    if (!drafts[botId]) drafts[botId] = { ...configs[botId] };
+    applyKyCuuRelayStateToConfig(configs[botId], relayOn);
+    applyKyCuuRelayStateToConfig(drafts[botId], relayOn);
+  }
+}
+
 function memberName(row) {
   return row?.game_username || row?.discord_name || row?.discord_id || 'Không rõ';
 }
@@ -196,6 +222,7 @@ async function checkAuth() {
   show('editorShell');
   renderBotTabs();
   initSettingScope();
+  applyKyCuuRelayState(masterState.enabled === true);
   renderPane(activeBot);
   setupRealtime();
 }
@@ -292,6 +319,7 @@ function setupRealtime() {
   sb.channel('voice_relay_master_rt')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'voice_relay_master', filter: 'guild_id=eq.' + GUILD_ID }, (payload) => {
       masterState = payload.new || { enabled: false };
+      applyKyCuuRelayState(masterState.enabled === true);
       renderPane(activeBot);
     })
     .subscribe();
@@ -349,6 +377,7 @@ function refreshSharedDraft() {
 }
 
 function syncSharedToDrafts() {
+  applyKyCuuRelayStateToConfig(sharedDraft, masterState.enabled === true);
   for (const botId of BOT_IDS) {
     if (!drafts[botId]) drafts[botId] = { ...(configs[botId] || defaultConfig(botId)) };
     for (const field of SHARED_FIELDS) {
@@ -973,6 +1002,10 @@ function bindSharedPane() {
       const set = new Set((sharedDraft[key] || []).map(String));
       if (el.checked) set.add(el.value); else set.delete(el.value);
       sharedDraft[key] = [...set].filter(Boolean);
+      if (key === 'caller_role_ids') applyKyCuuRelayStateToConfig(sharedDraft, masterState.enabled === true);
+      if (key === 'caller_role_ids' && String(el.value) === kyCuuRoleId()) {
+        el.checked = masterState.enabled === true;
+      }
     });
   });
 }
@@ -1023,6 +1056,10 @@ function bindPane(botId) {
       const set = new Set((d[key] || []).map(String));
       if (el.checked) set.add(el.value); else set.delete(el.value);
       d[key] = [...set].filter(Boolean);
+      if (key === 'caller_role_ids') applyKyCuuRelayStateToConfig(d, masterState.enabled === true);
+      if (key === 'caller_role_ids' && String(el.value) === kyCuuRoleId()) {
+        el.checked = masterState.enabled === true;
+      }
     });
   });
 }
@@ -1107,6 +1144,7 @@ function validateDraft(d) {
 }
 
 function validateAllDrafts() {
+  if (!masterState.enabled) return null;
   for (const botId of BOT_IDS) {
     const err = validateDraft(drafts[botId] || {});
     if (err) return { botId, err };
@@ -1116,6 +1154,7 @@ function validateAllDrafts() {
 
 function effectiveDraftForSave(botId) {
   const draft = { ...(drafts[botId] || {}) };
+  applyKyCuuRelayStateToConfig(draft, masterState.enabled === true);
   if (!masterState.enabled) {
     draft.relay_enabled = false;
     draft.auto_join = false;
@@ -1136,6 +1175,7 @@ async function api(body) {
 
 async function saveAllConfigs() {
   if (settingScope === 'shared') syncSharedToDrafts();
+  applyKyCuuRelayState(masterState.enabled === true);
   const invalid = validateAllDrafts();
   const note = document.getElementById('errNote');
   if (invalid) {
@@ -1213,11 +1253,14 @@ function applyLocalGlobalStop() {
     drafts[botId] = { ...(drafts[botId] || configs[botId]), relay_enabled: false, auto_join: false };
     statuses[botId] = { ...(statuses[botId] || {}), relay_enabled: false };
   }
+  applyKyCuuRelayState(false);
 }
 
 async function toggleMaster(on) {
   try {
     if (on) {
+      masterState = { ...masterState, enabled: true };
+      applyKyCuuRelayState(true);
       await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: quickSetupPayload() });
       toast('Đã bật setup nhanh 3 bot.');
     } else {
@@ -1232,7 +1275,9 @@ async function toggleMaster(on) {
     for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
     manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
     if (!on) applyLocalGlobalStop();
+    applyKyCuuRelayState(masterState.enabled === true);
     refreshSharedDraft();
+    applyKyCuuRelayState(masterState.enabled === true);
     renderPane(activeBot);
   } catch (e) {
     toast('Thao tác tổng thất bại: ' + e.message, true);

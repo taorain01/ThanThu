@@ -106,3 +106,10 @@ alter table public.voice_relay_config add column if not exists auto_create_chann
 alter table public.voice_relay_config add column if not exists created_channel_name     text;
 alter table public.voice_relay_config add column if not exists create_position          text    not null default 'below';  -- above | below (so voi kenh moc)
 alter table public.voice_relay_config add column if not exists create_anchor_channel_id text;
+
+-- ============================================================================
+-- BỔ SUNG: độ trễ chống giật (jitter buffer) khi phát audio relay.
+-- Đơn vị mili-giây. Cao hơn = mượt hơn nhưng trễ hơn. Mặc định 400ms.
+-- Web ghi cột này, bot đọc và áp dụng runtime cho luồng phát.
+-- ============================================================================
+alter table public.voice_relay_config add column if not exists jitter_buffer_ms         int     not null default 400;

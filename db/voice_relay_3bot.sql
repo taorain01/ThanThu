@@ -9,6 +9,10 @@ alter table public.voice_relay_config
 alter table public.voice_relay_config
   add column if not exists muted_user_ids jsonb not null default '[]'::jsonb;
 
+-- Độ trễ chống giật (jitter buffer) khi phát audio relay, đơn vị ms. Mặc định 400.
+alter table public.voice_relay_config
+  add column if not exists jitter_buffer_ms int not null default 400;
+
 alter table public.voice_relay_status
   add column if not exists channel_member_count int not null default 0;
 

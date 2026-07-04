@@ -123,9 +123,6 @@ async function initVoiceRelay(client, options = {}) {
   statusReporter.start((action) => runtime.handleAction(action));
   client.on('voiceStateUpdate', (oldState) => {
     if (env.botId !== 1) return;
-    // Đổi tên anchor BANG CHIẾN <-> Team Top theo việc còn người hay không.
-    maybeRenameAnchor(runtime).catch((error) => logger.warn('Đổi tên anchor lỗi', error.message));
-
     const channel = oldState?.channel;
     if (!channel || channel.members.filter((member) => !member.user?.bot).size > 0) return;
     cleanupEmptyManagedChannel(runtime, channel.id).catch((error) => {
@@ -338,9 +335,8 @@ async function cleanupEmptyManagedChannel(runtime, channelId) {
   await voiceManager.deleteManagedChannel(channelId, { force: false });
 }
 
-// Đổi tên anchor (BANG CHIẾN) thành "Team Top" khi relay bật + có người,
-// và trả lại tên gốc khi hết người hoặc relay tắt. Chỉ Bot 1 làm.
-// Lưu ý: Discord giới hạn đổi tên kênh ~2 lần/10 phút nên tên có thể cập nhật trễ.
+// Đổi tên anchor (BANG CHIẾN) thành "Team Top" khi relay BẬT, và trả lại tên gốc khi relay TẮT.
+// Chỉ Bot 1 làm. Lưu ý: Discord giới hạn đổi tên kênh ~2 lần/10 phút nên tên có thể cập nhật trễ.
 async function maybeRenameAnchor(runtime) {
   const { env, config, voiceManager, supabaseConfig, logger } = runtime;
   if (env.botId !== 1 || !config) return;
@@ -352,8 +348,8 @@ async function maybeRenameAnchor(runtime) {
   const anchor = await guild.channels.fetch(anchorId).catch(() => null);
   if (!anchor || !(anchor.type === ChannelType.GuildVoice || anchor.type === ChannelType.GuildStageVoice)) return;
 
-  const humanCount = anchor.members.filter((member) => !member.user?.bot).size;
-  const shouldBeTop = config.relay_enabled === true && humanCount > 0;
+  // Chỉ dựa vào relay bật/tắt, không phụ thuộc số người trong phòng.
+  const shouldBeTop = config.relay_enabled === true;
 
   if (shouldBeTop && anchor.name !== TEAM_TOP_NAME) {
     // Lưu tên gốc lần đầu (memory + Supabase best-effort) để trả lại sau, kể cả khi restart.

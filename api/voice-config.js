@@ -166,6 +166,13 @@ function sanitizeConfig(payload) {
   if (payload.relay_enabled !== undefined) clean.relay_enabled = payload.relay_enabled === true;
   if (payload.auto_join !== undefined) clean.auto_join = payload.auto_join === true;
 
+  // Độ trễ chống giật (jitter buffer) khi phát audio, đơn vị ms. Kẹp trong khoảng an toàn 60..2000.
+  if (payload.jitter_buffer_ms !== undefined) {
+    const n = Number.parseInt(payload.jitter_buffer_ms, 10);
+    const value = Number.isFinite(n) ? n : 400;
+    clean.jitter_buffer_ms = Math.min(2000, Math.max(60, value));
+  }
+
   if (payload.command_prefix !== undefined) {
     clean.command_prefix = String(payload.command_prefix || '').trim().slice(0, 16) || null;
   }

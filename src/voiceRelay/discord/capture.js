@@ -45,7 +45,7 @@ class VoiceRelayCapture {
   async handleSpeakingStart(userId) {
     if (!this.connection || !this.guild) return;
     if (!this.config?.relay_enabled) {
-      this.logSkip(userId, 'relay_disabled');
+      // Relay đang tắt → bỏ qua im lặng, không log để tránh spam mỗi khi có người nói.
       return;
     }
     if (this.active.has(userId)) return;

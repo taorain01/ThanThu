@@ -1,5 +1,17 @@
 const { createClient } = require('@supabase/supabase-js');
 
+const OPTIONAL_CONFIG_COLUMNS = new Set([
+  'caller_user_ids',
+  'muted_user_ids',
+  'jitter_buffer_ms',
+  'speaker_release_ms',
+  'auto_create_channel',
+  'created_channel_name',
+  'create_position',
+  'create_anchor_channel_id',
+  'anchor_original_name'
+]);
+
 function asArray(value) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
   if (typeof value === 'string') {
@@ -81,6 +93,33 @@ function defaultRow(env) {
   };
 }
 
+function missingVoiceConfigColumn(error) {
+  const text = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ');
+  if (!/voice_relay_config/i.test(text) || !/schema cache/i.test(text)) return null;
+
+  const match = text.match(/'([^']+)'\s+column\s+of\s+'voice_relay_config'/i)
+    || text.match(/column\s+'([^']+)'/i);
+  const column = match?.[1] || '';
+  return OPTIONAL_CONFIG_COLUMNS.has(column) ? column : null;
+}
+
+function rowHasColumn(row, column) {
+  return row && typeof row === 'object' && Object.prototype.hasOwnProperty.call(row, column);
+}
+
+function payloadHasColumn(payload, column) {
+  return Array.isArray(payload)
+    ? payload.some((row) => rowHasColumn(row, column))
+    : rowHasColumn(payload, column);
+}
+
+function omitColumn(row, column) {
+  if (!row || typeof row !== 'object') return row;
+  const next = { ...row };
+  delete next[column];
+  return next;
+}
+
 class SupabaseConfig {
   constructor(env, logger) {
     this.env = env;
@@ -91,6 +130,7 @@ class SupabaseConfig {
     this.current = null;
     this.pollTimer = null;
     this.channel = null;
+    this.warnedMissingConfigColumns = new Set();
   }
 
   getClient() {
@@ -107,12 +147,7 @@ class SupabaseConfig {
 
     if (error) throw error;
     if (!data && createIfMissing) {
-      const { data: inserted, error: insertError } = await this.client
-        .from('voice_relay_config')
-        .upsert(defaultRow(this.env), { onConflict: 'guild_id,bot_id' })
-        .select('*')
-        .maybeSingle();
-      if (insertError) throw insertError;
+      const { data: inserted } = await this.upsertConfig(defaultRow(this.env), { maybeSingle: true });
       this.current = normalizeConfig(inserted, this.env);
       return this.current;
     }
@@ -128,14 +163,40 @@ class SupabaseConfig {
       ...patch,
       updated_at: new Date().toISOString()
     };
-    const { data, error } = await this.client
-      .from('voice_relay_config')
-      .upsert(row, { onConflict: 'guild_id,bot_id' })
-      .select('*')
-      .maybeSingle();
-    if (error) throw error;
+    const { data } = await this.upsertConfig(row, { maybeSingle: true });
     this.current = normalizeConfig(data, this.env);
     return this.current;
+  }
+
+  async upsertConfig(payload, options = {}) {
+    const { select = '*', maybeSingle = false } = options;
+    let currentPayload = payload;
+    const omittedColumns = [];
+
+    while (true) {
+      let query = this.client
+        .from('voice_relay_config')
+        .upsert(currentPayload, { onConflict: 'guild_id,bot_id' });
+      if (select) query = query.select(select);
+
+      const result = maybeSingle ? await query.maybeSingle() : await query;
+      if (!result.error) return { data: result.data, omittedColumns };
+
+      const column = missingVoiceConfigColumn(result.error);
+      if (!column || omittedColumns.includes(column) || !payloadHasColumn(currentPayload, column)) {
+        throw result.error;
+      }
+
+      if (!this.warnedMissingConfigColumns.has(column)) {
+        this.warnedMissingConfigColumns.add(column);
+        this.logger.warn(`Bảng voice_relay_config chưa có cột ${column}; tạm bỏ qua khi ghi. Chạy lại db/voice_relay_3bot.sql để bật đủ cấu hình.`);
+      }
+
+      currentPayload = Array.isArray(currentPayload)
+        ? currentPayload.map((row) => omitColumn(row, column))
+        : omitColumn(currentPayload, column);
+      omittedColumns.push(column);
+    }
   }
 
   async clearPendingAction() {

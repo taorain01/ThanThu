@@ -228,7 +228,7 @@ async function ensureManagedChannelForBot(runtime, anchor, target) {
     await channel.setPosition(anchor.position + target.offset).catch(() => null);
   }
 
-  await sbClient.from('voice_relay_config').upsert({
+  await supabaseConfig.upsertConfig({
     guild_id: env.guildId,
     bot_id: target.botId,
     voice_channel_id: channel.id,
@@ -237,10 +237,28 @@ async function ensureManagedChannelForBot(runtime, anchor, target) {
     relay_enabled: true,
     auto_join: true,
     pending_action: 'rejoin',
+    ...relayPolicyFromConfig(runtime.config),
     updated_at: new Date().toISOString()
-  }, { onConflict: 'guild_id,bot_id' });
+  }, { select: null });
 
   return channel;
+}
+
+function relayPolicyFromConfig(config = {}) {
+  return {
+    caller_role_ids: asStringArray(config.caller_role_ids),
+    blocked_role_ids: asStringArray(config.blocked_role_ids),
+    caller_user_ids: asStringArray(config.caller_user_ids),
+    muted_user_ids: asStringArray(config.muted_user_ids),
+    speaker_priority: config.speaker_priority === 'priority' ? 'priority' : 'mix',
+    priority_role_ids: asStringArray(config.priority_role_ids),
+    jitter_buffer_ms: config.jitter_buffer_ms,
+    speaker_release_ms: config.speaker_release_ms
+  };
+}
+
+function asStringArray(value) {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }
 
 async function syncRelayRoomWithAnchor(channel, anchor, target, runtime) {

@@ -9,7 +9,8 @@ const {
   canAccessVoiceConfig,
   buildSaveAllRows,
   buildQuickSetupRows,
-  buildGlobalStopRows
+  buildGlobalStopRows,
+  upsertVoiceRelayConfig
 } = require('../api/voice-config.js');
 
 function validBotConfig(botId) {
@@ -224,4 +225,47 @@ test('buildGlobalStopRows: tắt đủ 3 bot relay và auto_join', () => {
   assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
   assert.ok(built.rows.every((row) => row.relay_enabled === false && row.auto_join === false));
   assert.ok(built.rows.every((row) => row.pending_action === 'stopDelete'));
+});
+
+test('upsertVoiceRelayConfig: bỏ column phụ khi Supabase schema cache chưa có', async () => {
+  const attempts = [];
+  const admin = {
+    from(table) {
+      assert.strictEqual(table, 'voice_relay_config');
+      return {
+        upsert(payload) {
+          attempts.push(payload);
+          return {
+            select() {
+              return {
+                maybeSingle: async () => {
+                  if (attempts.length === 1) {
+                    return {
+                      data: null,
+                      error: {
+                        message: "Could not find the 'speaker_release_ms' column of 'voice_relay_config' in the schema cache"
+                      }
+                    };
+                  }
+                  return { data: payload, error: null };
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+
+  const result = await upsertVoiceRelayConfig(admin, {
+    guild_id: 'guild-1',
+    bot_id: 1,
+    relay_enabled: true,
+    speaker_release_ms: 700
+  }, { maybeSingle: true });
+
+  assert.deepStrictEqual(result.omittedColumns, ['speaker_release_ms']);
+  assert.strictEqual(attempts.length, 2);
+  assert.strictEqual(attempts[0].speaker_release_ms, 700);
+  assert.ok(!('speaker_release_ms' in attempts[1]));
 });

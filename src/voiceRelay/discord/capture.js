@@ -51,7 +51,7 @@ class VoiceRelayCapture {
     if (this.active.has(userId)) return;
 
     try {
-      const member = await this.guild.members.fetch(userId).catch(() => null);
+      const member = await this.resolveMember(userId);
       const decision = evaluateSpeaker(member, this.config);
       if (!decision.allowed) {
         this.logSkip(userId, decision.reason, member, this.skipDetail(decision.reason, member));
@@ -143,6 +143,21 @@ class VoiceRelayCapture {
 
   updateActiveState() {
     this.relayState.update({ activeSpeakers: [...this.active.keys()] });
+  }
+
+  async resolveMember(userId) {
+    const id = String(userId || '');
+    if (!id || !this.guild) return null;
+
+    const cached = this.guild.members.cache.get(id);
+    if (cached) return cached;
+
+    const channelId = this.connection?.joinConfig?.channelId;
+    const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
+    const voiceMember = channel?.members?.get(id);
+    if (voiceMember) return voiceMember;
+
+    return this.guild.members.fetch(id).catch(() => null);
   }
 }
 

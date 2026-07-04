@@ -171,8 +171,8 @@ class VoiceRelayVoiceManager extends EventEmitter {
       await this.removeManagedChannel(channelId);
       return false;
     }
-    // KHÔNG bao giờ xoá phòng còn người (kể cả khi force) để tránh đá người ra.
-    if (countHumanMembers(channel) > 0) return false;
+    // KHÔNG bao giờ xoá phòng còn member nào (kể cả bot) để tránh làm bot relay bị kéo ra khi relay còn bật.
+    if ((channel.members?.size || 0) > 0) return false;
     await channel.delete('Voice relay managed channel cleanup');
     await this.removeManagedChannel(channelId);
     return true;
@@ -190,6 +190,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
   // Quét và xoá các phòng managed mồ côi: không còn ai (kể cả bot) trong đó.
   // An toàn: phòng đang có bot ngồi chờ (>=1 thành viên) hoặc còn người sẽ KHÔNG bị xoá.
   async sweepOrphanManagedChannels() {
+    if (this.config?.relay_enabled === true || this.config?.auto_join === true) return 0;
     const rows = await this.listManagedChannels().catch(() => []);
     if (!rows.length) return 0;
     const guild = await this.resolveGuild();

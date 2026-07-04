@@ -67,6 +67,23 @@ function normalizeConfig(row, env) {
   };
 }
 
+function hasCallerPolicy(config) {
+  return Boolean((config?.caller_role_ids || []).length || (config?.caller_user_ids || []).length);
+}
+
+function applyPolicyFromRow(config, row) {
+  if (!row || typeof row !== 'object') return config;
+  return {
+    ...config,
+    caller_role_ids: asArray(row.caller_role_ids),
+    blocked_role_ids: asArray(row.blocked_role_ids),
+    caller_user_ids: asArray(row.caller_user_ids),
+    muted_user_ids: asArray(row.muted_user_ids),
+    speaker_priority: row.speaker_priority === 'priority' ? 'priority' : 'mix',
+    priority_role_ids: asArray(row.priority_role_ids)
+  };
+}
+
 function defaultRow(env) {
   return {
     guild_id: env.guildId,
@@ -131,6 +148,7 @@ class SupabaseConfig {
     this.pollTimer = null;
     this.channel = null;
     this.warnedMissingConfigColumns = new Set();
+    this.warnedInheritedPolicy = false;
   }
 
   getClient() {
@@ -148,11 +166,11 @@ class SupabaseConfig {
     if (error) throw error;
     if (!data && createIfMissing) {
       const { data: inserted } = await this.upsertConfig(defaultRow(this.env), { maybeSingle: true });
-      this.current = normalizeConfig(inserted, this.env);
+      this.current = await this.applyInheritedPolicy(normalizeConfig(inserted, this.env));
       return this.current;
     }
 
-    this.current = normalizeConfig(data, this.env);
+    this.current = await this.applyInheritedPolicy(normalizeConfig(data, this.env));
     return this.current;
   }
 
@@ -164,8 +182,29 @@ class SupabaseConfig {
       updated_at: new Date().toISOString()
     };
     const { data } = await this.upsertConfig(row, { maybeSingle: true });
-    this.current = normalizeConfig(data, this.env);
+    this.current = await this.applyInheritedPolicy(normalizeConfig(data, this.env));
     return this.current;
+  }
+
+  async applyInheritedPolicy(config) {
+    if (this.env.botId === 1 || hasCallerPolicy(config) || config.relay_enabled !== true) return config;
+
+    const { data, error } = await this.client
+      .from('voice_relay_config')
+      .select('*')
+      .eq('guild_id', this.env.guildId)
+      .eq('bot_id', 1)
+      .maybeSingle();
+    if (error || !data) return config;
+
+    const inherited = applyPolicyFromRow(config, data);
+    if (hasCallerPolicy(inherited)) {
+      if (!this.warnedInheritedPolicy) {
+        this.warnedInheritedPolicy = true;
+        this.logger.info('Bot phụ dùng tạm policy người nói từ Bot 1 vì config hiện tại chưa có caller role/user.');
+      }
+    }
+    return inherited;
   }
 
   async upsertConfig(payload, options = {}) {

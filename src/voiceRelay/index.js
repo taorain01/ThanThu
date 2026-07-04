@@ -398,7 +398,8 @@ function isDiscordSnowflake(value) {
 
 async function cleanupEmptyManagedChannel(runtime, channelId) {
   const { voiceManager } = runtime;
-  // deleteManagedChannel chỉ xoá khi phòng không còn người → an toàn, không đá ai ra.
+  if (runtime.config?.relay_enabled === true || runtime.config?.auto_join === true) return;
+  // deleteManagedChannel chỉ xoá khi phòng không còn member nào → an toàn, không kéo bot relay ra khỏi phòng.
   await voiceManager.deleteManagedChannel(channelId, { force: false });
 }
 

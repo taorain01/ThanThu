@@ -104,7 +104,7 @@ class VoiceRelayCapture {
           item.loggedFirstForward = true;
           const linkStatus = this.link?.connected ? 'connected' : 'not_connected';
           if (sent) {
-            this.logger.debug(`Đang chuyển audio sang ${currentTargets.map((id) => `Bot${id}`).join(', ')}: ${item.label}`, { linkStatus });
+            this.logger.info(`Relay thu từ ${item.label} -> ${currentTargets.map((id) => `Bot${id}`).join(', ')}`);
           } else {
             this.logger.warn(`Không gửi được frame audio sang link: ${item.label}`, { linkStatus, targets: currentTargets });
           }

@@ -34,6 +34,7 @@ function normalizeJitterMs(value, env) {
 
 function normalizeReleaseMs(value) {
   const n = Number(value);
+  if (Number.isFinite(n) && n === 0) return 0;
   if (Number.isFinite(n) && n > 0) return Math.min(3000, Math.max(100, Math.round(n)));
   return 500;
 }

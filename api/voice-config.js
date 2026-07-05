@@ -237,11 +237,11 @@ function sanitizeConfig(payload) {
     clean.jitter_buffer_ms = Math.min(2000, Math.max(60, value));
   }
 
-  // "Nhường người nói": thời gian im (ms) trước khi nhả mic cho người khác. Kẹp 100..3000.
+  // "Nhường người nói": thời gian im (ms) trước khi nhả mic; 0 = tắt chờ nhả mic. Số dương kẹp 100..3000.
   if (payload.speaker_release_ms !== undefined) {
     const n = Number.parseInt(payload.speaker_release_ms, 10);
     const value = Number.isFinite(n) ? n : 500;
-    clean.speaker_release_ms = Math.min(3000, Math.max(100, value));
+    clean.speaker_release_ms = value === 0 ? 0 : (value > 0 ? Math.min(3000, Math.max(100, value)) : 500);
   }
 
   if (payload.command_prefix !== undefined) {

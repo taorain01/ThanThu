@@ -67,6 +67,15 @@ test('sanitizeConfig: speaker_priority không hợp lệ -> lỗi 400', () => {
   assert.throws(() => sanitizeConfig({ speaker_priority: 'loudest' }), (e) => e.statusCode === 400);
 });
 
+test('sanitizeConfig: speaker_release_ms nhận 0 và clamp số dương', () => {
+  assert.strictEqual(sanitizeConfig({ speaker_release_ms: 0 }).speaker_release_ms, 0);
+  assert.strictEqual(sanitizeConfig({ speaker_release_ms: '0' }).speaker_release_ms, 0);
+  assert.strictEqual(sanitizeConfig({ speaker_release_ms: 1 }).speaker_release_ms, 100);
+  assert.strictEqual(sanitizeConfig({ speaker_release_ms: 5000 }).speaker_release_ms, 3000);
+  assert.strictEqual(sanitizeConfig({ speaker_release_ms: -1 }).speaker_release_ms, 500);
+  assert.strictEqual(sanitizeConfig({ speaker_release_ms: 'abc' }).speaker_release_ms, 500);
+});
+
 test('sanitizeConfig: broadcast không có đích -> lỗi 400 (R9.6)', () => {
   assert.throws(
     () => sanitizeConfig({ mode: 'broadcast', relay_targets: [] }),

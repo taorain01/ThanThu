@@ -21,7 +21,6 @@ let pickerState = null;
 let settingScope = 'shared';
 const SHARED_FIELDS = ['caller_role_ids', 'caller_user_ids', 'muted_user_ids', 'blocked_role_ids'];
 let sharedDraft = { caller_role_ids: [], caller_user_ids: [], muted_user_ids: [], blocked_role_ids: [] };
-let lastAppliedMasterEnabled = null;
 
 function defaultConfig(botId) {
   return {
@@ -78,37 +77,6 @@ function roleLookup() {
 function defaultCallerRoleIds() {
   const kyCuu = roleLookup().kycuu;
   return kyCuu?.id ? [String(kyCuu.id)] : [];
-}
-
-function kyCuuRoleId() {
-  const kyCuu = roleLookup().kycuu;
-  return kyCuu?.id ? String(kyCuu.id) : '';
-}
-
-function applyKyCuuRelayStateToConfig(config, relayOn) {
-  const roleId = kyCuuRoleId();
-  if (!roleId || !config) return config;
-
-  const set = new Set((config.caller_role_ids || []).map(String).filter(Boolean));
-  if (relayOn) set.add(roleId);
-  else set.delete(roleId);
-  config.caller_role_ids = [...set];
-  return config;
-}
-
-function applyKyCuuRelayState(relayOn = masterState.enabled === true, options = {}) {
-  const enabled = relayOn === true;
-  if (!options.force && lastAppliedMasterEnabled === enabled) return false;
-
-  applyKyCuuRelayStateToConfig(sharedDraft, relayOn);
-  for (const botId of BOT_IDS) {
-    if (!configs[botId]) configs[botId] = defaultConfig(botId);
-    if (!drafts[botId]) drafts[botId] = { ...configs[botId] };
-    applyKyCuuRelayStateToConfig(configs[botId], relayOn);
-    applyKyCuuRelayStateToConfig(drafts[botId], relayOn);
-  }
-  lastAppliedMasterEnabled = enabled;
-  return true;
 }
 
 function memberName(row) {
@@ -228,7 +196,6 @@ async function checkAuth() {
   show('editorShell');
   renderBotTabs();
   initSettingScope();
-  applyKyCuuRelayState(masterState.enabled === true, { force: true });
   renderPane(activeBot);
   setupRealtime();
 }
@@ -296,7 +263,7 @@ function normalizeRow(row) {
     auto_join: row.auto_join !== false,
     command_prefix: row.command_prefix || '',
     jitter_buffer_ms: Number.isFinite(Number(row.jitter_buffer_ms)) && Number(row.jitter_buffer_ms) > 0 ? Number(row.jitter_buffer_ms) : 400,
-    speaker_release_ms: Number.isFinite(Number(row.speaker_release_ms)) && Number(row.speaker_release_ms) > 0 ? Number(row.speaker_release_ms) : 500,
+    speaker_release_ms: Number.isFinite(Number(row.speaker_release_ms)) && Number(row.speaker_release_ms) >= 0 ? Number(row.speaker_release_ms) : 500,
     auto_create_channel: row.auto_create_channel === true,
     created_channel_name: row.created_channel_name || '',
     create_position: row.create_position === 'above' ? 'above' : 'below',
@@ -325,7 +292,6 @@ function setupRealtime() {
   sb.channel('voice_relay_master_rt')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'voice_relay_master', filter: 'guild_id=eq.' + GUILD_ID }, (payload) => {
       masterState = payload.new || { enabled: false };
-      applyKyCuuRelayState(masterState.enabled === true);
       renderPane(activeBot);
     })
     .subscribe();
@@ -783,6 +749,7 @@ window.toggleDelayHelp = toggleDelayHelp;
 
 /* ---------------- Nhường người nói (speaker release) ---------------- */
 const YIELD_MODES = [
+  { ms: 0, key: 'off', label: 'Tắt', desc: 'Tắt chờ nhả mic, đổi người gần như ngay khi có tiếng mới' },
   { ms: 900, key: 'hold', label: 'Giữ mic', desc: 'Người đang nói giữ chắc, khó bị chen ngang' },
   { ms: 500, key: 'balance', label: 'Cân bằng', desc: 'Mặc định — nhả mic sau ~0.5s im' },
   { ms: 200, key: 'quick', label: 'Nhường nhanh', desc: 'Thay phiên nhanh, dễ cướp lời' }
@@ -791,12 +758,13 @@ const YIELD_MODES = [
 function currentReleaseMs() {
   for (const botId of BOT_IDS) {
     const v = Number(configs[botId]?.speaker_release_ms);
-    if (Number.isFinite(v) && v > 0) return v;
+    if (Number.isFinite(v) && v >= 0) return v;
   }
   return 500;
 }
 
 function yieldModeOf(ms) {
+  if (Number(ms) === 0) return YIELD_MODES[0];
   // Chọn mode gần nhất theo ms.
   let best = YIELD_MODES[1];
   let bestDiff = Infinity;
@@ -811,7 +779,7 @@ function yieldPanelHtml() {
   const current = currentReleaseMs();
   const activeMode = yieldModeOf(current);
   const buttons = YIELD_MODES.map((m) => `
-    <button type="button" class="yield-opt ${m.key === activeMode.key ? 'active' : ''}" onclick="setSpeakerYield(${m.ms})" title="${esc(m.desc)}">
+    <button type="button" class="yield-opt ${m.key === activeMode.key ? 'active' : ''}" data-ms="${m.ms}" onclick="setSpeakerYield(${m.ms})" title="${esc(m.desc)}">
       <b>${esc(m.label)}</b><span>${m.ms}ms</span>
     </button>`).join('');
   return `
@@ -820,16 +788,17 @@ function yieldPanelHtml() {
         <span class="yield-hint-inline" id="yieldHint">${esc(activeMode.desc)}</span>
       </h3>
       <div class="yield-opts">${buttons}</div>
-      <div class="hint">Khi nhiều người cùng nói, bot chỉ phát tiếng 1 người mỗi lúc. Đây là thời gian người đang nói ngừng thì mới nhả mic cho người khác. Áp dụng ngay cho cả 3 bot.</div>
+      <div class="hint">Khi nhiều người cùng nói, bot chỉ phát tiếng 1 người mỗi lúc. Đây là thời gian người đang nói ngừng thì mới nhả mic cho người khác; Tắt = đổi người gần như ngay khi có tiếng mới. Áp dụng ngay cho cả 3 bot.</div>
     </div>`;
 }
 
 async function setSpeakerYield(ms) {
-  const value = Math.min(3000, Math.max(100, Number(ms) || 500));
+  const raw = Number(ms);
+  const value = Number.isFinite(raw) && raw === 0 ? 0 : Math.min(3000, Math.max(100, raw || 500));
   // Cập nhật UI ngay.
   document.querySelectorAll('.yield-opt').forEach((btn) => {
-    const btnMs = Number(btn.querySelector('span')?.textContent);
-    btn.classList.toggle('active', Math.abs(btnMs - value) <= 10);
+    const btnMs = Number(btn.dataset.ms);
+    btn.classList.toggle('active', btnMs === 0 ? value === 0 : Math.abs(btnMs - value) <= 10);
   });
   const hintEl = document.getElementById('yieldHint');
   if (hintEl) hintEl.textContent = yieldModeOf(value).desc;
@@ -839,7 +808,7 @@ async function setSpeakerYield(ms) {
       if (configs[botId]) configs[botId].speaker_release_ms = value;
       if (drafts[botId]) drafts[botId].speaker_release_ms = value;
     }
-    toast('Đã đặt nhường người nói: ' + value + 'ms cho cả 3 bot.');
+    toast(value === 0 ? 'Đã tắt nhường người nói cho cả 3 bot.' : 'Đã đặt nhường người nói: ' + value + 'ms cho cả 3 bot.');
   } catch (e) {
     toast('Đặt nhường người nói thất bại: ' + e.message, true);
   }
@@ -1281,10 +1250,9 @@ function quickSetupPayload() {
   const policySource = settingScope === 'shared'
     ? sharedDraft
     : (drafts[1] || configs[1] || {});
-  const callerRoleIds = (policySource.caller_role_ids || []).length
-    ? [...policySource.caller_role_ids]
-    : defaultCallerRoleIds();
+  let callerRoleIds = [...(policySource.caller_role_ids || [])];
   const callerUserIds = [...(policySource.caller_user_ids || [])];
+  if (!callerRoleIds.length && !callerUserIds.length) callerRoleIds = defaultCallerRoleIds();
   if (quickSetupMode === 'manual') {
     const err = manualSetupError();
     if (err) throw new Error(err);
@@ -1312,14 +1280,12 @@ function applyLocalGlobalStop() {
     drafts[botId] = { ...(drafts[botId] || configs[botId]), relay_enabled: false, auto_join: false };
     statuses[botId] = { ...(statuses[botId] || {}), relay_enabled: false };
   }
-  applyKyCuuRelayState(false, { force: true });
 }
 
 async function toggleMaster(on) {
   try {
     if (on) {
       masterState = { ...masterState, enabled: true };
-      applyKyCuuRelayState(true, { force: true });
       await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: quickSetupPayload() });
       toast('Đã bật setup nhanh 3 bot.');
     } else {
@@ -1339,7 +1305,6 @@ async function toggleMaster(on) {
     manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
     if (!on) applyLocalGlobalStop();
     refreshSharedDraft();
-    applyKyCuuRelayState(masterState.enabled === true, { force: true });
     renderPane(activeBot);
   } catch (e) {
     toast('Thao tác tổng thất bại: ' + e.message, true);

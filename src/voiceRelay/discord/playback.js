@@ -34,7 +34,7 @@ class VoiceRelayPlayback {
     // Khoá 1 người nói tại một thời điểm để tránh trộn opus nhiều nguồn (gây giật/vỡ).
     this.activeSpeakerKey = null;
     this.lastFrameAt = 0;
-    this.speakerReleaseMs = 500; // người đang nói im quá lâu này thì nhả mic cho người khác ("nhường người nói")
+    this.speakerReleaseMs = 500; // 0 = tắt chờ nhả mic; >0 = im quá lâu này thì nhả mic cho người khác.
 
     this.pacer = null;
 
@@ -69,12 +69,17 @@ class VoiceRelayPlayback {
     if (this.logger?.info) this.logger.info(`Đã đổi jitter buffer phát audio: ${jitterMs}ms (${this.prebufferFrames} frame)`);
   }
 
-  // Cập nhật "nhường người nói": người đang nói im bao lâu (ms) thì nhả mic cho người khác.
+  // Cập nhật "nhường người nói": 0 = tắt chờ nhả mic; >0 = im bao lâu (ms) thì nhả mic.
   setSpeakerReleaseMs(ms) {
-    const value = Number(ms) > 0 ? Math.min(3000, Math.max(100, Math.round(Number(ms)))) : 500;
+    const raw = Number(ms);
+    const value = Number.isFinite(raw) && raw === 0
+      ? 0
+      : (raw > 0 ? Math.min(3000, Math.max(100, Math.round(raw))) : 500);
     if (value === this.speakerReleaseMs) return;
     this.speakerReleaseMs = value;
-    if (this.logger?.info) this.logger.info(`Đã đổi thời gian nhường người nói: ${value}ms`);
+    if (this.logger?.info) {
+      this.logger.info(value === 0 ? 'Đã tắt thời gian nhường người nói' : `Đã đổi thời gian nhường người nói: ${value}ms`);
+    }
   }
 
   startStream() {
@@ -129,8 +134,8 @@ class VoiceRelayPlayback {
     const key = `${frame.srcBotId}:${frame.userId}`;
     const now = Date.now();
 
-    // Slot trống hoặc người đang giữ slot im quá lâu → cho người này chiếm slot.
-    if (this.activeSpeakerKey === null || (now - this.lastFrameAt) > this.speakerReleaseMs) {
+    // Slot trống, đang tắt chờ nhả mic, hoặc người giữ slot im quá lâu → cho người này chiếm slot.
+    if (this.activeSpeakerKey === null || this.speakerReleaseMs === 0 || (now - this.lastFrameAt) > this.speakerReleaseMs) {
       if (this.activeSpeakerKey !== key) {
         this.activeSpeakerKey = key;
         this.queue = [];          // đổi người → bỏ queue cũ

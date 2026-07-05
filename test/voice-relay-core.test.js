@@ -8,12 +8,13 @@ const {
   targetsToMask,
   verifyAuth
 } = require('../src/voiceRelay/link/protocol');
-const { SupabaseConfig } = require('../src/voiceRelay/config/supabaseConfig');
+const { SupabaseConfig, normalizeConfig } = require('../src/voiceRelay/config/supabaseConfig');
 const {
   evaluateSpeaker,
   pickActiveSpeakers,
   resolveTargets
 } = require('../src/voiceRelay/discord/rules');
+const { VoiceRelayPlayback } = require('../src/voiceRelay/discord/playback');
 const { shouldAutoJoin } = require('../src/voiceRelay/discord/voiceManager');
 
 function member({ id = 'u1', bot = false, roles = [] } = {}) {
@@ -86,6 +87,35 @@ test('voice manager: chỉ auto join khi relay bật hoặc có action join/setu
   assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: true }), true);
   assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false, pending_action: 'rejoin' }), true);
   assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false, pending_action: 'quickSetup' }), true);
+});
+
+test('config/playback: speaker_release_ms 0 tắt chờ nhả mic', () => {
+  const env = { guildId: 'guild-1', botId: 1, commandPrefix: '?relay' };
+  assert.strictEqual(normalizeConfig({ speaker_release_ms: 0 }, env).speaker_release_ms, 0);
+  assert.strictEqual(normalizeConfig({ speaker_release_ms: 5 }, env).speaker_release_ms, 100);
+  assert.strictEqual(normalizeConfig({ speaker_release_ms: 5000 }, env).speaker_release_ms, 3000);
+  assert.strictEqual(normalizeConfig({ speaker_release_ms: 'abc' }, env).speaker_release_ms, 500);
+
+  const playback = new VoiceRelayPlayback({ warn() {}, info() {} });
+  playback.setSpeakerReleaseMs(0);
+  assert.strictEqual(playback.speakerReleaseMs, 0);
+
+  playback.connection = {};
+  playback.stream = {};
+  playback.onAudioFrame({ srcBotId: 2, userId: 'user-a', opus: Buffer.from([1]) });
+  assert.strictEqual(playback.activeSpeakerKey, '2:user-a');
+  assert.deepStrictEqual(playback.queue, [Buffer.from([1])]);
+
+  playback.onAudioFrame({ srcBotId: 3, userId: 'user-b', opus: Buffer.from([2]) });
+  assert.strictEqual(playback.activeSpeakerKey, '3:user-b');
+  assert.deepStrictEqual(playback.queue, [Buffer.from([2])]);
+
+  playback.setSpeakerReleaseMs(5);
+  assert.strictEqual(playback.speakerReleaseMs, 100);
+  playback.setSpeakerReleaseMs(5000);
+  assert.strictEqual(playback.speakerReleaseMs, 3000);
+  playback.setSpeakerReleaseMs('abc');
+  assert.strictEqual(playback.speakerReleaseMs, 500);
 });
 
 test('config: realtime Bot 2 kế thừa policy người nói từ Bot 1 khi thiếu caller', async () => {

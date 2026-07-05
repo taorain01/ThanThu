@@ -431,6 +431,7 @@ const state = {
     strokeScaling: false,
     localDraftTimer: null
 };
+let memberAccessWatchChannel = null;
 
 function byId(id) {
     return document.getElementById(id);
@@ -569,6 +570,24 @@ function canBypassMemberGate() {
     return params.get('test') === '1' && hasKcWebAccess();
 }
 
+function setupMemberAccessWatch(discordId) {
+    if (!sb || !discordId || memberAccessWatchChannel) return;
+    memberAccessWatchChannel = sb.channel(`tactic-sketch-access-${discordId}`)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'bc_users',
+            filter: `discord_id=eq.${discordId}`
+        }, (payload) => {
+            if (canBypassMemberGate()) return;
+            const user = payload.new || {};
+            if (user.lang_gia_member !== true || isLeftWebPosition(user.position)) {
+                showDenied();
+            }
+        })
+        .subscribe((status) => console.log(`[Sketch] Access watch: ${status}`));
+}
+
 function showToast(message, kind = '') {
     const el = byId('toast');
     if (!el) return;
@@ -620,8 +639,12 @@ async function checkAuth() {
         console.warn('[Sketch] Load user exception:', error);
     }
 
-    // Cho phep moi thanh vien LangGia da dang nhap Discord su dung DLAM
-    // (khong can kiem tra lang_gia_member hoac position)
+    const isActiveLangGiaMember = accessUser?.lang_gia_member === true && !isLeftWebPosition(accessUser?.position);
+    if (!isActiveLangGiaMember && !canBypassMemberGate()) {
+        showDenied();
+        return;
+    }
+    setupMemberAccessWatch(state.discordId);
 
     byId('authOverlay').style.display = 'none';
     byId('app').style.display = 'flex';
@@ -643,6 +666,7 @@ async function checkAuth() {
 
 function showDenied() {
     byId('authOverlay').style.display = 'none';
+    byId('app').style.display = 'none';
     byId('deniedOverlay').style.display = 'flex';
 }
 

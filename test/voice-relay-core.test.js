@@ -15,7 +15,7 @@ const {
   resolveTargets
 } = require('../src/voiceRelay/discord/rules');
 const { VoiceRelayPlayback } = require('../src/voiceRelay/discord/playback');
-const { shouldAutoJoin } = require('../src/voiceRelay/discord/voiceManager');
+const { VoiceRelayVoiceManager, shouldAutoJoin } = require('../src/voiceRelay/discord/voiceManager');
 
 function member({ id = 'u1', bot = false, roles = [] } = {}) {
   return {
@@ -87,6 +87,58 @@ test('voice manager: chỉ auto join khi relay bật hoặc có action join/setu
   assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: true }), true);
   assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false, pending_action: 'rejoin' }), true);
   assert.strictEqual(shouldAutoJoin({ auto_join: true, relay_enabled: false, pending_action: 'quickSetup' }), true);
+});
+
+function fakeDeleteManager({ memberSize = 0, managed = true } = {}) {
+  let deletedReason = null;
+  let removed = false;
+  const channel = {
+    members: { size: memberSize },
+    delete: async (reason) => {
+      deletedReason = reason;
+    }
+  };
+  const guild = { channels: { fetch: async () => channel } };
+  const deleteChain = {
+    eq() {
+      removed = true;
+      return deleteChain;
+    }
+  };
+  const table = {
+    select() { return this; },
+    eq() { return this; },
+    maybeSingle: async () => ({ data: managed ? { channel_id: 'voice-1' } : null, error: null }),
+    delete() { return deleteChain; }
+  };
+  const manager = new VoiceRelayVoiceManager(
+    { guilds: { cache: new Map([['guild-1', guild]]) } },
+    { guildId: 'guild-1', botId: 2 },
+    { update() {} },
+    { getClient: () => ({ from: () => table }) },
+    { info() {}, warn() {} }
+  );
+  return {
+    manager,
+    get deletedReason() { return deletedReason; },
+    get removed() { return removed; }
+  };
+}
+
+test('voice manager: deleteManagedChannel không xóa phòng managed còn người khi không force', async () => {
+  const fake = fakeDeleteManager({ memberSize: 2 });
+  const deleted = await fake.manager.deleteManagedChannel('voice-1', { force: false });
+  assert.strictEqual(deleted, false);
+  assert.strictEqual(fake.deletedReason, null);
+  assert.strictEqual(fake.removed, false);
+});
+
+test('voice manager: deleteManagedChannel force xóa phòng managed dù còn người', async () => {
+  const fake = fakeDeleteManager({ memberSize: 2 });
+  const deleted = await fake.manager.deleteManagedChannel('voice-1', { force: true });
+  assert.strictEqual(deleted, true);
+  assert.strictEqual(fake.deletedReason, 'Voice relay managed channel force cleanup');
+  assert.strictEqual(fake.removed, true);
 });
 
 test('config/playback: speaker_release_ms 0 tắt chờ nhả mic', () => {

@@ -408,7 +408,10 @@ function buildQuickSetupRows(guildId, payload) {
 
 function buildGlobalStopRows(guildId, payload) {
   const mode = String(payload?.mode || 'leave') === 'delete' ? 'delete' : 'leave';
-  const pendingAction = mode === 'delete' ? 'stopDelete' : 'stopLeave';
+  const kickPeople = payload?.kick_people === true;
+  const pendingAction = mode === 'delete'
+    ? (kickPeople ? 'stopForceDelete' : 'stopDelete')
+    : 'stopLeave';
   const now = new Date().toISOString();
   const rows = VALID_BOT_IDS.map((botId) => ({
     guild_id: guildId,
@@ -418,7 +421,7 @@ function buildGlobalStopRows(guildId, payload) {
     pending_action: pendingAction,
     updated_at: now
   }));
-  return { mode, rows };
+  return { mode, kickPeople, rows };
 }
 
 module.exports = async function handler(req, res) {
@@ -566,7 +569,7 @@ async function handleQuickSetup(admin, guildId, payload) {
 }
 
 async function handleGlobalStop(admin, guildId, payload) {
-  const { mode, rows } = buildGlobalStopRows(guildId, payload);
+  const { mode, kickPeople, rows } = buildGlobalStopRows(guildId, payload);
   const now = new Date().toISOString();
 
   await upsertVoiceRelayConfig(admin, rows, { select: null });
@@ -578,7 +581,7 @@ async function handleGlobalStop(admin, guildId, payload) {
     updated_at: now
   }, { onConflict: 'guild_id' });
 
-  return { action: 'globalStop', mode };
+  return { action: 'globalStop', mode, kick_people: kickPeople };
 }
 
 // Export các hàm thuần để unit test (không ảnh hưởng handler mặc định của Vercel).

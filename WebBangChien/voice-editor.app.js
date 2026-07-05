@@ -9,8 +9,11 @@ const FIXED_ROLES = [
 const BOT_AVATAR_FALLBACKS = { 1: '🦢', 2: '🐥', 3: '⚔️' };
 const BOT_ROLE_TAGS = { 1: 'Team 1', 2: 'Team 2', 3: 'Team 3' };
 const QUICK_AUTO_ROOM_NAMES = { 1: '⚡ Team Top', 2: '⚡ Team Mid', 3: '⚡ Team Bot' };
+const MASTER_WAIT_TIMEOUT_MS = 90000;
+const MASTER_WAIT_INTERVAL_MS = 1500;
 
 let masterState = { enabled: false };
+let masterBusy = '';
 let managedChannels = [];
 let memberRows = [];
 let quickAnchorId = '';
@@ -42,7 +45,8 @@ function defaultConfig(botId) {
     auto_create_channel: false,
     created_channel_name: BOT_NAMES[botId] || `Bot ${botId}`,
     create_position: 'below',
-    create_anchor_channel_id: ''
+    create_anchor_channel_id: '',
+    anchor_original_name: null
   };
 }
 
@@ -268,7 +272,8 @@ function normalizeRow(row) {
     auto_create_channel: row.auto_create_channel === true,
     created_channel_name: row.created_channel_name || '',
     create_position: row.create_position === 'above' ? 'above' : 'below',
-    create_anchor_channel_id: row.create_anchor_channel_id || ''
+    create_anchor_channel_id: row.create_anchor_channel_id || '',
+    anchor_original_name: row.anchor_original_name || null
   };
 }
 
@@ -474,6 +479,13 @@ function channelName(channelId, fallback = '—') {
   return channel?.name || fallback;
 }
 
+function roomLeafName(name) {
+  const text = String(name || '').trim();
+  if (!text) return '';
+  const parts = text.split(' / ');
+  return (parts[parts.length - 1] || text).trim();
+}
+
 function channelSelectHtml(selected, attrs = '') {
   return `<select ${attrs}>${channelOptions(selected)}</select>`;
 }
@@ -598,23 +610,31 @@ function manualRoomMap() {
 
 function masterHeroHtml() {
   const setupError = quickSetupError();
-  const disableOn = !masterState.enabled && !!setupError;
+  const busy = masterBusy === 'starting' || masterBusy === 'stopping';
+  const disableOn = !masterState.enabled && !busy && !!setupError;
   const on = masterState.enabled === true;
+  const displayOn = masterBusy === 'starting' || masterBusy === 'stopping' || on;
+  const badgeText = masterBusy === 'starting' ? 'Đang bật...' : (masterBusy === 'stopping' ? 'Đang tắt...' : (on ? 'Đang bật' : 'Đang tắt'));
+  const badgeClass = masterBusy ? 'busy' : (on ? 'on' : 'off');
+  const switchTitle = masterBusy
+    ? 'Đang xử lý, vui lòng chờ bot cập nhật trạng thái.'
+    : (disableOn ? setupError : '');
   const totalPeople = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
   return `
-    <div class="section master-hero ${on ? 'is-on' : 'is-off'}">
+    <div class="section master-hero ${displayOn ? 'is-on' : 'is-off'} ${masterBusy ? 'is-busy' : ''}">
       <div class="master-hero-top">
         <div class="master-hero-info">
           <div class="master-hero-title">
-            <span class="master-ico">${on ? '🔊' : '🔈'}</span>Bật/tắt tổng
-            <span class="master-badge ${on ? 'on' : 'off'}">${on ? 'Đang bật' : 'Đang tắt'}</span>
+            <span class="master-ico ${masterBusy ? 'master-spinner' : ''}">${masterBusy ? '' : (displayOn ? '🔊' : '🔈')}</span>Bật/tắt tổng
+            <span class="master-badge ${badgeClass}">${badgeText}</span>
           </div>
           <div class="hint">${quickSetupMode === 'manual' ? 'Bật: 3 bot vào 3 kênh đã chọn, không tạo room mới.' : 'Bật: Bot 1 vào Bang Chiến, Bot 2/3 tạo phòng relay bên dưới và vào kênh.'}</div>
         </div>
-        <label class="switch switch-lg" title="${disableOn ? esc(setupError) : ''}"><input type="checkbox" ${on ? 'checked' : ''} ${disableOn ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span><span class="lever-lbl lever-on">ON</span><span class="lever-lbl lever-off">OFF</span></label>
+        <label class="switch switch-lg ${masterBusy ? 'is-busy' : ''}" title="${esc(switchTitle)}"><input type="checkbox" ${displayOn ? 'checked' : ''} ${(busy || disableOn) ? 'disabled' : ''} onchange="toggleMaster(this.checked)"><span class="slider"></span><span class="lever-lbl lever-on">ON</span><span class="lever-lbl lever-off">OFF</span></label>
       </div>
       <div class="master-hero-note hint relay-lock-hint">⚠ Khi bật Relay, lệnh ?join sẽ không hoạt động. Tính năng voice của bot cũng sẽ không hoạt động.</div>
       ${disableOn ? `<div class="quick-warning">${esc(setupError)}</div>` : ''}
+      ${masterBusy ? `<div class="hint master-hero-people">Web đang chờ 3 bot cập nhật xong trạng thái. Nếu Discord/Supabase chậm, nút sẽ tự mở khóa sau ${Math.round(MASTER_WAIT_TIMEOUT_MS / 1000)} giây.</div>` : ''}
       ${totalPeople ? `<div class="hint master-hero-people">Hiện có ${totalPeople} người thật trong các kênh relay. Khi tắt tổng web sẽ hỏi trước nếu cần xóa phòng.</div>` : ''}
     </div>`;
 }
@@ -1228,10 +1248,9 @@ async function doAction(botId, action) {
 }
 window.doAction = doAction;
 
-function confirmGlobalStopMode(people) {
-  const count = Number(people || 0);
-  if (count <= 0) return Promise.resolve('leave');
-
+function confirmGlobalStop(totalPeople, managedPeople) {
+  const people = Number(totalPeople || 0);
+  const relayPeople = Number(managedPeople || 0);
   return new Promise((resolve) => {
     const existing = document.getElementById('globalStopConfirm');
     if (existing) existing.remove();
@@ -1245,24 +1264,71 @@ function confirmGlobalStopMode(people) {
           <strong id="globalStopTitle">Tắt voice relay?</strong>
         </div>
         <div class="stop-confirm-warning">
-          <b>Đang có ${count} người trong kênh relay.</b>
-          <span>Thoát chỉ cho bot rời kênh, không xóa phòng. Xóa phòng relay tự tạo là thao tác nguy hiểm và cần xác nhận riêng.</span>
+          <b>${people > 0 ? `Đang có ${people} người thật trong các kênh relay.` : 'Xác nhận tắt toàn bộ voice relay.'}</b>
+          <span>Web sẽ gửi lệnh cho cả 3 bot rời voice. Nếu phòng relay tự tạo còn người (${relayPeople}), web sẽ hỏi riêng trước khi xóa phòng.</span>
         </div>
-        <label class="stop-confirm-check">
-          <input type="checkbox" id="globalStopDeleteCheck">
-          <span>Tôi hiểu thao tác này sẽ xóa phòng relay tự tạo.</span>
-        </label>
         <div class="stop-confirm-actions">
-          <button type="button" class="btn ghost" data-mode="cancel">Hủy</button>
-          <button type="button" class="btn gold" data-mode="leave">Thoát</button>
-          <button type="button" class="btn danger" data-mode="delete" disabled>OK - Xóa phòng</button>
+          <button type="button" class="btn ghost" data-action="cancel">Hủy</button>
+          <button type="button" class="btn gold" data-action="confirm">Tắt tổng</button>
         </div>
       </div>`;
 
-    const cleanup = (mode) => {
+    const cleanup = (confirmed) => {
       document.removeEventListener('keydown', onKeyDown);
       modal.remove();
-      resolve(mode);
+      resolve(confirmed);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') cleanup(false);
+    };
+
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) cleanup(false);
+    });
+    modal.querySelector('[data-action="cancel"]').addEventListener('click', () => cleanup(false));
+    modal.querySelector('[data-action="confirm"]').addEventListener('click', () => cleanup(true));
+
+    document.addEventListener('keydown', onKeyDown);
+    document.body.appendChild(modal);
+    setTimeout(() => modal.querySelector('[data-action="cancel"]')?.focus(), 0);
+  });
+}
+
+function confirmGlobalKickPeople(people) {
+  const count = Number(people || 0);
+  if (count <= 0) return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    const existing = document.getElementById('globalKickConfirm');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'globalKickConfirm';
+    modal.className = 'modal stop-confirm-modal';
+    modal.innerHTML = `
+      <div class="modal-panel stop-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="globalKickTitle">
+        <div class="modal-head">
+          <strong id="globalKickTitle">Có kích người để xóa phòng không?</strong>
+        </div>
+        <div class="stop-confirm-warning">
+          <b>Phòng relay tự tạo đang có ${count} người thật.</b>
+          <span>Chọn "Không kích" thì 3 bot chỉ rời voice và phòng còn người sẽ được giữ lại. Chọn "Kích và xóa" sẽ xóa phòng tự tạo, người trong đó sẽ bị văng khỏi voice.</span>
+        </div>
+        <label class="stop-confirm-check">
+          <input type="checkbox" id="globalKickDeleteCheck">
+          <span>Tôi hiểu thao tác này sẽ xóa phòng relay tự tạo đang có người.</span>
+        </label>
+        <div class="stop-confirm-actions">
+          <button type="button" class="btn ghost" data-action="cancel">Hủy</button>
+          <button type="button" class="btn gold" data-action="leave">Không kích, chỉ rời</button>
+          <button type="button" class="btn danger" data-action="kick" disabled>Kích và xóa</button>
+        </div>
+      </div>`;
+
+    const cleanup = (value) => {
+      document.removeEventListener('keydown', onKeyDown);
+      modal.remove();
+      resolve(value);
     };
     const onKeyDown = (event) => {
       if (event.key === 'Escape') cleanup(null);
@@ -1271,17 +1337,124 @@ function confirmGlobalStopMode(people) {
     modal.addEventListener('click', (event) => {
       if (event.target === modal) cleanup(null);
     });
-    modal.querySelector('[data-mode="cancel"]').addEventListener('click', () => cleanup(null));
-    modal.querySelector('[data-mode="leave"]').addEventListener('click', () => cleanup('leave'));
-    modal.querySelector('[data-mode="delete"]').addEventListener('click', () => cleanup('delete'));
-    modal.querySelector('#globalStopDeleteCheck').addEventListener('change', (event) => {
-      modal.querySelector('[data-mode="delete"]').disabled = !event.target.checked;
+    modal.querySelector('[data-action="cancel"]').addEventListener('click', () => cleanup(null));
+    modal.querySelector('[data-action="leave"]').addEventListener('click', () => cleanup(false));
+    modal.querySelector('[data-action="kick"]').addEventListener('click', () => cleanup(true));
+    modal.querySelector('#globalKickDeleteCheck').addEventListener('change', (event) => {
+      modal.querySelector('[data-action="kick"]').disabled = !event.target.checked;
     });
 
     document.addEventListener('keydown', onKeyDown);
     document.body.appendChild(modal);
-    setTimeout(() => modal.querySelector('[data-mode="cancel"]')?.focus(), 0);
+    setTimeout(() => modal.querySelector('[data-action="leave"]')?.focus(), 0);
   });
+}
+
+function currentManagedChannelIds() {
+  return [...new Set((managedChannels || [])
+    .map((row) => String(row.channel_id || '').trim())
+    .filter(Boolean))];
+}
+
+function managedHumanCountByChannel() {
+  const managedIds = new Set(currentManagedChannelIds());
+  const counts = new Map();
+  for (const botId of BOT_IDS) {
+    const channelId = String(statuses[botId]?.voice_channel_id || '').trim();
+    if (!managedIds.has(channelId)) continue;
+    const count = Number(statuses[botId]?.channel_member_count || 0);
+    counts.set(channelId, Math.max(counts.get(channelId) || 0, count));
+  }
+  return counts;
+}
+
+function isTeamTopName(name) {
+  return normalizeText(roomLeafName(name)) === normalizeText(QUICK_AUTO_ROOM_NAMES[1]);
+}
+
+function buildGlobalStopPlan() {
+  const managedChannelIds = currentManagedChannelIds();
+  const counts = managedHumanCountByChannel();
+  const managedPeople = managedChannelIds.reduce((sum, channelId) => sum + Number(counts.get(channelId) || 0), 0);
+  const anchorChannelId = String(statuses[1]?.voice_channel_id || configs[1]?.voice_channel_id || quickAnchorId || '').trim();
+  const anchorName = channelName(anchorChannelId, '');
+  return {
+    mode: 'leave',
+    kickPeople: false,
+    managedChannelIds,
+    requiredDeletedChannelIds: [],
+    managedPeople,
+    anchorChannelId,
+    anchorWasTeamTop: isTeamTopName(anchorName),
+    anchorOriginalName: configs[1]?.anchor_original_name || ''
+  };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function reloadVoiceRelayState() {
+  await Promise.all([loadGuildMeta(), loadMaster(), loadConfigs(), loadStatuses(), loadManagedChannels()]);
+  refreshQuickAnchorId();
+}
+
+function syncDraftsAfterVoiceReload() {
+  for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
+  manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
+  refreshSharedDraft();
+}
+
+function configsStopped() {
+  return BOT_IDS.every((botId) => configs[botId]?.relay_enabled !== true && configs[botId]?.auto_join !== true);
+}
+
+function statusesStopped() {
+  return BOT_IDS.every((botId) => {
+    const status = statuses[botId];
+    if (!status) return true;
+    return status.relay_enabled !== true && !String(status.voice_channel_id || '').trim();
+  });
+}
+
+function managedRoomsDone(plan) {
+  if (plan.mode !== 'delete') return true;
+  if (!plan.requiredDeletedChannelIds.length) return true;
+  const remaining = new Set(currentManagedChannelIds());
+  return plan.requiredDeletedChannelIds.every((channelId) => !remaining.has(String(channelId)));
+}
+
+function anchorRenameDone(plan) {
+  if (!plan.anchorChannelId || !plan.anchorWasTeamTop) return true;
+  const channel = guildMeta.voice_channels.find((item) => String(item.id) === String(plan.anchorChannelId));
+  if (!channel) return true;
+  const leafName = roomLeafName(channel.name);
+  if (!leafName) return true;
+  if (plan.anchorOriginalName && normalizeText(leafName) === normalizeText(plan.anchorOriginalName)) return true;
+  return !isTeamTopName(leafName);
+}
+
+function globalStopPendingReasons(plan) {
+  const pending = [];
+  if (masterState.enabled === true) pending.push('master chưa tắt');
+  if (!configsStopped()) pending.push('cấu hình 3 bot chưa tắt');
+  if (!statusesStopped()) pending.push('3 bot chưa rời voice');
+  if (!managedRoomsDone(plan)) pending.push('phòng relay tự tạo chưa xóa xong');
+  if (!anchorRenameDone(plan)) pending.push('phòng còn lại chưa trả tên');
+  return pending;
+}
+
+async function waitForGlobalStop(plan) {
+  const deadline = Date.now() + MASTER_WAIT_TIMEOUT_MS;
+  let pending = [];
+  while (Date.now() < deadline) {
+    await reloadVoiceRelayState();
+    pending = globalStopPendingReasons(plan);
+    renderPane(activeBot);
+    if (!pending.length) return { ok: true, pending: [] };
+    await sleep(MASTER_WAIT_INTERVAL_MS);
+  }
+  return { ok: false, pending };
 }
 
 function quickSetupPayload() {
@@ -1322,31 +1495,64 @@ function applyLocalGlobalStop() {
 }
 
 async function toggleMaster(on) {
+  if (masterBusy) {
+    renderPane(activeBot);
+    return;
+  }
   try {
     if (on) {
-      masterState = { ...masterState, enabled: true };
+      masterBusy = 'starting';
+      renderPane(activeBot);
       await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: quickSetupPayload() });
       toast('Đã bật setup nhanh 3 bot.');
     } else {
       const people = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
-      const mode = await confirmGlobalStopMode(people);
-      if (!mode) {
+      const stopPlan = buildGlobalStopPlan();
+      const confirmed = await confirmGlobalStop(people, stopPlan.managedPeople);
+      if (!confirmed) {
         renderPane(activeBot);
         return;
       }
-      await api({ action: 'globalStop', guild_id: GUILD_ID, payload: { mode } });
-      applyLocalGlobalStop();
+
+      if (stopPlan.managedChannelIds.length) {
+        if (stopPlan.managedPeople > 0) {
+          const kickPeople = await confirmGlobalKickPeople(stopPlan.managedPeople);
+          if (kickPeople === null) {
+            renderPane(activeBot);
+            return;
+          }
+          stopPlan.mode = kickPeople ? 'delete' : 'leave';
+          stopPlan.kickPeople = kickPeople;
+          stopPlan.requiredDeletedChannelIds = kickPeople ? [...stopPlan.managedChannelIds] : [];
+        } else {
+          stopPlan.mode = 'delete';
+          stopPlan.requiredDeletedChannelIds = [...stopPlan.managedChannelIds];
+        }
+      }
+
+      masterBusy = 'stopping';
       renderPane(activeBot);
-      toast('Đã tắt voice relay tổng.');
+      await api({ action: 'globalStop', guild_id: GUILD_ID, payload: { mode: stopPlan.mode, kick_people: stopPlan.kickPeople } });
+      const waitResult = await waitForGlobalStop(stopPlan);
+      if (waitResult.ok) {
+        toast(stopPlan.mode === 'delete' ? 'Đã tắt voice relay tổng và xử lý phòng relay.' : 'Đã tắt voice relay tổng.');
+      } else {
+        toast('Đã gửi lệnh tắt nhưng chưa xác nhận xong: ' + waitResult.pending.join(', ') + '.', true);
+      }
     }
-    await Promise.all([loadMaster(), loadConfigs(), loadStatuses(), loadManagedChannels()]);
-    for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
-    manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
-    if (!on) applyLocalGlobalStop();
-    refreshSharedDraft();
+    await reloadVoiceRelayState();
+    syncDraftsAfterVoiceReload();
+    masterBusy = '';
     renderPane(activeBot);
   } catch (e) {
     toast('Thao tác tổng thất bại: ' + e.message, true);
+    if (masterBusy) {
+      try {
+        await reloadVoiceRelayState();
+        syncDraftsAfterVoiceReload();
+      } catch (_) { /* ignore reload errors after a failed action */ }
+    }
+    masterBusy = '';
     renderPane(activeBot);
   }
 }

@@ -205,9 +205,9 @@ class VoiceRelayVoiceManager extends EventEmitter {
       await this.removeManagedChannel(channelId);
       return false;
     }
-    // KHÔNG bao giờ xoá phòng còn member nào (kể cả bot) để tránh làm bot relay bị kéo ra khi relay còn bật.
-    if ((channel.members?.size || 0) > 0) return false;
-    await channel.delete('Voice relay managed channel cleanup');
+    // Mặc định chỉ xoá phòng trống. force=true chỉ được gọi sau khi web đã hỏi "kích người".
+    if ((channel.members?.size || 0) > 0 && !force) return false;
+    await channel.delete(force ? 'Voice relay managed channel force cleanup' : 'Voice relay managed channel cleanup');
     await this.removeManagedChannel(channelId);
     return true;
   }

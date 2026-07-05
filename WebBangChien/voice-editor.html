@@ -467,6 +467,10 @@
     .master-badge{padding:3px 11px;border-radius:999px;font-size:10.5px;font-weight:900;letter-spacing:.6px;text-transform:uppercase}
     .master-badge.on{background:rgba(58,208,126,.18);color:var(--green);border:1px solid rgba(58,208,126,.3)}
     .master-badge.off{background:rgba(255,107,107,.14);color:var(--danger);border:1px solid rgba(255,107,107,.28)}
+    .master-badge.busy{background:rgba(246,196,83,.16);color:var(--gold);border:1px solid rgba(246,196,83,.34)}
+    .master-hero.is-busy{border-color:var(--gold);box-shadow:0 10px 30px var(--shadow),0 0 0 1px rgba(246,196,83,.20)}
+    .master-spinner{width:20px;height:20px;border:2px solid rgba(246,196,83,.25);border-top-color:var(--gold);border-radius:50%;animation:masterSpin .8s linear infinite}
+    @keyframes masterSpin{to{transform:rotate(360deg)}}
     .master-hero-note{margin-top:11px;font-size:11px;line-height:1.4}
     .master-hero .master-hero-people{margin-top:8px}
     /* switch cỡ lớn cho nút tổng */
@@ -476,6 +480,7 @@
     .switch.switch-lg .lever-lbl{font-size:11px}
     .switch.switch-lg .lever-on{left:11px}
     .switch.switch-lg .lever-off{right:9px}
+    .switch.switch-lg.is-busy .slider{cursor:wait;box-shadow:inset 0 0 0 2px rgba(246,196,83,.2)}
     .speaker-section h3{font-size:13px}
 
     /* ---------- Status rail (trạng thái 3 bot bên trái, xếp dọc) ---------- */

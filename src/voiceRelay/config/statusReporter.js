@@ -87,7 +87,7 @@ class StatusReporter {
     try {
       const cfg = await this.supabaseConfig.loadConfig({ createIfMissing: true });
       const action = cfg.pending_action;
-      if (!['rejoin', 'leave', 'quickSetup', 'stopLeave', 'stopDelete'].includes(action)) return;
+      if (!['rejoin', 'leave', 'quickSetup', 'stopLeave', 'stopDelete', 'stopForceDelete'].includes(action)) return;
       await this.supabaseConfig.clearPendingAction();
       if (this.actionHandler) await this.actionHandler(action);
     } catch (error) {

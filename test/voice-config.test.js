@@ -233,12 +233,31 @@ test('buildQuickSetupRows: manual đủ 3 kênh -> cả 3 bot rejoin', () => {
   assert.ok(built.rows.every((row) => JSON.stringify(row.caller_user_ids) === JSON.stringify(['user-allowed'])));
 });
 
-test('buildGlobalStopRows: tắt đủ 3 bot relay và auto_join', () => {
+test('buildGlobalStopRows: leave chỉ cho 3 bot rời voice', () => {
+  const built = buildGlobalStopRows('guild-1', { mode: 'leave' });
+  assert.strictEqual(built.mode, 'leave');
+  assert.strictEqual(built.kickPeople, false);
+  assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
+  assert.ok(built.rows.every((row) => row.relay_enabled === false && row.auto_join === false));
+  assert.ok(built.rows.every((row) => row.pending_action === 'stopLeave'));
+});
+
+test('buildGlobalStopRows: delete an toàn không kích người', () => {
   const built = buildGlobalStopRows('guild-1', { mode: 'delete' });
   assert.strictEqual(built.mode, 'delete');
+  assert.strictEqual(built.kickPeople, false);
   assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
   assert.ok(built.rows.every((row) => row.relay_enabled === false && row.auto_join === false));
   assert.ok(built.rows.every((row) => row.pending_action === 'stopDelete'));
+});
+
+test('buildGlobalStopRows: delete có kích người dùng stopForceDelete', () => {
+  const built = buildGlobalStopRows('guild-1', { mode: 'delete', kick_people: true });
+  assert.strictEqual(built.mode, 'delete');
+  assert.strictEqual(built.kickPeople, true);
+  assert.deepStrictEqual(built.rows.map((row) => row.bot_id), [1, 2, 3]);
+  assert.ok(built.rows.every((row) => row.relay_enabled === false && row.auto_join === false));
+  assert.ok(built.rows.every((row) => row.pending_action === 'stopForceDelete'));
 });
 
 test('upsertVoiceRelayConfig: bỏ column phụ khi Supabase schema cache chưa có', async () => {

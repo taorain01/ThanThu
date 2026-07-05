@@ -79,7 +79,8 @@ async function initVoiceRelay(client, options = {}) {
       if (action === 'leave') return voiceManager.leave();
       if (action === 'rejoin') return voiceManager.ensureConnection({ force: true });
       if (action === 'stopLeave') return voiceManager.leave();
-      if (action === 'stopDelete') return voiceManager.stopAndDeleteManaged({ force: true });
+      if (action === 'stopDelete') return voiceManager.stopAndDeleteManaged({ force: false });
+      if (action === 'stopForceDelete') return voiceManager.stopAndDeleteManaged({ force: true });
       if (action === 'quickSetup') return quickSetup(runtime);
       return null;
     }

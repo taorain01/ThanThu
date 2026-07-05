@@ -372,7 +372,7 @@ function applyScopeUI() {
   document.querySelectorAll('#scopeSwitch button').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.scope === settingScope);
   });
-  document.querySelector('.tabs')?.classList.toggle('hidden', settingScope === 'shared');
+  document.querySelector('.tabs')?.classList.add('hidden');
 }
 
 function setSettingScope(scope) {
@@ -942,17 +942,21 @@ function statusRailHtml() {
     const online = s?.discord_connected === true;
     const relay = s?.relay_enabled === true;
     const active = clickable && botId === activeBot ? 'active' : '';
-    const attrs = clickable ? `role="button" tabindex="0" onclick="switchBot(${botId})"` : '';
+    const attrs = clickable
+      ? `role="button" tabindex="0" onclick="switchBot(${botId})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchBot(${botId})}"`
+      : '';
     return `
       <div class="rail-card ${online ? 'online' : ''} ${active}" ${attrs}>
+        <span class="rail-ribbon">${esc(botRoleTag(botId))}</span>
         <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span><span class="pill ${online ? 'ok' : 'off'}">${online ? 'ONLINE' : 'OFFLINE'}</span></div>
+        ${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : ''}
         <div class="rail-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
         <div class="rail-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
         <div class="rail-row"><span>Người trong kênh</span><b>${Number(s?.channel_member_count || 0)}</b></div>
         ${s?.last_error ? `<div class="rail-err">Lỗi gần nhất: ${esc(s.last_error)}</div>` : ''}
       </div>`;
   }).join('');
-  return `<h3>📡 Trạng thái 3 bot</h3><div class="status-rail">${cards}</div>`;
+  return `<h3>🧙 Trạng thái 3 bot</h3><div class="status-rail">${cards}</div>`;
 }
 
 function renderSharedPane() {

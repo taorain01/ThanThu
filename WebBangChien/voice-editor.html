@@ -474,15 +474,24 @@
     .speaker-section h3{font-size:13px}
 
     /* ---------- Status rail (trạng thái 3 bot bên trái, xếp dọc) ---------- */
-    .status-rail{display:flex;flex-direction:column;gap:8px}
-    .rail-card{border:1px solid var(--line);background:linear-gradient(180deg,var(--panel-2),rgba(0,0,0,.04));border-radius:12px;padding:10px 11px;transition:.16s}
-    .rail-card.online{border-color:var(--green-2);box-shadow:0 0 0 1px rgba(58,208,126,.14)}
-    .rail-card.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(247,205,95,.2)}
+    .status-rail{display:flex;flex-direction:column;gap:9px}
+    .status-section h3{font-size:13px;margin-bottom:10px}
+    .rail-card{position:relative;border:1px solid rgba(66,217,134,.45);background:linear-gradient(160deg,rgba(18,39,25,.92),rgba(9,27,16,.86));border-radius:13px;padding:11px 12px 12px;transition:.16s;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    body:not(.theme-dark) .rail-card{background:linear-gradient(160deg,rgba(255,255,255,.94),rgba(236,253,245,.78))}
+    .rail-card.online{border-color:rgba(66,217,134,.8);box-shadow:0 0 0 1px rgba(58,208,126,.12),inset 0 1px 0 rgba(255,255,255,.05)}
+    .rail-card.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(247,205,95,.34),0 8px 18px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.06)}
+    .rail-card.active::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 999px 999px 0;background:linear-gradient(var(--gold),var(--green))}
     .rail-card[role=button]{cursor:pointer}
     .rail-card[role=button]:hover{transform:translateY(-1px);box-shadow:0 6px 14px var(--shadow)}
-    .rail-head{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-    .rail-name{font-weight:900;font-size:12.5px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .rail-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--muted);font-weight:700}
+    .rail-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-right:54px}
+    .rail-head .room-avatar{width:27px;height:27px;font-size:14px}
+    .rail-name{font-weight:950;font-size:12.8px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.18)}
+    .rail-ribbon{position:absolute;top:7px;right:9px;font-size:8px;font-weight:950;letter-spacing:.5px;color:#08140d;background:linear-gradient(135deg,var(--gold),var(--green-2));border-radius:999px;padding:2px 7px;text-transform:uppercase}
+    .rail-actions{margin:-1px 0 8px}
+    .rail-actions .tab-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .rail-actions .tab-action{width:100%;height:25px;border-radius:8px;padding:0 6px;font-size:10px}
+    .rail-actions .tab-action svg{width:12px;height:12px}
+    .rail-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--muted);font-weight:800}
     .rail-row b{color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
     .rail-row b.ok{color:var(--green)}
     .rail-row b.off{color:var(--muted)}
@@ -567,7 +576,7 @@
       </button>
     </div>
 
-    <div class="tabs">
+    <div class="tabs hidden">
       <div class="tab active" id="tab1" data-bot="1" onclick="switchBot(1)">
         <div class="avatar">🦢</div>
         <div class="meta"><div class="name">Đại Ngỗng</div><div class="role">Bot 1</div></div>

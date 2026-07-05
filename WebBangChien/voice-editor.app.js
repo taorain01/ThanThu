@@ -950,14 +950,15 @@ function statusRailHtml() {
     return `
       <div class="rail-card ${online ? 'online' : ''} ${active} ${clickable ? 'has-actions' : ''}" ${attrs}>
         ${clickable ? badges : ''}
-        <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span>${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : badges}</div>
+        ${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : ''}
+        <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span>${clickable ? '' : badges}</div>
         <div class="rail-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
         <div class="rail-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
         <div class="rail-row"><span>Người trong kênh</span><b>${Number(s?.channel_member_count || 0)}</b></div>
         ${s?.last_error ? `<div class="rail-err">Lỗi gần nhất: ${esc(s.last_error)}</div>` : ''}
       </div>`;
   }).join('');
-  return `<h3>🧙 Trạng thái 3 bot</h3><div class="status-rail">${cards}</div>`;
+  return `<h3>🧙 Trạng thái 3 bot</h3><div class="status-rail ${clickable ? 'with-actions' : ''}">${cards}</div>`;
 }
 
 function renderSharedPane() {

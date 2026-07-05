@@ -9,7 +9,8 @@ const OPTIONAL_CONFIG_COLUMNS = new Set([
   'created_channel_name',
   'create_position',
   'create_anchor_channel_id',
-  'anchor_original_name'
+  'anchor_original_name',
+  'setup_mode'
 ]);
 
 function asArray(value) {
@@ -55,6 +56,7 @@ function normalizeConfig(row, env) {
     priority_role_ids: asArray(row?.priority_role_ids),
     relay_enabled: row?.relay_enabled === true,
     auto_join: row?.auto_join !== false,
+    setup_mode: row?.setup_mode === 'manual' ? 'manual' : 'auto',
     command_prefix: row?.command_prefix || fallbackPrefix,
     jitter_buffer_ms: normalizeJitterMs(row?.jitter_buffer_ms, env),
     speaker_release_ms: normalizeReleaseMs(row?.speaker_release_ms),
@@ -100,6 +102,7 @@ function defaultRow(env) {
     priority_role_ids: [],
     relay_enabled: false,
     auto_join: true,
+    setup_mode: 'auto',
     command_prefix: env.commandPrefix,
     jitter_buffer_ms: normalizeJitterMs(null, env),
     speaker_release_ms: 500,

@@ -143,6 +143,8 @@ test('voice manager: deleteManagedChannel force xóa phòng managed dù còn ng�
 
 test('config/playback: speaker_release_ms 0 tắt chờ nhả mic', () => {
   const env = { guildId: 'guild-1', botId: 1, commandPrefix: '?relay' };
+  assert.strictEqual(normalizeConfig({ setup_mode: 'manual' }, env).setup_mode, 'manual');
+  assert.strictEqual(normalizeConfig({ setup_mode: 'unknown' }, env).setup_mode, 'auto');
   assert.strictEqual(normalizeConfig({ speaker_release_ms: 0 }, env).speaker_release_ms, 0);
   assert.strictEqual(normalizeConfig({ speaker_release_ms: 5 }, env).speaker_release_ms, 100);
   assert.strictEqual(normalizeConfig({ speaker_release_ms: 5000 }, env).speaker_release_ms, 3000);

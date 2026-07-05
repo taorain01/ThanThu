@@ -19,6 +19,7 @@
       priority_role_ids jsonb       not null default '[]'::jsonb,
       relay_enabled     boolean     not null default false,
       auto_join         boolean     not null default true,
+      setup_mode        text        not null default 'auto',     -- auto | manual
       command_prefix    text,
       pending_action    text,                                     -- rejoin | leave | null
       updated_at        timestamptz not null default now(),
@@ -106,6 +107,7 @@ alter table public.voice_relay_config add column if not exists auto_create_chann
 alter table public.voice_relay_config add column if not exists created_channel_name     text;
 alter table public.voice_relay_config add column if not exists create_position          text    not null default 'below';  -- above | below (so voi kenh moc)
 alter table public.voice_relay_config add column if not exists create_anchor_channel_id text;
+alter table public.voice_relay_config add column if not exists setup_mode               text    not null default 'auto';   -- auto | manual
 
 -- ============================================================================
 -- BỔ SUNG: độ trễ chống giật (jitter buffer) khi phát audio relay.

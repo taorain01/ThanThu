@@ -15,6 +15,7 @@ function getAdminAllowlist() {
 const VALID_MODES = new Set(['bridge', 'broadcast']);
 const VALID_PRIORITIES = new Set(['mix', 'priority']);
 const VALID_CREATE_POSITIONS = new Set(['above', 'below']);
+const VALID_SETUP_MODES = new Set(['auto', 'manual']);
 const VALID_ACTIONS = new Set(['saveConfig', 'saveAllConfigs', 'rejoin', 'leave', 'quickSetup', 'globalStop']);
 const VALID_BOT_IDS = [1, 2, 3];
 const MAX_PAYLOAD_CHARS = 60000;
@@ -27,7 +28,8 @@ const OPTIONAL_CONFIG_COLUMNS = new Set([
   'created_channel_name',
   'create_position',
   'create_anchor_channel_id',
-  'anchor_original_name'
+  'anchor_original_name',
+  'setup_mode'
 ]);
 
 let adminClient = null;
@@ -229,6 +231,15 @@ function sanitizeConfig(payload) {
 
   if (payload.relay_enabled !== undefined) clean.relay_enabled = payload.relay_enabled === true;
   if (payload.auto_join !== undefined) clean.auto_join = payload.auto_join === true;
+  if (payload.setup_mode !== undefined) {
+    const setupMode = String(payload.setup_mode || '').trim().toLowerCase();
+    if (!VALID_SETUP_MODES.has(setupMode)) {
+      const error = new Error('Che do setup khong hop le (chi auto/manual).');
+      error.statusCode = 400;
+      throw error;
+    }
+    clean.setup_mode = setupMode;
+  }
 
   // Độ trễ chống giật (jitter buffer) khi phát audio, đơn vị ms. Kẹp trong khoảng an toàn 60..2000.
   if (payload.jitter_buffer_ms !== undefined) {
@@ -375,6 +386,8 @@ function buildQuickSetupRows(guildId, payload) {
         caller_user_ids: callerUserIds,
         relay_enabled: true,
         auto_join: true,
+        auto_create_channel: false,
+        setup_mode: 'manual',
         pending_action: 'rejoin',
         updated_at: now
       }))
@@ -400,6 +413,8 @@ function buildQuickSetupRows(guildId, payload) {
       caller_user_ids: callerUserIds,
       relay_enabled: true,
       auto_join: true,
+      auto_create_channel: false,
+      setup_mode: 'auto',
       pending_action: botId === 1 ? 'quickSetup' : null,
       updated_at: now
     }))

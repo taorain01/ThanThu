@@ -39,6 +39,7 @@ function defaultConfig(botId) {
     priority_role_ids: [],
     relay_enabled: false,
     auto_join: true,
+    setup_mode: 'auto',
     command_prefix: botId === 1 ? '?relay' : botId === 2 ? '!relay' : '#relay',
     jitter_buffer_ms: 400,
     speaker_release_ms: 500,
@@ -195,6 +196,7 @@ async function checkAuth() {
   await Promise.all([loadGuildMeta(), loadMaster(), loadManagedChannels(), loadMembers()]);
   await Promise.all([loadConfigs(), loadStatuses()]);
   for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
+  quickSetupMode = configuredQuickSetupMode();
   refreshQuickAnchorId();
   manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, preferredBotVoiceChannelId(botId)]));
   if (!quickAnchorId) quickSetupMode = 'manual';
@@ -266,6 +268,7 @@ function normalizeRow(row) {
     priority_role_ids: arr(row.priority_role_ids),
     relay_enabled: row.relay_enabled === true,
     auto_join: row.auto_join !== false,
+    setup_mode: row.setup_mode === 'manual' ? 'manual' : 'auto',
     command_prefix: row.command_prefix || '',
     jitter_buffer_ms: Number.isFinite(Number(row.jitter_buffer_ms)) && Number(row.jitter_buffer_ms) > 0 ? Number(row.jitter_buffer_ms) : 400,
     speaker_release_ms: Number.isFinite(Number(row.speaker_release_ms)) && Number(row.speaker_release_ms) >= 0 ? Number(row.speaker_release_ms) : 500,
@@ -510,13 +513,22 @@ function preferredBotVoiceChannelId(botId) {
   return String(configs[botId]?.voice_channel_id || statuses[botId]?.voice_channel_id || '').trim();
 }
 
+function configuredQuickSetupMode() {
+  return BOT_IDS.some((botId) => configs[botId]?.setup_mode === 'manual') ? 'manual' : 'auto';
+}
+
 function resolveQuickAnchorId() {
-  const candidates = [
-    statuses[1]?.voice_channel_id,
-    configs[1]?.voice_channel_id,
-    findBangChienChannelId(),
-    configs[1]?.create_anchor_channel_id
-  ];
+  const candidates = quickSetupMode === 'manual'
+    ? [
+        findBangChienChannelId(),
+        configs[1]?.create_anchor_channel_id
+      ]
+    : [
+        statuses[1]?.voice_channel_id,
+        configs[1]?.voice_channel_id,
+        findBangChienChannelId(),
+        configs[1]?.create_anchor_channel_id
+      ];
   return candidates.map((id) => String(id || '').trim()).find(isKnownVoiceChannel) || '';
 }
 
@@ -529,16 +541,44 @@ function refreshQuickAnchorId() {
 }
 
 function setQuickSetupMode(mode) {
-  quickSetupMode = mode === 'manual' ? 'manual' : 'auto';
+  const next = mode === 'manual' ? 'manual' : 'auto';
+  if (next === quickSetupMode) return;
+  quickSetupMode = next;
+  refreshQuickAnchorId();
   renderPane(activeBot);
+  void restartRelayFromQuickSettings();
 }
 window.setQuickSetupMode = setQuickSetupMode;
 
 function setManualChannel(botId, channelId) {
   manualChannelIds[botId] = String(channelId || '');
   renderPane(activeBot);
+  if (quickSetupMode === 'manual') void restartRelayFromQuickSettings();
 }
 window.setManualChannel = setManualChannel;
+
+async function restartRelayFromQuickSettings() {
+  if (masterState.enabled !== true || masterBusy) return;
+  const err = quickSetupError();
+  if (err) {
+    toast(err, true);
+    return;
+  }
+
+  try {
+    masterBusy = 'starting';
+    renderPane(activeBot);
+    await api({ action: 'quickSetup', guild_id: GUILD_ID, payload: quickSetupPayload() });
+    toast(quickSetupMode === 'manual' ? 'Đã restart relay theo kênh thủ công.' : 'Đã restart relay theo chế độ tự động.');
+    await reloadVoiceRelayState();
+    syncDraftsAfterVoiceReload();
+  } catch (e) {
+    toast('Restart relay thất bại: ' + e.message, true);
+  } finally {
+    masterBusy = '';
+    renderPane(activeBot);
+  }
+}
 
 function manualChannelList() {
   return BOT_IDS.map((botId) => String(manualChannelIds[botId] || '').trim());
@@ -1408,6 +1448,8 @@ async function reloadVoiceRelayState() {
 
 function syncDraftsAfterVoiceReload() {
   for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
+  quickSetupMode = configuredQuickSetupMode();
+  refreshQuickAnchorId();
   manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || manualChannelIds[botId] || '']));
   refreshSharedDraft();
 }

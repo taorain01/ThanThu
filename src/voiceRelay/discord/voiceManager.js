@@ -224,7 +224,7 @@ class VoiceRelayVoiceManager extends EventEmitter {
   // Quét và xoá các phòng managed mồ côi: không còn ai (kể cả bot) trong đó.
   // An toàn: phòng đang có bot ngồi chờ (>=1 thành viên) hoặc còn người sẽ KHÔNG bị xoá.
   async sweepOrphanManagedChannels() {
-    if (this.config?.relay_enabled === true || this.config?.auto_join === true) return 0;
+    if ((this.config?.relay_enabled === true || this.config?.auto_join === true) && this.config?.setup_mode !== 'manual') return 0;
     const rows = await this.listManagedChannels().catch(() => []);
     if (!rows.length) return 0;
     const guild = await this.resolveGuild();

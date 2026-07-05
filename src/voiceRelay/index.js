@@ -92,6 +92,7 @@ async function initVoiceRelay(client, options = {}) {
   });
 
   async function applyConfig(config) {
+    const previousConfig = runtime.config;
     runtime.config = config;
     if (!runtime.anchorOriginalName && config.anchor_original_name) {
       runtime.anchorOriginalName = config.anchor_original_name;
@@ -106,8 +107,9 @@ async function initVoiceRelay(client, options = {}) {
       relayState.update({ lastError: error.message });
       voiceManager.scheduleRejoin();
     });
-    // Cập nhật tên anchor theo trạng thái relay (bật + có người → Team Top, ngược lại trả tên gốc).
-    maybeRenameAnchor(runtime).catch((error) => logger.warn('Đổi tên anchor lỗi', error.message));
+    syncAnchorNameAfterConfigChange(runtime, previousConfig).catch((error) => {
+      logger.warn('Đồng bộ tên anchor lỗi', error.message);
+    });
   }
 
   voiceManager.on('connection', (connection, guild) => {
@@ -217,6 +219,7 @@ async function quickSetup(runtime) {
 async function repairManagedRelayRooms(runtime) {
   const { env, config } = runtime;
   if (env.botId !== 1 || config?.relay_enabled !== true || config?.auto_join !== true) return 0;
+  if (relaySetupMode(config) !== 'auto') return 0;
 
   if (runtime.peerRoomRepairPromise) return runtime.peerRoomRepairPromise;
   runtime.peerRoomRepairPromise = doRepairManagedRelayRooms(runtime).finally(() => {
@@ -442,6 +445,7 @@ async function waitForRelayPeerUserIds(runtime, expectedCount, timeoutMs) {
 async function syncManagedRelayRoomPermissions(runtime) {
   const { env, config, voiceManager, logger } = runtime;
   if (env.botId !== 1 || !config?.voice_channel_id) return 0;
+  if (relaySetupMode(config) !== 'auto') return 0;
 
   const guild = await voiceManager.resolveGuild();
   const anchor = await guild.channels.fetch(config.voice_channel_id).catch(() => null);
@@ -466,6 +470,7 @@ async function requestPeerRejoin(runtime, peer) {
   const { env, config, supabaseConfig, logger } = runtime;
   const botId = Number(peer?.botId);
   if (env.botId !== 1 || ![2, 3].includes(botId) || config?.relay_enabled !== true) return;
+  if (relaySetupMode(config) !== 'auto') return;
 
   await supabaseConfig.upsertConfig({
     guild_id: env.guildId,
@@ -501,9 +506,39 @@ function isDiscordSnowflake(value) {
 
 async function cleanupEmptyManagedChannel(runtime, channelId) {
   const { voiceManager } = runtime;
-  if (runtime.config?.relay_enabled === true || runtime.config?.auto_join === true) return;
+  if ((runtime.config?.relay_enabled === true || runtime.config?.auto_join === true) && relaySetupMode(runtime.config) === 'auto') return;
   // deleteManagedChannel chỉ xoá khi phòng không còn member nào → an toàn, không kéo bot relay ra khỏi phòng.
   await voiceManager.deleteManagedChannel(channelId, { force: false });
+}
+
+async function syncAnchorNameAfterConfigChange(runtime, previousConfig) {
+  await maybeRestorePreviousAutoAnchor(runtime, previousConfig, runtime.config);
+  await maybeRenameAnchor(runtime);
+}
+
+async function maybeRestorePreviousAutoAnchor(runtime, previousConfig, nextConfig) {
+  const { env, voiceManager, supabaseConfig, logger } = runtime;
+  if (env.botId !== 1 || !previousConfig || relaySetupMode(previousConfig) !== 'auto') return;
+
+  const previousAnchorId = String(previousConfig.voice_channel_id || '').trim();
+  if (!previousAnchorId) return;
+
+  const nextAnchorId = String(nextConfig?.voice_channel_id || '').trim();
+  if (relaySetupMode(nextConfig) === 'auto' && nextAnchorId === previousAnchorId) return;
+
+  const guild = await voiceManager.resolveGuild();
+  const anchor = await guild.channels.fetch(previousAnchorId).catch(() => null);
+  if (!anchor || !(anchor.type === ChannelType.GuildVoice || anchor.type === ChannelType.GuildStageVoice)) return;
+  if (anchor.name !== TEAM_TOP_NAME) return;
+
+  const original = runtime.anchorOriginalName || previousConfig.anchor_original_name || ANCHOR_RESTORE_FALLBACK;
+  try {
+    await anchor.setName(original);
+    runtime.anchorOriginalName = null;
+    supabaseConfig.patchConfig({ anchor_original_name: null }).catch(() => null);
+  } catch (error) {
+    logger.warn('Trả tên anchor cũ khi đổi mode lỗi', error.message);
+  }
 }
 
 // Đổi tên anchor (BANG CHIẾN) thành "Team Top" khi relay BẬT, và trả lại tên gốc khi relay TẮT.
@@ -511,6 +546,7 @@ async function cleanupEmptyManagedChannel(runtime, channelId) {
 async function maybeRenameAnchor(runtime) {
   const { env, config, voiceManager, supabaseConfig, logger } = runtime;
   if (env.botId !== 1 || !config) return;
+  if (relaySetupMode(config) !== 'auto') return;
 
   const anchorId = config.voice_channel_id;
   if (!anchorId) return;
@@ -533,6 +569,10 @@ async function maybeRenameAnchor(runtime) {
     const original = runtime.anchorOriginalName || config.anchor_original_name || ANCHOR_RESTORE_FALLBACK;
     await anchor.setName(original).catch((error) => logger.warn('Trả tên anchor lỗi', error.message));
   }
+}
+
+function relaySetupMode(config) {
+  return config?.setup_mode === 'manual' ? 'manual' : 'auto';
 }
 
 module.exports = {

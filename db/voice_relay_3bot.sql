@@ -9,6 +9,10 @@ alter table public.voice_relay_config
 alter table public.voice_relay_config
   add column if not exists muted_user_ids jsonb not null default '[]'::jsonb;
 
+-- Chế độ bật relay tổng: auto tự tạo/đồng bộ phòng Team Mid/Bot, manual chỉ vào đúng 3 kênh đã chọn.
+alter table public.voice_relay_config
+  add column if not exists setup_mode text not null default 'auto';
+
 -- Độ trễ chống giật (jitter buffer) khi phát audio relay, đơn vị ms. Mặc định 400.
 alter table public.voice_relay_config
   add column if not exists jitter_buffer_ms int not null default 400;

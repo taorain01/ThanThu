@@ -912,7 +912,7 @@ function renderPane(botId) {
   const host = document.getElementById('paneHost');
 
   host.innerHTML = `
-    <div class="editor-grid perbot-grid">
+    <div class="editor-grid">
       <div class="vcol vcol-left">
         <div class="section status-section" id="statusSection">${statusRailHtml()}</div>
         ${quickSetupHtml()}
@@ -938,6 +938,10 @@ function renderPane(botId) {
         </div>
         ${blockedRoleSectionHtml(d.blocked_role_ids)}
         <div class="err-note" id="errNote"></div>
+      </div>
+      <div class="vcol">
+        ${delayPanelHtml()}
+        ${yieldPanelHtml()}
       </div>
     </div>`;
 

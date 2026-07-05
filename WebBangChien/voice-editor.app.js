@@ -8,6 +8,7 @@ const FIXED_ROLES = [
 ];
 const BOT_AVATAR_FALLBACKS = { 1: '🦢', 2: '🐥', 3: '⚔️' };
 const BOT_ROLE_TAGS = { 1: 'Team 1', 2: 'Team 2', 3: 'Team 3' };
+const QUICK_AUTO_ROOM_NAMES = { 1: '⚡ Team Top', 2: '⚡ Team Mid', 3: '⚡ Team Bot' };
 
 let masterState = { enabled: false };
 let managedChannels = [];
@@ -190,8 +191,8 @@ async function checkAuth() {
   await Promise.all([loadGuildMeta(), loadMaster(), loadManagedChannels(), loadMembers()]);
   await Promise.all([loadConfigs(), loadStatuses()]);
   for (const botId of BOT_IDS) drafts[botId] = { ...configs[botId] };
-  quickAnchorId = findBangChienChannelId() || '';
-  manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, configs[botId]?.voice_channel_id || '']));
+  refreshQuickAnchorId();
+  manualChannelIds = Object.fromEntries(BOT_IDS.map((botId) => [botId, preferredBotVoiceChannelId(botId)]));
   if (!quickAnchorId) quickSetupMode = 'manual';
   show('editorShell');
   renderBotTabs();
@@ -285,8 +286,10 @@ function setupRealtime() {
       const row = payload.new || payload.old;
       if (!row) return;
       statuses[Number(row.bot_id)] = payload.eventType === 'DELETE' ? null : row;
+      const anchorChanged = refreshQuickAnchorId();
       updateTabDots();
-      renderStatus();
+      if (anchorChanged) renderPane(activeBot);
+      else renderStatus();
     })
     .subscribe();
   sb.channel('voice_relay_master_rt')
@@ -481,6 +484,36 @@ function findBangChienChannelId() {
   return channel?.id || '';
 }
 
+function isKnownVoiceChannel(channelId) {
+  const id = String(channelId || '').trim();
+  if (!id) return false;
+  if (BOT_IDS.some((botId) => String(statuses[botId]?.voice_channel_id || '') === id)) return true;
+  if (!guildMeta.voice_channels.length) return true;
+  return guildMeta.voice_channels.some((c) => String(c.id) === id);
+}
+
+function preferredBotVoiceChannelId(botId) {
+  return String(configs[botId]?.voice_channel_id || statuses[botId]?.voice_channel_id || '').trim();
+}
+
+function resolveQuickAnchorId() {
+  const candidates = [
+    statuses[1]?.voice_channel_id,
+    configs[1]?.voice_channel_id,
+    findBangChienChannelId(),
+    configs[1]?.create_anchor_channel_id
+  ];
+  return candidates.map((id) => String(id || '').trim()).find(isKnownVoiceChannel) || '';
+}
+
+function refreshQuickAnchorId() {
+  const next = resolveQuickAnchorId();
+  const changed = String(quickAnchorId || '') !== next;
+  quickAnchorId = next;
+  if (!quickAnchorId && quickSetupMode !== 'manual') quickSetupMode = 'manual';
+  return changed;
+}
+
 function setQuickSetupMode(mode) {
   quickSetupMode = mode === 'manual' ? 'manual' : 'auto';
   renderPane(activeBot);
@@ -530,13 +563,18 @@ function discordRoomPreview({ name, botId, muted = false, badge = '', tone = 'de
 }
 
 function autoRoomMap() {
-  const anchorName = quickAnchorId ? channelName(quickAnchorId, 'BANG CHIẾN') : 'BANG CHIẾN';
+  const bot1Status = statuses[1] || {};
+  const bot1InAnchor = quickAnchorId && String(bot1Status.voice_channel_id || '') === String(quickAnchorId);
+  const anchorName = quickAnchorId
+    ? channelName(quickAnchorId, (bot1InAnchor && bot1Status.voice_channel_name) || QUICK_AUTO_ROOM_NAMES[1])
+    : 'BANG CHIẾN';
+  const anchorBadge = bot1InAnchor ? 'đang ở voice' : (quickAnchorId ? 'đã nhận' : 'chưa tìm thấy');
   return `
     <div class="discord-map">
       <div class="discord-category">VOICE</div>
-      ${discordRoomPreview({ name: anchorName, botId: 1, muted: !quickAnchorId, badge: quickAnchorId ? 'mặc định' : 'chưa tìm thấy', tone: quickAnchorId ? 'default' : 'empty' })}
-      ${discordRoomPreview({ name: '⚡ Bang Chiến Team 2', botId: 2, badge: 'sẽ tạo', tone: 'create' })}
-      ${discordRoomPreview({ name: '⚡ Bang Chiến Team 3', botId: 3, badge: 'sẽ tạo', tone: 'create' })}
+      ${discordRoomPreview({ name: anchorName, botId: 1, muted: !quickAnchorId, badge: anchorBadge, tone: quickAnchorId ? 'default' : 'empty' })}
+      ${discordRoomPreview({ name: QUICK_AUTO_ROOM_NAMES[2], botId: 2, badge: 'sẽ tạo', tone: 'create' })}
+      ${discordRoomPreview({ name: QUICK_AUTO_ROOM_NAMES[3], botId: 3, badge: 'sẽ tạo', tone: 'create' })}
     </div>`;
 }
 
@@ -1247,6 +1285,7 @@ function confirmGlobalStopMode(people) {
 }
 
 function quickSetupPayload() {
+  refreshQuickAnchorId();
   const policySource = settingScope === 'shared'
     ? sharedDraft
     : (drafts[1] || configs[1] || {});

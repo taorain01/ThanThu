@@ -1221,6 +1221,62 @@ async function doAction(botId, action) {
 }
 window.doAction = doAction;
 
+function confirmGlobalStopMode(people) {
+  const count = Number(people || 0);
+  if (count <= 0) return Promise.resolve('leave');
+
+  return new Promise((resolve) => {
+    const existing = document.getElementById('globalStopConfirm');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'globalStopConfirm';
+    modal.className = 'modal stop-confirm-modal';
+    modal.innerHTML = `
+      <div class="modal-panel stop-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="globalStopTitle">
+        <div class="modal-head">
+          <strong id="globalStopTitle">Tắt voice relay?</strong>
+        </div>
+        <div class="stop-confirm-warning">
+          <b>Đang có ${count} người trong kênh relay.</b>
+          <span>Thoát chỉ cho bot rời kênh, không xóa phòng. Xóa phòng relay tự tạo là thao tác nguy hiểm và cần xác nhận riêng.</span>
+        </div>
+        <label class="stop-confirm-check">
+          <input type="checkbox" id="globalStopDeleteCheck">
+          <span>Tôi hiểu thao tác này sẽ xóa phòng relay tự tạo.</span>
+        </label>
+        <div class="stop-confirm-actions">
+          <button type="button" class="btn ghost" data-mode="cancel">Hủy</button>
+          <button type="button" class="btn gold" data-mode="leave">Thoát</button>
+          <button type="button" class="btn danger" data-mode="delete" disabled>OK - Xóa phòng</button>
+        </div>
+      </div>`;
+
+    const cleanup = (mode) => {
+      document.removeEventListener('keydown', onKeyDown);
+      modal.remove();
+      resolve(mode);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') cleanup(null);
+    };
+
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) cleanup(null);
+    });
+    modal.querySelector('[data-mode="cancel"]').addEventListener('click', () => cleanup(null));
+    modal.querySelector('[data-mode="leave"]').addEventListener('click', () => cleanup('leave'));
+    modal.querySelector('[data-mode="delete"]').addEventListener('click', () => cleanup('delete'));
+    modal.querySelector('#globalStopDeleteCheck').addEventListener('change', (event) => {
+      modal.querySelector('[data-mode="delete"]').disabled = !event.target.checked;
+    });
+
+    document.addEventListener('keydown', onKeyDown);
+    document.body.appendChild(modal);
+    setTimeout(() => modal.querySelector('[data-mode="cancel"]')?.focus(), 0);
+  });
+}
+
 function quickSetupPayload() {
   const policySource = settingScope === 'shared'
     ? sharedDraft
@@ -1268,7 +1324,11 @@ async function toggleMaster(on) {
       toast('Đã bật setup nhanh 3 bot.');
     } else {
       const people = BOT_IDS.reduce((sum, botId) => sum + Number(statuses[botId]?.channel_member_count || 0), 0);
-      const mode = people > 0 && window.confirm('Kênh relay đang có người. OK = xóa phòng relay tự tạo, Cancel = chỉ cho bot rời kênh.') ? 'delete' : 'leave';
+      const mode = await confirmGlobalStopMode(people);
+      if (!mode) {
+        renderPane(activeBot);
+        return;
+      }
       await api({ action: 'globalStop', guild_id: GUILD_ID, payload: { mode } });
       applyLocalGlobalStop();
       renderPane(activeBot);

@@ -19,6 +19,11 @@ const BOT_VOICE_PERMISSION_BITS = ENTRY_PERMISSION_BITS | PermissionFlagsBits.Sp
 const TEAM_TOP_NAME = '⚡ Team Top';
 // Tên trả lại cho anchor khi hết người, nếu không lưu được tên gốc (fallback an toàn).
 const ANCHOR_RESTORE_FALLBACK = 'BANG CHIẾN';
+const PEER_ROOM_REPAIR_INTERVAL_MS = 30_000;
+const QUICK_SETUP_TARGETS = [
+  { botId: 2, name: '⚡ Team Mid', offset: 1 },
+  { botId: 3, name: '⚡ Team Bot', offset: 2 }
+];
 
 async function initVoiceRelay(client, options = {}) {
   const env = loadVoiceRelayEnv(options);
@@ -56,6 +61,7 @@ async function initVoiceRelay(client, options = {}) {
     statusReporter,
     config: null,
     anchorOriginalName: null,
+    peerRoomRepairPromise: null,
     getCommandPrefixes() {
       const prefixes = new Set([
         this.config?.command_prefix,
@@ -150,6 +156,12 @@ async function initVoiceRelay(client, options = {}) {
       voiceManager.sweepOrphanManagedChannels().catch((error) => logger.warn('Sweep phòng trống lỗi', error.message));
     }, 60_000);
     if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+
+    repairManagedRelayRooms(runtime).catch((error) => logger.warn('Tự phục hồi phòng relay lỗi', error.message));
+    const repairTimer = setInterval(() => {
+      repairManagedRelayRooms(runtime).catch((error) => logger.warn('Tự phục hồi phòng relay lỗi', error.message));
+    }, PEER_ROOM_REPAIR_INTERVAL_MS);
+    if (typeof repairTimer.unref === 'function') repairTimer.unref();
   }
 
   client.voiceRelay = runtime;
@@ -194,16 +206,70 @@ async function quickSetup(runtime) {
   await waitForRelayPeerUserIds(runtime, 2, 5000);
 
   const created = [];
-  const targets = [
-    { botId: 2, name: '⚡ Team Mid', offset: 1 },
-    { botId: 3, name: '⚡ Team Bot', offset: 2 }
-  ];
-
-  for (const target of targets) {
+  for (const target of QUICK_SETUP_TARGETS) {
     const channel = await ensureManagedChannelForBot(runtime, anchor, target);
     created.push(channel.name);
   }
   logger.info(`Quick setup đã chuẩn bị phòng relay: ${created.join(', ')}`);
+}
+
+async function repairManagedRelayRooms(runtime) {
+  const { env, config } = runtime;
+  if (env.botId !== 1 || config?.relay_enabled !== true || config?.auto_join !== true) return 0;
+
+  if (runtime.peerRoomRepairPromise) return runtime.peerRoomRepairPromise;
+  runtime.peerRoomRepairPromise = doRepairManagedRelayRooms(runtime).finally(() => {
+    runtime.peerRoomRepairPromise = null;
+  });
+  return runtime.peerRoomRepairPromise;
+}
+
+async function doRepairManagedRelayRooms(runtime) {
+  const { env, config, voiceManager, supabaseConfig, logger } = runtime;
+  const guild = await voiceManager.resolveGuild();
+  const anchor = config.voice_channel_id ? await guild.channels.fetch(config.voice_channel_id).catch(() => null) : null;
+  if (!anchor || !(anchor.type === ChannelType.GuildVoice || anchor.type === ChannelType.GuildStageVoice)) return 0;
+
+  const managedRows = await voiceManager.listManagedChannels().catch(() => []);
+  const hasManagedRelayRooms = managedRows.some((row) => QUICK_SETUP_TARGETS.some((target) => Number(row.owner_bot_id) === target.botId));
+  if (!hasManagedRelayRooms) return 0;
+
+  const { data: peerRows, error } = await supabaseConfig.getClient()
+    .from('voice_relay_config')
+    .select('bot_id,voice_channel_id,relay_enabled,auto_join')
+    .eq('guild_id', env.guildId)
+    .in('bot_id', QUICK_SETUP_TARGETS.map((target) => target.botId));
+  if (error) throw error;
+
+  const rowsByBot = new Map((peerRows || []).map((row) => [Number(row.bot_id), row]));
+  let repaired = 0;
+  for (const target of QUICK_SETUP_TARGETS) {
+    const row = rowsByBot.get(target.botId);
+    if (!(await shouldRepairManagedRelayRoom(runtime, anchor, target, row, managedRows))) continue;
+
+    const channel = await ensureManagedChannelForBot(runtime, anchor, target);
+    repaired += 1;
+    logger.info(`Đã tự phục hồi phòng relay ${channel.name} cho Bot${target.botId}`);
+  }
+  return repaired;
+}
+
+async function shouldRepairManagedRelayRoom(runtime, anchor, target, row, managedRows) {
+  if (row?.relay_enabled !== true || row?.auto_join !== true) return false;
+
+  const channelId = String(row.voice_channel_id || '').trim();
+  if (!channelId) return true;
+
+  const channel = await anchor.guild.channels.fetch(channelId).catch(() => null);
+  if (!channel) return true;
+
+  const isManaged = managedRows.some((managed) => (
+    String(managed.channel_id) === String(channel.id)
+    && Number(managed.owner_bot_id) === Number(target.botId)
+  ));
+  if (isManaged) return false;
+
+  return channel.name === target.name && String(channel.parentId || '') === String(anchor.parentId || '');
 }
 
 async function ensureManagedChannelForBot(runtime, anchor, target) {
@@ -222,6 +288,11 @@ async function ensureManagedChannelForBot(runtime, anchor, target) {
   // Tự nhận diện lại kênh: tìm phòng managed đã có của bot này (theo tên) để tái dùng, tránh tạo trùng gây spam.
   if (!channel) {
     channel = await voiceManager.findManagedChannelForBot(target.botId, target.name).catch(() => null);
+  }
+  if (!channel) {
+    await guild.channels.fetch().catch(() => null);
+    channel = findExistingRelayChannel(anchor, target.name);
+    if (channel) await voiceManager.markManagedChannel(channel.id, target.botId);
   }
   if (!channel) {
     channel = await guild.channels.create({
@@ -255,6 +326,18 @@ async function ensureManagedChannelForBot(runtime, anchor, target) {
   }, { select: null });
 
   return channel;
+}
+
+function findExistingRelayChannel(anchor, name) {
+  if (!anchor?.guild || !name) return null;
+  for (const channel of anchor.guild.channels.cache.values()) {
+    if (channel.id === anchor.id) continue;
+    if (channel.name !== name) continue;
+    if (String(channel.parentId || '') !== String(anchor.parentId || '')) continue;
+    if (channel.type !== ChannelType.GuildVoice && channel.type !== ChannelType.GuildStageVoice) continue;
+    return channel;
+  }
+  return null;
 }
 
 function relayPolicyFromConfig(config = {}) {

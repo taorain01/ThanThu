@@ -10,6 +10,9 @@ const {
   targetsToMask
 } = require('./protocol');
 
+// Nhịp heartbeat WebSocket: nếu qua 1 nhịp mà peer chưa trả pong thì coi như link chết → đóng để reconnect.
+const HEARTBEAT_INTERVAL_MS = 10_000;
+
 class LinkPeer extends EventEmitter {
   constructor(env, logger) {
     super();
@@ -27,7 +30,33 @@ class LinkPeer extends EventEmitter {
   start() {
     if (this.env.linkMode === 'server') this.startServer();
     else this.startClient();
-    this.heartbeatTimer = setInterval(() => this.sendControl({ type: 'PING', at: Date.now() }), 10000);
+    // Heartbeat mức WebSocket: ping và phát hiện kết nối "chết nửa chừng" (TCP nửa-đóng qua NAT
+    // sau vài phút) để tự đóng và reconnect. Ping của ws được peer tự trả pong (built-in).
+    this.heartbeatTimer = setInterval(() => this.runHeartbeat(), HEARTBEAT_INTERVAL_MS);
+  }
+
+  runHeartbeat() {
+    if (this.env.linkMode === 'server') {
+      for (const socket of this.clients) {
+        if (socket.isAlive === false) {
+          this.logger.warn(`Link client Bot${socket.peerBotId || '?'} không phản hồi heartbeat, đóng để chờ kết nối lại`);
+          try { socket.terminate(); } catch (_) { /* noop */ }
+          continue;
+        }
+        socket.isAlive = false;
+        try { socket.ping(); } catch (_) { /* noop */ }
+      }
+      return;
+    }
+    const ws = this.ws;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (ws.isAlive === false) {
+      this.logger.warn('Link tới server không phản hồi heartbeat, đóng để kết nối lại');
+      try { ws.terminate(); } catch (_) { /* noop */ }
+      return;
+    }
+    ws.isAlive = false;
+    try { ws.ping(); } catch (_) { /* noop */ }
   }
 
   stop() {
@@ -51,6 +80,8 @@ class LinkPeer extends EventEmitter {
     });
     this.server.on('connection', (socket) => {
       socket.isAuthed = false;
+      socket.isAlive = true;
+      socket.on('pong', () => { socket.isAlive = true; });
       socket.once('message', (data) => this.handleHello(socket, data));
       socket.on('close', () => {
         this.clients.delete(socket);
@@ -87,7 +118,10 @@ class LinkPeer extends EventEmitter {
   startClient() {
     const connect = () => {
       this.ws = new WebSocket(this.env.linkUrl);
+      this.ws.isAlive = true;
+      this.ws.on('pong', () => { if (this.ws) this.ws.isAlive = true; });
       this.ws.on('open', () => {
+        this.ws.isAlive = true;
         const nonce = crypto.randomBytes(12).toString('hex');
         this.ws.send(JSON.stringify({
           type: 'HELLO',

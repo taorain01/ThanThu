@@ -7,6 +7,10 @@ const {
   joinVoiceChannel
 } = require('@discordjs/voice');
 
+// Watchdog kết nối voice: nhịp kiểm tra và thời gian ân hạn trước khi ép vào lại.
+const WATCHDOG_INTERVAL_MS = 10_000;
+const WATCHDOG_GRACE_MS = 20_000;
+
 class VoiceRelayVoiceManager extends EventEmitter {
   constructor(client, env, relayState, supabaseConfig, logger) {
     super();
@@ -20,6 +24,8 @@ class VoiceRelayVoiceManager extends EventEmitter {
     this.rejoinTimer = null;
     this.joinQueue = Promise.resolve();
     this.joinGeneration = 0;
+    this.watchdogTimer = null;
+    this.notReadySince = 0;
   }
 
   updateConfig(config) {
@@ -30,6 +36,49 @@ class VoiceRelayVoiceManager extends EventEmitter {
       ...(relayEnabled ? {} : { lastError: null })
     });
     if (!shouldAutoJoin(config)) this.clearRejoinTimer();
+    this.ensureWatchdog();
+  }
+
+  // Watchdog: định kỳ kiểm tra kết nối voice có thực sự Ready không.
+  // Nếu relay đang bật mà kết nối mất/kẹt/không-Ready quá lâu thì tự huỷ và vào lại kênh,
+  // để không phụ thuộc vào sự kiện Disconnected (có thể không bắn khi UDP chết âm thầm).
+  ensureWatchdog() {
+    if (this.watchdogTimer) return;
+    this.watchdogTimer = setInterval(() => {
+      this.watchdogCheck().catch((error) => this.logger.warn('Watchdog voice lỗi', error.message));
+    }, WATCHDOG_INTERVAL_MS);
+    if (typeof this.watchdogTimer.unref === 'function') this.watchdogTimer.unref();
+  }
+
+  async watchdogCheck() {
+    if (!shouldAutoJoin(this.config)) {
+      this.notReadySince = 0;
+      return;
+    }
+    const guild = this.client.guilds.cache.get(this.env.guildId);
+    if (!guild) return;
+
+    const connection = getVoiceConnection(guild.id);
+    const status = connection?.state?.status;
+    if (status === VoiceConnectionStatus.Ready) {
+      this.notReadySince = 0;
+      return;
+    }
+
+    // Chưa Ready: cho một khoảng ân hạn để tự phục hồi (tránh giật khi đang reconnect bình thường).
+    const now = Date.now();
+    if (!this.notReadySince) this.notReadySince = now;
+    if (now - this.notReadySince < WATCHDOG_GRACE_MS) return;
+
+    this.notReadySince = 0;
+    this.logger.warn(`Watchdog: voice không Ready quá lâu (${status || 'no-connection'}), ép vào lại kênh`);
+    if (connection) {
+      try { connection.destroy(); } catch (_) { /* noop */ }
+    }
+    await this.ensureConnection({ force: true }).catch((error) => {
+      this.reportError(error);
+      this.scheduleRejoin();
+    });
   }
 
   async ensureConnection(options = {}) {
@@ -67,7 +116,11 @@ class VoiceRelayVoiceManager extends EventEmitter {
     }
 
     const existing = getVoiceConnection(guild.id);
-    if (existing && existing.joinConfig.channelId === channel.id) {
+    // Chỉ tái dùng kết nối cũ khi nó THỰC SỰ khoẻ (Ready) và đúng kênh.
+    // Nếu đang kẹt/hỏng thì huỷ để tạo kết nối mới, tránh re-attach lên connection chết.
+    if (existing
+      && existing.joinConfig.channelId === channel.id
+      && existing.state?.status === VoiceConnectionStatus.Ready) {
       this.connection = existing;
       this.emit('connection', existing, guild);
       this.relayState.update({
@@ -78,7 +131,9 @@ class VoiceRelayVoiceManager extends EventEmitter {
       });
       return existing;
     }
-    if (existing) existing.destroy();
+    if (existing) {
+      try { existing.destroy(); } catch (_) { /* noop */ }
+    }
 
     const generation = ++this.joinGeneration;
     const connection = joinVoiceChannel({
@@ -91,12 +146,17 @@ class VoiceRelayVoiceManager extends EventEmitter {
 
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
       try {
+        // Bước 1: chờ vào lại pha kết nối (Discord tự resume khi move/region change).
         await Promise.race([
           entersState(connection, VoiceConnectionStatus.Signalling, 5000),
           entersState(connection, VoiceConnectionStatus.Connecting, 5000)
         ]);
+        // Bước 2: BẮT BUỘC xác nhận về được Ready. Nhiều trường hợp (vd close code 4006 -
+        // session hết hạn sau vài phút) sẽ kẹt ở Signalling/Connecting và không bao giờ Ready.
+        await entersState(connection, VoiceConnectionStatus.Ready, 20000);
       } catch (_) {
-        connection.destroy();
+        // Không tự phục hồi được → huỷ hẳn và vào lại kênh mới.
+        try { connection.destroy(); } catch (_) { /* noop */ }
         this.scheduleRejoin();
       }
     });

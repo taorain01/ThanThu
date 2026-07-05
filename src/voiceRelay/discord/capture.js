@@ -52,7 +52,7 @@ class VoiceRelayCapture {
     if (this.active.has(userId)) return;
 
     try {
-      this.logger.info(`Nhận speaking event từ user ${userId}`);
+      this.logger.debug(`Nhận speaking event từ user ${userId}`);
       const member = await this.resolveMember(userId);
       const decision = evaluateSpeaker(member, this.config);
       if (!decision.allowed) {
@@ -84,7 +84,7 @@ class VoiceRelayCapture {
         label: speakerLabel(member, userId)
       });
       this.updateActiveState();
-      this.logger.info(`Bắt đầu thu voice: ${speakerLabel(member, userId)}`);
+      this.logger.debug(`Bắt đầu thu voice: ${speakerLabel(member, userId)}`);
 
       stream.on('data', (chunk) => {
         const item = this.active.get(userId);
@@ -104,7 +104,7 @@ class VoiceRelayCapture {
           item.loggedFirstForward = true;
           const linkStatus = this.link?.connected ? 'connected' : 'not_connected';
           if (sent) {
-            this.logger.info(`Đang chuyển audio sang ${currentTargets.map((id) => `Bot${id}`).join(', ')}: ${item.label}`, { linkStatus });
+            this.logger.debug(`Đang chuyển audio sang ${currentTargets.map((id) => `Bot${id}`).join(', ')}: ${item.label}`, { linkStatus });
           } else {
             this.logger.warn(`Không gửi được frame audio sang link: ${item.label}`, { linkStatus, targets: currentTargets });
           }
@@ -138,7 +138,7 @@ class VoiceRelayCapture {
     this.active.delete(userId);
     if (item) {
       const durationMs = Date.now() - item.startedAt;
-      this.logger.info(`Kết thúc thu voice: ${item.label}`, {
+      this.logger.debug(`Kết thúc thu voice: ${item.label}`, {
         durationMs,
         chunks: item.chunks,
         bytes: item.bytes,
@@ -205,7 +205,7 @@ VoiceRelayCapture.prototype.logSkip = function logSkip(userId, reason, member = 
   if (now - (this.skipLogAt.get(key) || 0) < 5000) return;
   this.skipLogAt.set(key, now);
   const suffix = detail ? ` ${detail}` : '';
-  this.logger.info(`Bỏ qua voice [${reason}]: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}${suffix}`);
+  this.logger.debug(`Bỏ qua voice [${reason}]: ${speakerLabel(member, userId)} - ${reasonLabel(reason)}${suffix}`);
 };
 
 // Chi tiết chẩn đoán khi bỏ qua vì lý do liên quan role/cấu hình caller.

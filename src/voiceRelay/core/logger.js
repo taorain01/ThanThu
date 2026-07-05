@@ -20,6 +20,7 @@ class VoiceRelayLogger {
   }
 
   line(level, message, meta) {
+    if (level === 'debug' && this.env.verboseLogs !== true) return;
     const stamp = new Date().toISOString();
     const bot = this.env.botId ? `Bot${this.env.botId}` : 'Bot?';
     const suffix = meta === undefined ? '' : ` ${this.mask(meta)}`;
@@ -30,6 +31,7 @@ class VoiceRelayLogger {
   }
 
   info(message, meta) { this.line('info', message, meta); }
+  debug(message, meta) { this.line('debug', message, meta); }
   warn(message, meta) { this.line('warn', message, meta); }
   error(message, meta) { this.line('error', message, meta); }
 }

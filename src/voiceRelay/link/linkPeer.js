@@ -216,7 +216,7 @@ class LinkPeer extends EventEmitter {
     const now = Date.now();
     if (now - (this.audioReceiveLogAt.get(key) || 0) < 5000) return;
     this.audioReceiveLogAt.set(key, now);
-    this.logger.info(`Đã nhận audio từ Bot${frame.srcBotId} cho Bot${this.env.botId}: user ${frame.userId}`, {
+    this.logger.debug(`Đã nhận audio từ Bot${frame.srcBotId} cho Bot${this.env.botId}: user ${frame.userId}`, {
       targets: frame.targets,
       bytes: frame.opus?.length || 0
     });

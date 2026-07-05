@@ -84,6 +84,7 @@ function loadVoiceRelayEnv(options = {}) {
       'SUPABASE_SECRET_KEY',
       'VOICE_RELAY_SUPABASE_SERVICE_KEY'
     ]),
+    verboseLogs: boolEnv(['VOICE_RELAY_VERBOSE_LOGS', 'VOICE_RELAY_DEBUG_LOGS'], false),
     jitterBufferMs: intEnv(['VOICE_RELAY_JITTER_MS', 'VOICE_RELAY_JITTER_BUFFER_MS'], 400),
     statusIntervalMs: intEnv(['VOICE_RELAY_STATUS_INTERVAL_MS'], 15000),
     configPollIntervalMs: intEnv(['VOICE_RELAY_CONFIG_POLL_MS'], 10000),

@@ -873,6 +873,17 @@ function currentVoiceRoomCard(botId) {
     <div class="hint">Đổi phòng ở phần Setup nhanh phía trên. Chọn thủ công chỉ bật được khi đủ cả 3 kênh.</div>`;
 }
 
+function blockedRoleSectionHtml(selected) {
+  return `
+    <div class="section block-danger">
+      <h3>⛔ Blocked role</h3>
+      <div class="field">
+        <label>Blocked role</label>
+        ${fixedRoleChecklist('blocked_role_ids', selected)}
+      </div>
+    </div>`;
+}
+
 function renderPane(botId) {
   applyScopeUI();
   if (settingScope === 'shared') { renderSharedPane(); return; }
@@ -881,7 +892,7 @@ function renderPane(botId) {
   const host = document.getElementById('paneHost');
 
   host.innerHTML = `
-    <div class="editor-grid">
+    <div class="editor-grid perbot-grid">
       <div class="vcol vcol-left">
         <div class="section status-section" id="statusSection">${statusRailHtml()}</div>
         ${quickSetupHtml()}
@@ -905,18 +916,8 @@ function renderPane(botId) {
             <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
           </div>
         </div>
+        ${blockedRoleSectionHtml(d.blocked_role_ids)}
         <div class="err-note" id="errNote"></div>
-      </div>
-      <div class="vcol">
-        ${delayPanelHtml()}
-        ${yieldPanelHtml()}
-        <div class="section block-danger">
-          <h3>⛔ Blocked role</h3>
-          <div class="field">
-            <label>Blocked role</label>
-            ${fixedRoleChecklist('blocked_role_ids', d.blocked_role_ids)}
-          </div>
-        </div>
       </div>
     </div>`;
 
@@ -991,18 +992,12 @@ function renderSharedPane() {
             <button class="btn ghost small" onclick="openSharedMemberPicker('muted_user_ids')">+ Chọn người mute</button>
           </div>
         </div>
+        ${blockedRoleSectionHtml(sharedDraft.blocked_role_ids)}
         <div class="err-note" id="errNote"></div>
       </div>
       <div class="vcol">
         ${delayPanelHtml()}
         ${yieldPanelHtml()}
-        <div class="section block-danger">
-          <h3>⛔ Blocked role</h3>
-          <div class="field">
-            <label>Blocked role</label>
-            ${fixedRoleChecklist('blocked_role_ids', sharedDraft.blocked_role_ids)}
-          </div>
-        </div>
       </div>
     </div>`;
 

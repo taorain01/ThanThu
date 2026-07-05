@@ -478,20 +478,21 @@
     /* ---------- Status rail (trạng thái 3 bot bên trái, xếp dọc) ---------- */
     .status-rail{display:flex;flex-direction:column;gap:9px}
     .status-section h3{font-size:13px;margin-bottom:10px}
-    .rail-card{position:relative;border:1px solid rgba(66,217,134,.45);background:linear-gradient(160deg,rgba(18,39,25,.92),rgba(9,27,16,.86));border-radius:13px;padding:11px 12px 12px;transition:.16s;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .rail-card{position:relative;border:1px solid rgba(66,217,134,.45);background:linear-gradient(160deg,rgba(18,39,25,.92),rgba(9,27,16,.86));border-radius:13px;padding:11px 12px 10px;transition:.16s;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
     body:not(.theme-dark) .rail-card{background:linear-gradient(160deg,rgba(255,255,255,.94),rgba(236,253,245,.78))}
     .rail-card.online{border-color:rgba(66,217,134,.8);box-shadow:0 0 0 1px rgba(58,208,126,.12),inset 0 1px 0 rgba(255,255,255,.05)}
     .rail-card.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(247,205,95,.34),0 8px 18px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.06)}
     .rail-card.active::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 999px 999px 0;background:linear-gradient(var(--gold),var(--green))}
     .rail-card[role=button]{cursor:pointer}
     .rail-card[role=button]:hover{transform:translateY(-1px);box-shadow:0 6px 14px var(--shadow)}
-    .rail-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-right:54px}
-    .rail-head .room-avatar{width:27px;height:27px;font-size:14px}
-    .rail-name{font-weight:950;font-size:12.8px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.18)}
+    .rail-head{display:flex;align-items:center;gap:6px;min-height:27px;margin-bottom:7px;padding-right:88px}
+    .rail-head .room-avatar{width:26px;height:26px;font-size:14px}
+    .rail-name{font-weight:950;font-size:12.6px;flex:1 1 auto;min-width:54px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.18)}
     .rail-ribbon{position:absolute;top:7px;right:9px;font-size:8px;font-weight:950;letter-spacing:.5px;color:#08140d;background:linear-gradient(135deg,var(--gold),var(--green-2));border-radius:999px;padding:2px 7px;text-transform:uppercase}
-    .rail-actions{margin:-1px 0 8px}
-    .rail-actions .tab-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-    .rail-actions .tab-action{width:100%;height:25px;border-radius:8px;padding:0 6px;font-size:10px}
+    .rail-status{position:absolute;top:27px;right:9px}
+    .rail-actions{flex:0 0 auto;margin:0}
+    .rail-actions .tab-actions{display:flex;align-items:center;gap:4px}
+    .rail-actions .tab-action{height:23px;min-width:42px;border-radius:8px;padding:0 6px;font-size:9.5px}
     .rail-actions .tab-action svg{width:12px;height:12px}
     .rail-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--muted);font-weight:800}
     .rail-row b{color:var(--text);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}

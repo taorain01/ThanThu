@@ -946,11 +946,11 @@ function statusRailHtml() {
     const attrs = clickable
       ? `role="button" tabindex="0" onclick="switchBot(${botId})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchBot(${botId})}"`
       : '';
+    const badges = `<div class="rail-badges"><span class="rail-status pill ${online ? 'ok' : 'off'}">${online ? 'ONLINE' : 'OFFLINE'}</span><span class="rail-ribbon">${esc(botRoleTag(botId))}</span></div>`;
     return `
-      <div class="rail-card ${online ? 'online' : ''} ${active}" ${attrs}>
-        <span class="rail-ribbon">${esc(botRoleTag(botId))}</span>
-        <span class="rail-status pill ${online ? 'ok' : 'off'}">${online ? 'ONLINE' : 'OFFLINE'}</span>
-        <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span>${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : ''}</div>
+      <div class="rail-card ${online ? 'online' : ''} ${active} ${clickable ? 'has-actions' : ''}" ${attrs}>
+        ${clickable ? badges : ''}
+        <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span>${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : badges}</div>
         <div class="rail-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
         <div class="rail-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
         <div class="rail-row"><span>Người trong kênh</span><b>${Number(s?.channel_member_count || 0)}</b></div>

@@ -430,12 +430,16 @@
 
     /* ---------- Scope switch (chung / riêng) ---------- */
     .scope-switch{display:inline-flex;align-self:center;gap:6px;width:min(70%,640px);margin-bottom:13px;padding:6px;border:1px solid var(--line-strong);border-radius:999px;background:linear-gradient(135deg,var(--panel-2),var(--panel));box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);flex:0 0 auto;max-width:100%;position:relative;overflow:hidden}
-    .scope-switch::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),var(--green),transparent);opacity:.7}
-    .scope-switch button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:1;min-height:38px;padding:0 18px;border:none;background:transparent;color:var(--muted);border-radius:999px;font-family:inherit;font-size:14px;font-weight:900;letter-spacing:.3px;cursor:pointer;transition:.2s cubic-bezier(.4,0,.2,1);white-space:nowrap}
-    .scope-switch button:hover{color:var(--text)}
-    .scope-switch button.active{color:#0a1a0f;background:linear-gradient(135deg,var(--gold),var(--green-2));box-shadow:0 4px 12px var(--shadow),inset 0 1px 0 rgba(255,255,255,.25);text-shadow:0 1px 0 rgba(255,255,255,.2)}
+    .scope-switch::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),var(--green),transparent);opacity:.7;z-index:2}
+    .scope-switch::after{content:"";position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 18px)/2);border-radius:999px;background:linear-gradient(135deg,var(--gold),var(--green-2));box-shadow:0 6px 18px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.28);transform:translateX(0);transition:transform .36s cubic-bezier(.2,.85,.25,1),box-shadow .24s ease;z-index:0}
+    .scope-switch[data-scope=perbot]::after{transform:translateX(calc(100% + 6px))}
+    .scope-switch button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:1;min-height:38px;padding:0 18px;border:none;background:transparent;color:var(--muted);border-radius:999px;font-family:inherit;font-size:14px;font-weight:900;letter-spacing:.3px;cursor:pointer;transition:color .22s ease,transform .22s ease,text-shadow .22s ease;white-space:nowrap;position:relative;z-index:1}
+    .scope-switch button:hover{color:var(--text);transform:translateY(-1px)}
+    .scope-switch button.active{color:#0a1a0f;text-shadow:0 1px 0 rgba(255,255,255,.22)}
+    .scope-switch button.active .ico,.scope-switch button.active .lbl{animation:scopePop .28s ease both}
     .scope-switch button .ico{font-size:15px;line-height:1;flex:0 0 auto}
     .scope-switch button .lbl{font-size:16px;font-weight:950;letter-spacing:.45px;line-height:1}
+    @keyframes scopePop{0%{transform:scale(.96)}70%{transform:scale(1.045)}100%{transform:scale(1)}}
     .scope-banner{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:11px 13px;border:1px solid var(--line-strong);border-radius:12px;background:linear-gradient(135deg,rgba(246,196,83,.12),rgba(58,208,126,.06));font-size:12px;font-weight:800;color:var(--gold-glow);line-height:1.4}
     .scope-banner .ico{font-size:17px;flex:0 0 auto}
     .shared-status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -478,6 +482,11 @@
     .switch.switch-lg .lever-off{right:9px}
     .switch.switch-lg.is-busy .slider{cursor:wait;box-shadow:inset 0 0 0 2px rgba(246,196,83,.2)}
     .speaker-section h3{font-size:13px}
+    .perbot-guide{border-color:rgba(246,196,83,.42);box-shadow:0 8px 24px var(--shadow),0 0 0 1px rgba(246,196,83,.10),0 0 22px rgba(58,208,126,.09),inset 0 1px 0 rgba(255,255,255,.05);animation:guidePulse 3.6s ease-in-out infinite}
+    .perbot-guide::after{background:linear-gradient(115deg,transparent 0%,transparent 33%,rgba(246,196,83,.12) 45%,rgba(58,208,126,.10) 55%,transparent 67%,transparent 100%);transform:translateX(-115%);animation:guideSweep 4.8s ease-in-out infinite}
+    .perbot-guide .rail-card.active,.perbot-guide .fixed-check:has(input:checked){box-shadow:0 0 0 1px rgba(246,196,83,.34),0 8px 18px rgba(0,0,0,.18),0 0 20px rgba(246,196,83,.10),inset 0 1px 0 rgba(255,255,255,.06)}
+    @keyframes guidePulse{0%,100%{border-color:rgba(246,196,83,.34)}50%{border-color:rgba(58,208,126,.68)}}
+    @keyframes guideSweep{0%,58%{transform:translateX(-115%)}82%,100%{transform:translateX(115%)}}
 
     /* ---------- Status rail (trạng thái 3 bot bên trái, xếp dọc) ---------- */
     .status-rail{display:flex;flex-direction:column;gap:9px}
@@ -499,10 +508,10 @@
     .rail-status{white-space:nowrap}
     .rail-card.has-actions .rail-head{padding-right:88px}
     .rail-card.has-actions .rail-badges{position:absolute;top:7px;right:9px;display:grid;gap:4px;justify-items:end}
-    .rail-actions{position:absolute;left:-76px;top:50%;transform:translateY(-50%);z-index:3;margin:0}
-    .rail-actions .tab-actions{display:flex;flex-direction:column;align-items:stretch;gap:4px}
-    .rail-actions .tab-action{height:24px;width:50px;min-width:0;border-radius:9px 0 0 9px;border-right:0;padding:0 6px;font-size:9.5px;justify-content:center;box-shadow:0 5px 12px rgba(0,0,0,.16)}
-    .rail-actions .tab-action:hover{transform:translateX(-1px)}
+    .rail-actions{position:relative;z-index:3;margin:9px 0 0;padding-top:8px;border-top:1px dashed rgba(141,255,183,.18)}
+    .rail-actions .tab-actions{display:grid;grid-template-columns:1fr 1fr;align-items:stretch;gap:6px}
+    .rail-actions .tab-action{height:29px;width:100%;min-width:0;border-radius:9px;border-right:1px solid var(--line);padding:0 8px;font-size:10px;justify-content:center;box-shadow:0 5px 12px rgba(0,0,0,.12)}
+    .rail-actions .tab-action:hover{transform:translateY(-1px)}
     .rail-actions .tab-action svg{width:12px;height:12px}
     .rail-actions .tab-action span{display:inline}
     .rail-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(86px,auto);align-items:center;gap:8px;font-size:11px;padding:2px 0;color:var(--muted);font-weight:800}
@@ -510,7 +519,9 @@
     .rail-row b.ok{color:var(--green)}
     .rail-row b.off{color:var(--muted)}
     .rail-err{margin-top:6px;font-size:10.5px;font-weight:700;color:var(--danger);line-height:1.35}
-    @media(max-width:820px){.status-rail.with-actions{padding-left:50px}.rail-actions{left:-49px}}
+    @media(prefers-reduced-motion:reduce){
+      .scope-switch::after,.scope-switch button.active .ico,.scope-switch button.active .lbl,.perbot-guide,.perbot-guide::after{animation:none;transition:none}
+    }
     .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--gold);color:var(--text);padding:13px 20px;border-radius:12px;font-weight:700;font-size:13px;box-shadow:0 12px 30px var(--shadow);z-index:100;opacity:0;pointer-events:none;transition:.22s}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
     .toast.err{border-color:var(--danger);color:var(--danger)}
@@ -629,6 +640,6 @@
     const statuses = { 1: null, 2: null, 3: null };
     let activeBot = 1;
   </script>
-  <script src="./voice-editor.app.js?v=20260705_scope_layout_tools"></script>
+  <script src="./voice-editor.app.js?v=20260705_scope_motion_actions"></script>
 </body>
 </html>

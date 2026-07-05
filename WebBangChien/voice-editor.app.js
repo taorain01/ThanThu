@@ -374,6 +374,8 @@ function botsShareSameConfig() {
 }
 
 function applyScopeUI() {
+  const scopeRoot = document.getElementById('scopeSwitch');
+  if (scopeRoot) scopeRoot.dataset.scope = settingScope;
   document.querySelectorAll('#scopeSwitch button').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.scope === settingScope);
   });
@@ -893,9 +895,10 @@ function currentVoiceRoomCard(botId) {
     <div class="hint">Đổi phòng ở phần Setup nhanh phía trên. Chọn thủ công chỉ bật được khi đủ cả 3 kênh.</div>`;
 }
 
-function blockedRoleSectionHtml(selected) {
+function blockedRoleSectionHtml(selected, options = {}) {
+  const guideClass = options.guide ? ' perbot-guide' : '';
   return `
-    <div class="section block-danger">
+    <div class="section block-danger${guideClass}">
       <h3>⛔ Blocked role</h3>
       <div class="field">
         <label>Blocked role</label>
@@ -914,12 +917,12 @@ function renderPane(botId) {
   host.innerHTML = `
     <div class="editor-grid">
       <div class="vcol vcol-left">
-        <div class="section status-section" id="statusSection">${statusRailHtml()}</div>
+        <div class="section status-section perbot-guide" id="statusSection">${statusRailHtml()}</div>
         ${quickSetupHtml()}
       </div>
       <div class="vcol vcol-main">
         ${masterHeroHtml()}
-        <div class="section speaker-section">
+        <div class="section speaker-section perbot-guide">
           <h3>🛡️ Ai được nói</h3>
           <div class="field">
             <label>Role được nói</label>
@@ -936,7 +939,7 @@ function renderPane(botId) {
             <button class="btn ghost small" onclick="openMemberPicker(${botId},'muted_user_ids')">+ Chọn người mute</button>
           </div>
         </div>
-        ${blockedRoleSectionHtml(d.blocked_role_ids)}
+        ${blockedRoleSectionHtml(d.blocked_role_ids, { guide: true })}
         <div class="err-note" id="errNote"></div>
       </div>
       <div class="vcol">
@@ -974,12 +977,12 @@ function statusRailHtml() {
     return `
       <div class="rail-card ${online ? 'online' : ''} ${active} ${clickable ? 'has-actions' : ''}" ${attrs}>
         ${clickable ? badges : ''}
-        ${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : ''}
         <div class="rail-head">${botMiniAvatar(botId)}<span class="rail-name">${esc(BOT_NAMES[botId])}</span>${clickable ? '' : badges}</div>
         <div class="rail-row"><span>Kênh voice</span><b>${esc(s?.voice_channel_name || s?.voice_channel_id || '—')}</b></div>
         <div class="rail-row"><span>Relay</span><b class="${relay ? 'ok' : 'off'}">${relay ? 'Đang bật' : 'Tắt'}</b></div>
         <div class="rail-row"><span>Người trong kênh</span><b>${Number(s?.channel_member_count || 0)}</b></div>
         ${s?.last_error ? `<div class="rail-err">Lỗi gần nhất: ${esc(s.last_error)}</div>` : ''}
+        ${clickable ? `<div class="rail-actions">${botTabActions(botId)}</div>` : ''}
       </div>`;
   }).join('');
   return `<h3>🧙 Trạng thái 3 bot</h3><div class="status-rail ${clickable ? 'with-actions' : ''}">${cards}</div>`;

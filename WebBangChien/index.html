@@ -2020,6 +2020,8 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .left::-webkit-scrollbar-thumb{background:rgba(234,88,12,.3);border-radius:3px}
 
 /* ═══ BANG CHIẾN TẠM DỪNG (Rain đi tu) ═══ */
+.web-paused-overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:radial-gradient(ellipse at center,#0f2417 0%,#06120a 60%,#000 100%)}
 .bc-paused{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
   padding:40px 24px;border-radius:18px;overflow:hidden;
   background:
@@ -4358,6 +4360,14 @@ async function checkAuth() {
     // Đã đăng nhập → ẩn landing, hiện loading
     document.getElementById('landingPage').classList.add('hidden');
     document.getElementById('loadingScreen').classList.remove('hidden');
+
+    // ═══ CHẶN TOÀN TRANG KHI TẠM DỪNG ═══
+    // Đặt WEB_PAUSED = false để mở lại web bình thường.
+    if (WEB_PAUSED) {
+        document.getElementById('loadingScreen').classList.add('hidden');
+        showWebPausedScreen();
+        return;
+    }
 
     const user = session.user;
     const meta = user.user_metadata;
@@ -7490,6 +7500,30 @@ function syncIndexRosterFit(root = document) {
 const BC_PAUSED = true;
 const BC_PAUSE_TITLE = 'RainĐiTu đã đi tu';
 const BC_PAUSE_SUB = 'Bang chiến tạm dừng · hẹn ngày tái ngộ chốn giang hồ';
+
+// ═══ CỜ CHẶN TOÀN TRANG SAU ĐĂNG NHẬP ═══
+// Đặt WEB_PAUSED = false để mở lại web bình thường.
+const WEB_PAUSED = true;
+
+function showWebPausedScreen() {
+    let el = document.getElementById('webPausedScreen');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'webPausedScreen';
+        el.className = 'web-paused-overlay';
+        el.innerHTML = `<div class="bc-paused" style="width:min(560px,92vw);flex:none">
+            <div class="bc-paused-glow"></div>
+            <div class="bc-paused-inner">
+                <div class="bc-paused-ico">🧘</div>
+                <div class="bc-paused-title">${escapeIndexHtml(BC_PAUSE_TITLE)}</div>
+                <div class="bc-paused-divider"></div>
+                <div class="bc-paused-sub">${escapeIndexHtml(BC_PAUSE_SUB)}</div>
+            </div>
+        </div>`;
+        document.body.appendChild(el);
+    }
+    el.style.display = 'flex';
+}
 
 function buildBcPausedHtml() {
     return `<div class="bc-paused">

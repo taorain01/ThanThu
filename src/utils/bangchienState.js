@@ -770,7 +770,11 @@ function scheduleBangchienAutoEndsForGuild(client, guildId) {
     return scheduled;
 }
 
+// Đặt BC_AUTO_CREATE_DISABLED = false để bật lại việc tự tạo phiên BC cuối tuần.
+const BC_AUTO_CREATE_DISABLED = true;
+
 async function ensureWeekendDefaultSessions(guild, options = {}) {
+    if (BC_AUTO_CREATE_DISABLED) return [];
     if (!guild?.id) return [];
     const db = require('../database/db');
     const channelId = options.channelId || (db.getConfig ? db.getConfig(`bc_channel_${guild.id}`) : null);

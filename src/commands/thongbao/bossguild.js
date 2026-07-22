@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { bossNotifications, bossRegistrations, MAX_PARTIES_PER_GUILD, getGuildPartyKeys, getUserRegisteredParty, bossChannels, bossSchedule, lastScheduleEmbed, getPreRegistrations, clearPreRegistrations, bossRefreshTimers, BOSS_REFRESH_DEBOUNCE, bossAutoCloseTimers, BOSS_AUTO_CLOSE_DURATION, finalizedParties } = require('../../utils/bossState');
+const autoFeatures = require('../../config/autoFeatures');
 
 // Hàm tính thời gian đến buổi boss tiếp theo
 function getNextBossSession() {
@@ -259,6 +260,7 @@ module.exports = {
         console.log(`[bossguild] ${leaderName} tạo party tại ${message.guild.name} (${currentParties.length + 1}/${MAX_PARTIES_PER_GUILD})`);
 
         // ═══ Auto-close sau 1 tiếng ═══
+        if (!autoFeatures.bossAutoClose) return;
         const autoCloseTimeout = setTimeout(async () => {
             try {
                 const notifData = bossNotifications.get(partyKey);

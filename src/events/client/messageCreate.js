@@ -2,6 +2,7 @@ const { EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../../database/db');
 const { isAllowedGuildId } = require('../../config/guildAccess');
 const { hasLangGiaRole } = require('../../utils/langGiaRole');
+const autoFeatures = require('../../config/autoFeatures');
 
 // Import member management commands
 const addmemCommand = require('../../commands/quanly/addmem');
@@ -129,7 +130,7 @@ module.exports = {
         // Tự động chuyển link TikTok sang fxTikTok để embed tốt hơn
         // Gửi 2 link (tnktok + tfxktok) để đảm bảo ít nhất 1 cái embed được
         const tiktokRegex = /https?:\/\/(www\.|vm\.|vt\.)?tiktok\.com\/[^\s]+/gi;
-        const tiktokMatches = message.content.match(tiktokRegex);
+        const tiktokMatches = autoFeatures.tiktokConverter ? message.content.match(tiktokRegex) : null;
 
         if (tiktokMatches && tiktokMatches.length > 0) {
             try {
@@ -356,7 +357,7 @@ module.exports = {
         // ============== ALBUM AUTO-SAVE (với Cloudinary + ImgBB fallback) ==============
         // Tự động lưu ảnh khi gửi vào Phòng Ảnh
 
-        const albumChannelId = db.getAlbumChannelId(guildId);
+        const albumChannelId = autoFeatures.albumAutoSave ? db.getAlbumChannelId(guildId) : null;
         if (albumChannelId && message.channel.id === albumChannelId && message.attachments.size > 0) {
             const imageService = require('../../utils/imageService');
 

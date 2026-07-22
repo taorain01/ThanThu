@@ -4,6 +4,7 @@ const supaSync = require('../../utils/supabaseSync');
 const memberRosterSync = require('../../utils/memberRosterSync');
 const { cleanupWeekendBcRegulars } = require('../../utils/bcRegularCleanup');
 const { cleanupAlbumForUser } = require('../../utils/albumCleanup');
+const autoFeatures = require('../../config/autoFeatures');
 
 // Channel ID to send leave notifications
 const LEAVE_NOTIFICATION_CHANNEL = '1465959064575152263';
@@ -103,7 +104,9 @@ module.exports = {
 
                 // Send notification to designated channel
                 try {
-                    const channel = await client.channels.fetch(LEAVE_NOTIFICATION_CHANNEL);
+                    const channel = autoFeatures.memberLeaveNotification
+                        ? await client.channels.fetch(LEAVE_NOTIFICATION_CHANNEL)
+                        : null;
                     if (channel) {
 
 

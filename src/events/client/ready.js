@@ -9,6 +9,7 @@ const { DAY_CONFIG, LEAGUE_TIME, normalizeBcTime, isLeagueSession, formatSession
 const bangchienRoster = require('../../utils/bangchienRoster');
 const { ensureTrackedMemberFromDiscord, syncStoredPositionForMember } = require('../../utils/discordPositionSync');
 const { ALLOWED_GUILD_ID, isAllowedGuildId } = require('../../config/guildAccess');
+const autoFeatures = require('../../config/autoFeatures');
 // Legacy state for deleting old roster-summary notification embeds when still tracked in memory.
 const _notifDebounceMap = new Map();
 const _sessionSummaryStateMap = new Map();
@@ -998,10 +999,10 @@ module.exports = {
       }
     }
 
-    if (yentiecChannelId) {
+    if (yentiecChannelId && autoFeatures.yentiecReminder) {
       scheduleWeeklyReminders(client, yentiecChannelId);
     } else {
-      console.log('[yentiecReminder] No YenTiec notification found, skipping');
+      console.log('[yentiecReminder] Bị tắt hoặc không tìm thấy notification, bỏ qua');
     }
 
     // Set status ban đầu (random)

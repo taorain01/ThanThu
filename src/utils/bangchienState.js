@@ -1,5 +1,6 @@
 // Bangchien (Bang Chiến) Notification State
 // Lưu trữ trạng thái thông báo Bang Chiến - Giống bossguild nhưng cho 30 người
+const autoFeatures = require('../config/autoFeatures');
 
 // Map lưu trữ thông báo đang chạy
 // Key: `${guildId}_${leaderId}`, Value: { intervalId, channelId, leaderId, messageId, message, startTime }
@@ -725,6 +726,7 @@ async function runBangchienAutoEnd(client, guildId, day) {
 }
 
 function scheduleBangchienAutoEnd(client, guildId, day, channelId = null) {
+    if (!autoFeatures.bangchienAutoEnd) return false;
     if (!client || !guildId || !DAY_CONFIG[day]) return false;
 
     const timerKey = `${guildId}:${day}`;

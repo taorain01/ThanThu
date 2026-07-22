@@ -18,6 +18,7 @@ const {
 } = require('./weeklyState');
 const { sendTacticsStorageReport } = require('./tacticsStorageReport');
 const { ALLOWED_GUILD_IDS, isAllowedGuildId } = require('../config/guildAccess');
+const autoFeatures = require('../config/autoFeatures');
 
 const WEEKLY_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 ngày
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
@@ -307,7 +308,7 @@ function getTimeUntilNextMonday8AM() {
  * Khởi động Weekly Scheduler
  */
 function initWeeklyScheduler(client) {
-    scheduleMonthlyPhongAnhHelp(client);
+    if (autoFeatures.monthlyPhongAnhGuide) scheduleMonthlyPhongAnhHelp(client);
 
     const delayMs = getTimeUntilNextMonday8AM();
     const delayHours = (delayMs / (60 * 60 * 1000)).toFixed(1);
@@ -318,16 +319,16 @@ function initWeeklyScheduler(client) {
     setTimeout(() => {
         // Gửi lần đầu
         console.log('[WeeklyScheduler] 🔔 Gửi embed hàng tuần...');
-        sendBossScheduleEmbed(client);
+        if (autoFeatures.weeklyBossSchedule) sendBossScheduleEmbed(client);
         sendGieoQueGuide(client);
-        sendTacticsStorageReport();
+        if (autoFeatures.weeklyTacticsReport) sendTacticsStorageReport();
 
         // Sau đó lặp lại mỗi 7 ngày
         setInterval(() => {
             console.log('[WeeklyScheduler] 🔔 Gửi embed hàng tuần...');
-            sendBossScheduleEmbed(client);
+            if (autoFeatures.weeklyBossSchedule) sendBossScheduleEmbed(client);
             sendGieoQueGuide(client);
-            sendTacticsStorageReport();
+            if (autoFeatures.weeklyTacticsReport) sendTacticsStorageReport();
         }, WEEKLY_INTERVAL);
     }, delayMs);
 

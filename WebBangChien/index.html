@@ -2019,6 +2019,30 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .left::-webkit-scrollbar{width:5px}
 .left::-webkit-scrollbar-thumb{background:rgba(234,88,12,.3);border-radius:3px}
 
+/* ═══ BANG CHIẾN TẠM DỪNG (Rain đi tu) ═══ */
+.bc-paused{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+  padding:40px 24px;border-radius:18px;overflow:hidden;
+  background:
+    radial-gradient(140% 120% at 50% -10%,rgba(245,200,66,.10),transparent 55%),
+    linear-gradient(165deg,rgba(12,26,17,.95),rgba(6,16,10,.98));
+  border:1px solid rgba(245,200,66,.16);
+  box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(245,200,66,.08);
+  animation:bcPausedIn 1s cubic-bezier(.22,1,.36,1) both}
+.bc-paused-glow{position:absolute;top:-30%;left:50%;width:520px;height:520px;transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(circle,rgba(245,200,66,.10),transparent 62%);animation:bcPausedBreath 6s ease-in-out infinite}
+.bc-paused-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;max-width:560px}
+.bc-paused-ico{font-size:64px;line-height:1;filter:drop-shadow(0 6px 22px rgba(245,200,66,.28));animation:bcPausedFloat 5s ease-in-out infinite}
+.bc-paused-title{font-family:'Playfair Display',serif;font-weight:900;font-size:38px;letter-spacing:.02em;
+  background:linear-gradient(180deg,#fdeaa0 0%,#fbbf24 52%,#b8892a 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 4px 26px rgba(245,200,66,.22))}
+.bc-paused-divider{width:120px;height:1px;background:linear-gradient(90deg,transparent,rgba(245,200,66,.7),transparent);opacity:.65}
+.bc-paused-sub{font-family:'Playfair Display',serif;font-style:italic;font-size:16px;letter-spacing:.02em;color:var(--text2);opacity:.9;line-height:1.6}
+@keyframes bcPausedIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes bcPausedFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-6px) scale(1.04)}}
+@keyframes bcPausedBreath{0%,100%{opacity:.55;transform:translateX(-50%) scale(1)}50%{opacity:1;transform:translateX(-50%) scale(1.08)}}
+@media(max-width:640px){.bc-paused-title{font-size:26px}.bc-paused-ico{font-size:48px}.bc-paused-sub{font-size:14px}}
+
 .team-card{background:var(--bg-card);border-radius:14px;border:1px solid rgba(234,88,12,.12);margin-bottom:0;overflow:hidden;
   display:flex;flex-direction:column;min-height:0;
   backdrop-filter:blur(13px);transition:all .3s;
@@ -2036,7 +2060,11 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .t-icon.a1{background:rgba(239,68,68,.2)}.t-icon.a2{background:rgba(249,115,22,.2)}
 .t-icon.df{background:rgba(59,130,246,.2)}.t-icon.fr{background:rgba(34,197,94,.2)}
 .t-icon.wt{background:rgba(251,191,36,.2)}
-.t-title{font-weight:700;font-size:14px}.t-cnt{font-size:11px;color:var(--text3)}
+.t-title{font-family:'Playfair Display',serif;font-weight:900;font-size:15px;letter-spacing:.02em;
+  background:linear-gradient(180deg,#fbe58f 0%,var(--gold) 55%,#c8912e 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 10px rgba(245,200,66,.22))}
+.t-cnt{font-size:11px;color:var(--text3)}
 .t-roles{display:flex;gap:6px}
 .rb{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:14px;font-size:11px;font-weight:600}
 .rb.d{background:rgba(96,165,250,.12);color:var(--dps)}
@@ -2052,7 +2080,9 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .m-row{display:flex;align-items:center;min-width:0;padding:6px 8px;border-radius:8px;gap:8px;transition:all .2s;border-left:3px solid transparent}
 .m-row:hover{background:rgba(34,197,94,.05)}
 .m-row.is-me{background:linear-gradient(90deg, rgba(34,197,94,.15), transparent); border-left-color: var(--green-400); padding-left: 5px}
-.m-row.is-me .m-name{color: var(--green-300); text-shadow: 0 0 10px rgba(34,197,94,.3)}
+.m-row.is-me .m-name-text{background:linear-gradient(180deg,#bbf7d0 0%,var(--green-300) 55%,#3ecf72 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 10px rgba(34,197,94,.35))}
 .m-num{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;
   font-size:11px;font-weight:700;background:rgba(255,255,255,.04);color:var(--text3);flex-shrink:0}
 .m-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#60a5fa);
@@ -2063,9 +2093,13 @@ body:not(.theme-dark) .app-bg-vignette{background:
 .m-av svg{width:16px;height:16px;border-radius:50%}
 .m-av.ld{border-color:var(--gold);box-shadow:0 0 8px rgba(251,191,36,.4)}
 .m-det{flex:1;min-width:0}
-.m-name{font-weight:700;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
-.m-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.m-gn{font-size:11px;line-height:1.15;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-name{font-weight:700;font-size:15px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.m-name-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:'Playfair Display',serif;font-weight:700;letter-spacing:.01em;
+  background:linear-gradient(180deg,#ffffff 0%,#dff2e6 45%,#a8d8bd 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 6px rgba(0,0,0,.4))}
+.m-gn{font-size:11px;line-height:1.15;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic;letter-spacing:.02em}
 .m-right{margin-left:auto;display:flex;flex:0 0 auto;min-width:0;max-width:48%;align-items:center;gap:5px}
 .m-right-top{display:flex;align-items:center;justify-content:flex-end;min-width:0;gap:5px}
 .m-sub{max-width:120px;font-size:10px;font-weight:700;line-height:1.1;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
@@ -6790,6 +6824,7 @@ async function recordIndexOwnRoleLog(beforeRow, combat, weapon) {
 }
 
 async function openPickRoleModal() {
+    if (BC_PAUSED) { await customAlert(BC_PAUSE_TITLE + '. ' + BC_PAUSE_SUB); return; }
     const overlay = document.getElementById('pickRoleModal');
     if (!overlay) return;
     if (!sb) {
@@ -7199,6 +7234,7 @@ function isSignupModalOpen() {
 }
 
 function openSignupModal() {
+    if (BC_PAUSED) { customAlert(BC_PAUSE_TITLE + '. ' + BC_PAUSE_SUB); return; }
     if (!window.currentDiscordId) return;
     renderSignupModalList();
     document.getElementById('signupModal').classList.add('show');
@@ -7449,7 +7485,26 @@ function syncIndexRosterFit(root = document) {
     });
 }
 
+// ═══ CỜ TẠM DỪNG BANG CHIẾN ═══
+// Đặt BC_PAUSED = false để mở lại bang chiến bình thường.
+const BC_PAUSED = true;
+const BC_PAUSE_TITLE = 'RainĐiTu đã đi tu';
+const BC_PAUSE_SUB = 'Bang chiến tạm dừng · hẹn ngày tái ngộ chốn giang hồ';
+
+function buildBcPausedHtml() {
+    return `<div class="bc-paused">
+        <div class="bc-paused-glow"></div>
+        <div class="bc-paused-inner">
+            <div class="bc-paused-ico">🧘</div>
+            <div class="bc-paused-title">${escapeIndexHtml(BC_PAUSE_TITLE)}</div>
+            <div class="bc-paused-divider"></div>
+            <div class="bc-paused-sub">${escapeIndexHtml(BC_PAUSE_SUB)}</div>
+        </div>
+    </div>`;
+}
+
 function buildTeamsHtml(data) {
+    if (BC_PAUSED) return buildBcPausedHtml();
     const SVG = {
         sword: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>',
         dagger: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg>',
@@ -7724,6 +7779,10 @@ function updateDayTabSelectedSession(session) {
 }
 
 function renderDaySessions(day, preferredKey = null) {
+    if (BC_PAUSED) {
+        document.getElementById('leftPanel').innerHTML = buildBcPausedHtml();
+        return;
+    }
     const sessions = getSessionsForDay(day);
     if (!sessions.length) {
         document.getElementById('leftPanel').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Chua co phien Bang Chien nao cho ngay nay.</div>';

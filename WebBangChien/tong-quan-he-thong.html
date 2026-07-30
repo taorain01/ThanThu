@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bản tổng hợp dễ hiểu về source code website và bot Discord Lang Gia.">
+  <title>Tổng quan hệ thống Lang Gia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <style>
+    :root {
+      --ink: #152019;
+      --ink-soft: #46544a;
+      --paper: #f4f0e5;
+      --paper-strong: #fffaf0;
+      --forest: #113b2b;
+      --forest-deep: #09261c;
+      --leaf: #2d7655;
+      --mint: #9bc9a8;
+      --gold: #c99335;
+      --gold-bright: #efc56d;
+      --ember: #b95832;
+      --line: rgba(21, 32, 25, .14);
+      --line-dark: rgba(255, 250, 240, .15);
+      --shadow: 0 24px 70px rgba(24, 42, 31, .14);
+      --radius: 24px;
+      --serif: "DM Serif Display", Georgia, serif;
+      --sans: "Be Vietnam Pro", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(201, 147, 53, .17), transparent 24rem),
+        radial-gradient(circle at 94% 32%, rgba(45, 118, 85, .14), transparent 30rem),
+        linear-gradient(180deg, #ece5d5 0, var(--paper) 24rem, #eee9dd 100%);
+      line-height: 1.7;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .22;
+      background-image:
+        linear-gradient(rgba(17, 59, 43, .045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 59, 43, .045) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(to bottom, black, transparent 70%);
+      z-index: -1;
+    }
+
+    a { color: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      border-bottom: 1px solid rgba(255, 255, 255, .12);
+      background: rgba(9, 38, 28, .9);
+      color: #fffaf0;
+      backdrop-filter: blur(18px);
+    }
+
+    .topbar-inner {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      text-decoration: none;
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+
+    .brand-mark {
+      width: 34px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid rgba(239, 197, 109, .55);
+      box-shadow: 0 0 0 5px rgba(239, 197, 109, .08);
+    }
+
+    .nav { display: flex; align-items: center; gap: 5px; }
+    .nav a {
+      padding: 9px 12px;
+      border-radius: 999px;
+      color: rgba(255, 250, 240, .7);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      transition: .2s ease;
+    }
+    .nav a:hover, .nav a.active { color: #fffaf0; background: rgba(255, 255, 255, .1); }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: #fffaf0;
+      background:
+        linear-gradient(110deg, rgba(7, 29, 21, .98), rgba(17, 59, 43, .94) 54%, rgba(68, 67, 34, .88)),
+        url("./anh/bg_thien_van_cung_sang.png") center / cover;
+      border-bottom: 1px solid rgba(255, 255, 255, .12);
+    }
+
+    .hero::after {
+      content: "LANG GIA";
+      position: absolute;
+      right: -34px;
+      bottom: -55px;
+      color: rgba(255, 255, 255, .035);
+      font: 400 clamp(100px, 18vw, 250px)/1 var(--serif);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      min-height: 570px;
+      padding: 90px 0 72px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(330px, .85fr);
+      align-items: end;
+      gap: clamp(44px, 8vw, 100px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-bottom: 18px;
+      color: var(--gold-bright);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before { content: ""; width: 36px; height: 1px; background: currentColor; }
+    .hero-inner > *, .chapter-head > *, .feature-row > * { min-width: 0; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 760px;
+      margin-bottom: 22px;
+      font: 400 clamp(54px, 8.4vw, 112px)/.91 var(--serif);
+      letter-spacing: -.035em;
+    }
+
+    .hero-lead {
+      max-width: 720px;
+      margin-bottom: 30px;
+      color: rgba(255, 250, 240, .75);
+      font-size: clamp(15px, 1.7vw, 19px);
+    }
+
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    .btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 11px 16px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 11px;
+      color: #fffaf0;
+      background: rgba(255, 255, 255, .06);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 800;
+      transition: transform .2s ease, background .2s ease, border-color .2s ease;
+    }
+    .btn:hover { transform: translateY(-2px); background: rgba(255, 255, 255, .11); border-color: rgba(255, 255, 255, .34); }
+    .btn.primary { color: #1d2a20; background: var(--gold-bright); border-color: var(--gold-bright); }
+
+    .hero-note {
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 26px 26px 26px 6px;
+      background: rgba(5, 25, 18, .45);
+      box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 30px 70px rgba(0, 0, 0, .22);
+      backdrop-filter: blur(12px);
+    }
+    .hero-note-kicker { color: var(--gold-bright); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; }
+    .hero-note strong { display: block; margin: 8px 0 10px; font: 400 29px/1.15 var(--serif); }
+    .hero-note p { margin-bottom: 0; color: rgba(255, 250, 240, .67); font-size: 13px; }
+
+    .stats-strip {
+      position: relative;
+      z-index: 2;
+      margin-top: -29px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border: 1px solid rgba(21, 32, 25, .1);
+      border-radius: 18px;
+      background: rgba(255, 250, 240, .93);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .stat { padding: 23px 20px; border-right: 1px solid var(--line); }
+    .stat:last-child { border-right: 0; }
+    .stat b { display: block; color: var(--forest); font: 400 34px/1 var(--serif); }
+    .stat span { display: block; margin-top: 7px; color: var(--ink-soft); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+
+    main { padding: 100px 0 80px; }
+    .chapter { scroll-margin-top: 90px; margin-bottom: 118px; }
+    .chapter-head {
+      display: grid;
+      grid-template-columns: 160px minmax(0, 1fr);
+      gap: 28px;
+      align-items: start;
+      margin-bottom: 42px;
+    }
+    .chapter-no {
+      color: var(--gold);
+      font: 400 72px/.9 var(--serif);
+      border-top: 2px solid var(--gold);
+      padding-top: 13px;
+    }
+    .chapter-title h2 { margin-bottom: 10px; font: 400 clamp(38px, 5vw, 62px)/1 var(--serif); letter-spacing: -.025em; }
+    .chapter-title p { max-width: 800px; margin-bottom: 0; color: var(--ink-soft); }
+
+    .plain-box {
+      padding: 25px 28px;
+      border-left: 4px solid var(--gold);
+      background: rgba(255, 250, 240, .68);
+      box-shadow: 0 16px 50px rgba(24, 42, 31, .08);
+    }
+    .plain-box b { color: var(--forest); }
+    .plain-box p:last-child { margin-bottom: 0; }
+
+    .feature-list { border-top: 1px solid var(--line); }
+    .feature-row {
+      display: grid;
+      grid-template-columns: 78px minmax(210px, .55fr) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+      padding: 26px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .feature-icon {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      color: var(--paper-strong);
+      background: var(--forest);
+      border-radius: 16px 16px 16px 4px;
+      box-shadow: 7px 7px 0 rgba(201, 147, 53, .2);
+    }
+    .feature-icon svg { width: 23px; height: 23px; }
+    .feature-name h3 { margin-bottom: 5px; font-size: 17px; line-height: 1.4; }
+    .file-tag { color: var(--leaf); font-family: ui-monospace, Consolas, monospace; font-size: 11px; word-break: break-word; }
+    .feature-copy { color: var(--ink-soft); font-size: 14px; }
+    .feature-copy p:last-child { margin-bottom: 0; }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 22px;
+    }
+    .module {
+      position: relative;
+      padding: 27px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 250, 240, .66);
+      overflow: hidden;
+    }
+    .module::after {
+      content: attr(data-count);
+      position: absolute;
+      right: 18px;
+      top: 11px;
+      color: rgba(17, 59, 43, .08);
+      font: 400 58px/1 var(--serif);
+    }
+    .module h3 { position: relative; margin-bottom: 9px; color: var(--forest); font-size: 18px; }
+    .module p { position: relative; margin-bottom: 14px; color: var(--ink-soft); font-size: 13px; }
+    .chips { position: relative; display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip { padding: 5px 9px; border: 1px solid rgba(17, 59, 43, .13); border-radius: 999px; background: rgba(155, 201, 168, .12); color: #28553f; font-size: 10px; font-weight: 700; }
+
+    .bot-trio {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+    .bot-card {
+      position: relative;
+      min-height: 210px;
+      padding: 25px;
+      color: #fffaf0;
+      border-radius: 22px 22px 22px 6px;
+      background: linear-gradient(145deg, var(--forest-deep), var(--forest));
+      overflow: hidden;
+    }
+    .bot-card:nth-child(2) { background: linear-gradient(145deg, #25382f, #54705e); }
+    .bot-card:nth-child(3) { background: linear-gradient(145deg, #4c2c1f, #7b4831); }
+    .bot-card::after {
+      content: attr(data-bot);
+      position: absolute;
+      right: -8px;
+      bottom: -22px;
+      color: rgba(255, 255, 255, .08);
+      font: 400 98px/1 var(--serif);
+    }
+    .bot-card small { color: var(--gold-bright); font-weight: 800; text-transform: uppercase; letter-spacing: .14em; }
+    .bot-card h3 { margin: 18px 0 8px; font: 400 29px/1 var(--serif); }
+    .bot-card p { margin-bottom: 0; color: rgba(255, 250, 240, .7); font-size: 13px; }
+
+    .flow {
+      padding: 34px;
+      border-radius: var(--radius);
+      color: #fffaf0;
+      background:
+        radial-gradient(circle at 90% 0, rgba(239, 197, 109, .15), transparent 20rem),
+        var(--forest-deep);
+      box-shadow: var(--shadow);
+    }
+    .flow h3 { margin-bottom: 8px; font: 400 30px/1.1 var(--serif); }
+    .flow > p { color: rgba(255, 250, 240, .65); font-size: 13px; }
+    .flow-line {
+      display: grid;
+      grid-template-columns: repeat(7, auto);
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    .flow-node {
+      min-width: 132px;
+      padding: 16px 13px;
+      border: 1px solid var(--line-dark);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .06);
+      text-align: center;
+    }
+    .flow-node svg { width: 22px; height: 22px; color: var(--gold-bright); }
+    .flow-node b { display: block; margin-top: 7px; font-size: 12px; }
+    .flow-node span { display: block; margin-top: 3px; color: rgba(255, 250, 240, .55); font-size: 9px; }
+    .flow-arrow { color: var(--gold-bright); font-size: 18px; }
+
+    .status-board {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 240, .72);
+      overflow: hidden;
+    }
+    .status-column { padding: 30px; }
+    .status-column + .status-column { border-left: 1px solid var(--line); }
+    .status-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 19px; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ca66a; box-shadow: 0 0 0 6px rgba(44, 166, 106, .12); }
+    .status-column.off .status-dot { background: #c15f3d; box-shadow: 0 0 0 6px rgba(193, 95, 61, .12); }
+    .status-heading h3 { margin: 0; font-size: 17px; }
+    .status-list { margin: 0; padding: 0; list-style: none; }
+    .status-list li { padding: 11px 0 11px 24px; position: relative; border-top: 1px dashed var(--line); color: var(--ink-soft); font-size: 13px; }
+    .status-list li::before { content: ""; position: absolute; left: 2px; top: 20px; width: 7px; height: 7px; border-radius: 50%; background: #2ca66a; }
+    .status-column.off .status-list li::before { background: #c15f3d; }
+
+    .folder-map {
+      display: grid;
+      grid-template-columns: .75fr 1.25fr;
+      gap: 24px;
+    }
+    .folder-tree {
+      margin: 0;
+      padding: 26px;
+      border-radius: 18px;
+      color: #eaf4ec;
+      background: #10271c;
+      font: 12px/1.9 ui-monospace, Consolas, monospace;
+      white-space: pre-wrap;
+      box-shadow: var(--shadow);
+    }
+    .folder-notes { display: grid; gap: 12px; }
+    .folder-note { padding: 17px 19px; border-left: 3px solid var(--leaf); background: rgba(255, 250, 240, .68); }
+    .folder-note b { display: block; color: var(--forest); font-size: 13px; }
+    .folder-note span { color: var(--ink-soft); font-size: 12px; }
+
+    .caution {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 18px;
+      padding: 25px;
+      border: 1px solid rgba(185, 88, 50, .22);
+      border-radius: 18px;
+      background: rgba(185, 88, 50, .07);
+    }
+    .caution svg { color: var(--ember); }
+    .caution h3 { margin-bottom: 5px; color: #6f301e; font-size: 16px; }
+    .caution p { margin-bottom: 0; color: #6a5148; font-size: 13px; }
+
+    footer {
+      padding: 42px 0 55px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-soft);
+    }
+    .footer-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; }
+    .footer-title { margin-bottom: 6px; color: var(--forest); font: 400 28px/1 var(--serif); }
+    .footer-copy { max-width: 650px; margin: 0; font-size: 12px; }
+    .footer-date { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s ease, transform .55s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .nav { display: none; }
+      .hero-inner { min-height: auto; grid-template-columns: 1fr; padding: 76px 0 84px; }
+      .hero-note { max-width: 620px; }
+      .stats-strip { grid-template-columns: repeat(3, 1fr); }
+      .stat:nth-child(3) { border-right: 0; }
+      .stat:nth-child(n+4) { border-top: 1px solid var(--line); }
+      .chapter-head { grid-template-columns: 100px minmax(0, 1fr); }
+      .feature-row { grid-template-columns: 64px 1fr; }
+      .feature-copy { grid-column: 2; }
+      .bot-trio { grid-template-columns: 1fr; }
+      .bot-card { min-height: 160px; }
+      .flow-line { grid-template-columns: 1fr; }
+      .flow-arrow { transform: rotate(90deg); text-align: center; }
+      .folder-map { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 650px) {
+      .shell { width: calc(100vw - 24px); max-width: calc(100vw - 24px); }
+      .topbar-inner { min-height: 58px; }
+      .brand { font-size: 13px; }
+      .hero-inner { padding: 60px 0 70px; gap: 34px; }
+      .eyebrow { width: 100%; gap: 8px; font-size: 9px; line-height: 1.5; letter-spacing: .13em; }
+      .eyebrow::before { flex: 0 0 34px; }
+      h1 { font-size: clamp(48px, 16vw, 72px); }
+      .hero-note { padding: 22px; }
+      .stats-strip { grid-template-columns: 1fr 1fr; margin-top: -24px; }
+      .stat { padding: 18px 15px; border-top: 1px solid var(--line); }
+      .stat:nth-child(-n+2) { border-top: 0; }
+      .stat:nth-child(2n) { border-right: 0; }
+      .stat:nth-child(3) { border-right: 1px solid var(--line); }
+      .stat:last-child { grid-column: 1 / -1; border-right: 0; }
+      main { padding-top: 72px; }
+      .chapter { margin-bottom: 86px; }
+      .chapter-head { grid-template-columns: 1fr; gap: 15px; }
+      .chapter-no { width: 68px; font-size: 48px; }
+      .chapter-title h2 { font-size: 40px; }
+      .feature-row { grid-template-columns: 52px 1fr; gap: 15px; }
+      .feature-icon { width: 46px; height: 46px; border-radius: 13px 13px 13px 4px; }
+      .feature-copy { grid-column: 1 / -1; padding-left: 67px; }
+      .two-column { grid-template-columns: 1fr; }
+      .module { padding: 22px; }
+      .flow { padding: 25px 18px; }
+      .status-board { grid-template-columns: 1fr; }
+      .status-column + .status-column { border-left: 0; border-top: 1px solid var(--line); }
+      .status-column { padding: 24px 20px; }
+      .folder-tree { padding: 20px; font-size: 11px; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="./index.html" aria-label="Về trang Bang Chiến Lang Gia">
+        <img class="brand-mark" src="./anh/langgia_icon_circle.png" alt="">
+        <span>LANG GIA · SYSTEM MAP</span>
+      </a>
+      <nav class="nav" aria-label="Điều hướng nội dung">
+        <a href="#website">Website</a>
+        <a href="#discord">Discord</a>
+        <a href="#ket-noi">Kết nối</a>
+        <a href="#trang-thai">Trạng thái</a>
+        <a href="#thu-muc">Thư mục</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="shell hero-inner">
+      <div>
+        <div class="eyebrow">Bản đọc source bằng ngôn ngữ bình thường</div>
+        <h1>Một hệ thống, hai mặt trận.</h1>
+        <p class="hero-lead">Website là nơi thành viên đăng nhập, đăng ký Bang Chiến, xem đội hình và lập chiến thuật. Discord là nơi bot quản lý thành viên, thông báo, sự kiện, voice và đồng bộ dữ liệu. Hai bên dùng chung Supabase để nhìn thấy cùng một trạng thái.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#website"><i data-lucide="map"></i> Xem tổng quan</a>
+          <a class="btn" href="./index.html"><i data-lucide="external-link"></i> Mở web Bang Chiến</a>
+        </div>
+      </div>
+      <aside class="hero-note">
+        <span class="hero-note-kicker">Nói ngắn gọn</span>
+        <strong>Đây không chỉ là một bot Discord.</strong>
+        <p>Source hiện tại là một bộ công cụ vận hành guild: có trang web riêng, ba bot Discord, cơ sở dữ liệu chung, API trung gian, công cụ tổ chức Bang Chiến và nhiều tiện ích cộng đồng.</p>
+      </aside>
+    </div>
+  </section>
+
+  <div class="shell stats-strip reveal" aria-label="Số liệu tổng quan source code">
+    <div class="stat"><b>14</b><span>Trang HTML hiện có</span></div>
+    <div class="stat"><b>3</b><span>Bot Discord</span></div>
+    <div class="stat"><b>110</b><span>Tệp trong nhóm lệnh</span></div>
+    <div class="stat"><b>4</b><span>API phía web</span></div>
+    <div class="stat"><b>53</b><span>Tệp tiện ích bot</span></div>
+  </div>
+
+  <main class="shell">
+    <section class="chapter reveal" id="website">
+      <div class="chapter-head">
+        <div class="chapter-no">01</div>
+        <div class="chapter-title">
+          <div class="eyebrow" style="color:var(--leaf)">Phần người dùng nhìn thấy</div>
+          <h2>Website có gì?</h2>
+          <p>Website đang được đưa lên Vercel tại <b>langgiawar.vercel.app</b>. Trang chính yêu cầu đăng nhập Discord, kiểm tra người dùng có thuộc Lang Gia hay không, rồi mới mở các công cụ phù hợp với quyền của từng người.</p>
+        </div>
+      </div>
+
+      <div class="plain-box">
+        <p><b>Hiểu đơn giản:</b> thành viên dùng web để xem và đăng ký; leader dùng web để chia đội, giao nhiệm vụ và vẽ chiến thuật; quản trị viên có thêm khu vực quản lý voice, thành viên và dữ liệu.</p>
+      </div>
+
+      <div class="feature-list" style="margin-top:34px">
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="log-in"></i></div>
+          <div class="feature-name"><h3>Cổng đăng nhập Discord</h3><div class="file-tag">index.html · callback.html</div></div>
+          <div class="feature-copy"><p>Đăng nhập bằng tài khoản Discord, kiểm tra quyền thành viên Lang Gia và hiển thị giao diện khác nhau cho khách, thành viên, Kỳ Cựu hoặc người quản lý. Người chưa đủ quyền vẫn có một minigame tung đồng xu để chơi.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="swords"></i></div>
+          <div class="feature-name"><h3>Trang Bang Chiến chính</h3><div class="file-tag">index.html</div></div>
+          <div class="feature-copy"><p>Hiển thị các phiên Bang Chiến theo ngày, số người đã đăng ký, vai trò DPS/Healer/Tanker, đội hình, bản đồ, nhiệm vụ và timer. Thành viên có thể tự đăng ký hoặc hủy đăng ký ngay trên web.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="users-round"></i></div>
+          <div class="feature-name"><h3>Chia và chỉnh đội hình</h3><div class="file-tag">team_editor.html</div></div>
+          <div class="feature-copy"><p>Leader kéo thả thành viên giữa các team, đặt trưởng nhóm, đổi tên và số chỗ của từng đội, lọc theo vai trò hoặc hệ DPS, lập team nhanh, kiểm tra đội hình, chốt danh sách và xem lịch sử chỉnh sửa.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="route"></i></div>
+          <div class="feature-name"><h3>Lập chiến thuật chi tiết</h3><div class="file-tag">tactics.html</div></div>
+          <div class="feature-copy"><p>Đặt người lên bản đồ, chia người giữ trụ, thêm quân giả lập khi thiếu người, thêm đối thủ, tạo nhiệm vụ, ghi chú, đánh dấu các mốc thời gian và xem diễn biến theo timeline. Chiến thuật có thể lưu, kiểm tra, xuất/nhập, dùng lại preset hoặc khôi phục lịch sử.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="pencil-ruler"></i></div>
+          <div class="feature-name"><h3>Bảng vẽ chiến thuật tự do</h3><div class="file-tag">tactic_sketch.html</div></div>
+          <div class="feature-copy"><p>Dùng như một tấm bản đồ nháp: đặt chấm người, kéo vị trí, vẽ đường và mũi tên, tạo nhiều mốc thời gian, hoàn tác/làm lại, tạo bản sao và lưu bản vẽ riêng.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="contact-round"></i></div>
+          <div class="feature-name"><h3>Danh sách thành viên</h3><div class="file-tag">member_roster.html</div></div>
+          <div class="feature-copy"><p>Tìm theo tên Discord, tên game hoặc UID; lọc theo trạng thái và chức vụ; xem ngày vào guild, vai trò và hồ sơ. Người có quyền có thể sửa tên game, UID, ngày tham gia hoặc thông tin thành viên.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="audio-lines"></i></div>
+          <div class="feature-name"><h3>Bảng điều khiển ba bot voice</h3><div class="file-tag">voice-editor.html · voice-editor.app.js</div></div>
+          <div class="feature-copy"><p>Quản lý Đại Ngỗng, Tiểu Ngỗng và Chiến Ngỗng; chọn ba phòng voice tự động hoặc thủ công; bật cầu nối âm thanh; xem bot đang ở phòng nào; cho từng bot vào lại, rời phòng hoặc tắt toàn bộ hệ thống.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="gamepad-2"></i></div>
+          <div class="feature-name"><h3>Khu minigame</h3><div class="file-tag">minigames.html · minigames/</div></div>
+          <div class="feature-copy"><p>Có sảnh thi đấu, danh sách người chơi, nhập thành viên từ một phiên Bang Chiến, nhạc nền, kết quả và ba bộ trò chơi đã có source: leo tháp, Plinko 3D và đua tốc độ.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="timer"></i></div>
+          <div class="feature-name"><h3>Timer Bang Chiến</h3><div class="file-tag">battle_timer.html</div></div>
+          <div class="feature-copy"><p>Đếm thời gian trận từ 5 đến 30 phút, tạm dừng, lưu nhật ký thông báo và theo dõi danh sách nhiệm vụ trong lúc đánh.</p></div>
+        </article>
+
+        <article class="feature-row">
+          <div class="feature-icon"><i data-lucide="wrench"></i></div>
+          <div class="feature-name"><h3>Công cụ dành cho người làm web</h3><div class="file-tag">map_editor · icon_editor · coin-editor · minigame_editor</div></div>
+          <div class="feature-copy"><p>Các trang phụ để chỉnh vị trí bản đồ, icon, hiệu ứng đồng xu và bố cục cảnh minigame. Đây là công cụ nội bộ phục vụ thiết kế, không phải chức năng chính dành cho mọi thành viên.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="chapter reveal" id="discord">
+      <div class="chapter-head">
+        <div class="chapter-no">02</div>
+        <div class="chapter-title">
+          <div class="eyebrow" style="color:var(--leaf)">Phần chạy trong server</div>
+          <h2>Discord có gì?</h2>
+          <p>Repo có ba bot chạy cùng lúc. Đại Ngỗng là bot chính và chứa hầu hết chức năng quản lý guild. Hai bot phụ tập trung vào TTS và cầu nối voice để nhiều phòng vẫn nghe được nhau.</p>
+        </div>
+      </div>
+
+      <div class="bot-trio">
+        <article class="bot-card" data-bot="1">
+          <small>Bot chính</small>
+          <h3>Đại Ngỗng</h3>
+          <p>Quản lý lệnh, thành viên, Bang Chiến, thông báo, EXP, sự kiện, album, role, TTS và làm đầu mối cho hệ thống voice relay.</p>
+        </article>
+        <article class="bot-card" data-bot="2">
+          <small>Bot voice phụ</small>
+          <h3>Tiểu Ngỗng</h3>
+          <p>Có token và prefix riêng, nhận lệnh kiểm tra, vào/rời voice, đọc TTS và nối âm thanh với hai bot còn lại.</p>
+        </article>
+        <article class="bot-card" data-bot="3">
+          <small>Bot voice phụ</small>
+          <h3>Chiến Ngỗng</h3>
+          <p>Chạy độc lập như Bot 2, dùng chung bộ máy voice relay và TTS để phục vụ phòng thứ ba.</p>
+        </article>
+      </div>
+
+      <div class="two-column">
+        <article class="module" data-count="18">
+          <h3>Bang Chiến</h3>
+          <p>Tạo phiên, mở đăng ký, thêm người, đổi đội, đặt leader, chốt danh sách, chỉnh kích thước đội, quản lý mic, kết thúc hoặc hủy trận. Dữ liệu được đồng bộ sang website.</p>
+          <div class="chips"><span class="chip">đăng ký</span><span class="chip">chia team</span><span class="chip">leader</span><span class="chip">mic</span><span class="chip">đồng bộ web</span></div>
+        </article>
+
+        <article class="module" data-count="34">
+          <h3>Quản lý thành viên</h3>
+          <p>Thêm, xóa, kiểm tra và lọc thành viên; lưu UID, tên game, ngày vào; xử lý người rời hoặc quay lại; tạo profile card; chọn vai trò chiến đấu và role hiển thị.</p>
+          <div class="chips"><span class="chip">UID</span><span class="chip">ngày vào</span><span class="chip">avatar</span><span class="chip">role</span><span class="chip">rejoin</span></div>
+        </article>
+
+        <article class="module" data-count="12">
+          <h3>Thông báo và lịch guild</h3>
+          <p>Tạo thông báo một lần hoặc lặp lại, sửa/hủy/xem danh sách, nhắc theo role, quản lý lịch Boss Guild và gửi thông báo chung cho guild.</p>
+          <div class="chips"><span class="chip">nhắc nhở</span><span class="chip">lịch boss</span><span class="chip">theo role</span><span class="chip">lặp lại</span></div>
+        </article>
+
+        <article class="module" data-count="15">
+          <h3>Tiện ích cộng đồng</h3>
+          <p>Album ảnh, dịch ngôn ngữ, chọn ngẫu nhiên, chia team ngẫu nhiên, avatar ngẫu nhiên, troll vui, TTS và nhiều loại bình chọn cho sự kiện guild.</p>
+          <div class="chips"><span class="chip">album</span><span class="chip">dịch</span><span class="chip">TTS</span><span class="chip">random</span><span class="chip">vote</span></div>
+        </article>
+
+        <article class="module" data-count="10">
+          <h3>Lô tô</h3>
+          <p>Có một bộ chức năng riêng để bắt đầu ván, thêm người, kiểm tra trạng thái, bỏ lượt, rollback, kết thúc và xem hướng dẫn hoặc album màu.</p>
+          <div class="chips"><span class="chip">mở ván</span><span class="chip">thêm người</span><span class="chip">rollback</span><span class="chip">album màu</span></div>
+        </article>
+
+        <article class="module" data-count="4">
+          <h3>Gieo quẻ và cầu duyên</h3>
+          <p>Thành viên có thể gieo quẻ hoặc xem cầu duyên theo ngày. Bot có lịch tự reset lượt và gửi hướng dẫn sử dụng.</p>
+          <div class="chips"><span class="chip">gieo quẻ</span><span class="chip">cầu duyên</span><span class="chip">reset hằng ngày</span></div>
+        </article>
+
+        <article class="module" data-count="6">
+          <h3>Quyền lợi Booster</h3>
+          <p>Tạo phòng voice riêng cho người boost server, đặt khu vực chứa phòng, thêm VIP ngoại lệ và tự dọn phòng khi người dùng không còn quyền.</p>
+          <div class="chips"><span class="chip">phòng riêng</span><span class="chip">VIP</span><span class="chip">tự dọn</span></div>
+        </article>
+
+        <article class="module" data-count="2">
+          <h3>EXP và xếp hạng</h3>
+          <p>Cộng điểm từ chat và thời gian ở voice, thông báo lên cấp, trả thưởng role theo mốc và cho xem rank cá nhân hoặc bảng top.</p>
+          <div class="chips"><span class="chip">chat EXP</span><span class="chip">voice EXP</span><span class="chip">level</span><span class="chip">top</span></div>
+        </article>
+
+        <article class="module" data-count="9">
+          <h3>Công cụ quản trị</h3>
+          <p>Kiểm tra API, cài kênh ảnh, đặt role Kỳ Cựu, cấu hình thưởng level, mute cả phòng, xem trạng thái bot/server và dọn dữ liệu hàng loạt.</p>
+          <div class="chips"><span class="chip">kiểm tra hệ thống</span><span class="chip">cấu hình</span><span class="chip">dọn dữ liệu</span></div>
+        </article>
+
+        <article class="module" data-count="14">
+          <h3>Tự động phản ứng với Discord</h3>
+          <p>Bot nghe các sự kiện thành viên vào/rời server, thay đổi role, tin nhắn bị sửa/xóa, reaction và trạng thái voice để đồng bộ dữ liệu, cấp role hoặc dọn nội dung liên quan.</p>
+          <div class="chips"><span class="chip">welcome</span><span class="chip">reaction role</span><span class="chip">đồng bộ role</span><span class="chip">dọn album</span></div>
+        </article>
+      </div>
+
+      <div class="plain-box" style="margin-top:26px">
+        <p><b>Lưu ý về con số 110:</b> đây là số tệp JavaScript nằm trong khu vực lệnh. Một số tệp là bộ nhớ trạng thái, hoạt ảnh hoặc hàm hỗ trợ, vì vậy không nên hiểu là người dùng có đúng 110 câu lệnh riêng biệt.</p>
+      </div>
+    </section>
+
+    <section class="chapter reveal" id="ket-noi">
+      <div class="chapter-head">
+        <div class="chapter-no">03</div>
+        <div class="chapter-title">
+          <div class="eyebrow" style="color:var(--leaf)">Luồng dữ liệu</div>
+          <h2>Web và Discord nói chuyện với nhau thế nào?</h2>
+          <p>Supabase đóng vai trò kho dữ liệu chung. Website ghi thay đổi vào đó; bot đọc thay đổi và cập nhật Discord. Theo chiều ngược lại, bot cũng ghi dữ liệu từ Discord lên Supabase để website hiển thị gần như ngay lập tức.</p>
+        </div>
+      </div>
+
+      <div class="flow">
+        <h3>Một thay đổi đi qua hệ thống</h3>
+        <p>Ví dụ: một thành viên bấm đăng ký Bang Chiến trên web.</p>
+        <div class="flow-line" aria-label="Sơ đồ luồng dữ liệu">
+          <div class="flow-node"><i data-lucide="user-round"></i><b>Thành viên</b><span>Bấm đăng ký</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><i data-lucide="globe-2"></i><b>Web Vercel</b><span>Kiểm tra đăng nhập</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><i data-lucide="database"></i><b>Supabase</b><span>Lưu dữ liệu chung</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node"><i data-lucide="bot"></i><b>Discord bot</b><span>Đồng bộ thông báo</span></div>
+        </div>
+      </div>
+
+      <div class="two-column" style="margin-top:24px">
+        <article class="module" data-count="WEB">
+          <h3>Nơi hệ thống đang chạy</h3>
+          <p><b>Website và API:</b> Vercel.<br><b>Ba bot Discord:</b> cùng chạy trên một server Bot-Hosting.net theo file khởi động chung.<br><b>Source:</b> GitHub repo <code>taorain01/ThanThu</code>.</p>
+        </article>
+        <article class="module" data-count="DATA">
+          <h3>Dịch vụ hỗ trợ</h3>
+          <p><b>Supabase:</b> đăng nhập Discord, cơ sở dữ liệu và cập nhật realtime.<br><b>SQLite:</b> dữ liệu cục bộ của bot.<br><b>Cloudinary/ImgBB:</b> lưu ảnh album.<br><b>Firebase:</b> một nhóm lệnh quản lý license NhacLabs.<br><b>Dịch vụ AI, dịch và TTS:</b> dùng cho quẻ, dịch ngôn ngữ và đọc tin nhắn.</p>
+        </article>
+      </div>
+
+      <div class="plain-box" style="margin-top:24px">
+        <p><b>Bốn API phía web</b> xử lý các việc nhạy cảm không nên làm trực tiếp trên trình duyệt: tự đăng ký/hủy Bang Chiến, lưu đội hình, gửi lời nhắc League sang Discord và thay đổi cấu hình ba bot voice.</p>
+      </div>
+    </section>
+
+    <section class="chapter reveal" id="trang-thai">
+      <div class="chapter-head">
+        <div class="chapter-no">04</div>
+        <div class="chapter-title">
+          <div class="eyebrow" style="color:var(--leaf)">Theo công tắc trong source hiện tại</div>
+          <h2>Cái gì đang bật, cái gì đang tắt?</h2>
+          <p>Một số chức năng tự động đã được tắt để bot không tự gửi hoặc tự xử lý ngoài ý muốn. Code vẫn còn nguyên và có thể bật lại bằng cấu hình.</p>
+        </div>
+      </div>
+
+      <div class="status-board">
+        <div class="status-column">
+          <div class="status-heading"><span class="status-dot"></span><h3>Vẫn được giữ chạy</h3></div>
+          <ul class="status-list">
+            <li>Dịch tự động trong kênh đã cấu hình.</li>
+            <li>TTS tự đọc tin nhắn theo quy ước.</li>
+            <li>Gieo quẻ, cầu duyên và reset lượt hằng ngày.</li>
+            <li>Gửi lời cảm ơn khi thành viên boost server.</li>
+            <li>Ảnh chào mừng và tin nhắn riêng khi có người mới.</li>
+            <li>Cộng EXP từ chat và voice.</li>
+            <li>Voice relay tự theo dõi và kết nối lại khi đã bật bằng biến môi trường.</li>
+          </ul>
+        </div>
+        <div class="status-column off">
+          <div class="status-heading"><span class="status-dot"></span><h3>Đang tắt bằng công tắc</h3></div>
+          <ul class="status-list">
+            <li>Tự chuyển link TikTok.</li>
+            <li>Tự lưu ảnh Phòng Ảnh.</li>
+            <li>Tự gửi lịch Boss Guild hằng tuần.</li>
+            <li>Tự gửi báo cáo dung lượng chiến thuật.</li>
+            <li>Tự gửi hướng dẫn Phòng Ảnh hằng tháng.</li>
+            <li>Tự nhắc đổi giờ Yến Tiệc.</li>
+            <li>Tự chốt Boss, tự kết thúc Bang Chiến.</li>
+            <li>Tự thông báo khi thành viên rời guild.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter reveal" id="thu-muc">
+      <div class="chapter-head">
+        <div class="chapter-no">05</div>
+        <div class="chapter-title">
+          <div class="eyebrow" style="color:var(--leaf)">Nếu cần tìm code</div>
+          <h2>Source nằm ở đâu?</h2>
+          <p>Bản đồ dưới đây giúp tìm nhanh đúng khu vực mà không cần đọc toàn bộ repo.</p>
+        </div>
+      </div>
+
+      <div class="folder-map">
+        <pre class="folder-tree">C:\Bot Discord
+├─ WebBangChien\        giao diện website
+│  ├─ index.html        trang Bang Chiến chính
+│  ├─ team_editor.html  chia đội hình
+│  ├─ tactics.html      lập chiến thuật
+│  ├─ member_roster.html danh sách thành viên
+│  ├─ voice-editor.*    quản lý 3 bot voice
+│  └─ minigames\        các trò chơi
+├─ api\                 API chạy trên Vercel
+├─ src\
+│  ├─ commands\         các nhóm lệnh Discord
+│  ├─ events\           việc bot tự phản ứng
+│  ├─ utils\            chức năng dùng chung
+│  ├─ database\         dữ liệu cục bộ
+│  └─ voiceRelay\       cầu nối 3 phòng voice
+├─ Bot 2 - Tiểu Ngỗng\ bot voice thứ hai
+├─ Bot 3 - Chiến Ngỗng\ bot voice thứ ba
+├─ start.sh             khởi động cả 3 bot
+└─ vercel.json          chỉ đường deploy website</pre>
+        <div class="folder-notes">
+          <div class="folder-note"><b>Muốn sửa giao diện Bang Chiến</b><span>Bắt đầu từ <code>WebBangChien/index.html</code>.</span></div>
+          <div class="folder-note"><b>Muốn sửa một lệnh Discord</b><span>Tìm nhóm tương ứng trong <code>src/commands</code>.</span></div>
+          <div class="folder-note"><b>Muốn sửa hành vi tự động</b><span>Xem <code>src/events</code>, <code>src/utils</code> và công tắc trong <code>src/config/autoFeatures.js</code>.</span></div>
+          <div class="folder-note"><b>Muốn sửa cầu nối voice</b><span>Xem giao diện <code>voice-editor</code> và bộ máy <code>src/voiceRelay</code>.</span></div>
+          <div class="folder-note"><b>Muốn sửa luồng web ↔ bot</b><span>Xem các API trong <code>api</code> cùng phần đồng bộ Supabase của bot.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="caution reveal">
+      <i data-lucide="info"></i>
+      <div>
+        <h3>Cách đọc bản tổng hợp này</h3>
+        <p>Đây là ảnh chụp theo source ngày 30/07/2026. Một chức năng có code chưa chắc đang dùng ngoài thực tế vì còn phụ thuộc token, biến môi trường, quyền Discord, cấu trúc bảng Supabase và công tắc bật/tắt. Báo cáo cố ý không ghi token, key, webhook hoặc ID nội bộ nhạy cảm.</p>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner">
+      <div>
+        <div class="footer-title">Lang Gia · Tổng quan hệ thống</div>
+        <p class="footer-copy">Tài liệu được tạo từ cấu trúc source hiện tại để người không chuyên kỹ thuật vẫn hiểu website và bot Discord đang làm những gì.</p>
+      </div>
+      <div class="footer-date">Cập nhật 30.07.2026</div>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) window.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
+
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.08 });
+      document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element));
+
+      const links = [...document.querySelectorAll('.nav a')];
+      const sections = links.map((link) => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+      const navObserver = new IntersectionObserver((entries) => {
+        const current = entries.find((entry) => entry.isIntersecting);
+        if (!current) return;
+        links.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${current.target.id}`));
+      }, { rootMargin: '-25% 0px -65% 0px' });
+      sections.forEach((section) => navObserver.observe(section));
+    });
+  </script>
+</body>
+</html>

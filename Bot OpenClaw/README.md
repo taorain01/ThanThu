@@ -17,8 +17,8 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 
 Alias ngắn:
 
-- `> o`: tương đương `> openclaw`.
-- `> o s [job-id|all]`: tương đương `> openclaw stop [job-id|all]`.
+- `> o` hoặc `> o status`: xem trạng thái trực tiếp, tương đương `> openclaw status`.
+- `> o stop [job-id|all]`: dừng trực tiếp, tương đương `> openclaw stop [job-id|all]`; vẫn hỗ trợ dạng cũ `> o s`.
 - `> o m [local|9router]`: tương đương `> openclaw model [local|9router]`.
 
 Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc và mỗi channel giữ session generation riêng. Scheduler cho phép các session khác nhau chạy song song, còn tin nhắn trong cùng một session luôn chạy tuần tự để không đảo thứ tự hội thoại. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
@@ -43,7 +43,7 @@ OpenClaw cần bật Chat Completions API:
 & "$env:APPDATA\npm\openclaw.cmd" gateway restart
 ```
 
-Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Tối đa `OPENCLAW_MAX_CONCURRENT_SESSIONS` session khác nhau chạy đồng thời; mỗi session chỉ chạy một yêu cầu tại một thời điểm. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay, không phải đợi scheduler.
+Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Tối đa `OPENCLAW_MAX_CONCURRENT_SESSIONS` session khác nhau chạy đồng thời; mỗi session chỉ chạy một yêu cầu tại một thời điểm. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay trong chat Discord, không phải đợi scheduler.
 
 ## Discord Developer Portal
 

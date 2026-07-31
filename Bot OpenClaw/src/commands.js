@@ -17,16 +17,27 @@ function escapeRegExp(value) {
 
 function parseCommand(content, prefix) {
   const shortPattern = new RegExp(
-    `^${escapeRegExp(prefix)}\\s*o(?:\\s+([sm]))?(?:\\s+(.+?))?\\s*$`,
+    `^${escapeRegExp(prefix)}\\s*o(?:\\s+(.+?))?\\s*$`,
     'i',
   );
   const shortMatch = String(content || '').trim().match(shortPattern);
   if (shortMatch) {
-    if (!shortMatch[1]) {
-      return shortMatch[2] ? null : { action: 'bind' };
+    const parts = String(shortMatch[1] || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) {
+      return { action: 'status' };
     }
-    const action = shortMatch[1].toLowerCase() === 's' ? 'stop' : 'model';
-    const args = String(shortMatch[2] || '').trim().split(/\s+/).filter(Boolean);
+
+    const action = {
+      status: 'status',
+      s: 'stop',
+      stop: 'stop',
+      m: 'model',
+      model: 'model',
+    }[parts.shift().toLowerCase()];
+    if (!action) {
+      return null;
+    }
+    const args = parts;
     return args.length ? { action, args } : { action };
   }
 

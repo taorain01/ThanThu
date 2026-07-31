@@ -246,7 +246,7 @@ function recentActivityValue(events, terminal) {
 function jobFooter(job, counts, prefix, terminal, heartbeatMs) {
   if (!terminal) {
     const seconds = Math.max(1, Math.round((Number(heartbeatMs) || 60000) / 1000));
-    return `Heartbeat ${seconds}s • Dừng: ${prefix} o s (hoặc ${prefix} openclaw stop)`;
+    return `Heartbeat ${seconds}s • Dừng: ${prefix} o stop (hoặc ${prefix} openclaw stop)`;
   }
   if (counts.ready) {
     return `Còn ${counts.ready} file chờ gửi • ${prefix} openclaw resend ${job.id}`;

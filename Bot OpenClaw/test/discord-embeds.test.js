@@ -190,7 +190,7 @@ test('gộp record cùng runId và hiển thị task hiện tại theo heartbeat
   assert.match(taskField.value, /Worker 2 · Tạo ảnh minh họa/);
   assert.match(taskField.value, /1 phút trước/);
   assert.match(taskField.value, /Đang kiểm tra bố cục cuối/);
-  assert.equal(data.footer.text, 'Heartbeat 60s • Dừng: > o s (hoặc > openclaw stop)');
+  assert.equal(data.footer.text, 'Heartbeat 60s • Dừng: > o stop (hoặc > openclaw stop)');
   assert.equal(data.timestamp, '2026-08-01T01:30:00.000Z');
 });
 

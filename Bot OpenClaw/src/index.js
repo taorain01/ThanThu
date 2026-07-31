@@ -548,13 +548,13 @@ async function handleCommand(message, command) {
 
   await sendChunks(message, [
     `Lệnh hợp lệ: \`${config.prefix} openclaw\``,
-    `Lệnh tắt: \`${config.prefix} o\``,
+    `Xem nhanh trạng thái: \`${config.prefix} o\` hoặc \`${config.prefix} o status\``,
     `\`${config.prefix} openclaw status\``,
-    `\`${config.prefix} openclaw model local|9router\` · tắt: \`${config.prefix} o m local|9router\``,
+    `\`${config.prefix} openclaw model local|9router\` · nhanh: \`${config.prefix} o m local|9router\``,
     `\`${config.prefix} openclaw jobs\``,
     `\`${config.prefix} openclaw resend [job-id] [all|số]\``,
     `\`${config.prefix} openclaw resume [job-id]\``,
-    `\`${config.prefix} openclaw stop [job-id|all]\` · tắt: \`${config.prefix} o s [job-id|all]\``,
+    `\`${config.prefix} openclaw stop [job-id|all]\` · nhanh: \`${config.prefix} o stop [job-id|all]\``,
     `\`${config.prefix} openclaw reset\``,
     `\`${config.prefix} openclaw off\``,
   ].join('\n'));

@@ -25,13 +25,20 @@ test('escape prefix có ký tự regex', () => {
   assert.equal(parseCommand('x openclaw', '+'), null);
 });
 
-test('nhận diện alias ngắn o, o s và o m cùng tham số', () => {
-  assert.deepEqual(parseCommand('> o', '>'), { action: 'bind' });
-  assert.deepEqual(parseCommand('>o', '>'), { action: 'bind' });
+test('nhận diện alias o để xem status và dừng job trực tiếp', () => {
+  assert.deepEqual(parseCommand('> o', '>'), { action: 'status' });
+  assert.deepEqual(parseCommand('>o', '>'), { action: 'status' });
+  assert.deepEqual(parseCommand('> o status', '>'), { action: 'status' });
   assert.deepEqual(parseCommand('> o s', '>'), { action: 'stop' });
   assert.deepEqual(parseCommand('> o s all', '>'), { action: 'stop', args: ['all'] });
+  assert.deepEqual(parseCommand('> o stop', '>'), { action: 'stop' });
+  assert.deepEqual(parseCommand('> o stop abc123', '>'), { action: 'stop', args: ['abc123'] });
+});
+
+test('nhận diện alias model và để nội dung khác đi vào chat trực tiếp', () => {
   assert.deepEqual(parseCommand('> o m', '>'), { action: 'model' });
   assert.deepEqual(parseCommand('> o m local', '>'), { action: 'model', args: ['local'] });
   assert.deepEqual(parseCommand('> o m 9router', '>'), { action: 'model', args: ['9router'] });
+  assert.deepEqual(parseCommand('> o model local', '>'), { action: 'model', args: ['local'] });
   assert.equal(parseCommand('> o x', '>'), null);
 });

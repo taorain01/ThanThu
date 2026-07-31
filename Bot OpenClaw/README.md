@@ -14,6 +14,8 @@ Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `D
 
 Bot nhận prompt bằng chữ, tối đa 4 ảnh JPEG/PNG/WebP (4 MB mỗi ảnh, 12 MB tổng) và tối đa 2 file âm thanh MP3/M4A/OGG/Opus/WAV/WebM/FLAC/AAC (20 MB mỗi file, 40 MB tổng). Audio được tải từ Discord CDN vào thư mục tạm, phiên âm bằng pipeline STT chính thức của OpenClaw rồi xóa ngay; transcript được ghép vào prompt cùng nội dung chữ và ảnh. File không có MIME vẫn được nhận diện bằng phần mở rộng nằm trong allowlist.
 
+Mỗi lượt OpenClaw được chờ tối đa 15 phút để các tác vụ điều khiển PC, tạo ảnh và tải file có đủ thời gian hoàn tất. Dùng `> openclaw stop` nếu cần ngắt sớm; bot không tự retry để tránh lặp thao tác trên máy.
+
 Trong lúc OpenClaw làm việc, bot cập nhật một bảng tiến độ gồm từng tool bắt đầu/kết thúc. Khi phiên hoàn tất, toàn bộ nhật ký đã lọc được giữ trong chat; token, nội dung file, đường dẫn nhạy cảm và dữ liệu ảnh base64 không được hiển thị. Ảnh trong workspace/media mà OpenClaw dùng hoặc đánh dấu bằng `MEDIA:<đường dẫn>` sẽ được gửi lên Discord dưới dạng attachment.
 
 ## Cấu hình

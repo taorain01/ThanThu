@@ -15,7 +15,7 @@ function validEnv(overrides = {}) {
     OPENCLAW_GATEWAY_TOKEN: 'gateway-token',
     OPENCLAW_MODEL: 'openclaw/default',
     OPENCLAW_AGENT_ID: 'main',
-    OPENCLAW_REQUEST_TIMEOUT_MS: '300000',
+    OPENCLAW_REQUEST_TIMEOUT_MS: '900000',
     OPENCLAW_MAX_PENDING: '5',
     ...overrides,
   };
@@ -24,7 +24,7 @@ function validEnv(overrides = {}) {
 test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   const config = loadConfig(validEnv());
   assert.equal(config.openclawBaseUrl, 'http://127.0.0.1:18789');
-  assert.equal(config.requestTimeoutMs, 300000);
+  assert.equal(config.requestTimeoutMs, 900000);
   assert.equal(config.maxPending, 5);
   assert.equal(config.openclawAgentId, 'main');
   assert.equal(config.allowedUserIds.has('395151484179841024'), true);

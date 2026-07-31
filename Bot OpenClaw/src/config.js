@@ -83,7 +83,7 @@ function loadConfig(env = process.env) {
     openclawModel: String(env.OPENCLAW_MODEL || 'openclaw/default').trim(),
     openclawAgentId: parseAgentId(env.OPENCLAW_AGENT_ID),
     requestTimeoutMs: parseInteger(
-      env.OPENCLAW_REQUEST_TIMEOUT_MS || '300000',
+      env.OPENCLAW_REQUEST_TIMEOUT_MS || '900000',
       'OPENCLAW_REQUEST_TIMEOUT_MS',
       1000,
       900000,

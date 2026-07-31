@@ -12,6 +12,8 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 
 Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc; mỗi channel giữ session generation và hàng đợi độc lập nên chuyển qua lại không mất hội thoại. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
 
+Bot nhận prompt bằng chữ, tối đa 4 ảnh JPEG/PNG/WebP (4 MB mỗi ảnh, 12 MB tổng) và tối đa 2 file âm thanh MP3/M4A/OGG/Opus/WAV/WebM/FLAC/AAC (20 MB mỗi file, 40 MB tổng). Audio được tải từ Discord CDN vào thư mục tạm, phiên âm bằng pipeline STT chính thức của OpenClaw rồi xóa ngay; transcript được ghép vào prompt cùng nội dung chữ và ảnh. File không có MIME vẫn được nhận diện bằng phần mở rộng nằm trong allowlist.
+
 Trong lúc OpenClaw làm việc, bot cập nhật một bảng tiến độ gồm từng tool bắt đầu/kết thúc. Khi phiên hoàn tất, toàn bộ nhật ký đã lọc được giữ trong chat; token, nội dung file, đường dẫn nhạy cảm và dữ liệu ảnh base64 không được hiển thị. Ảnh trong workspace/media mà OpenClaw dùng hoặc đánh dấu bằng `MEDIA:<đường dẫn>` sẽ được gửi lên Discord dưới dạng attachment.
 
 ## Cấu hình
@@ -67,4 +69,5 @@ Log nằm tại `logs/bot.log`; trạng thái kênh và session nằm tại `dat
 - Tối đa 4 ảnh mỗi tin nhắn.
 - Tối đa 4 MB mỗi ảnh và 12 MB tổng.
 - Bot tải ảnh từ Discord CDN rồi gửi data URL tới OpenClaw; không bật tải URL tùy ý ở Gateway.
+- Audio được phiên âm bằng `openclaw infer audio transcribe` qua `node` với danh sách tham số cố định, không dùng shell và không đưa tên file của người dùng vào câu lệnh.
 - Ảnh OpenClaw gửi ngược lên Discord phải nằm trong `~/.openclaw/workspace` hoặc `~/.openclaw/media` và không vượt quá 8 MB mỗi ảnh.

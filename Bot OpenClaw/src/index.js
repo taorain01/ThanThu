@@ -18,7 +18,12 @@ const {
   QueueStoppedError,
   SerialRequestQueue,
 } = require('./request-queue');
-const { AttachmentError, prepareImageParts } = require('./image-payload');
+const {
+  AttachmentError,
+  appendAudioTranscripts,
+  prepareMessageAttachments,
+} = require('./image-payload');
+const { AudioTranscriber, AudioTranscriptionError } = require('./audio-transcriber');
 const { OpenClawClient, OpenClawError } = require('./openclaw-client');
 const { splitDiscordText } = require('./message-utils');
 const { createLogger } = require('./logger');
@@ -47,6 +52,7 @@ const OPENCLAW_SESSIONS_DIR = path.join(
 const logger = createLogger(path.join(BOT_ROOT, 'logs', 'bot.log'));
 const stateStore = new StateStore(path.join(BOT_ROOT, 'data', 'state.json'));
 const openclaw = new OpenClawClient(config);
+const audioTranscriber = new AudioTranscriber({ timeoutMs: config.requestTimeoutMs });
 const queues = new Map();
 
 const client = new Client({
@@ -234,7 +240,11 @@ async function sendOpenClawResponse(message, responseText, sentMediaPaths) {
 }
 
 function publicErrorMessage(error) {
-  if (error instanceof AttachmentError || error instanceof QueueFullError) {
+  if (
+    error instanceof AttachmentError
+    || error instanceof AudioTranscriptionError
+    || error instanceof QueueFullError
+  ) {
     return error.message;
   }
   if (error instanceof OpenClawError) {
@@ -308,7 +318,8 @@ async function handleCommand(message, command) {
       `Phiên: ${current?.sessionGeneration || 0}`,
       `Các kênh đang bật (${activeChannels.length}): ${activeChannels.length ? activeChannels.map((entry) => `<#${entry.channelId}> (phiên ${entry.sessionGeneration})`).join(', ') : 'không có'}`,
       'Nhật ký phiên: bật (đã lọc dữ liệu nhạy cảm)',
-      'Gửi ảnh: bật (workspace/media, tối đa 8 MB mỗi ảnh)',
+      'Prompt đính kèm: ảnh và audio đang bật',
+      'Gửi ảnh kết quả: bật (workspace/media, tối đa 8 MB mỗi ảnh)',
     ];
     if (botIsAdmin) {
       lines.push('Cảnh báo: bot vẫn đang có quyền Administrator; nên hạ xuống quyền tối thiểu sau khi kiểm tra.');
@@ -388,11 +399,22 @@ async function processOpenClawMessage(message, state, signal) {
   try {
     await activity.start();
     await monitor.start();
-    const imageParts = await prepareImageParts(message.attachments.values(), { signal });
+    const attachments = await prepareMessageAttachments(message.attachments.values(), {
+      signal,
+      audioTranscriber,
+      onAudioStart: () => activity.add({
+        text: '▶ `audio.transcribe` — phiên âm file âm thanh',
+        mediaReferences: [],
+      }),
+      onAudioComplete: () => activity.add({
+        text: '✓ `audio.transcribe` hoàn tất',
+        mediaReferences: [],
+      }),
+    });
     const responseText = await openclaw.chat({
       ...sessionArgs,
-      text: message.content,
-      imageParts,
+      text: appendAudioTranscripts(message.content, attachments.audioTranscripts),
+      imageParts: attachments.imageParts,
       signal,
     });
     await monitor.stop();

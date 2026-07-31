@@ -54,14 +54,20 @@ npm test
 npm start
 ```
 
-Cài hoặc gỡ tự khởi động cùng Windows:
+Cài hoặc gỡ Scheduled Task chạy nền theo chế độ thủ công:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-task.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-task.ps1
 ```
 
-Task chạy khi đăng nhập và có watchdog mỗi phút. Nếu tiến trình bot bị dừng, Task Scheduler sẽ tự khởi động lại ở nhịp tiếp theo.
+Task không tự chạy khi đăng nhập. Tạo ứng dụng điều khiển trên Desktop bằng:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-control-app.ps1
+```
+
+File `OpenClaw Discord Bot.exe` có giao diện trạng thái và các nút Bật bot, Tắt bot, Làm mới, Mở thư mục log. Bot được chạy nền qua Task Scheduler nên không xuất hiện cửa sổ console; Task Scheduler vẫn chống chạy trùng và tự restart khi tiến trình đang chạy gặp lỗi.
 
 Log nằm tại `logs/bot.log`; trạng thái kênh và session nằm tại `data/state.json`. Các thư mục này cùng `.env` đều bị Git bỏ qua.
 

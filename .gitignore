@@ -2,6 +2,7 @@
 .env
 .env2
 .env.*
+/.envclaw
 !.env.example
 !Bot 2 - Tiểu Ngỗng/.env.example
 backup_env_hosting.txt

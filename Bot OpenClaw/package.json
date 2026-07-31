@@ -1,0 +1,18 @@
+{
+  "name": "bot-openclaw",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bot Discord riêng chuyển tiếp yêu cầu tới OpenClaw cục bộ",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "discord.js": "14.25.1",
+    "dotenv": "17.3.1"
+  }
+}

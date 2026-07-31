@@ -61,6 +61,29 @@ function mapHttpError(status) {
   return new OpenClawError('request_failed', 'OpenClaw từ chối yêu cầu.', status);
 }
 
+function appendLabeledImages(content, imageParts) {
+  const images = Array.from(imageParts || []);
+  if (images.length === 0) {
+    return;
+  }
+
+  content.push({
+    type: 'text',
+    text: images.length > 1
+      ? `[Có ${images.length} ảnh đính kèm. Mỗi ảnh có nhãn ANH N/${images.length} được in trực tiếp trong ảnh. Khi người dùng nói "ảnh N", phải đối chiếu nhãn đó; hãy quan sát cả ảnh rất nhỏ hoặc chỉ chứa logo/chữ.]`
+      : '[Có 1 ảnh đính kèm. Hãy quan sát kỹ cả chi tiết nhỏ, logo và chữ trong ảnh.]',
+  });
+  for (const part of images) {
+    content.push({
+      ...part,
+      image_url: {
+        ...part.image_url,
+        detail: 'high',
+      },
+    });
+  }
+}
+
 class OpenClawClient {
   constructor(config, options = {}) {
     this.baseUrl = config.openclawBaseUrl;
@@ -106,7 +129,7 @@ class OpenClawClient {
     if (String(text || '').trim()) {
       content.push({ type: 'text', text: String(text).trim() });
     }
-    content.push(...(imageParts || []));
+    appendLabeledImages(content, imageParts);
     if (content.length === 0) {
       throw new OpenClawError('empty_request', 'Tin nhắn không có nội dung để gửi.');
     }

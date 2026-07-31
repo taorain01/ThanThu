@@ -12,6 +12,7 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@silvia-odwyer/photon-node": "0.3.4",
     "discord.js": "14.25.1",
     "dotenv": "17.3.1"
   }

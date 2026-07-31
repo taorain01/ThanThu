@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const photon = require('@silvia-odwyer/photon-node');
 const {
   AttachmentError,
   MAX_AUDIO_BYTES,
@@ -31,6 +32,22 @@ function audio(name = 'voice.ogg', overrides = {}) {
   };
 }
 
+function solidPng(red, green, blue, width = 8, height = 8) {
+  const pixels = new Uint8Array(width * height * 4);
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    pixels[offset] = red;
+    pixels[offset + 1] = green;
+    pixels[offset + 2] = blue;
+    pixels[offset + 3] = 255;
+  }
+  const source = new photon.PhotonImage(pixels, width, height);
+  try {
+    return Buffer.from(source.get_bytes());
+  } finally {
+    source.free();
+  }
+}
+
 test('chuyển ảnh hợp lệ thành data URL', async () => {
   const calls = [];
   const parts = await prepareImageParts([image()], {
@@ -48,6 +65,38 @@ test('chuyển ảnh hợp lệ thành data URL', async () => {
     type: 'image_url',
     image_url: { url: 'data:image/png;base64,AQID' },
   }]);
+});
+
+test('in số thứ tự trực tiếp lên nhiều ảnh để OpenClaw không ghép nhầm nhãn', async () => {
+  const first = solidPng(255, 0, 0);
+  const second = solidPng(0, 0, 255, 160, 41);
+  const payloadByUrl = new Map([
+    ['https://cdn.discordapp.com/1.png', first],
+    ['https://cdn.discordapp.com/2.png', second],
+  ]);
+
+  const parts = await prepareImageParts([
+    image('1.png', { size: first.length }),
+    image('2.png', { size: second.length }),
+  ], {
+    fetchImpl: async (url) => new Response(payloadByUrl.get(url), {
+      status: 200,
+      headers: { 'content-type': 'image/png' },
+    }),
+  });
+
+  assert.equal(parts.length, 2);
+  for (const part of parts) {
+    assert.match(part.image_url.url, /^data:image\/jpeg;base64,/);
+  }
+  const labeledLogoBytes = Buffer.from(parts[1].image_url.url.split(',', 2)[1], 'base64');
+  const labeledLogo = photon.PhotonImage.new_from_byteslice(labeledLogoBytes);
+  try {
+    assert.equal(labeledLogo.get_width(), 640);
+    assert.equal(labeledLogo.get_height(), 244);
+  } finally {
+    labeledLogo.free();
+  }
 });
 
 test('từ chối file không phải ảnh và ảnh quá lớn trước khi tải', async () => {

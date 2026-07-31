@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const { labelImageForVision } = require('./vision-image-label');
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const IMAGE_EXTENSION_MIMES = new Map([
@@ -178,6 +179,7 @@ async function prepareMessageAttachments(attachments, options = {}) {
 
   let actualImageTotal = 0;
   let actualAudioTotal = 0;
+  let currentImage = 0;
   const imageParts = [];
   const audioTranscripts = [];
   for (const [index, attachment] of items.entries()) {
@@ -219,9 +221,15 @@ async function prepareMessageAttachments(attachments, options = {}) {
       if (actualImageTotal > MAX_TOTAL_BYTES) {
         throw new AttachmentError('total_too_large', 'Tổng dung lượng ảnh phải nhỏ hơn hoặc bằng 12 MB.');
       }
+      currentImage += 1;
+      const visionImage = imageCount > 1
+        ? labelImageForVision(bytes, currentImage, imageCount)
+        : { bytes, mime: fileType.mime };
       imageParts.push({
         type: 'image_url',
-        image_url: { url: `data:${fileType.mime};base64,${bytes.toString('base64')}` },
+        image_url: {
+          url: `data:${visionImage.mime};base64,${visionImage.bytes.toString('base64')}`,
+        },
       });
       continue;
     }

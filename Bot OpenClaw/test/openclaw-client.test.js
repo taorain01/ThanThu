@@ -63,6 +63,40 @@ test('gửi session ổn định và đọc phản hồi thành công', async ()
   );
 });
 
+test('đánh số ảnh và yêu cầu vision chi tiết cao', async () => {
+  let requestBody;
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return Response.json({ choices: [{ message: { content: 'Đã thấy đủ ảnh.' } }] });
+    },
+  });
+  const images = [
+    { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AQID' } },
+    { type: 'image_url', image_url: { url: 'data:image/png;base64,BAUG', detail: 'auto' } },
+  ];
+
+  await client.chat(chatArgs({ text: 'So sánh các ảnh', imageParts: images }));
+
+  assert.deepEqual(requestBody.messages[1].content, [
+    { type: 'text', text: 'So sánh các ảnh' },
+    {
+      type: 'text',
+      text: '[Có 2 ảnh đính kèm. Mỗi ảnh có nhãn ANH N/2 được in trực tiếp trong ảnh. Khi người dùng nói "ảnh N", phải đối chiếu nhãn đó; hãy quan sát cả ảnh rất nhỏ hoặc chỉ chứa logo/chữ.]',
+    },
+    {
+      type: 'image_url',
+      image_url: { url: 'data:image/jpeg;base64,AQID', detail: 'high' },
+    },
+    {
+      type: 'image_url',
+      image_url: { url: 'data:image/png;base64,BAUG', detail: 'high' },
+    },
+  ]);
+  assert.equal(images[0].image_url.detail, undefined);
+  assert.equal(images[1].image_url.detail, 'auto');
+});
+
 test('không retry khi OpenClaw trả lỗi', async () => {
   for (const [status, code] of [[401, 'auth'], [429, 'rate_limited'], [500, 'unavailable']]) {
     let calls = 0;

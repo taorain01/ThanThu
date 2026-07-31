@@ -20,24 +20,61 @@ async function makeStore(t) {
   return { store, filePath };
 }
 
-test('bind, reset, đổi kênh và off tăng generation đúng cách', async (t) => {
+test('mỗi channel giữ generation và trạng thái hoạt động độc lập', async (t) => {
   const { store, filePath } = await makeStore(t);
 
   assert.deepEqual(await store.bindChannel(GUILD_ID, CHANNEL_A), {
     channelId: CHANNEL_A,
+    enabled: true,
     sessionGeneration: 1,
     updatedAt: '2026-07-31T00:00:00.000Z',
     changed: true,
+    created: true,
+    reactivated: false,
   });
   assert.equal((await store.bindChannel(GUILD_ID, CHANNEL_A)).sessionGeneration, 1);
-  assert.equal((await store.bindChannel(GUILD_ID, CHANNEL_B)).sessionGeneration, 2);
-  assert.equal((await store.resetSession(GUILD_ID)).sessionGeneration, 3);
-  assert.equal((await store.unbind(GUILD_ID)).sessionGeneration, 4);
-  assert.equal(store.getGuild(GUILD_ID).channelId, null);
+  assert.equal((await store.bindChannel(GUILD_ID, CHANNEL_B)).sessionGeneration, 1);
+  assert.equal((await store.resetSession(GUILD_ID, CHANNEL_A)).sessionGeneration, 2);
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_B).sessionGeneration, 1);
+  assert.equal((await store.unbind(GUILD_ID, CHANNEL_A)).sessionGeneration, 3);
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_A).enabled, false);
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_B).enabled, true);
+  assert.equal((await store.bindChannel(GUILD_ID, CHANNEL_A)).sessionGeneration, 3);
+  assert.deepEqual(
+    store.getActiveChannels(GUILD_ID).map((entry) => entry.channelId),
+    [CHANNEL_A, CHANNEL_B],
+  );
 
   const reloaded = new StateStore(filePath);
   await reloaded.load();
-  assert.equal(reloaded.getGuild(GUILD_ID).sessionGeneration, 4);
+  assert.equal(reloaded.getChannel(GUILD_ID, CHANNEL_A).sessionGeneration, 3);
+  assert.equal(reloaded.getChannel(GUILD_ID, CHANNEL_B).sessionGeneration, 1);
+  assert.equal(reloaded.getGuild(GUILD_ID).channels[CHANNEL_A].enabled, true);
+});
+
+test('tự chuyển state phiên bản 1 sang nhiều channel mà không mất phiên', async (t) => {
+  const { filePath } = await makeStore(t);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify({
+    version: 1,
+    guilds: {
+      [GUILD_ID]: {
+        channelId: CHANNEL_A,
+        sessionGeneration: 7,
+        updatedAt: '2026-07-31T01:00:00.000Z',
+      },
+    },
+  }), 'utf8');
+
+  const store = new StateStore(filePath);
+  await store.load();
+  assert.deepEqual(store.getChannel(GUILD_ID, CHANNEL_A), {
+    channelId: CHANNEL_A,
+    enabled: true,
+    sessionGeneration: 7,
+    updatedAt: '2026-07-31T01:00:00.000Z',
+  });
+  assert.equal(JSON.parse(await fs.readFile(filePath, 'utf8')).version, 2);
 });
 
 test('không ghi đè state JSON bị hỏng', async (t) => {
@@ -55,7 +92,7 @@ test('từ chối state có entry null', async (t) => {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(
     filePath,
-    JSON.stringify({ version: 1, guilds: { [GUILD_ID]: null } }),
+    JSON.stringify({ version: 2, guilds: { [GUILD_ID]: null } }),
     'utf8',
   );
   const store = new StateStore(filePath);

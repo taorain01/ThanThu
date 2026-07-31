@@ -263,23 +263,22 @@ async function handleCommand(message, command) {
     return;
   }
 
-  const current = stateStore.getGuild(config.guildId);
+  const current = stateStore.getChannel(config.guildId, message.channel.id);
   if (command.action === 'bind') {
     if (message.channel.type !== ChannelType.GuildText) {
       await sendChunks(message, 'V1 chỉ cho phép chọn một text channel thông thường trong server.');
       return;
     }
 
-    if (current?.channelId && current.channelId !== message.channel.id) {
-      stopQueue(config.guildId, current.channelId);
-    }
     const bound = await stateStore.bindChannel(config.guildId, message.channel.id);
     const everyoneCanView = message.channel
       .permissionsFor(message.guild.roles.everyone)
       ?.has(PermissionFlagsBits.ViewChannel);
     const lines = [
-      `Đã chọn <#${message.channel.id}> làm kênh OpenClaw.`,
-      bound.changed ? 'Một phiên hội thoại mới đã được tạo.' : 'Kênh này đã được chọn từ trước.',
+      `Đã bật OpenClaw cho <#${message.channel.id}>.`,
+      bound.changed
+        ? `Phiên riêng của kênh đã sẵn sàng (phiên ${bound.sessionGeneration}).`
+        : `Kênh này đang giữ nguyên phiên ${bound.sessionGeneration}.`,
     ];
     if (everyoneCanView) {
       lines.push('Cảnh báo: kênh này đang hiển thị với @everyone; nội dung phản hồi có thể chứa dữ liệu nhạy cảm.');
@@ -296,16 +295,18 @@ async function handleCommand(message, command) {
 
   if (command.action === 'status') {
     const health = await openclaw.health();
-    const queueStatus = current?.channelId
-      ? getQueue(config.guildId, current.channelId).getStatus()
+    const activeChannels = stateStore.getActiveChannels(config.guildId);
+    const queueStatus = current?.enabled
+      ? getQueue(config.guildId, message.channel.id).getStatus()
       : { active: false, pending: 0 };
     const botIsAdmin = message.guild.members.me?.permissions.has(PermissionFlagsBits.Administrator);
     const lines = [
-      `Kênh: ${current?.channelId ? `<#${current.channelId}>` : 'chưa chọn'}`,
+      `Kênh hiện tại: <#${message.channel.id}> (${current?.enabled ? 'đang bật' : 'chưa bật'})`,
       `OpenClaw Gateway: ${health.ok ? 'đang hoạt động' : `không sẵn sàng${health.status ? ` (HTTP ${health.status})` : ''}`}`,
       `Yêu cầu đang chạy: ${queueStatus.active ? 'có' : 'không'}`,
       `Yêu cầu đang chờ: ${queueStatus.pending}`,
       `Phiên: ${current?.sessionGeneration || 0}`,
+      `Các kênh đang bật (${activeChannels.length}): ${activeChannels.length ? activeChannels.map((entry) => `<#${entry.channelId}> (phiên ${entry.sessionGeneration})`).join(', ') : 'không có'}`,
       'Nhật ký phiên: bật (đã lọc dữ liệu nhạy cảm)',
       'Gửi ảnh: bật (workspace/media, tối đa 8 MB mỗi ảnh)',
     ];
@@ -317,12 +318,12 @@ async function handleCommand(message, command) {
   }
 
   if (command.action === 'reset') {
-    if (!current?.channelId) {
-      await sendChunks(message, 'Server chưa chọn kênh OpenClaw.');
+    if (!current?.enabled) {
+      await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
       return;
     }
-    stopQueue(config.guildId, current.channelId);
-    const reset = await stateStore.resetSession(config.guildId);
+    stopQueue(config.guildId, message.channel.id);
+    const reset = await stateStore.resetSession(config.guildId, message.channel.id);
     await sendChunks(
       message,
       `Đã tạo phiên OpenClaw mới (phiên ${reset.sessionGeneration}). Yêu cầu cũ đã bị ngắt ở phía bot.`,
@@ -331,11 +332,11 @@ async function handleCommand(message, command) {
   }
 
   if (command.action === 'stop') {
-    if (!current?.channelId) {
-      await sendChunks(message, 'Server chưa chọn kênh OpenClaw.');
+    if (!current?.enabled) {
+      await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
       return;
     }
-    stopQueue(config.guildId, current.channelId);
+    stopQueue(config.guildId, message.channel.id);
     await sendChunks(
       message,
       'Đã ngắt chờ và xóa hàng đợi. Một tool đã bắt đầu phía OpenClaw có thể vẫn hoàn tất.',
@@ -344,9 +345,13 @@ async function handleCommand(message, command) {
   }
 
   if (command.action === 'off') {
-    stopQueue(config.guildId, current?.channelId);
-    await stateStore.unbind(config.guildId);
-    await sendChunks(message, 'Đã tắt tương tác OpenClaw và bỏ chọn kênh.');
+    if (!current?.enabled) {
+      await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
+      return;
+    }
+    stopQueue(config.guildId, message.channel.id);
+    await stateStore.unbind(config.guildId, message.channel.id);
+    await sendChunks(message, 'Đã tắt OpenClaw riêng cho kênh hiện tại. Các kênh khác không bị ảnh hưởng.');
     return;
   }
 
@@ -393,9 +398,9 @@ async function processOpenClawMessage(message, state, signal) {
     await monitor.stop();
     monitorStopped = true;
 
-    const latest = stateStore.getGuild(config.guildId);
+    const latest = stateStore.getChannel(config.guildId, message.channelId);
     if (
-      latest?.channelId !== message.channelId
+      !latest?.enabled
       || latest.sessionGeneration !== state.sessionGeneration
     ) {
       logger.warn('Bỏ phản hồi từ phiên OpenClaw đã cũ.', {
@@ -439,11 +444,10 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    const state = stateStore.getGuild(config.guildId);
+    const state = stateStore.getChannel(config.guildId, message.channelId);
     if (
       !isAllowed(message.author.id)
-      || !state?.channelId
-      || state.channelId !== message.channelId
+      || !state?.enabled
       || (!String(message.content || '').trim() && message.attachments.size === 0)
     ) {
       return;

@@ -11,30 +11,74 @@ class StateStoreError extends Error {
 }
 
 function createEmptyState() {
-  return { version: 1, guilds: {} };
+  return { version: 2, guilds: {} };
 }
 
-function validateState(state) {
-  if (!state || state.version !== 1 || typeof state.guilds !== 'object' || Array.isArray(state.guilds)) {
-    throw new StateStoreError('data/state.json không đúng định dạng phiên bản 1.');
+function validateGuildId(guildId) {
+  return /^\d{17,20}$/.test(guildId);
+}
+
+function validateChannelEntry(guildId, channelId, entry) {
+  if (
+    !/^\d{17,20}$/.test(channelId)
+    || !entry
+    || typeof entry.enabled !== 'boolean'
+    || !Number.isSafeInteger(entry.sessionGeneration)
+    || entry.sessionGeneration < 1
+    || typeof entry.updatedAt !== 'string'
+  ) {
+    throw new StateStoreError(`Dữ liệu state của channel ${channelId} trong guild ${guildId} không hợp lệ.`);
+  }
+}
+
+function validateStateV2(state) {
+  if (!state || state.version !== 2 || typeof state.guilds !== 'object' || Array.isArray(state.guilds)) {
+    throw new StateStoreError('data/state.json không đúng định dạng phiên bản 2.');
   }
 
+  for (const [guildId, guild] of Object.entries(state.guilds)) {
+    if (!validateGuildId(guildId) || !guild || typeof guild.channels !== 'object' || Array.isArray(guild.channels)) {
+      throw new StateStoreError(`Dữ liệu state của guild ${guildId} không hợp lệ.`);
+    }
+    for (const [channelId, entry] of Object.entries(guild.channels)) {
+      validateChannelEntry(guildId, channelId, entry);
+    }
+  }
+
+  return state;
+}
+
+function migrateStateV1(state) {
+  if (!state || state.version !== 1 || typeof state.guilds !== 'object' || Array.isArray(state.guilds)) {
+    throw new StateStoreError('data/state.json không đúng định dạng được hỗ trợ.');
+  }
+
+  const migrated = createEmptyState();
   for (const [guildId, entry] of Object.entries(state.guilds)) {
     const validChannel = entry
       && (entry.channelId === null || /^\d{17,20}$/.test(String(entry.channelId)));
     if (
-      !/^\d{17,20}$/.test(guildId)
+      !validateGuildId(guildId)
       || !entry
       || !validChannel
       || !Number.isSafeInteger(entry.sessionGeneration)
       || entry.sessionGeneration < 1
       || typeof entry.updatedAt !== 'string'
     ) {
-      throw new StateStoreError(`Dữ liệu state của guild ${guildId} không hợp lệ.`);
+      throw new StateStoreError(`Dữ liệu state phiên bản 1 của guild ${guildId} không hợp lệ.`);
     }
-  }
 
-  return state;
+    const channels = {};
+    if (entry.channelId) {
+      channels[entry.channelId] = {
+        enabled: true,
+        sessionGeneration: entry.sessionGeneration,
+        updatedAt: entry.updatedAt,
+      };
+    }
+    migrated.guilds[guildId] = { channels };
+  }
+  return migrated;
 }
 
 class StateStore {
@@ -47,7 +91,13 @@ class StateStore {
   async load() {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8');
-      this.state = validateState(JSON.parse(raw));
+      const parsed = JSON.parse(raw);
+      if (parsed?.version === 1) {
+        this.state = migrateStateV1(parsed);
+        await this.save();
+      } else {
+        this.state = validateStateV2(parsed);
+      }
     } catch (error) {
       if (error.code === 'ENOENT') {
         this.state = createEmptyState();
@@ -62,47 +112,73 @@ class StateStore {
   }
 
   getGuild(guildId) {
-    const entry = this.state.guilds[guildId];
-    return entry ? { ...entry } : null;
+    const guild = this.state.guilds[guildId];
+    if (!guild) {
+      return null;
+    }
+    return {
+      channels: Object.fromEntries(
+        Object.entries(guild.channels).map(([channelId, entry]) => [channelId, { ...entry }]),
+      ),
+    };
+  }
+
+  getChannel(guildId, channelId) {
+    const entry = this.state.guilds[guildId]?.channels?.[channelId];
+    return entry ? { channelId, ...entry } : null;
+  }
+
+  getActiveChannels(guildId) {
+    const channels = this.state.guilds[guildId]?.channels || {};
+    return Object.entries(channels)
+      .filter(([, entry]) => entry.enabled)
+      .map(([channelId, entry]) => ({ channelId, ...entry }))
+      .sort((a, b) => a.channelId.localeCompare(b.channelId));
   }
 
   async bindChannel(guildId, channelId) {
-    const previous = this.state.guilds[guildId];
-    const changed = !previous || previous.channelId !== channelId;
-    const sessionGeneration = changed
-      ? (previous?.sessionGeneration || 0) + 1
-      : previous.sessionGeneration;
-
-    this.state.guilds[guildId] = {
-      channelId,
-      sessionGeneration,
+    const guild = this.state.guilds[guildId] || { channels: {} };
+    const previous = guild.channels[channelId];
+    const created = !previous;
+    const reactivated = Boolean(previous && !previous.enabled);
+    guild.channels[channelId] = {
+      enabled: true,
+      sessionGeneration: previous?.sessionGeneration || 1,
       updatedAt: this.now().toISOString(),
     };
+    this.state.guilds[guildId] = guild;
     await this.save();
-    return { ...this.state.guilds[guildId], changed };
+    return {
+      channelId,
+      ...guild.channels[channelId],
+      changed: created || reactivated,
+      created,
+      reactivated,
+    };
   }
 
-  async resetSession(guildId) {
-    const previous = this.state.guilds[guildId];
-    if (!previous?.channelId) {
-      throw new StateStoreError('Server chưa chọn kênh OpenClaw.');
+  async resetSession(guildId, channelId) {
+    const previous = this.state.guilds[guildId]?.channels?.[channelId];
+    if (!previous?.enabled) {
+      throw new StateStoreError('Kênh hiện tại chưa bật OpenClaw.');
     }
     previous.sessionGeneration += 1;
     previous.updatedAt = this.now().toISOString();
     await this.save();
-    return { ...previous };
+    return { channelId, ...previous };
   }
 
-  async unbind(guildId) {
-    const previous = this.state.guilds[guildId];
-    const sessionGeneration = (previous?.sessionGeneration || 0) + 1;
-    this.state.guilds[guildId] = {
-      channelId: null,
-      sessionGeneration,
+  async unbind(guildId, channelId) {
+    const guild = this.state.guilds[guildId] || { channels: {} };
+    const previous = guild.channels[channelId];
+    guild.channels[channelId] = {
+      enabled: false,
+      sessionGeneration: (previous?.sessionGeneration || 0) + 1,
       updatedAt: this.now().toISOString(),
     };
+    this.state.guilds[guildId] = guild;
     await this.save();
-    return { ...this.state.guilds[guildId] };
+    return { channelId, ...guild.channels[channelId] };
   }
 
   async save() {

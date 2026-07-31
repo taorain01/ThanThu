@@ -4,13 +4,13 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 
 ## Lệnh Discord
 
-- `> openclaw`: chọn text channel hiện tại và tạo phiên mới nếu đổi kênh.
-- `> openclaw status`: xem kênh, Gateway và hàng đợi.
-- `> openclaw reset`: ngắt hàng đợi hiện tại và tạo phiên hội thoại mới.
-- `> openclaw stop`: ngắt chờ và xóa hàng đợi; tool đã bắt đầu phía OpenClaw có thể vẫn hoàn tất.
-- `> openclaw off`: tắt tương tác và bỏ chọn kênh.
+- `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
+- `> openclaw status`: xem trạng thái channel hiện tại, Gateway, hàng đợi và các channel đang bật.
+- `> openclaw reset`: ngắt hàng đợi và tạo phiên mới chỉ cho channel hiện tại.
+- `> openclaw stop`: ngắt chờ và xóa hàng đợi chỉ trong channel hiện tại; tool đã bắt đầu phía OpenClaw có thể vẫn hoàn tất.
+- `> openclaw off`: tắt tương tác chỉ trong channel hiện tại.
 
-Sau khi chọn kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` sẽ được chuyển tới OpenClaw. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
+Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc; mỗi channel giữ session generation và hàng đợi độc lập nên chuyển qua lại không mất hội thoại. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
 
 Trong lúc OpenClaw làm việc, bot cập nhật một bảng tiến độ gồm từng tool bắt đầu/kết thúc. Khi phiên hoàn tất, toàn bộ nhật ký đã lọc được giữ trong chat; token, nội dung file, đường dẫn nhạy cảm và dữ liệu ảnh base64 không được hiển thị. Ảnh trong workspace/media mà OpenClaw dùng hoặc đánh dấu bằng `MEDIA:<đường dẫn>` sẽ được gửi lên Discord dưới dạng attachment.
 
@@ -26,7 +26,7 @@ OpenClaw cần bật Chat Completions API:
 & "$env:APPDATA\npm\openclaw.cmd" gateway restart
 ```
 
-Bot dùng một session riêng cho mỗi lần chọn/reset kênh. Yêu cầu được xử lý tuần tự và không tự retry, vì retry có thể lặp lại thao tác điều khiển PC.
+Bot dùng một session riêng cho từng channel và từng lần reset. Yêu cầu trong cùng channel được xử lý tuần tự, còn các channel khác nhau có thể chạy song song. Bot không tự retry vì retry có thể lặp lại thao tác điều khiển PC.
 
 ## Discord Developer Portal
 

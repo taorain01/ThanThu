@@ -16,13 +16,20 @@ $action = New-ScheduledTaskAction `
   -Execute $nodeExe `
   -Argument "`"$entryPath`"" `
   -WorkingDirectory $botRoot
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+$logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $userId
+$watchdogTrigger = New-ScheduledTaskTrigger `
+  -Once `
+  -At (Get-Date).AddSeconds(15) `
+  -RepetitionInterval (New-TimeSpan -Minutes 1) `
+  -RepetitionDuration (New-TimeSpan -Days 3650)
 $principal = New-ScheduledTaskPrincipal `
   -UserId $userId `
   -LogonType Interactive `
   -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
   -StartWhenAvailable `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries `
   -RestartCount 5 `
   -RestartInterval (New-TimeSpan -Minutes 1) `
   -MultipleInstances IgnoreNew `
@@ -31,7 +38,7 @@ $settings = New-ScheduledTaskSettingsSet `
 Register-ScheduledTask `
   -TaskName $taskName `
   -Action $action `
-  -Trigger $trigger `
+  -Trigger @($logonTrigger, $watchdogTrigger) `
   -Principal $principal `
   -Settings $settings `
   -Description 'Dedicated Discord bridge for the local OpenClaw gateway.' `

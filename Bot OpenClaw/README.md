@@ -55,6 +55,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-task.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-task.ps1
 ```
 
+Task chạy khi đăng nhập và có watchdog mỗi phút. Nếu tiến trình bot bị dừng, Task Scheduler sẽ tự khởi động lại ở nhịp tiếp theo.
+
 Log nằm tại `logs/bot.log`; trạng thái kênh và session nằm tại `data/state.json`. Các thư mục này cùng `.env` đều bị Git bỏ qua.
 
 ## Giới hạn ảnh

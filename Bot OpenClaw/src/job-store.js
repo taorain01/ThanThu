@@ -35,6 +35,9 @@ function validateState(state) {
     throw new JobStoreError('data/jobs.json không đúng định dạng phiên bản 1.');
   }
   for (const [jobId, job] of Object.entries(state.jobs)) {
+    if (job && job.stopRequested === undefined) {
+      job.stopRequested = false;
+    }
     if (
       !job
       || job.id !== jobId
@@ -47,6 +50,7 @@ function validateState(state) {
       || typeof job.tasks !== 'object'
       || !job.artifacts
       || typeof job.artifacts !== 'object'
+      || typeof job.stopRequested !== 'boolean'
     ) {
       throw new JobStoreError(`Job ${jobId} trong data/jobs.json không hợp lệ.`);
     }
@@ -115,6 +119,7 @@ class JobStore {
         lastEvent: '',
         events: [],
         recoveryCount: 0,
+        stopRequested: false,
         responseSent: false,
         sessionOffsets: {},
         sessionStartedAt: { [String(input.rootSessionKey)]: Date.parse(timestamp) },

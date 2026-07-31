@@ -33,6 +33,7 @@ const { splitDiscordText } = require('./message-utils');
 const { buildJobStatusEmbed, buildResponseEmbeds } = require('./discord-embeds');
 const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
+const { startStatusHeartbeat } = require('./status-heartbeat');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
 const OPENCLAW_HOME = path.join(os.homedir(), '.openclaw');
@@ -63,7 +64,7 @@ const sourceMessages = new Map();
 const statusUpdateTimers = new Map();
 const statusUpdatePromises = new Map();
 const statusUpdatedAt = new Map();
-let heartbeatTimer = null;
+let statusHeartbeat = null;
 let supervisor;
 
 const client = new Client({
@@ -157,6 +158,7 @@ async function updateStatusMessage(job) {
     prefix: config.prefix,
     botName: 'OPENCLAW // JOB MONITOR',
     botIconUrl: botIconUrl(),
+    heartbeatMs: config.jobHeartbeatMs,
   });
   const channel = await resolveDiscordChannel(current.channelId);
   if (current.statusMessageId) {
@@ -735,12 +737,19 @@ client.once('ready', async () => {
   });
   client.user.setPresence({ activities: [{ name: `${config.prefix} openclaw` }] });
   await enqueueRecoveredJobs();
-  heartbeatTimer = setInterval(() => {
-    for (const job of jobStore.listJobs({ activeOnly: true })) {
-      scheduleStatusUpdate(job);
-    }
-  }, config.jobHeartbeatMs);
-  heartbeatTimer.unref?.();
+  statusHeartbeat = startStatusHeartbeat({
+    intervalMs: config.jobHeartbeatMs,
+    listActiveJobs: () => jobStore.listJobs({ activeOnly: true }),
+    refreshJob: async (job) => {
+      if (statusUpdateTimers.has(job.id) || statusUpdatePromises.has(job.id)) {
+        return;
+      }
+      await ensureStatusMessage(jobStore.getJob(job.id));
+    },
+    onError: (error) => logger.warn('Heartbeat status Discord gặp lỗi.', {
+      name: error.name,
+    }),
+  });
 });
 
 client.on('error', (error) => {
@@ -750,9 +759,7 @@ client.on('error', (error) => {
 async function shutdown(signalName) {
   logger.info('Đang dừng bot Discord.', { signal: signalName });
   globalQueue.stop();
-  if (heartbeatTimer) {
-    clearInterval(heartbeatTimer);
-  }
+  statusHeartbeat?.stop();
   for (const timer of statusUpdateTimers.values()) {
     clearTimeout(timer);
   }

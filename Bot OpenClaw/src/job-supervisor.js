@@ -9,9 +9,13 @@ const {
 } = require('./session-activity');
 const { stageMediaReference } = require('./response-media');
 const { RequestDeadline } = require('./request-deadline');
+const {
+  ACTIVE_TASK_STATUSES,
+  PROBLEM_TASK_STATUSES,
+  summarizeWorkers,
+} = require('./task-summary');
 
-const ACTIVE_TASK_STATUSES = new Set(['queued', 'running']);
-const FAILED_TASK_STATUSES = new Set(['failed', 'timed_out', 'cancelled', 'lost']);
+const FAILED_TASK_STATUSES = PROBLEM_TASK_STATUSES;
 const TERMINAL_JOB_STATUSES = new Set([
   'completed',
   'completed_with_blocker',
@@ -141,11 +145,15 @@ class JobSupervisor {
       settleResolve,
       foregroundDone: options.recovered === true,
       foregroundError: null,
+      settling: false,
       discoveryDeadline: null,
       terminalDeadline: null,
       cancelDeadline: null,
       cancelRequestedTaskIds: new Set(),
-      stopRequested: false,
+      stopRequested: Boolean(
+        job.stopRequested
+        || (job.status === 'background' && job.terminalReason === 'Đã dừng theo yêu cầu người dùng.'),
+      ),
       settlePromise: null,
       explicitBlocker: '',
       activityTouch: null,
@@ -204,6 +212,36 @@ class JobSupervisor {
       await this.registerArtifact(jobId, reference, event.mediaLabel);
     }
     await this.notifyJobChanged(jobId);
+  }
+
+  async recordWorkerTransitions(jobId, before, after) {
+    const previousByKey = new Map(before.workers.map((worker) => [worker.key, worker]));
+    let changed = false;
+    for (const worker of after.workers) {
+      const previous = previousByKey.get(worker.key);
+      let text = '';
+      if (!previous) {
+        if (worker.status === 'problem') {
+          text = `✗ Worker gặp vấn đề: ${worker.displayLabel}`;
+        } else if (worker.status === 'succeeded') {
+          text = `✓ Worker hoàn tất: ${worker.displayLabel}`;
+        } else {
+          text = `🤖 Worker bắt đầu: ${worker.displayLabel}`;
+        }
+      } else if (
+        ACTIVE_TASK_STATUSES.has(previous.status)
+        && !ACTIVE_TASK_STATUSES.has(worker.status)
+      ) {
+        text = worker.status === 'problem'
+          ? `✗ Worker gặp vấn đề: ${worker.displayLabel}`
+          : `✓ Worker hoàn tất: ${worker.displayLabel}`;
+      }
+      if (text) {
+        await this.store.addEvent(jobId, text);
+        changed = true;
+      }
+    }
+    return changed;
   }
 
   async registerArtifact(jobId, reference, label = '') {
@@ -358,7 +396,7 @@ class JobSupervisor {
 
   async syncTasks(jobId) {
     const context = this.contexts.get(jobId);
-    if (!context) {
+    if (!context || context.settling) {
       return;
     }
     const operation = context.syncPromise.catch((error) => {
@@ -367,6 +405,9 @@ class JobSupervisor {
         name: error.name,
       });
     }).then(async () => {
+      if (context.settling || this.contexts.get(jobId) !== context) {
+        return;
+      }
       let tasks;
       try {
         tasks = await this.taskClient.list();
@@ -379,6 +420,10 @@ class JobSupervisor {
       }
 
       let job = this.store.getJob(jobId);
+      if (!job || TERMINAL_JOB_STATUSES.has(job.status)) {
+        return;
+      }
+      const workersBefore = summarizeWorkers(job);
       const knownSessions = new Set([
         job.rootSessionKey,
         ...Object.values(job.tasks).map((task) => task.childSessionKey).filter(Boolean),
@@ -421,18 +466,39 @@ class JobSupervisor {
         }
       }
       job = this.store.getJob(jobId);
+      if (context.settling || this.contexts.get(jobId) !== context) {
+        return;
+      }
+      const workersAfter = summarizeWorkers(job);
+      const workerChanged = await this.recordWorkerTransitions(jobId, workersBefore, workersAfter);
+      job = this.store.getJob(jobId);
       const jobTasks = Object.values(job.tasks);
       const activeTasks = jobTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status));
       if (activeTasks.length) {
-        if (context.stopRequested) {
+        if (context.stopRequested || job.stopRequested) {
           await this.cancelActiveTasks(context, activeTasks);
         }
+        const latest = this.store.getJob(jobId);
+        if (
+          context.settling
+          || this.contexts.get(jobId) !== context
+          || !latest
+          || TERMINAL_JOB_STATUSES.has(latest.status)
+        ) {
+          return;
+        }
         context.terminalDeadline = null;
-        if (context.foregroundDone && job.status !== 'background') {
+        if (context.foregroundDone && latest.status !== 'background') {
           await this.store.updateJob(jobId, { status: 'background' });
+          await this.notifyJobChanged(jobId);
+        } else if (workerChanged) {
           await this.notifyJobChanged(jobId);
         }
         return;
+      }
+
+      if (workerChanged) {
+        await this.notifyJobChanged(jobId);
       }
 
       if (!context.foregroundDone) {
@@ -476,6 +542,11 @@ class JobSupervisor {
       return;
     }
     if (!context.settlePromise) {
+      context.settling = true;
+      if (context.pollTimer) {
+        clearInterval(context.pollTimer);
+        context.pollTimer = null;
+      }
       context.settlePromise = (async () => {
         await this.stopMonitoring(context);
         const pendingDeliveries = [...context.deliveries.values()];
@@ -492,7 +563,10 @@ class JobSupervisor {
         const hasFailed = tasks.some((task) => FAILED_TASK_STATUSES.has(task.status));
         let status = 'completed';
         let terminalReason = '';
-        if (context.stopRequested) {
+        const stopRequested = context.stopRequested
+          || job.stopRequested
+          || (job.status === 'background' && job.terminalReason === 'Đã dừng theo yêu cầu người dùng.');
+        if (stopRequested) {
           status = 'stopped';
           terminalReason = 'Đã dừng theo yêu cầu người dùng.';
         } else if (hasBlocked || (hasFailed && counts.total > 0)) {
@@ -512,7 +586,11 @@ class JobSupervisor {
             context.foregroundError.message || 'Yêu cầu cha không hoàn tất.',
           );
         }
-        await this.store.updateJob(jobId, { status, terminalReason });
+        await this.store.updateJob(jobId, {
+          status,
+          terminalReason,
+          stopRequested,
+        });
         this.contexts.delete(jobId);
         await this.notifyJobChanged(jobId);
         context.settleResolve(this.store.getJob(jobId));
@@ -536,6 +614,7 @@ class JobSupervisor {
     if (!context) {
       return;
     }
+    context.settling = true;
     await this.stopMonitoring(context);
     this.contexts.delete(jobId);
   }
@@ -545,6 +624,7 @@ class JobSupervisor {
     if (!job || TERMINAL_JOB_STATUSES.has(job.status)) {
       return job;
     }
+    await this.store.updateJob(jobId, { stopRequested: true });
     const context = await this.watchJob(jobId, { recovered: true });
     context.stopRequested = true;
     context.cancelDeadline = Date.now() + this.cancelGraceMs;
@@ -584,9 +664,14 @@ class JobSupervisor {
     const context = await this.watchJob(jobId, { recovered: true });
     await this.syncTasks(jobId);
     let current = this.store.getJob(jobId);
+    if (!current || TERMINAL_JOB_STATUSES.has(current.status) || context.settling) {
+      return context.settled;
+    }
     if (Object.values(current.tasks).some((task) => ACTIVE_TASK_STATUSES.has(task.status))) {
-      await this.store.updateJob(jobId, { status: 'background' });
-      await this.notifyJobChanged(jobId);
+      if (current.status !== 'background') {
+        await this.store.updateJob(jobId, { status: 'background' });
+        await this.notifyJobChanged(jobId);
+      }
       return context.settled;
     }
     const currentTasks = Object.values(current.tasks);

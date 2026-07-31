@@ -132,6 +132,10 @@ test('parent kết thúc nhưng child vẫn gửi đủ bốn MEDIA, kể cả t
   const job = await supervisor.createJob(jobInput('job-parent-child', rootSessionKey), { watch: false });
   await supervisor.watchJob(job.id, { rootStartAtEnd: true });
   await supervisor.syncTasks(job.id);
+  assert.equal(
+    store.getJob(job.id).events.filter((event) => event.startsWith('🤖 Worker bắt đầu:')).length,
+    1,
+  );
   await supervisor.markForegroundDone(job.id);
   assert.equal(store.getJob(job.id).status, 'background');
 
@@ -160,6 +164,10 @@ test('parent kết thúc nhưng child vẫn gửi đủ bốn MEDIA, kể cả t
   assert.equal(Object.values(settled.tasks)[0].task, undefined);
   assert.equal(JSON.stringify(settled.tasks).includes('secret.txt'), false);
   assert.equal(JSON.stringify(settled.artifacts).includes('screen-check.png'), false);
+  assert.equal(
+    settled.events.filter((event) => event.startsWith('✓ Worker hoàn tất:')).length,
+    1,
+  );
 });
 
 test('restart dùng offset bền vững, không gửi trùng và tiếp tục giữ child session', async (t) => {
@@ -374,4 +382,85 @@ test('restart sau khi đã gửi phản hồi không phát lại prompt nếu kh
   const settled = await supervisor.recoverJob(job.id);
   assert.equal(recoveryCalls, 0);
   assert.equal(settled.status, 'completed');
+});
+
+test('stop đồng thời với syncTasks không thể bị ghi đè về background', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-stop-race');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:9';
+  const childSessionKey = 'agent:main:subagent:child-race';
+  await writeSessionIndex(fixture, rootSessionKey, childSessionKey);
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const job = await store.createJob(jobInput('job-stop-race', rootSessionKey));
+  const supervisor = createSupervisor(fixture, store, { value: [] }, async () => 'unused');
+  const context = await supervisor.watchJob(job.id);
+  context.foregroundDone = true;
+  context.stopRequested = true;
+  await store.updateJob(job.id, { status: 'background', stopRequested: true });
+
+  let releaseList;
+  let markListStarted;
+  const listStarted = new Promise((resolve) => {
+    markListStarted = resolve;
+  });
+  const listReleased = new Promise((resolve) => {
+    releaseList = resolve;
+  });
+  supervisor.taskClient.list = async () => {
+    markListStarted();
+    await listReleased;
+    return [{
+      taskId: 'task-race',
+      requesterSessionKey: rootSessionKey,
+      ownerKey: rootSessionKey,
+      childSessionKey,
+      status: 'running',
+      createdAt: Date.now(),
+    }];
+  };
+
+  const pendingSync = supervisor.syncTasks(job.id);
+  await listStarted;
+  await supervisor.settle(job.id);
+  releaseList();
+  await pendingSync;
+
+  assert.equal(store.getJob(job.id).status, 'stopped');
+  assert.equal(store.getJob(job.id).stopRequested, true);
+});
+
+test('restart hòa giải background cũ đã yêu cầu dừng mà không chạy recovery', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-recover-stopped');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:10';
+  await writeSessionIndex(fixture, rootSessionKey, rootSessionKey);
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const job = await store.createJob(jobInput('job-recover-stopped', rootSessionKey));
+  await store.updateJob(job.id, {
+    status: 'background',
+    responseSent: true,
+    terminalReason: 'Đã dừng theo yêu cầu người dùng.',
+  });
+  await store.upsertTask(job.id, {
+    taskId: 'task-stopped',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey: rootSessionKey,
+    status: 'succeeded',
+    createdAt: Date.now(),
+  });
+  let recoveryCalls = 0;
+  const supervisor = createSupervisor(fixture, store, { value: [] }, async () => 'unused', {
+    openclaw: {
+      chat: async () => {
+        recoveryCalls += 1;
+        return 'không được gọi';
+      },
+    },
+  });
+
+  const settled = await supervisor.recoverJob(job.id);
+  assert.equal(recoveryCalls, 0);
+  assert.equal(settled.status, 'stopped');
+  assert.equal(settled.stopRequested, true);
 });

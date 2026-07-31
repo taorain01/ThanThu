@@ -36,8 +36,30 @@ function createJob(status, overrides = {}) {
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T01:02:03.000Z',
     tasks: {
-      running: { status: 'running' },
-      done: { status: 'completed' },
+      subagent: {
+        taskId: 'subagent',
+        runId: 'run-current',
+        status: 'running',
+        label: 'Tạo ảnh minh họa',
+        progressSummary: 'Đang kiểm tra bố cục cuối',
+        createdAt: Date.parse('2026-08-01T01:10:00.000Z'),
+        lastEventAt: Date.parse('2026-08-01T01:29:00.000Z'),
+      },
+      cli: {
+        taskId: 'cli',
+        runId: 'run-current',
+        status: 'running',
+        createdAt: Date.parse('2026-08-01T01:10:00.000Z'),
+        lastEventAt: Date.parse('2026-08-01T01:29:00.000Z'),
+      },
+      done: {
+        taskId: 'done',
+        runId: 'run-done',
+        status: 'succeeded',
+        label: 'Thu thập dữ liệu',
+        createdAt: Date.parse('2026-08-01T00:30:00.000Z'),
+        endedAt: Date.parse('2026-08-01T01:00:00.000Z'),
+      },
     },
     events: ['▶ `browser` — mở trang', '✓ `browser` hoàn tất'],
     terminalReason: '',
@@ -132,6 +154,7 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
       botName: 'OPENCLAW // JOB MONITOR',
       botIconUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
       now: Date.parse('2026-08-01T01:30:00.000Z'),
+      heartbeatMs: 60000,
     });
     const data = embed.toJSON();
     assertEmbedLimits(embed);
@@ -139,8 +162,39 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
     assert.match(data.description, /job-123456789/);
     assert.ok(data.fields.some((field) => field.name.includes('Thời gian')));
     assert.ok(data.fields.some((field) => field.name.includes('File')));
-    assert.ok(data.fields.some((field) => field.name.includes('Task')));
+    assert.ok(data.fields.some((field) => field.name.includes('Worker')));
+    assert.ok(data.fields.some((field) => field.name.includes('Task hiện tại')));
   }
+});
+
+test('gộp record cùng runId và hiển thị task hiện tại theo heartbeat', () => {
+  const now = Date.parse('2026-08-01T01:30:00.000Z');
+  const embed = buildJobStatusEmbed(createJob('background'), {
+    counts: { delivered: 1, total: 2, ready: 1 },
+    prefix: '>',
+    now,
+    heartbeatMs: 60000,
+  });
+  const data = embed.toJSON();
+  const workerField = data.fields.find((field) => field.name.includes('Worker'));
+  const taskField = data.fields.find((field) => field.name.includes('Task hiện tại'));
+
+  assert.equal(workerField.value, '1 đang chạy • 1 xong • 0 lỗi');
+  assert.match(taskField.value, /Worker 2 · Tạo ảnh minh họa/);
+  assert.match(taskField.value, /1 phút trước/);
+  assert.match(taskField.value, /Đang kiểm tra bố cục cuối/);
+  assert.equal(data.footer.text, 'Heartbeat 60s • Dừng: > o s (hoặc > openclaw stop)');
+  assert.equal(data.timestamp, '2026-08-01T01:30:00.000Z');
+});
+
+test('mô tả hợp lý khi job chưa có worker', () => {
+  const queued = buildJobStatusEmbed(createJob('queued', { tasks: {} })).toJSON();
+  const running = buildJobStatusEmbed(createJob('running', { tasks: {} })).toJSON();
+  const background = buildJobStatusEmbed(createJob('background', { tasks: {} })).toJSON();
+
+  assert.match(queued.fields.find((field) => field.name.includes('Task hiện tại')).value, /Chưa khởi chạy/);
+  assert.match(running.fields.find((field) => field.name.includes('Task hiện tại')).value, /Agent chính đang xử lý/);
+  assert.match(background.fields.find((field) => field.name.includes('Task hiện tại')).value, /Đang tổng hợp kết quả/);
 });
 
 test('rút gọn nhật ký và kết quả dài mà không vượt giới hạn field', () => {
@@ -161,6 +215,14 @@ test('bảng tiến độ không lộ token hoặc đường dẫn cục bộ', 
   const embed = buildJobStatusEmbed(createJob('failed', {
     events: ['Đọc C:\\Users\\songt\\secret\\checkpoint.json bằng Bearer abc-secret'],
     terminalReason: 'Lỗi sk-secretsecretsecret tại F:\\Hình Ảnh\\anhYoutube\\01.png',
+    tasks: {
+      sensitive: {
+        taskId: 'sensitive',
+        status: 'failed',
+        label: 'Đọc C:\\Users\\songt\\secret\\worker.txt',
+        progressSummary: 'Bearer task-secret tại F:\\Hình Ảnh\\anhYoutube\\worker.png',
+      },
+    },
   }), {
     counts: { delivered: 0, total: 1, ready: 1 },
   });
@@ -168,5 +230,6 @@ test('bảng tiến độ không lộ token hoặc đường dẫn cục bộ', 
   assert.equal(serialized.includes('checkpoint.json'), false);
   assert.equal(serialized.includes('anhYoutube'), false);
   assert.equal(serialized.includes('abc-secret'), false);
+  assert.equal(serialized.includes('task-secret'), false);
   assert.equal(serialized.includes('sk-secret'), false);
 });

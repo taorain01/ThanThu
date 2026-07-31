@@ -2,6 +2,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { sanitizeInline } = require('./session-activity');
+const { summarizeWorkers } = require('./task-summary');
 
 const EMBED_LIMITS = Object.freeze({
   total: 6000,
@@ -170,9 +171,60 @@ function elapsedLabel(startedAt, now = Date.now()) {
   return hours ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`;
 }
 
-function activeTaskCount(job) {
-  return Object.values(job.tasks || {})
-    .filter((task) => ['queued', 'running'].includes(task.status)).length;
+function activityAgeLabel(value, now = Date.now()) {
+  const timestamp = Number(value) || Date.parse(value || '');
+  if (!Number.isFinite(timestamp)) {
+    return 'chưa có hoạt động';
+  }
+  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (seconds < 60) {
+    return `${seconds}s trước`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} phút trước`;
+  }
+  const hours = Math.floor(minutes / 60);
+  return `${hours} giờ trước`;
+}
+
+function workerCountsValue(summary) {
+  return `${summary.counts.active} đang chạy • ${summary.counts.succeeded} xong • ${summary.counts.problem} lỗi`;
+}
+
+function currentTaskValue(job, summary, now) {
+  const worker = summary.current;
+  if (!worker) {
+    if (job.status === 'queued') {
+      return 'Chưa khởi chạy; yêu cầu đang chờ queue toàn cục.';
+    }
+    if (job.status === 'background') {
+      return 'Đang tổng hợp kết quả và chốt trạng thái worker.';
+    }
+    if (TERMINAL_STATUSES.has(job.status)) {
+      return 'Job không tạo worker nền.';
+    }
+    return 'Agent chính đang xử lý; chưa chuyển sang worker nền.';
+  }
+
+  const labels = {
+    queued: '🕓 Đang chờ',
+    running: '⚙️ Đang chạy',
+    succeeded: '✅ Đã hoàn tất',
+    problem: '⚠️ Gặp vấn đề',
+    unknown: '• Chưa xác định',
+  };
+  const title = worker.label
+    ? `**Worker ${worker.number} · ${worker.displayLabel}**`
+    : `**Worker ${worker.number}**`;
+  const lines = [
+    title,
+    `${job.stopRequested ? '⏹️ Đang yêu cầu dừng' : labels[worker.status] || labels.unknown} • cập nhật ${activityAgeLabel(worker.lastActivityAt, now)}`,
+  ];
+  if (worker.progress) {
+    lines.push(truncate(worker.progress, 560));
+  }
+  return truncate(lines.join('\n'), EMBED_LIMITS.fieldValue);
 }
 
 function recentActivityValue(events, terminal) {
@@ -191,9 +243,10 @@ function recentActivityValue(events, terminal) {
     : 'Đang chuẩn bị phiên và chờ hoạt động đầu tiên…';
 }
 
-function jobFooter(job, counts, prefix, terminal) {
+function jobFooter(job, counts, prefix, terminal, heartbeatMs) {
   if (!terminal) {
-    return `Cập nhật tự động • Dùng ${prefix} openclaw stop để dừng`;
+    const seconds = Math.max(1, Math.round((Number(heartbeatMs) || 60000) / 1000));
+    return `Heartbeat ${seconds}s • Dừng: ${prefix} o s (hoặc ${prefix} openclaw stop)`;
   }
   if (counts.ready) {
     return `Còn ${counts.ready} file chờ gửi • ${prefix} openclaw resend ${job.id}`;
@@ -212,8 +265,10 @@ function buildJobStatusEmbed(job, options = {}) {
   const queuePosition = Number(options.queuePosition) > 0 ? Number(options.queuePosition) : null;
   const queuePending = Math.max(0, Number(options.queuePending) || 0);
   const prefix = truncate(options.prefix || '>', 12, '');
+  const now = Number(options.now) || Date.now();
   const jobId = truncate(job.id || 'không-xác-định', 100);
   const channelId = truncate(job.channelId || 'không-xác-định', 100);
+  const workerSummary = summarizeWorkers(job);
   const embed = new EmbedBuilder()
     .setColor(COLORS[job.status] || COLORS.response)
     .setAuthor(identityOptions(options, 'OPENCLAW // JOB MONITOR'))
@@ -234,8 +289,8 @@ function buildJobStatusEmbed(job, options = {}) {
         inline: true,
       },
       {
-        name: '⚙️ Task nền',
-        value: `${activeTaskCount(job)} đang chạy`,
+        name: '🤖 Worker',
+        value: workerCountsValue(workerSummary),
         inline: true,
       },
     );
@@ -247,6 +302,12 @@ function buildJobStatusEmbed(job, options = {}) {
       inline: false,
     });
   }
+
+  embed.addFields({
+    name: '🛠️ Task hiện tại',
+    value: currentTaskValue(job, workerSummary, now),
+    inline: false,
+  });
 
   embed.addFields({
     name: terminal ? '📋 Hoạt động gần nhất' : '📡 Luồng hoạt động',
@@ -264,9 +325,12 @@ function buildJobStatusEmbed(job, options = {}) {
 
   embed
     .setFooter({
-      text: truncate(jobFooter(job, counts, prefix, terminal), EMBED_LIMITS.footer),
+      text: truncate(
+        jobFooter(job, counts, prefix, terminal, options.heartbeatMs),
+        EMBED_LIMITS.footer,
+      ),
     })
-    .setTimestamp(safeTimestamp(job.updatedAt || options.timestamp));
+    .setTimestamp(safeTimestamp(terminal ? job.updatedAt || options.timestamp : now));
 
   if (validHttpUrl(options.botIconUrl)) {
     embed.setThumbnail(options.botIconUrl);

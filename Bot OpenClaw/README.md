@@ -82,6 +82,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-control-app.
 
 File `OpenClaw Discord Bot.exe` có giao diện trạng thái và các nút Bật bot, Tắt bot, Làm mới, Mở thư mục log. Bot được chạy nền qua Task Scheduler nên không xuất hiện cửa sổ console; Task Scheduler vẫn chống chạy trùng và tự restart khi tiến trình đang chạy gặp lỗi.
 
+Khi task của bot đang chạy, launcher `scripts/run-bot-awake.ps1` tạo yêu cầu giữ **hệ thống** thức nhưng không giữ **màn hình** sáng. Vì vậy Windows vẫn có thể tắt màn hình, còn CPU, mạng, OpenClaw Gateway và bot Discord tiếp tục chạy. Yêu cầu giữ thức được gỡ tự động ngay khi bot dừng.
+
+Không khóa Windows bằng `Win+L` nếu job cần chụp hoặc điều khiển desktop. Nếu nút nguồn của màn hình/DisplayPort làm Windows mất hẳn display, các lệnh `screen.snapshot` vẫn cần một HDMI dummy plug hoặc virtual display; các job chỉ dùng file, API hay browser headless không bị giới hạn này.
+
 Log nằm tại `logs/bot.log`; trạng thái kênh/session nằm tại `data/state.json`; job bền vững và delivery ledger nằm tại `data/jobs.json`. Thư mục `data`, `logs` cùng `.env` đều bị Git bỏ qua.
 
 ## Giới hạn ảnh

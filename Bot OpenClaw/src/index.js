@@ -31,6 +31,7 @@ const { JobSupervisor, TERMINAL_JOB_STATUSES, artifactCounts } = require('./job-
 const { RequestDeadline } = require('./request-deadline');
 const { splitDiscordText } = require('./message-utils');
 const { buildJobStatusEmbed, buildResponseEmbeds } = require('./discord-embeds');
+const { readSessionContextUsage } = require('./session-context');
 const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
 const { startStatusHeartbeat } = require('./status-heartbeat');
@@ -159,8 +160,13 @@ async function updateStatusMessage(job) {
   const sessionPending = queue.pendingMetadata
     .filter((item) => (item.sessionKey || item.channelId) === sessionKey);
   const sessionQueueIndex = sessionPending.findIndex((item) => item.jobId === current.id);
+  const contextUsage = await readSessionContextUsage(
+    OPENCLAW_SESSIONS_DIR,
+    current.rootSessionKey,
+  );
   const embed = buildJobStatusEmbed(current, {
     counts: artifactCounts(current),
+    contextUsage,
     queuePosition: sessionQueueIndex >= 0 ? sessionQueueIndex + 1 : null,
     queuePending: sessionPending.length,
     activeSessions: queue.activeCount,

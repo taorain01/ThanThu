@@ -148,6 +148,11 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
   for (const status of statuses) {
     const embed = buildJobStatusEmbed(createJob(status), {
       counts: { delivered: 2, total: 4, ready: 1 },
+      contextUsage: {
+        usedTokens: 46907,
+        contextTokens: 200000,
+        source: 'transcript',
+      },
       queuePosition: status === 'queued' ? 2 : null,
       queuePending: 5,
       activeSessions: 2,
@@ -166,6 +171,9 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
     assert.ok(data.fields.some((field) => field.name.includes('File')));
     assert.ok(data.fields.some((field) => field.name.includes('Worker')));
     assert.ok(data.fields.some((field) => field.name.includes('Task hiện tại')));
+    const contextField = data.fields.find((field) => field.name.includes('Context'));
+    assert.match(contextField.value, /46,907 \/ 200,000 token \(23\.5%\)/);
+    assert.match(contextField.value, /chính xác/);
     if (status === 'queued') {
       const queueField = data.fields.find((field) => field.name.includes('Hàng đợi'));
       assert.match(queueField.value, /2\/5/);

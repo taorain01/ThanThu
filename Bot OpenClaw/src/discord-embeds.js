@@ -192,6 +192,28 @@ function workerCountsValue(summary) {
   return `${summary.counts.active} đang chạy • ${summary.counts.succeeded} xong • ${summary.counts.problem} lỗi`;
 }
 
+function tokenLabel(value) {
+  return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('en-US');
+}
+
+function contextUsageValue(usage) {
+  const contextTokens = Number(usage?.contextTokens);
+  const usedTokens = Number(usage?.usedTokens);
+  if (!Number.isFinite(contextTokens) || contextTokens <= 0) {
+    return 'OpenClaw chưa báo giới hạn context của session này.';
+  }
+  if (!Number.isFinite(usedTokens) || usedTokens < 0) {
+    return `Chưa có usage chính xác • giới hạn **${tokenLabel(contextTokens)} token**`;
+  }
+  const percentage = ((usedTokens / contextTokens) * 100)
+    .toFixed(1)
+    .replace(/\.0$/, '');
+  const sourceLabel = usage.source === 'session'
+    ? 'Snapshot session mới nhất'
+    : 'Usage chính xác của lần gọi model gần nhất';
+  return `**${tokenLabel(usedTokens)} / ${tokenLabel(contextTokens)} token (${percentage}%)**\n${sourceLabel}`;
+}
+
 function currentTaskValue(job, summary, now) {
   const worker = summary.current;
   if (!worker) {
@@ -296,6 +318,12 @@ function buildJobStatusEmbed(job, options = {}) {
         inline: true,
       },
     );
+
+  embed.addFields({
+    name: '🧠 Context session',
+    value: contextUsageValue(options.contextUsage),
+    inline: false,
+  });
 
   if (queuePosition) {
     embed.addFields({

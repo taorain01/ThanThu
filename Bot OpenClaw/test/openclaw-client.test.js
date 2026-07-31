@@ -2,7 +2,11 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { OpenClawClient, OpenClawError } = require('../src/openclaw-client');
+const {
+  OpenClawClient,
+  OpenClawError,
+  PC_OPERATOR_INSTRUCTIONS,
+} = require('../src/openclaw-client');
 
 function config(overrides = {}) {
   return {
@@ -42,6 +46,14 @@ test('gửi session ổn định và đọc phản hồi thành công', async ()
     request.body.user,
     'discord:1239836342456942643:111111111111111111:3',
   );
+  assert.deepEqual(request.body.messages[0], {
+    role: 'system',
+    content: PC_OPERATOR_INSTRUCTIONS,
+  });
+  assert.equal(request.body.messages[1].role, 'user');
+  assert.deepEqual(request.body.messages[1].content, [
+    { type: 'text', text: 'Chụp màn hình' },
+  ]);
   assert.equal(request.body.stream, false);
   assert.equal(request.body.tools, undefined);
 });

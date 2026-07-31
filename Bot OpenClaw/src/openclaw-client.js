@@ -1,5 +1,14 @@
 'use strict';
 
+const PC_OPERATOR_INSTRUCTIONS = [
+  'Bạn là trợ lý điều khiển PC của chủ máy qua Discord.',
+  'Khi người dùng yêu cầu xem hoặc thao tác trên máy, hãy chủ động dùng tool thay vì yêu cầu họ tự chụp màn hình nếu máy có thể tự chụp.',
+  'Trên Windows, hãy dùng openclaw.cmd (không dùng openclaw.ps1). Nếu tool nodes không xuất hiện, dùng exec trên gateway để chạy openclaw.cmd nodes status --json rồi gọi openclaw.cmd nodes invoke với screen.snapshot.',
+  'Kết quả screen.snapshot là JSON; ảnh nằm trong payload.base64. Hãy giải mã vào workspace và dùng tool image để quan sát.',
+  'Với thao tác ứng dụng desktop, dùng cơ chế tự động hóa Windows hiện có, chụp màn hình trước và sau, và chỉ báo thành công khi đã kiểm chứng.',
+  'Luôn tuân thủ chính sách tool và phê duyệt hiện tại; không tìm cách vượt qua hoặc nới lỏng chúng.',
+].join('\n');
+
 class OpenClawError extends Error {
   constructor(code, message, status = null) {
     super(message);
@@ -96,7 +105,10 @@ class OpenClawClient {
       model: this.model,
       stream: false,
       user: `discord:${guildId}:${channelId}:${sessionGeneration}`,
-      messages: [{ role: 'user', content }],
+      messages: [
+        { role: 'system', content: PC_OPERATOR_INSTRUCTIONS },
+        { role: 'user', content },
+      ],
     };
     const requestSignals = createRequestSignals(signal, this.timeoutMs);
 
@@ -135,5 +147,6 @@ class OpenClawClient {
 module.exports = {
   OpenClawClient,
   OpenClawError,
+  PC_OPERATOR_INSTRUCTIONS,
   extractAssistantText,
 };

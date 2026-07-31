@@ -28,26 +28,51 @@ class SerialRequestQueue {
     };
   }
 
-  enqueue(task) {
+  enqueue(task, metadata = {}) {
     if (this.pending.length >= this.maxPending) {
       return Promise.reject(new QueueFullError());
     }
 
     const promise = new Promise((resolve, reject) => {
-      this.pending.push({ task, resolve, reject });
+      this.pending.push({ task, resolve, reject, metadata });
     });
     void this.drain();
     return promise;
   }
 
   stop() {
-    if (this.active) {
+    return this.stopWhere(() => true);
+  }
+
+  stopWhere(predicate) {
+    let stopped = 0;
+    if (this.active && predicate(this.active.metadata)) {
       this.active.controller.abort(new QueueStoppedError());
+      stopped += 1;
     }
-    const waiting = this.pending.splice(0);
+    const waiting = [];
+    const kept = [];
+    for (const item of this.pending) {
+      if (predicate(item.metadata)) {
+        waiting.push(item);
+      } else {
+        kept.push(item);
+      }
+    }
+    this.pending = kept;
     for (const item of waiting) {
       item.reject(new QueueStoppedError());
+      stopped += 1;
     }
+    return stopped;
+  }
+
+  getDetailedStatus() {
+    return {
+      ...this.getStatus(),
+      activeMetadata: this.active ? { ...this.active.metadata } : null,
+      pendingMetadata: this.pending.map((item) => ({ ...item.metadata })),
+    };
   }
 
   async drain() {
@@ -57,7 +82,7 @@ class SerialRequestQueue {
 
     const item = this.pending.shift();
     const controller = new AbortController();
-    this.active = { controller };
+    this.active = { controller, metadata: item.metadata };
     try {
       const result = await item.task(controller.signal);
       item.resolve(result);

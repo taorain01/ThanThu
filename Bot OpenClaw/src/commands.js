@@ -1,6 +1,6 @@
 'use strict';
 
-const VALID_ACTIONS = new Set(['status', 'reset', 'stop', 'off']);
+const VALID_ACTIONS = new Set(['status', 'jobs', 'reset', 'resume', 'resend', 'stop', 'off']);
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -8,7 +8,7 @@ function escapeRegExp(value) {
 
 function parseCommand(content, prefix) {
   const pattern = new RegExp(
-    `^${escapeRegExp(prefix)}\\s*openclaw(?:\\s+([^\\s]+))?\\s*$`,
+    `^${escapeRegExp(prefix)}\\s*openclaw(?:\\s+([^\\s]+))?(?:\\s+(.+?))?\\s*$`,
     'i',
   );
   const match = String(content || '').trim().match(pattern);
@@ -21,7 +21,11 @@ function parseCommand(content, prefix) {
   }
 
   const action = match[1].toLowerCase();
-  return VALID_ACTIONS.has(action) ? { action } : { action: 'help' };
+  if (!VALID_ACTIONS.has(action)) {
+    return { action: 'help' };
+  }
+  const args = String(match[2] || '').trim().split(/\s+/).filter(Boolean);
+  return args.length ? { action, args } : { action };
 }
 
 module.exports = {

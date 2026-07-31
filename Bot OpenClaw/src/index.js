@@ -13,6 +13,7 @@ const {
 const { loadConfig } = require('./config');
 const { parseCommand } = require('./commands');
 const { StateStore, StateStoreError } = require('./state-store');
+const { JobStore, JobStoreError } = require('./job-store');
 const {
   QueueFullError,
   QueueStoppedError,
@@ -25,21 +26,16 @@ const {
 } = require('./image-payload');
 const { AudioTranscriber, AudioTranscriptionError } = require('./audio-transcriber');
 const { OpenClawClient, OpenClawError } = require('./openclaw-client');
+const { OpenClawTaskClient } = require('./openclaw-task-client');
+const { JobSupervisor, TERMINAL_JOB_STATUSES, artifactCounts } = require('./job-supervisor');
+const { RequestDeadline } = require('./request-deadline');
 const { splitDiscordText } = require('./message-utils');
+const { buildJobStatusEmbed, buildResponseEmbeds } = require('./discord-embeds');
 const { createLogger } = require('./logger');
-const { extractMediaReferences, resolveMediaReferences } = require('./response-media');
-const {
-  OpenClawSessionMonitor,
-  formatFinishedActivity,
-  formatLiveActivity,
-} = require('./session-activity');
+const { cleanupOutbox, extractMediaReferences } = require('./response-media');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
 const OPENCLAW_HOME = path.join(os.homedir(), '.openclaw');
-const OPENCLAW_MEDIA_ROOTS = [
-  path.join(OPENCLAW_HOME, 'workspace'),
-  path.join(OPENCLAW_HOME, 'media'),
-];
 dotenv.config({ path: path.join(BOT_ROOT, '.env'), quiet: true });
 
 const config = loadConfig();
@@ -49,11 +45,26 @@ const OPENCLAW_SESSIONS_DIR = path.join(
   config.openclawAgentId,
   'sessions',
 );
+const OPENCLAW_OUTBOX_ROOT = path.join(OPENCLAW_HOME, 'media', 'discord-outbox');
+const OPENCLAW_MEDIA_ROOTS = [...new Set([
+  path.join(OPENCLAW_HOME, 'workspace'),
+  path.join(OPENCLAW_HOME, 'media'),
+  ...config.mediaSourceRoots,
+])];
+
 const logger = createLogger(path.join(BOT_ROOT, 'logs', 'bot.log'));
 const stateStore = new StateStore(path.join(BOT_ROOT, 'data', 'state.json'));
+const jobStore = new JobStore(path.join(BOT_ROOT, 'data', 'jobs.json'));
 const openclaw = new OpenClawClient(config);
-const audioTranscriber = new AudioTranscriber({ timeoutMs: config.requestTimeoutMs });
-const queues = new Map();
+const taskClient = new OpenClawTaskClient();
+const audioTranscriber = new AudioTranscriber({ timeoutMs: config.requestIdleTimeoutMs });
+const globalQueue = new SerialRequestQueue(config.maxPending);
+const sourceMessages = new Map();
+const statusUpdateTimers = new Map();
+const statusUpdatePromises = new Map();
+const statusUpdatedAt = new Map();
+let heartbeatTimer = null;
+let supervisor;
 
 const client = new Client({
   intents: [
@@ -62,25 +73,6 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
-
-function queueKey(guildId, channelId) {
-  return `${guildId}:${channelId}`;
-}
-
-function getQueue(guildId, channelId) {
-  const key = queueKey(guildId, channelId);
-  if (!queues.has(key)) {
-    queues.set(key, new SerialRequestQueue(config.maxPending));
-  }
-  return queues.get(key);
-}
-
-function stopQueue(guildId, channelId) {
-  if (!channelId) {
-    return;
-  }
-  queues.get(queueKey(guildId, channelId))?.stop();
-}
 
 function isAllowed(userId) {
   return config.allowedUserIds.has(userId);
@@ -94,10 +86,22 @@ function discordMessageOptions(content, files = []) {
   };
 }
 
+function discordEmbedOptions(embed, options = {}) {
+  return {
+    ...(options.clearContent ? { content: null } : {}),
+    embeds: [embed],
+    files: options.files || [],
+    allowedMentions: { parse: [], repliedUser: false },
+  };
+}
+
+function botIconUrl() {
+  return client.user?.displayAvatarURL({ extension: 'png', size: 128 });
+}
+
 async function sendChunks(message, text, options = {}) {
   const chunks = splitDiscordText(text);
   const files = options.files || [];
-
   try {
     await message.reply(discordMessageOptions(chunks[0], files));
   } catch {
@@ -108,135 +112,160 @@ async function sendChunks(message, text, options = {}) {
   }
 }
 
-async function sendMediaReferences(message, references, sentPaths) {
-  const resolved = await resolveMediaReferences(references, {
-    openclawHome: OPENCLAW_HOME,
-    allowedRoots: OPENCLAW_MEDIA_ROOTS,
-  });
-  if (resolved.rejectedCount) {
-    logger.warn('Bỏ qua media OpenClaw không hợp lệ hoặc vượt giới hạn.', {
-      rejectedCount: resolved.rejectedCount,
-      messageId: message.id,
-    });
-  }
+async function resolveDiscordChannel(channelId) {
+  return client.channels.cache.get(channelId) || client.channels.fetch(channelId);
+}
 
-  for (const file of resolved.files) {
-    const key = process.platform === 'win32' ? file.path.toLowerCase() : file.path;
-    if (sentPaths.has(key)) {
-      continue;
-    }
+async function sendJobResponse(job, text) {
+  const embeds = buildResponseEmbeds(text, {
+    jobId: job.id,
+    botName: 'OPENCLAW // ASSISTANT',
+    botIconUrl: botIconUrl(),
+  });
+  const source = sourceMessages.get(job.id);
+  const channel = source?.channel || await resolveDiscordChannel(job.channelId);
+  if (source) {
     try {
-      const attachment = new AttachmentBuilder(file.path, {
-        name: `openclaw-image-${sentPaths.size + 1}${file.extension}`,
-      });
-      await message.channel.send(discordMessageOptions('🖼️ Ảnh trong phiên làm việc:', [attachment]));
-      sentPaths.add(key);
-    } catch (error) {
-      logger.warn('Không gửi được ảnh OpenClaw lên Discord.', {
-        name: error.name,
-        messageId: message.id,
-      });
+      await source.reply(discordEmbedOptions(embeds[0]));
+    } catch {
+      await channel.send(discordEmbedOptions(embeds[0]));
     }
+  } else {
+    await channel.send(discordEmbedOptions(embeds[0]));
+  }
+  for (const embed of embeds.slice(1)) {
+    await channel.send(discordEmbedOptions(embed));
   }
 }
 
-function createActivityReporter(message) {
-  const startedAt = Date.now();
-  const events = [];
-  const sentMediaPaths = new Set();
-  let statusMessage = null;
-  let updateTimer = null;
-  let heartbeatTimer = null;
-  let finished = false;
-  let lastContent = '';
-  let updateChain = Promise.resolve();
-  let mediaChain = Promise.resolve();
+function elapsedLabel(startedAt) {
+  const elapsedMs = Math.max(0, Date.now() - Date.parse(startedAt));
+  const totalMinutes = Math.floor(elapsedMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`;
+}
 
-  const enqueueEdit = (content) => {
-    if (!statusMessage || content === lastContent) {
-      return updateChain;
-    }
-    lastContent = content;
-    updateChain = updateChain
-      .then(() => statusMessage.edit(discordMessageOptions(content)))
-      .catch((error) => {
-        logger.warn('Không cập nhật được tiến độ phiên trên Discord.', {
-          name: error.name,
-          messageId: message.id,
-        });
+async function updateStatusMessage(job) {
+  const current = jobStore.getJob(job.id);
+  const queue = globalQueue.getDetailedStatus();
+  const queueIndex = queue.pendingMetadata.findIndex((item) => item.jobId === current.id);
+  const embed = buildJobStatusEmbed(current, {
+    counts: artifactCounts(current),
+    queuePosition: queueIndex >= 0 ? queueIndex + 1 : null,
+    queuePending: queue.pending,
+    prefix: config.prefix,
+    botName: 'OPENCLAW // JOB MONITOR',
+    botIconUrl: botIconUrl(),
+  });
+  const channel = await resolveDiscordChannel(current.channelId);
+  if (current.statusMessageId) {
+    try {
+      const statusMessage = await channel.messages.fetch(current.statusMessageId);
+      await statusMessage.edit(discordEmbedOptions(embed, { clearContent: true }));
+      statusUpdatedAt.set(current.id, Date.now());
+      return statusMessage;
+    } catch (error) {
+      logger.warn('Không cập nhật được status message cũ; sẽ tạo tin mới.', {
+        jobId: current.id,
+        name: error.name,
       });
-    return updateChain;
-  };
+    }
+  }
 
-  const updateLive = () => enqueueEdit(formatLiveActivity(events, Date.now() - startedAt));
-  const scheduleUpdate = () => {
-    if (finished || updateTimer) {
+  const source = sourceMessages.get(current.id);
+  let statusMessage;
+  if (source) {
+    try {
+      statusMessage = await source.reply(discordEmbedOptions(embed));
+    } catch {
+      statusMessage = await channel.send(discordEmbedOptions(embed));
+    }
+  } else {
+    statusMessage = await channel.send(discordEmbedOptions(embed));
+  }
+  await jobStore.updateJob(current.id, { statusMessageId: statusMessage.id });
+  statusUpdatedAt.set(current.id, Date.now());
+  return statusMessage;
+}
+
+async function ensureStatusMessage(job) {
+  if (statusUpdatePromises.has(job.id)) {
+    return statusUpdatePromises.get(job.id);
+  }
+  const operation = updateStatusMessage(job);
+  statusUpdatePromises.set(job.id, operation);
+  try {
+    return await operation;
+  } finally {
+    statusUpdatePromises.delete(job.id);
+  }
+}
+
+function scheduleStatusUpdate(job, options = {}) {
+  if (!job) {
+    return;
+  }
+  const immediate = options.immediate === true || TERMINAL_JOB_STATUSES.has(job.status);
+  if (statusUpdateTimers.has(job.id)) {
+    if (!immediate) {
       return;
     }
-    updateTimer = setTimeout(() => {
-      updateTimer = null;
-      void updateLive();
-    }, 1200);
-    updateTimer.unref?.();
-  };
-
-  return {
-    sentMediaPaths,
-    async start() {
-      const content = formatLiveActivity(events, 0);
-      lastContent = content;
-      try {
-        statusMessage = await message.reply(discordMessageOptions(content));
-      } catch {
-        statusMessage = await message.channel.send(discordMessageOptions(content));
-      }
-      heartbeatTimer = setInterval(() => void updateLive(), 10000);
-      heartbeatTimer.unref?.();
-    },
-    async add(event) {
-      if (finished) {
-        return;
-      }
-      if (event.text) {
-        events.push(event.text);
-        scheduleUpdate();
-      }
-      if (event.mediaReferences?.length) {
-        mediaChain = mediaChain.then(() => (
-          sendMediaReferences(message, event.mediaReferences, sentMediaPaths)
-        ));
-      }
-    },
-    async finish(status) {
-      if (finished) {
-        return;
-      }
-      finished = true;
-      if (updateTimer) {
-        clearTimeout(updateTimer);
-      }
-      if (heartbeatTimer) {
-        clearInterval(heartbeatTimer);
-      }
-      const formatted = formatFinishedActivity(events, Date.now() - startedAt, status);
-      await enqueueEdit(formatted.panel);
-      await mediaChain;
-      if (formatted.overflow) {
-        for (const chunk of splitDiscordText(formatted.overflow)) {
-          await message.channel.send(discordMessageOptions(chunk));
-        }
-      }
-    },
-  };
+    clearTimeout(statusUpdateTimers.get(job.id));
+    statusUpdateTimers.delete(job.id);
+  }
+  const elapsed = Date.now() - (statusUpdatedAt.get(job.id) || 0);
+  const waitMs = immediate ? 100 : Math.max(100, config.jobHeartbeatMs - elapsed);
+  const timer = setTimeout(() => {
+    statusUpdateTimers.delete(job.id);
+    void ensureStatusMessage(jobStore.getJob(job.id)).catch((error) => {
+      logger.warn('Không thể cập nhật tiến độ job trên Discord.', {
+        jobId: job.id,
+        name: error.name,
+      });
+    });
+  }, waitMs);
+  timer.unref?.();
+  statusUpdateTimers.set(job.id, timer);
 }
 
-async function sendOpenClawResponse(message, responseText, sentMediaPaths) {
+async function sendArtifactToDiscord(job, artifact) {
+  const channel = await resolveDiscordChannel(job.channelId);
+  const prefix = artifact.resend ? '🔁 Gửi lại' : '🖼️';
+  const label = artifact.label || `Ảnh ${artifact.order}`;
+  const attachment = new AttachmentBuilder(artifact.stagedPath, {
+    name: `openclaw-${job.id}-${artifact.order}${artifact.extension}`,
+  });
+  const sent = await channel.send(discordMessageOptions(`${prefix} ${label}`, [attachment]));
+  return sent.id;
+}
+
+supervisor = new JobSupervisor({
+  store: jobStore,
+  taskClient,
+  openclaw,
+  sessionsDir: OPENCLAW_SESSIONS_DIR,
+  openclawHome: OPENCLAW_HOME,
+  allowedRoots: OPENCLAW_MEDIA_ROOTS,
+  outboxRoot: OPENCLAW_OUTBOX_ROOT,
+  pollMs: config.jobPollMs,
+  idleTimeoutMs: config.requestIdleTimeoutMs,
+  maxRuntimeMs: config.requestMaxRuntimeMs,
+  logger,
+  onJobChanged: async (job) => scheduleStatusUpdate(job),
+  sendArtifact: sendArtifactToDiscord,
+});
+
+async function sendOpenClawResponse(jobId, responseText) {
   const parsed = extractMediaReferences(responseText);
-  const fallback = parsed.references.length
-    ? 'OpenClaw đã hoàn tất; ảnh được gửi trong phiên làm việc.'
-    : responseText;
-  await sendChunks(message, parsed.text || fallback);
-  await sendMediaReferences(message, parsed.references, sentMediaPaths);
+  for (const reference of parsed.references) {
+    await supervisor.registerArtifact(jobId, reference, 'Ảnh thành phẩm từ OpenClaw');
+  }
+  const visibleText = parsed.text || (parsed.references.length
+    ? 'OpenClaw đã hoàn tất bước hiện tại; file đang được gửi riêng.'
+    : responseText);
+  await sendJobResponse(jobStore.getJob(jobId), visibleText);
+  await jobStore.updateJob(jobId, { responseSent: true });
 }
 
 function publicErrorMessage(error) {
@@ -251,8 +280,6 @@ function publicErrorMessage(error) {
     switch (error.code) {
       case 'auth':
         return 'OpenClaw từ chối token Gateway. Hãy kiểm tra cấu hình trên máy chủ.';
-      case 'timeout':
-        return 'OpenClaw xử lý quá thời gian. Bot không tự gửi lại để tránh lặp thao tác trên PC.';
       case 'rate_limited':
         return 'OpenClaw đang giới hạn tần suất. Hãy thử lại sau.';
       case 'payload_too_large':
@@ -264,7 +291,48 @@ function publicErrorMessage(error) {
         return 'OpenClaw không xử lý được yêu cầu này.';
     }
   }
+  if (error?.code === 'idle_timeout') {
+    return 'OpenClaw không có hoạt động mới trong 30 phút nên bot đã dừng chờ. Durable task còn chạy vẫn tiếp tục được theo dõi.';
+  }
+  if (error?.code === 'max_runtime') {
+    return 'Lượt OpenClaw đã đạt giới hạn an toàn 12 giờ. Hãy dùng `> openclaw resume` để khôi phục từ checkpoint.';
+  }
   return 'Bot gặp lỗi khi xử lý yêu cầu. Chi tiết đã được ghi vào log cục bộ.';
+}
+
+function activeJobsForChannel(channelId) {
+  return jobStore.listJobs({ channelId, activeOnly: true });
+}
+
+async function stopJobs(jobs) {
+  const selectedIds = new Set(jobs.map((job) => job.id));
+  const stoppedQueueItems = globalQueue.stopWhere((metadata) => selectedIds.has(metadata.jobId));
+  for (const job of jobs) {
+    if (job.status === 'queued') {
+      await jobStore.updateJob(job.id, {
+        status: 'stopped',
+        terminalReason: 'Đã xóa khỏi hàng đợi theo yêu cầu người dùng.',
+      });
+      scheduleStatusUpdate(jobStore.getJob(job.id));
+    } else {
+      await supervisor.cancelJob(job.id);
+    }
+  }
+  return stoppedQueueItems;
+}
+
+function parseResendTarget(channelId, args = []) {
+  if (!args.length) {
+    return { job: jobStore.latestJob(channelId), selector: 'all', force: false };
+  }
+  if (args.length === 1 && (args[0].toLowerCase() === 'all' || /^\d{1,3}$/.test(args[0]))) {
+    return { job: jobStore.latestJob(channelId), selector: args[0].toLowerCase(), force: true };
+  }
+  return {
+    job: jobStore.getJob(args[0]),
+    selector: String(args[1] || 'all').toLowerCase(),
+    force: true,
+  };
 }
 
 async function handleCommand(message, command) {
@@ -276,10 +344,9 @@ async function handleCommand(message, command) {
   const current = stateStore.getChannel(config.guildId, message.channel.id);
   if (command.action === 'bind') {
     if (message.channel.type !== ChannelType.GuildText) {
-      await sendChunks(message, 'V1 chỉ cho phép chọn một text channel thông thường trong server.');
+      await sendChunks(message, 'Chỉ cho phép bật OpenClaw trong text channel thông thường của server.');
       return;
     }
-
     const bound = await stateStore.bindChannel(config.guildId, message.channel.id);
     const everyoneCanView = message.channel
       .permissionsFor(message.guild.roles.everyone)
@@ -306,21 +373,23 @@ async function handleCommand(message, command) {
   if (command.action === 'status') {
     const health = await openclaw.health();
     const activeChannels = stateStore.getActiveChannels(config.guildId);
-    const queueStatus = current?.enabled
-      ? getQueue(config.guildId, message.channel.id).getStatus()
-      : { active: false, pending: 0 };
+    const queue = globalQueue.getDetailedStatus();
+    const activeJobs = jobStore.listJobs({ activeOnly: true });
     const botIsAdmin = message.guild.members.me?.permissions.has(PermissionFlagsBits.Administrator);
     const lines = [
       `Kênh hiện tại: <#${message.channel.id}> (${current?.enabled ? 'đang bật' : 'chưa bật'})`,
       `OpenClaw Gateway: ${health.ok ? 'đang hoạt động' : `không sẵn sàng${health.status ? ` (HTTP ${health.status})` : ''}`}`,
-      `Yêu cầu đang chạy: ${queueStatus.active ? 'có' : 'không'}`,
-      `Yêu cầu đang chờ: ${queueStatus.pending}`,
-      `Phiên: ${current?.sessionGeneration || 0}`,
-      `Các kênh đang bật (${activeChannels.length}): ${activeChannels.length ? activeChannels.map((entry) => `<#${entry.channelId}> (phiên ${entry.sessionGeneration})`).join(', ') : 'không có'}`,
-      'Nhật ký phiên: bật (đã lọc dữ liệu nhạy cảm)',
-      'Prompt đính kèm: ảnh và audio đang bật',
-      'Gửi ảnh kết quả: bật (workspace/media, tối đa 8 MB mỗi ảnh)',
+      `Queue toàn cục: ${queue.active ? 'đang chạy' : 'rảnh'} · ${queue.pending} yêu cầu chờ`,
+      `Job bền vững đang hoạt động: ${activeJobs.length}`,
+      `Phiên kênh: ${current?.sessionGeneration || 0}`,
+      `Các kênh đang bật (${activeChannels.length}): ${activeChannels.length ? activeChannels.map((entry) => `<#${entry.channelId}>`).join(', ') : 'không có'}`,
+      `Nguồn file được phép: ${OPENCLAW_MEDIA_ROOTS.length} thư mục · outbox giữ ${config.mediaOutboxRetentionHours} giờ`,
     ];
+    for (const job of activeJobs.slice(0, 3)) {
+      const counts = artifactCounts(job);
+      const latestStep = job.lastEvent ? ` · bước gần nhất: ${job.lastEvent}` : '';
+      lines.push(`• \`${job.id}\` <#${job.channelId}>: ${job.status} · ${elapsedLabel(job.createdAt)} · ${counts.delivered}/${counts.total} file${latestStep}`);
+    }
     if (botIsAdmin) {
       lines.push('Cảnh báo: bot vẫn đang có quyền Administrator; nên hạ xuống quyền tối thiểu sau khi kiểm tra.');
     }
@@ -328,125 +397,169 @@ async function handleCommand(message, command) {
     return;
   }
 
-  if (command.action === 'reset') {
-    if (!current?.enabled) {
-      await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
+  if (command.action === 'jobs') {
+    const jobs = jobStore.listJobs({ limit: 10 });
+    const lines = jobs.length
+      ? jobs.map((job) => {
+        const counts = artifactCounts(job);
+        return `\`${job.id}\` · <#${job.channelId}> · ${job.status} · ${counts.delivered}/${counts.total} file`;
+      })
+      : ['Chưa có job OpenClaw nào được lưu.'];
+    await sendChunks(message, ['**10 job OpenClaw gần nhất**', ...lines].join('\n'));
+    return;
+  }
+
+  if (command.action === 'resend') {
+    const target = parseResendTarget(message.channel.id, command.args);
+    if (!target.job) {
+      await sendChunks(message, 'Không tìm thấy job để gửi lại.');
       return;
     }
-    stopQueue(config.guildId, message.channel.id);
-    const reset = await stateStore.resetSession(config.guildId, message.channel.id);
+    const sent = await supervisor.resend(target.job.id, target.selector, target.force);
     await sendChunks(
       message,
-      `Đã tạo phiên OpenClaw mới (phiên ${reset.sessionGeneration}). Yêu cầu cũ đã bị ngắt ở phía bot.`,
+      sent.length
+        ? `Đã gửi lại ${sent.length} file của job \`${target.job.id}\`.`
+        : 'Không có file phù hợp để gửi lại.',
     );
+    return;
+  }
+
+  if (command.action === 'resume') {
+    const job = command.args?.[0]
+      ? jobStore.getJob(command.args[0])
+      : jobStore.latestJob(message.channel.id);
+    if (!job) {
+      await sendChunks(message, 'Không tìm thấy job để khôi phục.');
+      return;
+    }
+    if (!TERMINAL_JOB_STATUSES.has(job.status) || job.status === 'completed') {
+      await sendChunks(message, 'Chỉ có thể resume job đã dừng, thất bại hoặc hoàn tất có blocker.');
+      return;
+    }
+    void globalQueue.enqueue(
+      (signal) => supervisor.recoverJob(job.id, signal, { force: true }),
+      { jobId: job.id, channelId: job.channelId, recovery: true },
+    ).catch(async (error) => {
+      logger.error('Không khôi phục được job OpenClaw.', { jobId: job.id, name: error.name });
+      await sendChunks(message, publicErrorMessage(error)).catch(() => {});
+    });
+    await sendChunks(message, `Đã xếp job \`${job.id}\` vào queue khôi phục an toàn.`);
     return;
   }
 
   if (command.action === 'stop') {
+    const selector = command.args?.[0];
+    const jobs = selector === 'all'
+      ? jobStore.listJobs({ activeOnly: true })
+      : selector
+        ? [jobStore.getJob(selector)].filter(Boolean)
+        : activeJobsForChannel(message.channel.id);
+    if (!jobs.length) {
+      await sendChunks(message, 'Không có job đang hoạt động phù hợp để dừng.');
+      return;
+    }
+    await stopJobs(jobs);
+    await sendChunks(message, `Đã yêu cầu dừng ${jobs.length} job và hủy các durable task liên quan.`);
+    return;
+  }
+
+  if (command.action === 'reset' || command.action === 'off') {
     if (!current?.enabled) {
       await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
       return;
     }
-    stopQueue(config.guildId, message.channel.id);
-    await sendChunks(
-      message,
-      'Đã ngắt chờ và xóa hàng đợi. Một tool đã bắt đầu phía OpenClaw có thể vẫn hoàn tất.',
-    );
-    return;
-  }
-
-  if (command.action === 'off') {
-    if (!current?.enabled) {
-      await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
-      return;
+    await stopJobs(activeJobsForChannel(message.channel.id));
+    if (command.action === 'reset') {
+      const reset = await stateStore.resetSession(config.guildId, message.channel.id);
+      await sendChunks(message, `Đã tạo phiên OpenClaw mới (phiên ${reset.sessionGeneration}) sau khi yêu cầu dừng job cũ.`);
+    } else {
+      await stateStore.unbind(config.guildId, message.channel.id);
+      await sendChunks(message, 'Đã tắt OpenClaw riêng cho kênh hiện tại và yêu cầu dừng job đang chạy.');
     }
-    stopQueue(config.guildId, message.channel.id);
-    await stateStore.unbind(config.guildId, message.channel.id);
-    await sendChunks(message, 'Đã tắt OpenClaw riêng cho kênh hiện tại. Các kênh khác không bị ảnh hưởng.');
     return;
   }
 
-  await sendChunks(
-    message,
-    [
-      `Lệnh hợp lệ: \`${config.prefix} openclaw\``,
-      `\`${config.prefix} openclaw status\``,
-      `\`${config.prefix} openclaw reset\``,
-      `\`${config.prefix} openclaw stop\``,
-      `\`${config.prefix} openclaw off\``,
-    ].join('\n'),
-  );
+  await sendChunks(message, [
+    `Lệnh hợp lệ: \`${config.prefix} openclaw\``,
+    `\`${config.prefix} openclaw status\``,
+    `\`${config.prefix} openclaw jobs\``,
+    `\`${config.prefix} openclaw resend [job-id] [all|số]\``,
+    `\`${config.prefix} openclaw resume [job-id]\``,
+    `\`${config.prefix} openclaw stop [job-id|all]\``,
+    `\`${config.prefix} openclaw reset\``,
+    `\`${config.prefix} openclaw off\``,
+  ].join('\n'));
 }
 
-async function processOpenClawMessage(message, state, signal) {
+async function processOpenClawMessage(message, state, jobId, signal) {
+  sourceMessages.set(jobId, message);
+  await supervisor.watchJob(jobId, { rootStartAtEnd: true });
+  await jobStore.updateJob(jobId, { status: 'running' });
+  await ensureStatusMessage(jobStore.getJob(jobId));
+
+  const deadline = new RequestDeadline({
+    signal,
+    idleTimeoutMs: config.requestIdleTimeoutMs,
+    maxRuntimeMs: config.requestMaxRuntimeMs,
+  });
+  supervisor.setActivityTouch(jobId, () => deadline.touch());
   const typing = () => message.channel.sendTyping().catch(() => {});
   await typing();
   const typingTimer = setInterval(typing, 8000);
   typingTimer.unref?.();
-  const activity = createActivityReporter(message);
-  const sessionArgs = {
-    guildId: message.guildId,
-    channelId: message.channelId,
-    sessionGeneration: state.sessionGeneration,
-  };
-  const monitor = new OpenClawSessionMonitor({
-    sessionsDir: OPENCLAW_SESSIONS_DIR,
-    sessionKey: openclaw.sessionKey(sessionArgs),
-    onEvent: (event) => activity.add(event),
-  });
-  let monitorStopped = false;
+  let responseText = '';
+  let foregroundError = null;
 
   try {
-    await activity.start();
-    await monitor.start();
     const attachments = await prepareMessageAttachments(message.attachments.values(), {
-      signal,
+      signal: deadline.signal,
       audioTranscriber,
-      onAudioStart: () => activity.add({
-        text: '▶ `audio.transcribe` — phiên âm file âm thanh',
-        mediaReferences: [],
-      }),
-      onAudioComplete: () => activity.add({
-        text: '✓ `audio.transcribe` hoàn tất',
-        mediaReferences: [],
-      }),
+      onAudioStart: () => {
+        deadline.touch();
+        return supervisor.handleEvent(jobId, {
+          text: '▶ `audio.transcribe` — phiên âm file âm thanh',
+          mediaReferences: [],
+        });
+      },
+      onAudioComplete: () => {
+        deadline.touch();
+        return supervisor.handleEvent(jobId, {
+          text: '✓ `audio.transcribe` hoàn tất',
+          mediaReferences: [],
+        });
+      },
     });
-    const responseText = await openclaw.chat({
-      ...sessionArgs,
+    responseText = await openclaw.chat({
+      guildId: message.guildId,
+      channelId: message.channelId,
+      sessionGeneration: state.sessionGeneration,
       text: appendAudioTranscripts(message.content, attachments.audioTranscripts),
       imageParts: attachments.imageParts,
-      signal,
+      signal: deadline.signal,
     });
-    await monitor.stop();
-    monitorStopped = true;
 
     const latest = stateStore.getChannel(config.guildId, message.channelId);
-    if (
-      !latest?.enabled
-      || latest.sessionGeneration !== state.sessionGeneration
-    ) {
-      logger.warn('Bỏ phản hồi từ phiên OpenClaw đã cũ.', {
-        channelId: message.channelId,
-        sessionGeneration: state.sessionGeneration,
-      });
-      await activity.finish('stopped');
-      return;
+    if (!latest?.enabled || latest.sessionGeneration !== state.sessionGeneration) {
+      foregroundError = new QueueStoppedError();
+    } else {
+      await sendOpenClawResponse(jobId, responseText);
     }
-    await activity.finish('completed');
-    await sendOpenClawResponse(message, responseText, activity.sentMediaPaths);
   } catch (error) {
-    if (!monitorStopped) {
-      await monitor.stop();
-      monitorStopped = true;
-    }
-    await activity.finish(signal.aborted ? 'stopped' : 'failed');
-    throw error;
+    foregroundError = error;
   } finally {
     clearInterval(typingTimer);
-    if (!monitorStopped) {
-      await monitor.stop();
-    }
+    deadline.stop();
+    supervisor.setActivityTouch(jobId, null);
+    await supervisor.markForegroundDone(jobId, { error: foregroundError });
   }
+
+  const settled = await supervisor.waitForSettled(jobId);
+  sourceMessages.delete(jobId);
+  if (foregroundError && settled?.status === 'failed') {
+    throw foregroundError;
+  }
+  return settled;
 }
 
 client.on('messageCreate', async (message) => {
@@ -475,21 +588,47 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    const queue = getQueue(config.guildId, message.channelId);
-    void queue
-      .enqueue((signal) => processOpenClawMessage(message, state, signal))
-      .catch(async (error) => {
-        if (error instanceof QueueStoppedError) {
-          return;
+    const sessionArgs = {
+      guildId: message.guildId,
+      channelId: message.channelId,
+      sessionGeneration: state.sessionGeneration,
+    };
+    const job = await supervisor.createJob({
+      id: message.id,
+      guildId: message.guildId,
+      channelId: message.channelId,
+      userId: message.author.id,
+      requestMessageId: message.id,
+      sessionGeneration: state.sessionGeneration,
+      rootSessionKey: openclaw.sessionKey(sessionArgs),
+    }, { watch: false });
+    sourceMessages.set(job.id, message);
+    scheduleStatusUpdate(job, { immediate: true });
+
+    void globalQueue.enqueue(
+      (signal) => processOpenClawMessage(message, state, job.id, signal),
+      { jobId: job.id, channelId: message.channelId },
+    ).catch(async (error) => {
+      if (error instanceof QueueStoppedError) {
+        const latestJob = jobStore.getJob(job.id);
+        if (latestJob && !TERMINAL_JOB_STATUSES.has(latestJob.status)) {
+          await jobStore.updateJob(job.id, {
+            status: 'stopped',
+            terminalReason: 'Đã dừng khi đang chờ hoặc đang chạy trong queue.',
+          });
+          scheduleStatusUpdate(jobStore.getJob(job.id));
         }
-        logger.error('Không xử lý được tin nhắn Discord.', {
-          name: error.name,
-          code: error.code,
-          status: error.status,
-          messageId: message.id,
-        });
-        await sendChunks(message, publicErrorMessage(error)).catch(() => {});
+        return;
+      }
+      logger.error('Không xử lý được tin nhắn Discord.', {
+        name: error.name,
+        code: error.code,
+        status: error.status,
+        messageId: message.id,
+        jobId: job.id,
       });
+      await sendChunks(message, publicErrorMessage(error)).catch(() => {});
+    });
   } catch (error) {
     logger.error('Lỗi khi xử lý sự kiện messageCreate.', {
       name: error.name,
@@ -498,6 +637,51 @@ client.on('messageCreate', async (message) => {
     await sendChunks(message, publicErrorMessage(error)).catch(() => {});
   }
 });
+
+async function enqueueRecoveredJobs() {
+  const jobs = jobStore.listJobs({ activeOnly: true })
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  for (const job of jobs) {
+    let task;
+    if (job.status === 'queued') {
+      try {
+        const channel = await resolveDiscordChannel(job.channelId);
+        const message = await channel.messages.fetch(job.requestMessageId);
+        const state = stateStore.getChannel(config.guildId, job.channelId);
+        if (
+          !state?.enabled
+          || state.sessionGeneration !== job.sessionGeneration
+          || !isAllowed(message.author.id)
+        ) {
+          throw new Error('Kênh hoặc session của yêu cầu xếp hàng không còn hợp lệ.');
+        }
+        task = (signal) => processOpenClawMessage(message, state, job.id, signal);
+      } catch (error) {
+        await jobStore.updateJob(job.id, {
+          status: 'completed_with_blocker',
+          terminalReason: 'Không thể nạp lại tin nhắn Discord gốc của job đang chờ; không gửi lại prompt mù quáng.',
+        });
+        scheduleStatusUpdate(jobStore.getJob(job.id), { immediate: true });
+        logger.warn('Không thể khôi phục job đang chờ từ Discord.', {
+          jobId: job.id,
+          name: error.name,
+        });
+        continue;
+      }
+    } else {
+      task = (signal) => supervisor.recoverJob(job.id, signal);
+    }
+    void globalQueue.enqueue(
+      task,
+      { jobId: job.id, channelId: job.channelId, recovery: true },
+    ).catch((error) => {
+      logger.error('Không tự khôi phục được job OpenClaw.', {
+        jobId: job.id,
+        name: error.name,
+      });
+    });
+  }
+}
 
 client.once('ready', async () => {
   if (client.user.id !== config.applicationId) {
@@ -518,6 +702,13 @@ client.once('ready', async () => {
     openclawStatus: health.status,
   });
   client.user.setPresence({ activities: [{ name: `${config.prefix} openclaw` }] });
+  await enqueueRecoveredJobs();
+  heartbeatTimer = setInterval(() => {
+    for (const job of jobStore.listJobs({ activeOnly: true })) {
+      scheduleStatusUpdate(job);
+    }
+  }, config.jobHeartbeatMs);
+  heartbeatTimer.unref?.();
 });
 
 client.on('error', (error) => {
@@ -526,8 +717,12 @@ client.on('error', (error) => {
 
 async function shutdown(signalName) {
   logger.info('Đang dừng bot Discord.', { signal: signalName });
-  for (const queue of queues.values()) {
-    queue.stop();
+  globalQueue.stop();
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+  }
+  for (const timer of statusUpdateTimers.values()) {
+    clearTimeout(timer);
   }
   client.destroy();
 }
@@ -539,12 +734,16 @@ process.on('unhandledRejection', (error) => {
 });
 
 async function main() {
-  await stateStore.load();
+  await Promise.all([stateStore.load(), jobStore.load()]);
+  await cleanupOutbox(
+    OPENCLAW_OUTBOX_ROOT,
+    config.mediaOutboxRetentionHours * 60 * 60 * 1000,
+  ).catch((error) => logger.warn('Không dọn được media outbox cũ.', { name: error.name }));
   await client.login(config.discordToken);
 }
 
 main().catch((error) => {
-  const stateError = error instanceof StateStoreError;
+  const stateError = error instanceof StateStoreError || error instanceof JobStoreError;
   logger.error(stateError ? error.message : 'Không thể khởi động bot.', {
     name: error.name,
   });

@@ -23,6 +23,8 @@ function sanitizeInline(value) {
 
   text = text
     .replace(/%USERPROFILE%\\[^\s"'`;|]*/gi, '<đường dẫn>')
+    .replace(/[A-Za-z]:\\[^"'`;|\r\n]*?\.[A-Za-z0-9]{1,10}\b/g, '<đường dẫn>')
+    .replace(/[A-Za-z]:\\[^"'`;|\r\n]+$/gm, '<đường dẫn>')
     .replace(/[A-Za-z]:\\(?:[^\s"'`;|]+\\)*[^\s"'`;|]*/g, '<đường dẫn>')
     .replace(/\\\\[^\s"'`;|]+\\[^\s"'`;|]+/g, '<đường dẫn mạng>')
     .replace(/\s+/g, ' ')
@@ -60,14 +62,6 @@ function summarizeToolCall(call) {
   return `▶ \`${name}\`${action ? ` — ${action}` : ''}`;
 }
 
-function mediaFromToolCall(call) {
-  if (call?.name !== 'image' || !call.arguments || typeof call.arguments !== 'object') {
-    return [];
-  }
-  const values = [call.arguments.image, ...(Array.isArray(call.arguments.images) ? call.arguments.images : [])];
-  return values.filter((value) => typeof value === 'string' && value.trim());
-}
-
 function mediaFromAssistantText(value) {
   const references = [];
   for (const line of String(value || '').split(/\r?\n/)) {
@@ -88,22 +82,27 @@ function extractActivityEvents(record) {
   const events = [];
   if (message.role === 'assistant' && Array.isArray(message.content)) {
     for (const part of message.content) {
-      if (part?.type === 'text' && message.stopReason === 'toolUse') {
-        const text = sanitizeInline(String(part.text || '').replace(/\[\[[^\]]+\]\]/g, ''));
-        if (text) {
-          events.push({ text: `💬 ${text}`, mediaReferences: [] });
-        }
-      }
-      if (part?.type === 'text' && message.stopReason !== 'toolUse') {
+      if (part?.type === 'text') {
         const mediaReferences = mediaFromAssistantText(part.text);
-        if (mediaReferences.length) {
-          events.push({ text: '', mediaReferences });
+        const visibleText = String(part.text || '')
+          .split(/\r?\n/)
+          .filter((line) => !/^\s*MEDIA:/i.test(line))
+          .join(' ')
+          .replace(/\[\[[^\]]+\]\]/g, '');
+        const label = sanitizeInline(visibleText);
+        const text = message.stopReason === 'toolUse' ? label : '';
+        if (text || mediaReferences.length) {
+          events.push({
+            text: text ? `💬 ${text}` : '',
+            mediaReferences,
+            mediaLabel: label,
+          });
         }
       }
       if (part?.type === 'toolCall') {
         events.push({
           text: summarizeToolCall(part),
-          mediaReferences: mediaFromToolCall(part),
+          mediaReferences: [],
         });
       }
     }
@@ -176,28 +175,41 @@ class OpenClawSessionMonitor {
     this.sessionsDir = options.sessionsDir;
     this.sessionKey = options.sessionKey;
     this.onEvent = options.onEvent || (() => {});
+    this.onOffset = options.onOffset || (() => {});
+    this.onRecord = options.onRecord || (() => {});
     this.pollIntervalMs = options.pollIntervalMs || 750;
+    this.initialOffset = Number.isSafeInteger(options.initialOffset) ? options.initialOffset : null;
+    this.startAtEnd = options.startAtEnd !== false;
+    this.afterTimestampMs = Number.isFinite(options.afterTimestampMs)
+      ? options.afterTimestampMs
+      : null;
     this.transcriptPath = null;
     this.offset = 0;
-    this.partial = '';
+    this.offsetInitialized = false;
     this.timer = null;
     this.pollPromise = Promise.resolve();
   }
 
-  async resolveTranscript(useExistingSize) {
+  async resolveTranscript() {
     try {
       const index = JSON.parse(await fs.readFile(path.join(this.sessionsDir, 'sessions.json'), 'utf8'));
-      const sessionId = index?.[this.sessionKey]?.sessionId;
+      const entry = index?.[this.sessionKey];
+      const sessionId = entry?.sessionId;
       if (!sessionId) {
         return false;
       }
-      this.transcriptPath = path.join(this.sessionsDir, `${sessionId}.jsonl`);
-      if (useExistingSize) {
+      this.transcriptPath = entry.sessionFile || path.join(this.sessionsDir, `${sessionId}.jsonl`);
+      if (!this.offsetInitialized) {
         try {
-          this.offset = (await fs.stat(this.transcriptPath)).size;
+          const size = (await fs.stat(this.transcriptPath)).size;
+          this.offset = this.initialOffset === null
+            ? (this.startAtEnd ? size : 0)
+            : Math.min(this.initialOffset, size);
         } catch {
           this.offset = 0;
         }
+        this.offsetInitialized = true;
+        await this.onOffset(this.offset);
       }
       return true;
     } catch {
@@ -206,7 +218,7 @@ class OpenClawSessionMonitor {
   }
 
   async pollOnce() {
-    if (!this.transcriptPath && !(await this.resolveTranscript(false))) {
+    if (!this.transcriptPath && !(await this.resolveTranscript())) {
       return;
     }
 
@@ -216,16 +228,14 @@ class OpenClawSessionMonitor {
       try {
         const stat = await handle.stat();
         if (stat.size < this.offset) {
-          this.offset = stat.size;
-          this.partial = '';
-          return;
+          this.offset = 0;
+          await this.onOffset(this.offset);
         }
         if (stat.size === this.offset) {
           return;
         }
         buffer = Buffer.alloc(stat.size - this.offset);
         await handle.read(buffer, 0, buffer.length, this.offset);
-        this.offset = stat.size;
       } finally {
         await handle.close();
       }
@@ -233,31 +243,59 @@ class OpenClawSessionMonitor {
       return;
     }
 
-    const lines = `${this.partial}${buffer.toString('utf8')}`.split('\n');
-    this.partial = lines.pop() || '';
-    for (const line of lines) {
+    let cursor = 0;
+    while (cursor < buffer.length) {
+      const newlineIndex = buffer.indexOf(0x0a, cursor);
+      if (newlineIndex === -1) {
+        break;
+      }
+      const line = buffer.subarray(cursor, newlineIndex).toString('utf8').replace(/\r$/, '');
       if (!line.trim()) {
+        cursor = newlineIndex + 1;
+        this.offset += cursor;
+        buffer = buffer.subarray(cursor);
+        cursor = 0;
+        await this.onOffset(this.offset);
         continue;
       }
+      let record = null;
       try {
-        const record = JSON.parse(line);
-        for (const event of extractActivityEvents(record)) {
-          await this.onEvent(event);
-        }
+        record = JSON.parse(line);
       } catch {
-        // Ignore an incomplete or non-transcript line and continue monitoring.
+        // Commit malformed complete lines so one bad record cannot stall the transcript forever.
       }
+      if (record) {
+        await this.onRecord(record);
+        const timestampValue = record.timestamp || record.message?.timestamp;
+        const timestampMs = typeof timestampValue === 'number'
+          ? timestampValue
+          : Date.parse(timestampValue || '');
+        const isHistorical = this.afterTimestampMs !== null
+          && Number.isFinite(timestampMs)
+          && timestampMs < this.afterTimestampMs;
+        if (!isHistorical) {
+          for (const event of extractActivityEvents(record)) {
+            await this.onEvent(event);
+          }
+        }
+      }
+      cursor = newlineIndex + 1;
+      this.offset += cursor;
+      buffer = buffer.subarray(cursor);
+      cursor = 0;
+      await this.onOffset(this.offset);
     }
   }
 
   poll() {
-    this.pollPromise = this.pollPromise.then(() => this.pollOnce());
-    return this.pollPromise;
+    const operation = this.pollPromise.catch(() => {}).then(() => this.pollOnce());
+    this.pollPromise = operation;
+    return operation;
   }
 
   async start() {
-    await this.resolveTranscript(true);
-    this.timer = setInterval(() => void this.poll(), this.pollIntervalMs);
+    await this.resolveTranscript();
+    this.timer = setInterval(() => void this.poll().catch(() => {}), this.pollIntervalMs);
     this.timer.unref?.();
   }
 

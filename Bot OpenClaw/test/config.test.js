@@ -15,8 +15,10 @@ function validEnv(overrides = {}) {
     OPENCLAW_GATEWAY_TOKEN: 'gateway-token',
     OPENCLAW_MODEL: 'openclaw/default',
     OPENCLAW_AGENT_ID: 'main',
-    OPENCLAW_REQUEST_TIMEOUT_MS: '900000',
+    OPENCLAW_REQUEST_IDLE_TIMEOUT_MS: '1800000',
+    OPENCLAW_REQUEST_MAX_RUNTIME_MS: '43200000',
     OPENCLAW_MAX_PENDING: '5',
+    OPENCLAW_MEDIA_SOURCE_ROOTS: 'F:\\Hình Ảnh\\anhYoutube',
     ...overrides,
   };
 }
@@ -24,8 +26,10 @@ function validEnv(overrides = {}) {
 test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   const config = loadConfig(validEnv());
   assert.equal(config.openclawBaseUrl, 'http://127.0.0.1:18789');
-  assert.equal(config.requestTimeoutMs, 900000);
+  assert.equal(config.requestIdleTimeoutMs, 1800000);
+  assert.equal(config.requestMaxRuntimeMs, 43200000);
   assert.equal(config.maxPending, 5);
+  assert.deepEqual(config.mediaSourceRoots, ['F:\\Hình Ảnh\\anhYoutube']);
   assert.equal(config.openclawAgentId, 'main');
   assert.equal(config.allowedUserIds.has('395151484179841024'), true);
   assert.equal(config.allowedUserIds.size, 2);
@@ -64,5 +68,17 @@ test('từ chối OpenClaw agent ID không hợp lệ', () => {
   assert.throws(
     () => loadConfig(validEnv({ OPENCLAW_AGENT_ID: '../main' })),
     /OPENCLAW_AGENT_ID/,
+  );
+});
+
+test('hỗ trợ timeout cũ nhưng từ chối allowlist là gốc ổ đĩa', () => {
+  const config = loadConfig(validEnv({
+    OPENCLAW_REQUEST_IDLE_TIMEOUT_MS: '',
+    OPENCLAW_REQUEST_TIMEOUT_MS: '900000',
+  }));
+  assert.equal(config.requestIdleTimeoutMs, 900000);
+  assert.throws(
+    () => loadConfig(validEnv({ OPENCLAW_MEDIA_SOURCE_ROOTS: 'F:\\' })),
+    /không dùng trực tiếp gốc ổ đĩa/,
   );
 });

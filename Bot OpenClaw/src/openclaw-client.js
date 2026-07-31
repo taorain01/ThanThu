@@ -6,7 +6,7 @@ const PC_OPERATOR_INSTRUCTIONS = [
   'Trên Windows, hãy dùng openclaw.cmd (không dùng openclaw.ps1). Nếu tool nodes không xuất hiện, dùng exec trên gateway để chạy openclaw.cmd nodes status --json rồi gọi openclaw.cmd nodes invoke với screen.snapshot.',
   'Kết quả screen.snapshot là JSON; ảnh nằm trong payload.base64. Hãy giải mã vào workspace và dùng tool image để quan sát.',
   'Với thao tác ứng dụng desktop, dùng cơ chế tự động hóa Windows hiện có, chụp màn hình trước và sau, và chỉ báo thành công khi đã kiểm chứng.',
-  'Khi có ảnh cần cho người dùng xem, thêm mỗi ảnh vào một dòng riêng dạng MEDIA:<đường dẫn tuyệt đối>. Chỉ dùng ảnh trong workspace hoặc thư mục media của OpenClaw.',
+  'Khi có file ảnh thành phẩm cần cho người dùng xem, thêm mỗi ảnh vào một dòng riêng dạng MEDIA:<đường dẫn tuyệt đối>. Không đánh dấu MEDIA cho screenshot kiểm tra nội bộ.',
   'Luôn tuân thủ chính sách tool và phê duyệt hiện tại; không tìm cách vượt qua hoặc nới lỏng chúng.',
 ].join('\n');
 
@@ -17,14 +17,6 @@ class OpenClawError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function createRequestSignals(externalSignal, timeoutMs) {
-  const timeoutSignal = AbortSignal.timeout(timeoutMs);
-  return {
-    signal: externalSignal ? AbortSignal.any([externalSignal, timeoutSignal]) : timeoutSignal,
-    timeoutSignal,
-  };
 }
 
 function extractAssistantText(payload) {
@@ -90,7 +82,6 @@ class OpenClawClient {
     this.gatewayToken = config.openclawGatewayToken;
     this.model = config.openclawModel;
     this.agentId = config.openclawAgentId || 'main';
-    this.timeoutMs = config.requestTimeoutMs;
     this.fetchImpl = options.fetchImpl || fetch;
   }
 
@@ -111,7 +102,7 @@ class OpenClawClient {
   }
 
   async health() {
-    const { signal } = createRequestSignals(null, Math.min(this.timeoutMs, 10000));
+    const signal = AbortSignal.timeout(10000);
     try {
       const response = await this.fetchImpl(`${this.baseUrl}/v1/models`, {
         method: 'GET',
@@ -143,22 +134,17 @@ class OpenClawClient {
         { role: 'user', content },
       ],
     };
-    const requestSignals = createRequestSignals(signal, this.timeoutMs);
-
     let response;
     try {
       response = await this.fetchImpl(`${this.baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: this.headers(),
         body: JSON.stringify(body),
-        signal: requestSignals.signal,
+        signal,
       });
     } catch (error) {
       if (signal?.aborted) {
         throw signal.reason || error;
-      }
-      if (requestSignals.timeoutSignal.aborted) {
-        throw new OpenClawError('timeout', 'OpenClaw xử lý quá thời gian cho phép.');
       }
       throw new OpenClawError('network', 'Không thể kết nối tới OpenClaw cục bộ.');
     }

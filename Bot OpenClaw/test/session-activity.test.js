@@ -75,6 +75,24 @@ test('lấy MEDIA từ câu trả lời cuối mà không đưa đường dẫn 
   });
   assert.equal(events[0].text, '');
   assert.deepEqual(events[0].mediaReferences, ['C:\\Users\\test\\screen.png']);
+  assert.equal(events[0].mediaLabel, 'Đã xong.');
+});
+
+test('nhận MEDIA trong toolUse nhưng không lấy ảnh từ tham số tool image', () => {
+  const events = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      stopReason: 'toolUse',
+      content: [
+        { type: 'text', text: 'Ảnh 1 đã sẵn sàng.\nMEDIA:F:\\Hình Ảnh\\anhYoutube\\01.png' },
+        { type: 'toolCall', name: 'image', arguments: { image: 'C:\\screen-check.png' } },
+      ],
+    },
+  });
+  assert.deepEqual(events[0].mediaReferences, ['F:\\Hình Ảnh\\anhYoutube\\01.png']);
+  assert.match(events[0].text, /Ảnh 1 đã sẵn sàng/);
+  assert.deepEqual(events[1].mediaReferences, []);
 });
 
 test('theo dõi các dòng transcript mới mà không phát lại lịch sử cũ', async (t) => {
@@ -115,5 +133,87 @@ test('theo dõi các dòng transcript mới mà không phát lại lịch sử c
     '▶ `image` — phân tích ảnh',
     '✓ `image` hoàn tất',
   ]);
-  assert.deepEqual(events[0].mediaReferences, ['C:\\screen.png']);
+  assert.deepEqual(events[0].mediaReferences, []);
+});
+
+test('bỏ qua record cũ theo timestamp nhưng vẫn commit offset', async (t) => {
+  const sessionsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bot-openclaw-session-time-'));
+  t.after(() => fs.rm(sessionsDir, { recursive: true, force: true }));
+  const sessionKey = 'agent:main:subagent:timestamp-child';
+  const transcriptPath = path.join(sessionsDir, 'timestamp-child.jsonl');
+  const cutoff = Date.now();
+  await fs.writeFile(path.join(sessionsDir, 'sessions.json'), JSON.stringify({
+    [sessionKey]: { sessionId: 'timestamp-child', sessionFile: transcriptPath },
+  }));
+  await fs.writeFile(transcriptPath, [
+    JSON.stringify({
+      type: 'message',
+      timestamp: cutoff - 1000,
+      message: { role: 'toolResult', toolName: 'old', isError: false, content: [] },
+    }),
+    JSON.stringify({
+      type: 'message',
+      timestamp: cutoff + 1000,
+      message: { role: 'toolResult', toolName: 'new', isError: false, content: [] },
+    }),
+    '',
+  ].join('\n'), 'utf8');
+
+  const events = [];
+  let offset = 0;
+  const monitor = new OpenClawSessionMonitor({
+    sessionsDir,
+    sessionKey,
+    startAtEnd: false,
+    afterTimestampMs: cutoff,
+    pollIntervalMs: 60000,
+    onEvent: (event) => events.push(event.text),
+    onOffset: (value) => { offset = value; },
+  });
+  await monitor.start();
+  await monitor.stop();
+
+  assert.deepEqual(events, ['✓ `new` hoàn tất']);
+  assert.equal(offset, (await fs.stat(transcriptPath)).size);
+});
+
+test('không commit offset nếu xử lý event lỗi để lần poll sau không mất MEDIA', async (t) => {
+  const sessionsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bot-openclaw-session-retry-'));
+  t.after(() => fs.rm(sessionsDir, { recursive: true, force: true }));
+  const sessionKey = 'agent:main:subagent:retry-child';
+  const transcriptPath = path.join(sessionsDir, 'retry-child.jsonl');
+  await fs.writeFile(path.join(sessionsDir, 'sessions.json'), JSON.stringify({
+    [sessionKey]: { sessionId: 'retry-child', sessionFile: transcriptPath },
+  }));
+  await fs.writeFile(transcriptPath, `${transcriptMessage({
+    role: 'assistant',
+    stopReason: 'toolUse',
+    content: [{ type: 'text', text: 'Ảnh đã xong.\nMEDIA:F:\\Hình Ảnh\\anhYoutube\\retry.png' }],
+  })}\n`, 'utf8');
+
+  let shouldFail = true;
+  let savedOffset = 0;
+  const received = [];
+  const monitor = new OpenClawSessionMonitor({
+    sessionsDir,
+    sessionKey,
+    startAtEnd: false,
+    pollIntervalMs: 60000,
+    onOffset: (offset) => { savedOffset = offset; },
+    onEvent: (event) => {
+      if (shouldFail) {
+        shouldFail = false;
+        throw new Error('disk busy');
+      }
+      received.push(...event.mediaReferences);
+    },
+  });
+  await monitor.start();
+  await assert.rejects(() => monitor.poll(), /disk busy/);
+  assert.equal(savedOffset, 0);
+  await monitor.poll();
+  await monitor.stop();
+
+  assert.deepEqual(received, ['F:\\Hình Ảnh\\anhYoutube\\retry.png']);
+  assert.equal(savedOffset, (await fs.stat(transcriptPath)).size);
 });

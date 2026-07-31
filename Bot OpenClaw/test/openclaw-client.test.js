@@ -14,7 +14,6 @@ function config(overrides = {}) {
     openclawGatewayToken: 'gateway-secret',
     openclawModel: 'openclaw/default',
     openclawAgentId: 'main',
-    requestTimeoutMs: 1000,
     ...overrides,
   };
 }
@@ -126,9 +125,10 @@ test('báo lỗi JSON và nội dung phản hồi không hợp lệ', async () =
   await assert.rejects(() => empty.chat(chatArgs()), /nội dung văn bản hợp lệ/);
 });
 
-test('timeout không tạo lần gọi thứ hai', async () => {
+test('tín hiệu timeout từ supervisor được giữ nguyên và không tạo lần gọi thứ hai', async () => {
   let calls = 0;
-  const client = new OpenClawClient(config({ requestTimeoutMs: 20 }), {
+  const controller = new AbortController();
+  const client = new OpenClawClient(config(), {
     fetchImpl: async (_url, options) => {
       calls += 1;
       return new Promise((_resolve, reject) => {
@@ -136,9 +136,11 @@ test('timeout không tạo lần gọi thứ hai', async () => {
       });
     },
   });
+  const reason = Object.assign(new Error('idle'), { code: 'idle_timeout' });
+  setTimeout(() => controller.abort(reason), 20);
   await assert.rejects(
-    () => client.chat(chatArgs()),
-    (error) => error instanceof OpenClawError && error.code === 'timeout',
+    () => client.chat(chatArgs({ signal: controller.signal })),
+    (error) => error === reason && error.code === 'idle_timeout',
   );
   assert.equal(calls, 1);
 });

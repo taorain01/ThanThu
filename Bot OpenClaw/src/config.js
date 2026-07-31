@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('node:path');
+
 class ConfigError extends Error {
   constructor(message) {
     super(message);
@@ -28,6 +30,20 @@ function parseInteger(value, name, min, max) {
     throw new ConfigError(`${name} phải nằm trong khoảng ${min}-${max}.`);
   }
   return parsed;
+}
+
+function parseSourceRoots(value) {
+  const roots = String(value || '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  for (const root of roots) {
+    if (!path.isAbsolute(root) || path.parse(root).root === path.resolve(root)) {
+      throw new ConfigError('OPENCLAW_MEDIA_SOURCE_ROOTS chỉ được chứa thư mục tuyệt đối, không dùng trực tiếp gốc ổ đĩa.');
+    }
+  }
+  return roots;
 }
 
 function parseAgentId(value) {
@@ -82,11 +98,17 @@ function loadConfig(env = process.env) {
     openclawGatewayToken: requireValue(env, 'OPENCLAW_GATEWAY_TOKEN'),
     openclawModel: String(env.OPENCLAW_MODEL || 'openclaw/default').trim(),
     openclawAgentId: parseAgentId(env.OPENCLAW_AGENT_ID),
-    requestTimeoutMs: parseInteger(
-      env.OPENCLAW_REQUEST_TIMEOUT_MS || '900000',
-      'OPENCLAW_REQUEST_TIMEOUT_MS',
+    requestIdleTimeoutMs: parseInteger(
+      env.OPENCLAW_REQUEST_IDLE_TIMEOUT_MS || env.OPENCLAW_REQUEST_TIMEOUT_MS || '1800000',
+      'OPENCLAW_REQUEST_IDLE_TIMEOUT_MS',
       1000,
-      900000,
+      43200000,
+    ),
+    requestMaxRuntimeMs: parseInteger(
+      env.OPENCLAW_REQUEST_MAX_RUNTIME_MS || '43200000',
+      'OPENCLAW_REQUEST_MAX_RUNTIME_MS',
+      60000,
+      86400000,
     ),
     maxPending: parseInteger(
       env.OPENCLAW_MAX_PENDING || '5',
@@ -94,6 +116,25 @@ function loadConfig(env = process.env) {
       1,
       20,
     ),
+    jobPollMs: parseInteger(
+      env.OPENCLAW_JOB_POLL_MS || '2000',
+      'OPENCLAW_JOB_POLL_MS',
+      500,
+      60000,
+    ),
+    jobHeartbeatMs: parseInteger(
+      env.OPENCLAW_JOB_HEARTBEAT_MS || '60000',
+      'OPENCLAW_JOB_HEARTBEAT_MS',
+      10000,
+      3600000,
+    ),
+    mediaOutboxRetentionHours: parseInteger(
+      env.OPENCLAW_MEDIA_OUTBOX_RETENTION_HOURS || '168',
+      'OPENCLAW_MEDIA_OUTBOX_RETENTION_HOURS',
+      1,
+      8760,
+    ),
+    mediaSourceRoots: parseSourceRoots(env.OPENCLAW_MEDIA_SOURCE_ROOTS),
   });
 }
 

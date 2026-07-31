@@ -1,11 +1,43 @@
 'use strict';
 
 const fs = require('node:fs/promises');
+const crypto = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
+const photon = require('@silvia-odwyer/photon-node');
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set(['.gif', '.jpeg', '.jpg', '.png', '.webp']);
 const DEFAULT_MAX_BYTES = 8 * 1024 * 1024;
+
+function hasImageSignature(bytes, extension) {
+  if (extension === '.png') {
+    return bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  }
+  if (extension === '.jpg' || extension === '.jpeg') {
+    return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  }
+  if (extension === '.webp') {
+    return bytes.subarray(0, 4).toString('ascii') === 'RIFF'
+      && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+  }
+  if (extension === '.gif') {
+    const signature = bytes.subarray(0, 6).toString('ascii');
+    return signature === 'GIF87a' || signature === 'GIF89a';
+  }
+  return false;
+}
+
+function isDecodableImage(bytes) {
+  let image;
+  try {
+    image = photon.PhotonImage.new_from_byteslice(bytes);
+    return image.get_width() > 0 && image.get_height() > 0;
+  } catch {
+    return false;
+  } finally {
+    image?.free();
+  }
+}
 
 function cleanReference(value) {
   let reference = String(value || '').trim();
@@ -115,6 +147,11 @@ async function resolveMediaReferences(references, options = {}) {
         rejectedCount += 1;
         continue;
       }
+      const bytes = await fs.readFile(realPath);
+      if (!hasImageSignature(bytes, extension) || !isDecodableImage(bytes)) {
+        rejectedCount += 1;
+        continue;
+      }
 
       seen.add(dedupeKey);
       files.push({ path: realPath, extension, size: stat.size });
@@ -126,8 +163,75 @@ async function resolveMediaReferences(references, options = {}) {
   return { files, rejectedCount };
 }
 
+async function stageMediaReference(reference, options = {}) {
+  const resolved = await resolveMediaReferences([reference], {
+    ...options,
+    maxFiles: 1,
+  });
+  if (resolved.files.length === 0) {
+    return { artifact: null, rejectedCount: resolved.rejectedCount || 1 };
+  }
+
+  const file = resolved.files[0];
+  const bytes = await fs.readFile(file.path);
+  const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+  const openclawHome = options.openclawHome || path.join(os.homedir(), '.openclaw');
+  const outboxRoot = options.outboxRoot || path.join(openclawHome, 'media', 'discord-outbox');
+  const safeJobId = String(options.jobId || 'unknown').replace(/[^A-Za-z0-9_-]/g, '_');
+  const directory = path.join(outboxRoot, safeJobId);
+  const stagedPath = path.join(directory, `${sha256.slice(0, 24)}${file.extension}`);
+  await fs.mkdir(directory, { recursive: true });
+  try {
+    await fs.access(stagedPath);
+  } catch {
+    await fs.copyFile(file.path, stagedPath);
+  }
+
+  return {
+    artifact: {
+      id: sha256,
+      sha256,
+      sourcePath: file.path,
+      stagedPath,
+      extension: file.extension,
+      size: file.size,
+    },
+    rejectedCount: resolved.rejectedCount,
+  };
+}
+
+async function cleanupOutbox(outboxRoot, retentionMs, now = Date.now()) {
+  let entries;
+  try {
+    entries = await fs.readdir(outboxRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return 0;
+    }
+    throw error;
+  }
+
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const directory = path.join(outboxRoot, entry.name);
+    const stat = await fs.stat(directory);
+    if (now - stat.mtimeMs >= retentionMs) {
+      await fs.rm(directory, { recursive: true, force: true });
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
 module.exports = {
   DEFAULT_MAX_BYTES,
+  cleanupOutbox,
   extractMediaReferences,
+  hasImageSignature,
+  isDecodableImage,
   resolveMediaReferences,
+  stageMediaReference,
 };

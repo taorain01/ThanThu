@@ -67,3 +67,23 @@ test('stop hủy yêu cầu đang chạy và toàn bộ hàng đợi', async () 
   await assert.rejects(() => waiting, QueueStoppedError);
   assert.deepEqual(queue.getStatus(), { active: false, pending: 0 });
 });
+
+test('queue toàn cục giữ channel thứ hai chờ nhưng vẫn cho stop theo job', async () => {
+  const queue = new SerialRequestQueue(3);
+  const events = [];
+  const first = deferredTask(events, 'channel-1');
+  const running = queue.enqueue(first.task, { jobId: 'job-1', channelId: 'channel-1' });
+  const waiting = queue.enqueue(
+    async () => 'không được chạy',
+    { jobId: 'job-2', channelId: 'channel-2' },
+  );
+
+  const detail = queue.getDetailedStatus();
+  assert.equal(detail.activeMetadata.jobId, 'job-1');
+  assert.equal(detail.pendingMetadata[0].jobId, 'job-2');
+  assert.equal(queue.stopWhere((metadata) => metadata.jobId === 'job-2'), 1);
+  await assert.rejects(() => waiting, QueueStoppedError);
+  first.release();
+  assert.equal(await running, 'channel-1');
+  assert.deepEqual(events, ['start:channel-1', 'end:channel-1']);
+});

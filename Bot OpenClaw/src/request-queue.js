@@ -14,29 +14,33 @@ class QueueStoppedError extends Error {
   }
 }
 
-class SerialRequestQueue {
-  constructor(maxPending) {
+class SessionRequestQueue {
+  constructor(maxPending, maxConcurrent = 1) {
     this.maxPending = maxPending;
+    this.maxConcurrent = maxConcurrent;
     this.pending = [];
-    this.active = null;
+    this.active = new Map();
   }
 
   getStatus() {
     return {
-      active: Boolean(this.active),
+      active: this.active.size > 0,
       pending: this.pending.length,
     };
   }
 
   enqueue(task, metadata = {}) {
-    if (this.pending.length >= this.maxPending) {
+    const queueKey = this.queueKey(metadata);
+    const canStartImmediately = this.active.size < this.maxConcurrent
+      && !this.active.has(queueKey);
+    if (!canStartImmediately && this.pending.length >= this.maxPending) {
       return Promise.reject(new QueueFullError());
     }
 
     const promise = new Promise((resolve, reject) => {
-      this.pending.push({ task, resolve, reject, metadata });
+      this.pending.push({ task, resolve, reject, metadata, queueKey });
     });
-    void this.drain();
+    this.drain();
     return promise;
   }
 
@@ -46,9 +50,11 @@ class SerialRequestQueue {
 
   stopWhere(predicate) {
     let stopped = 0;
-    if (this.active && predicate(this.active.metadata)) {
-      this.active.controller.abort(new QueueStoppedError());
-      stopped += 1;
+    for (const item of this.active.values()) {
+      if (predicate(item.metadata)) {
+        item.controller.abort(new QueueStoppedError());
+        stopped += 1;
+      }
     }
     const waiting = [];
     const kept = [];
@@ -68,30 +74,51 @@ class SerialRequestQueue {
   }
 
   getDetailedStatus() {
+    const activeMetadataList = [...this.active.values()]
+      .map((item) => ({ ...item.metadata }));
     return {
       ...this.getStatus(),
-      activeMetadata: this.active ? { ...this.active.metadata } : null,
+      activeCount: this.active.size,
+      maxConcurrent: this.maxConcurrent,
+      activeMetadata: activeMetadataList[0] || null,
+      activeMetadataList,
       pendingMetadata: this.pending.map((item) => ({ ...item.metadata })),
     };
   }
 
-  async drain() {
-    if (this.active || this.pending.length === 0) {
-      return;
-    }
+  queueKey(metadata) {
+    return String(metadata.sessionKey || metadata.channelId || '__global__');
+  }
 
-    const item = this.pending.shift();
-    const controller = new AbortController();
-    this.active = { controller, metadata: item.metadata };
+  drain() {
+    while (this.active.size < this.maxConcurrent && this.pending.length > 0) {
+      const pendingIndex = this.pending.findIndex((item) => !this.active.has(item.queueKey));
+      if (pendingIndex < 0) {
+        return;
+      }
+      const [item] = this.pending.splice(pendingIndex, 1);
+      const controller = new AbortController();
+      this.active.set(item.queueKey, { controller, metadata: item.metadata });
+      void this.run(item, controller);
+    }
+  }
+
+  async run(item, controller) {
     try {
       const result = await item.task(controller.signal);
       item.resolve(result);
     } catch (error) {
       item.reject(error);
     } finally {
-      this.active = null;
-      void this.drain();
+      this.active.delete(item.queueKey);
+      this.drain();
     }
+  }
+}
+
+class SerialRequestQueue extends SessionRequestQueue {
+  constructor(maxPending) {
+    super(maxPending, 1);
   }
 }
 
@@ -99,4 +126,5 @@ module.exports = {
   QueueFullError,
   QueueStoppedError,
   SerialRequestQueue,
+  SessionRequestQueue,
 };

@@ -17,7 +17,7 @@ const { JobStore, JobStoreError } = require('./job-store');
 const {
   QueueFullError,
   QueueStoppedError,
-  SerialRequestQueue,
+  SessionRequestQueue,
 } = require('./request-queue');
 const {
   AttachmentError,
@@ -59,7 +59,10 @@ const jobStore = new JobStore(path.join(BOT_ROOT, 'data', 'jobs.json'));
 const openclaw = new OpenClawClient(config);
 const taskClient = new OpenClawTaskClient();
 const audioTranscriber = new AudioTranscriber({ timeoutMs: config.requestIdleTimeoutMs });
-const globalQueue = new SerialRequestQueue(config.maxPending);
+const requestQueue = new SessionRequestQueue(
+  config.maxPending,
+  config.maxConcurrentSessions,
+);
 const sourceMessages = new Map();
 const statusUpdateTimers = new Map();
 const statusUpdatePromises = new Map();
@@ -149,12 +152,19 @@ function elapsedLabel(startedAt) {
 
 async function updateStatusMessage(job) {
   const current = jobStore.getJob(job.id);
-  const queue = globalQueue.getDetailedStatus();
+  const queue = requestQueue.getDetailedStatus();
   const queueIndex = queue.pendingMetadata.findIndex((item) => item.jobId === current.id);
+  const queueItem = queueIndex >= 0 ? queue.pendingMetadata[queueIndex] : null;
+  const sessionKey = queueItem?.sessionKey || current.rootSessionKey;
+  const sessionPending = queue.pendingMetadata
+    .filter((item) => (item.sessionKey || item.channelId) === sessionKey);
+  const sessionQueueIndex = sessionPending.findIndex((item) => item.jobId === current.id);
   const embed = buildJobStatusEmbed(current, {
     counts: artifactCounts(current),
-    queuePosition: queueIndex >= 0 ? queueIndex + 1 : null,
-    queuePending: queue.pending,
+    queuePosition: sessionQueueIndex >= 0 ? sessionQueueIndex + 1 : null,
+    queuePending: sessionPending.length,
+    activeSessions: queue.activeCount,
+    maxConcurrentSessions: queue.maxConcurrent,
     prefix: config.prefix,
     botName: 'OPENCLAW // JOB MONITOR',
     botIconUrl: botIconUrl(),
@@ -164,6 +174,28 @@ async function updateStatusMessage(job) {
   if (current.statusMessageId) {
     try {
       const statusMessage = await channel.messages.fetch(current.statusMessageId);
+      if (current.status !== 'queued' && channel.lastMessageId !== statusMessage.id) {
+        const source = sourceMessages.get(current.id);
+        let replacement;
+        if (source) {
+          try {
+            replacement = await source.reply(discordEmbedOptions(embed));
+          } catch {
+            replacement = await channel.send(discordEmbedOptions(embed));
+          }
+        } else {
+          replacement = await channel.send(discordEmbedOptions(embed));
+        }
+        await jobStore.updateJob(current.id, { statusMessageId: replacement.id });
+        await statusMessage.delete().catch((error) => {
+          logger.warn('Không xóa được status message cũ sau khi đưa tiến độ xuống cuối kênh.', {
+            jobId: current.id,
+            name: error.name,
+          });
+        });
+        statusUpdatedAt.set(current.id, Date.now());
+        return replacement;
+      }
       await statusMessage.edit(discordEmbedOptions(embed, { clearContent: true }));
       statusUpdatedAt.set(current.id, Date.now());
       return statusMessage;
@@ -308,7 +340,7 @@ function activeJobsForChannel(channelId) {
 
 async function stopJobs(jobs) {
   const selectedIds = new Set(jobs.map((job) => job.id));
-  const stoppedQueueItems = globalQueue.stopWhere((metadata) => selectedIds.has(metadata.jobId));
+  const stoppedQueueItems = requestQueue.stopWhere((metadata) => selectedIds.has(metadata.jobId));
   for (const job of jobs) {
     if (job.status === 'queued') {
       await jobStore.updateJob(job.id, {
@@ -376,13 +408,13 @@ async function handleCommand(message, command) {
   if (command.action === 'status') {
     const health = await openclaw.health();
     const activeChannels = stateStore.getActiveChannels(config.guildId);
-    const queue = globalQueue.getDetailedStatus();
+    const queue = requestQueue.getDetailedStatus();
     const activeJobs = jobStore.listJobs({ activeOnly: true });
     const botIsAdmin = message.guild.members.me?.permissions.has(PermissionFlagsBits.Administrator);
     const lines = [
       `Kênh hiện tại: <#${message.channel.id}> (${current?.enabled ? 'đang bật' : 'chưa bật'})`,
       `OpenClaw Gateway: ${health.ok ? 'đang hoạt động' : `không sẵn sàng${health.status ? ` (HTTP ${health.status})` : ''}`}`,
-      `Queue toàn cục: ${queue.active ? 'đang chạy' : 'rảnh'} · ${queue.pending} yêu cầu chờ`,
+      `Luồng session: ${queue.activeCount}/${queue.maxConcurrent} đang chạy · ${queue.pending} yêu cầu chờ`,
       `Job bền vững đang hoạt động: ${activeJobs.length}`,
       `Phiên kênh: ${current?.sessionGeneration || 0}`,
       `Model kênh: ${current?.enabled ? `${current.modelProfile} (\`${config.openclawBackendModels[current.modelProfile]}\`)` : 'chưa chọn'}`,
@@ -466,14 +498,19 @@ async function handleCommand(message, command) {
       await sendChunks(message, 'Chỉ có thể resume job đã dừng, thất bại hoặc hoàn tất có blocker.');
       return;
     }
-    void globalQueue.enqueue(
+    void requestQueue.enqueue(
       (signal) => supervisor.recoverJob(job.id, signal, { force: true }),
-      { jobId: job.id, channelId: job.channelId, recovery: true },
+      {
+        jobId: job.id,
+        channelId: job.channelId,
+        sessionKey: job.rootSessionKey,
+        recovery: true,
+      },
     ).catch(async (error) => {
       logger.error('Không khôi phục được job OpenClaw.', { jobId: job.id, name: error.name });
       await sendChunks(message, publicErrorMessage(error)).catch(() => {});
     });
-    await sendChunks(message, `Đã xếp job \`${job.id}\` vào queue khôi phục an toàn.`);
+    await sendChunks(message, `Đã xếp job \`${job.id}\` vào hàng đợi của session để khôi phục an toàn.`);
     return;
   }
 
@@ -639,9 +676,13 @@ client.on('messageCreate', async (message) => {
     sourceMessages.set(job.id, message);
     scheduleStatusUpdate(job, { immediate: true });
 
-    void globalQueue.enqueue(
+    void requestQueue.enqueue(
       (signal) => processOpenClawMessage(message, state, job.id, signal),
-      { jobId: job.id, channelId: message.channelId },
+      {
+        jobId: job.id,
+        channelId: message.channelId,
+        sessionKey: job.rootSessionKey,
+      },
     ).catch(async (error) => {
       if (error instanceof QueueStoppedError) {
         const latestJob = jobStore.getJob(job.id);
@@ -705,9 +746,14 @@ async function enqueueRecoveredJobs() {
     } else {
       task = (signal) => supervisor.recoverJob(job.id, signal);
     }
-    void globalQueue.enqueue(
+    void requestQueue.enqueue(
       task,
-      { jobId: job.id, channelId: job.channelId, recovery: true },
+      {
+        jobId: job.id,
+        channelId: job.channelId,
+        sessionKey: job.rootSessionKey,
+        recovery: true,
+      },
     ).catch((error) => {
       logger.error('Không tự khôi phục được job OpenClaw.', {
         jobId: job.id,
@@ -758,7 +804,7 @@ client.on('error', (error) => {
 
 async function shutdown(signalName) {
   logger.info('Đang dừng bot Discord.', { signal: signalName });
-  globalQueue.stop();
+  requestQueue.stop();
   statusHeartbeat?.stop();
   for (const timer of statusUpdateTimers.values()) {
     clearTimeout(timer);

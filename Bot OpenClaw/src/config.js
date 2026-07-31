@@ -138,6 +138,12 @@ function loadConfig(env = process.env) {
       1,
       20,
     ),
+    maxConcurrentSessions: parseInteger(
+      env.OPENCLAW_MAX_CONCURRENT_SESSIONS || '2',
+      'OPENCLAW_MAX_CONCURRENT_SESSIONS',
+      1,
+      10,
+    ),
     jobPollMs: parseInteger(
       env.OPENCLAW_JOB_POLL_MS || '2000',
       'OPENCLAW_JOB_POLL_MS',

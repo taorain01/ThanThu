@@ -150,6 +150,8 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
       counts: { delivered: 2, total: 4, ready: 1 },
       queuePosition: status === 'queued' ? 2 : null,
       queuePending: 5,
+      activeSessions: 2,
+      maxConcurrentSessions: 2,
       prefix: '>',
       botName: 'OPENCLAW // JOB MONITOR',
       botIconUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
@@ -164,6 +166,11 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
     assert.ok(data.fields.some((field) => field.name.includes('File')));
     assert.ok(data.fields.some((field) => field.name.includes('Worker')));
     assert.ok(data.fields.some((field) => field.name.includes('Task hiện tại')));
+    if (status === 'queued') {
+      const queueField = data.fields.find((field) => field.name.includes('Hàng đợi'));
+      assert.match(queueField.value, /2\/5/);
+      assert.match(queueField.value, /2\/2 session đang chạy/);
+    }
   }
 });
 

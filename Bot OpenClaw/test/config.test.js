@@ -18,6 +18,7 @@ function validEnv(overrides = {}) {
     OPENCLAW_REQUEST_IDLE_TIMEOUT_MS: '1800000',
     OPENCLAW_REQUEST_MAX_RUNTIME_MS: '43200000',
     OPENCLAW_MAX_PENDING: '5',
+    OPENCLAW_MAX_CONCURRENT_SESSIONS: '2',
     OPENCLAW_MEDIA_SOURCE_ROOTS: 'F:\\Hình Ảnh\\anhYoutube',
     ...overrides,
   };
@@ -29,6 +30,7 @@ test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   assert.equal(config.requestIdleTimeoutMs, 1800000);
   assert.equal(config.requestMaxRuntimeMs, 43200000);
   assert.equal(config.maxPending, 5);
+  assert.equal(config.maxConcurrentSessions, 2);
   assert.deepEqual(config.mediaSourceRoots, ['F:\\Hình Ảnh\\anhYoutube']);
   assert.equal(config.openclawAgentId, 'main');
   assert.deepEqual(config.openclawBackendModels, {
@@ -54,6 +56,10 @@ test('từ chối Discord ID và giới hạn số không hợp lệ', () => {
   assert.throws(
     () => loadConfig(validEnv({ OPENCLAW_MAX_PENDING: '0' })),
     /khoảng 1-20/,
+  );
+  assert.throws(
+    () => loadConfig(validEnv({ OPENCLAW_MAX_CONCURRENT_SESSIONS: '11' })),
+    /khoảng 1-10/,
   );
 });
 

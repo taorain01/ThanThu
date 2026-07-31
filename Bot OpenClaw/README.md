@@ -5,7 +5,7 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 ## Lệnh Discord
 
 - `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
-- `> openclaw status`: xem job hiện tại, thời gian chạy, bước gần nhất, số file đã gửi/chờ gửi và queue toàn cục.
+- `> openclaw status`: xem job hiện tại, thời gian chạy, bước gần nhất, số file đã gửi/chờ gửi và số session đang chạy/chờ.
 - `> openclaw jobs`: liệt kê 10 job gần nhất cùng ID và trạng thái.
 - `> openclaw model local`: chuyển riêng channel hiện tại sang model Ollama local.
 - `> openclaw model 9router`: chuyển riêng channel hiện tại về model qua 9Router.
@@ -21,19 +21,19 @@ Alias ngắn:
 - `> o s [job-id|all]`: tương đương `> openclaw stop [job-id|all]`.
 - `> o m [local|9router]`: tương đương `> openclaw model [local|9router]`.
 
-Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc và mỗi channel vẫn giữ session generation riêng, nhưng mọi yêu cầu điều khiển PC dùng chung một queue toàn cục để không có hai worker cùng giành Chrome, chuột hoặc bàn phím. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
+Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc và mỗi channel giữ session generation riêng. Scheduler cho phép các session khác nhau chạy song song, còn tin nhắn trong cùng một session luôn chạy tuần tự để không đảo thứ tự hội thoại. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
 
 Bot nhận prompt bằng chữ, tối đa 4 ảnh JPEG/PNG/WebP (4 MB mỗi ảnh, 12 MB tổng) và tối đa 2 file âm thanh MP3/M4A/OGG/Opus/WAV/WebM/FLAC/AAC (20 MB mỗi file, 40 MB tổng). Audio được tải từ Discord CDN vào thư mục tạm, phiên âm bằng pipeline STT chính thức của OpenClaw rồi xóa ngay; transcript được ghép vào prompt cùng nội dung chữ và ảnh. File không có MIME vẫn được nhận diện bằng phần mở rộng nằm trong allowlist.
 
-Mỗi lượt OpenClaw dùng idle timeout mặc định 30 phút và thời lượng tối đa 12 giờ. Mọi hoạt động transcript mới sẽ reset idle timer. Request Chat Completions kết thúc hoặc lỗi không làm mất durable task/sub-agent đang chạy; job tiếp tục giữ queue toàn cục và theo dõi nền cho tới khi toàn bộ cây task kết thúc.
+Mỗi lượt OpenClaw dùng idle timeout mặc định 30 phút và thời lượng tối đa 12 giờ. Mọi hoạt động transcript mới sẽ reset idle timer. Request Chat Completions kết thúc hoặc lỗi không làm mất durable task/sub-agent đang chạy; job tiếp tục giữ lượt của session và theo dõi nền cho tới khi toàn bộ cây task kết thúc.
 
-Trong lúc OpenClaw làm việc, bot cập nhật một status message và heartbeat mỗi 60 giây. Bot theo dõi transcript của phiên cha cùng mọi session con, kể cả assistant text có `stopReason: toolUse`. Chỉ dòng rõ ràng `MEDIA:<đường dẫn tuyệt đối>` mới được xem là thành phẩm; tham số của tool `image` và screenshot kiểm tra nội bộ không bao giờ tự gửi. Mỗi file hợp lệ được gửi ngay khi xuất hiện, không chờ đủ cả lô.
+Trong lúc OpenClaw làm việc, bot cập nhật một status message và heartbeat mỗi 60 giây. Nếu status của job đang chạy bị các tin nhắn mới đẩy lên trên, bot tạo bản cập nhật ở cuối channel rồi xóa bản cũ để tiến độ luôn dễ thấy mà không tích lũy embed. Bot theo dõi transcript của phiên cha cùng mọi session con, kể cả assistant text có `stopReason: toolUse`. Chỉ dòng rõ ràng `MEDIA:<đường dẫn tuyệt đối>` mới được xem là thành phẩm; tham số của tool `image` và screenshot kiểm tra nội bộ không bao giờ tự gửi. Mỗi file hợp lệ được gửi ngay khi xuất hiện, không chờ đủ cả lô.
 
 Trạng thái job, transcript offset, durable task và delivery ledger được lưu nguyên tử tại `data/jobs.json`. Khi bot khởi động lại, task còn chạy được reattach; task đã xong được quét nốt artifact chưa gửi; task bị mất chỉ được tự khôi phục một lần sau prompt xác minh UI. Nếu không chắc chắn, job kết thúc có blocker thay vì gửi lại prompt mù quáng.
 
 ## Cấu hình
 
-Sao chép `.env.example` thành `.env` và điền hai token. `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính. `OPENCLAW_MEDIA_SOURCE_ROOTS` là danh sách thư mục tuyệt đối phân tách bằng dấu `;`; không cho phép dùng trực tiếp gốc ổ đĩa. `OPENCLAW_BACKEND_MODEL_9ROUTER` và `OPENCLAW_BACKEND_MODEL_LOCAL` đặt model thật tương ứng với hai lệnh chuyển model; `OPENCLAW_MODEL` vẫn phải giữ target Gateway như `openclaw/default`.
+Sao chép `.env.example` thành `.env` và điền hai token. `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính. `OPENCLAW_MEDIA_SOURCE_ROOTS` là danh sách thư mục tuyệt đối phân tách bằng dấu `;`; không cho phép dùng trực tiếp gốc ổ đĩa. `OPENCLAW_BACKEND_MODEL_9ROUTER` và `OPENCLAW_BACKEND_MODEL_LOCAL` đặt model thật tương ứng với hai lệnh chuyển model; `OPENCLAW_MODEL` vẫn phải giữ target Gateway như `openclaw/default`. `OPENCLAW_MAX_CONCURRENT_SESSIONS` mặc định là `2`; giảm về `1` nếu nhiều job cùng điều khiển chung một desktop, chuột, bàn phím hoặc cùng một profile trình duyệt.
 
 OpenClaw cần bật Chat Completions API:
 
@@ -43,7 +43,7 @@ OpenClaw cần bật Chat Completions API:
 & "$env:APPDATA\npm\openclaw.cmd" gateway restart
 ```
 
-Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Mọi yêu cầu thao tác OpenClaw được xử lý tuần tự trên queue toàn cục. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay, không phải đợi queue tác vụ PC.
+Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Tối đa `OPENCLAW_MAX_CONCURRENT_SESSIONS` session khác nhau chạy đồng thời; mỗi session chỉ chạy một yêu cầu tại một thời điểm. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay, không phải đợi scheduler.
 
 ## Discord Developer Portal
 

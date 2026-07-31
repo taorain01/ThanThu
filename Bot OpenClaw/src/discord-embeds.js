@@ -196,7 +196,7 @@ function currentTaskValue(job, summary, now) {
   const worker = summary.current;
   if (!worker) {
     if (job.status === 'queued') {
-      return 'Chưa khởi chạy; yêu cầu đang chờ queue toàn cục.';
+      return 'Chưa khởi chạy; yêu cầu đang chờ lượt xử lý của session này.';
     }
     if (job.status === 'background') {
       return 'Đang tổng hợp kết quả và chốt trạng thái worker.';
@@ -264,6 +264,8 @@ function buildJobStatusEmbed(job, options = {}) {
   };
   const queuePosition = Number(options.queuePosition) > 0 ? Number(options.queuePosition) : null;
   const queuePending = Math.max(0, Number(options.queuePending) || 0);
+  const activeSessions = Math.max(0, Number(options.activeSessions) || 0);
+  const maxConcurrentSessions = Math.max(1, Number(options.maxConcurrentSessions) || 1);
   const prefix = truncate(options.prefix || '>', 12, '');
   const now = Number(options.now) || Date.now();
   const jobId = truncate(job.id || 'không-xác-định', 100);
@@ -297,8 +299,8 @@ function buildJobStatusEmbed(job, options = {}) {
 
   if (queuePosition) {
     embed.addFields({
-      name: '🛰️ Hàng đợi toàn cục',
-      value: `Vị trí **${queuePosition}/${Math.max(queuePending, queuePosition)}**`,
+      name: '🛰️ Hàng đợi của session',
+      value: `Lượt chờ **${queuePosition}/${Math.max(queuePending, queuePosition)}** • ${activeSessions}/${maxConcurrentSessions} session đang chạy`,
       inline: false,
     });
   }

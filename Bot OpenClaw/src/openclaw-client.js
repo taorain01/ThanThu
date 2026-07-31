@@ -6,6 +6,7 @@ const PC_OPERATOR_INSTRUCTIONS = [
   'Trên Windows, hãy dùng openclaw.cmd (không dùng openclaw.ps1). Nếu tool nodes không xuất hiện, dùng exec trên gateway để chạy openclaw.cmd nodes status --json rồi gọi openclaw.cmd nodes invoke với screen.snapshot.',
   'Kết quả screen.snapshot là JSON; ảnh nằm trong payload.base64. Hãy giải mã vào workspace và dùng tool image để quan sát.',
   'Với thao tác ứng dụng desktop, dùng cơ chế tự động hóa Windows hiện có, chụp màn hình trước và sau, và chỉ báo thành công khi đã kiểm chứng.',
+  'Khi có ảnh cần cho người dùng xem, thêm mỗi ảnh vào một dòng riêng dạng MEDIA:<đường dẫn tuyệt đối>. Chỉ dùng ảnh trong workspace hoặc thư mục media của OpenClaw.',
   'Luôn tuân thủ chính sách tool và phê duyệt hiện tại; không tìm cách vượt qua hoặc nới lỏng chúng.',
 ].join('\n');
 
@@ -65,8 +66,17 @@ class OpenClawClient {
     this.baseUrl = config.openclawBaseUrl;
     this.gatewayToken = config.openclawGatewayToken;
     this.model = config.openclawModel;
+    this.agentId = config.openclawAgentId || 'main';
     this.timeoutMs = config.requestTimeoutMs;
     this.fetchImpl = options.fetchImpl || fetch;
+  }
+
+  sessionUser({ guildId, channelId, sessionGeneration }) {
+    return `discord:${guildId}:${channelId}:${sessionGeneration}`;
+  }
+
+  sessionKey(args) {
+    return `agent:${this.agentId}:openai-user:${this.sessionUser(args)}`;
   }
 
   headers() {
@@ -104,7 +114,7 @@ class OpenClawClient {
     const body = {
       model: this.model,
       stream: false,
-      user: `discord:${guildId}:${channelId}:${sessionGeneration}`,
+      user: this.sessionUser({ guildId, channelId, sessionGeneration }),
       messages: [
         { role: 'system', content: PC_OPERATOR_INSTRUCTIONS },
         { role: 'user', content },

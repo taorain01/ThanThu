@@ -30,6 +30,14 @@ function parseInteger(value, name, min, max) {
   return parsed;
 }
 
+function parseAgentId(value) {
+  const agentId = String(value || 'main').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(agentId)) {
+    throw new ConfigError('OPENCLAW_AGENT_ID không hợp lệ.');
+  }
+  return agentId;
+}
+
 function parseLoopbackUrl(value) {
   let url;
   try {
@@ -73,6 +81,7 @@ function loadConfig(env = process.env) {
     openclawBaseUrl: parseLoopbackUrl(requireValue(env, 'OPENCLAW_BASE_URL')),
     openclawGatewayToken: requireValue(env, 'OPENCLAW_GATEWAY_TOKEN'),
     openclawModel: String(env.OPENCLAW_MODEL || 'openclaw/default').trim(),
+    openclawAgentId: parseAgentId(env.OPENCLAW_AGENT_ID),
     requestTimeoutMs: parseInteger(
       env.OPENCLAW_REQUEST_TIMEOUT_MS || '300000',
       'OPENCLAW_REQUEST_TIMEOUT_MS',

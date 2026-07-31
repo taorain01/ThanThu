@@ -12,6 +12,8 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 
 Sau khi chọn kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` sẽ được chuyển tới OpenClaw. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
 
+Trong lúc OpenClaw làm việc, bot cập nhật một bảng tiến độ gồm từng tool bắt đầu/kết thúc. Khi phiên hoàn tất, toàn bộ nhật ký đã lọc được giữ trong chat; token, nội dung file, đường dẫn nhạy cảm và dữ liệu ảnh base64 không được hiển thị. Ảnh trong workspace/media mà OpenClaw dùng hoặc đánh dấu bằng `MEDIA:<đường dẫn>` sẽ được gửi lên Discord dưới dạng attachment.
+
 ## Cấu hình
 
 Sao chép `.env.example` thành `.env` và điền hai token. `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính.
@@ -65,3 +67,4 @@ Log nằm tại `logs/bot.log`; trạng thái kênh và session nằm tại `dat
 - Tối đa 4 ảnh mỗi tin nhắn.
 - Tối đa 4 MB mỗi ảnh và 12 MB tổng.
 - Bot tải ảnh từ Discord CDN rồi gửi data URL tới OpenClaw; không bật tải URL tùy ý ở Gateway.
+- Ảnh OpenClaw gửi ngược lên Discord phải nằm trong `~/.openclaw/workspace` hoặc `~/.openclaw/media` và không vượt quá 8 MB mỗi ảnh.

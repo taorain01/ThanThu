@@ -1,8 +1,10 @@
 'use strict';
 
+const os = require('node:os');
 const path = require('node:path');
 const dotenv = require('dotenv');
 const {
+  AttachmentBuilder,
   ChannelType,
   Client,
   GatewayIntentBits,
@@ -20,11 +22,28 @@ const { AttachmentError, prepareImageParts } = require('./image-payload');
 const { OpenClawClient, OpenClawError } = require('./openclaw-client');
 const { splitDiscordText } = require('./message-utils');
 const { createLogger } = require('./logger');
+const { extractMediaReferences, resolveMediaReferences } = require('./response-media');
+const {
+  OpenClawSessionMonitor,
+  formatFinishedActivity,
+  formatLiveActivity,
+} = require('./session-activity');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
+const OPENCLAW_HOME = path.join(os.homedir(), '.openclaw');
+const OPENCLAW_MEDIA_ROOTS = [
+  path.join(OPENCLAW_HOME, 'workspace'),
+  path.join(OPENCLAW_HOME, 'media'),
+];
 dotenv.config({ path: path.join(BOT_ROOT, '.env'), quiet: true });
 
 const config = loadConfig();
+const OPENCLAW_SESSIONS_DIR = path.join(
+  OPENCLAW_HOME,
+  'agents',
+  config.openclawAgentId,
+  'sessions',
+);
 const logger = createLogger(path.join(BOT_ROOT, 'logs', 'bot.log'));
 const stateStore = new StateStore(path.join(BOT_ROOT, 'data', 'state.json'));
 const openclaw = new OpenClawClient(config);
@@ -61,21 +80,157 @@ function isAllowed(userId) {
   return config.allowedUserIds.has(userId);
 }
 
-async function sendChunks(message, text) {
-  const chunks = splitDiscordText(text);
-  const messageOptions = (content) => ({
+function discordMessageOptions(content, files = []) {
+  return {
     content,
+    files,
     allowedMentions: { parse: [], repliedUser: false },
-  });
+  };
+}
+
+async function sendChunks(message, text, options = {}) {
+  const chunks = splitDiscordText(text);
+  const files = options.files || [];
 
   try {
-    await message.reply(messageOptions(chunks[0]));
+    await message.reply(discordMessageOptions(chunks[0], files));
   } catch {
-    await message.channel.send(messageOptions(chunks[0]));
+    await message.channel.send(discordMessageOptions(chunks[0], files));
   }
   for (const chunk of chunks.slice(1)) {
-    await message.channel.send(messageOptions(chunk));
+    await message.channel.send(discordMessageOptions(chunk));
   }
+}
+
+async function sendMediaReferences(message, references, sentPaths) {
+  const resolved = await resolveMediaReferences(references, {
+    openclawHome: OPENCLAW_HOME,
+    allowedRoots: OPENCLAW_MEDIA_ROOTS,
+  });
+  if (resolved.rejectedCount) {
+    logger.warn('Bỏ qua media OpenClaw không hợp lệ hoặc vượt giới hạn.', {
+      rejectedCount: resolved.rejectedCount,
+      messageId: message.id,
+    });
+  }
+
+  for (const file of resolved.files) {
+    const key = process.platform === 'win32' ? file.path.toLowerCase() : file.path;
+    if (sentPaths.has(key)) {
+      continue;
+    }
+    try {
+      const attachment = new AttachmentBuilder(file.path, {
+        name: `openclaw-image-${sentPaths.size + 1}${file.extension}`,
+      });
+      await message.channel.send(discordMessageOptions('🖼️ Ảnh trong phiên làm việc:', [attachment]));
+      sentPaths.add(key);
+    } catch (error) {
+      logger.warn('Không gửi được ảnh OpenClaw lên Discord.', {
+        name: error.name,
+        messageId: message.id,
+      });
+    }
+  }
+}
+
+function createActivityReporter(message) {
+  const startedAt = Date.now();
+  const events = [];
+  const sentMediaPaths = new Set();
+  let statusMessage = null;
+  let updateTimer = null;
+  let heartbeatTimer = null;
+  let finished = false;
+  let lastContent = '';
+  let updateChain = Promise.resolve();
+  let mediaChain = Promise.resolve();
+
+  const enqueueEdit = (content) => {
+    if (!statusMessage || content === lastContent) {
+      return updateChain;
+    }
+    lastContent = content;
+    updateChain = updateChain
+      .then(() => statusMessage.edit(discordMessageOptions(content)))
+      .catch((error) => {
+        logger.warn('Không cập nhật được tiến độ phiên trên Discord.', {
+          name: error.name,
+          messageId: message.id,
+        });
+      });
+    return updateChain;
+  };
+
+  const updateLive = () => enqueueEdit(formatLiveActivity(events, Date.now() - startedAt));
+  const scheduleUpdate = () => {
+    if (finished || updateTimer) {
+      return;
+    }
+    updateTimer = setTimeout(() => {
+      updateTimer = null;
+      void updateLive();
+    }, 1200);
+    updateTimer.unref?.();
+  };
+
+  return {
+    sentMediaPaths,
+    async start() {
+      const content = formatLiveActivity(events, 0);
+      lastContent = content;
+      try {
+        statusMessage = await message.reply(discordMessageOptions(content));
+      } catch {
+        statusMessage = await message.channel.send(discordMessageOptions(content));
+      }
+      heartbeatTimer = setInterval(() => void updateLive(), 10000);
+      heartbeatTimer.unref?.();
+    },
+    async add(event) {
+      if (finished) {
+        return;
+      }
+      if (event.text) {
+        events.push(event.text);
+        scheduleUpdate();
+      }
+      if (event.mediaReferences?.length) {
+        mediaChain = mediaChain.then(() => (
+          sendMediaReferences(message, event.mediaReferences, sentMediaPaths)
+        ));
+      }
+    },
+    async finish(status) {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      if (updateTimer) {
+        clearTimeout(updateTimer);
+      }
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+      }
+      const formatted = formatFinishedActivity(events, Date.now() - startedAt, status);
+      await enqueueEdit(formatted.panel);
+      await mediaChain;
+      if (formatted.overflow) {
+        for (const chunk of splitDiscordText(formatted.overflow)) {
+          await message.channel.send(discordMessageOptions(chunk));
+        }
+      }
+    },
+  };
+}
+
+async function sendOpenClawResponse(message, responseText, sentMediaPaths) {
+  const parsed = extractMediaReferences(responseText);
+  const fallback = parsed.references.length
+    ? 'OpenClaw đã hoàn tất; ảnh được gửi trong phiên làm việc.'
+    : responseText;
+  await sendChunks(message, parsed.text || fallback);
+  await sendMediaReferences(message, parsed.references, sentMediaPaths);
 }
 
 function publicErrorMessage(error) {
@@ -151,6 +306,8 @@ async function handleCommand(message, command) {
       `Yêu cầu đang chạy: ${queueStatus.active ? 'có' : 'không'}`,
       `Yêu cầu đang chờ: ${queueStatus.pending}`,
       `Phiên: ${current?.sessionGeneration || 0}`,
+      'Nhật ký phiên: bật (đã lọc dữ liệu nhạy cảm)',
+      'Gửi ảnh: bật (workspace/media, tối đa 8 MB mỗi ảnh)',
     ];
     if (botIsAdmin) {
       lines.push('Cảnh báo: bot vẫn đang có quyền Administrator; nên hạ xuống quyền tối thiểu sau khi kiểm tra.');
@@ -210,17 +367,31 @@ async function processOpenClawMessage(message, state, signal) {
   await typing();
   const typingTimer = setInterval(typing, 8000);
   typingTimer.unref?.();
+  const activity = createActivityReporter(message);
+  const sessionArgs = {
+    guildId: message.guildId,
+    channelId: message.channelId,
+    sessionGeneration: state.sessionGeneration,
+  };
+  const monitor = new OpenClawSessionMonitor({
+    sessionsDir: OPENCLAW_SESSIONS_DIR,
+    sessionKey: openclaw.sessionKey(sessionArgs),
+    onEvent: (event) => activity.add(event),
+  });
+  let monitorStopped = false;
 
   try {
+    await activity.start();
+    await monitor.start();
     const imageParts = await prepareImageParts(message.attachments.values(), { signal });
     const responseText = await openclaw.chat({
-      guildId: message.guildId,
-      channelId: message.channelId,
-      sessionGeneration: state.sessionGeneration,
+      ...sessionArgs,
       text: message.content,
       imageParts,
       signal,
     });
+    await monitor.stop();
+    monitorStopped = true;
 
     const latest = stateStore.getGuild(config.guildId);
     if (
@@ -231,11 +402,23 @@ async function processOpenClawMessage(message, state, signal) {
         channelId: message.channelId,
         sessionGeneration: state.sessionGeneration,
       });
+      await activity.finish('stopped');
       return;
     }
-    await sendChunks(message, responseText);
+    await activity.finish('completed');
+    await sendOpenClawResponse(message, responseText, activity.sentMediaPaths);
+  } catch (error) {
+    if (!monitorStopped) {
+      await monitor.stop();
+      monitorStopped = true;
+    }
+    await activity.finish(signal.aborted ? 'stopped' : 'failed');
+    throw error;
   } finally {
     clearInterval(typingTimer);
+    if (!monitorStopped) {
+      await monitor.stop();
+    }
   }
 }
 

@@ -13,6 +13,7 @@ function config(overrides = {}) {
     openclawBaseUrl: 'http://127.0.0.1:18789',
     openclawGatewayToken: 'gateway-secret',
     openclawModel: 'openclaw/default',
+    openclawAgentId: 'main',
     requestTimeoutMs: 1000,
     ...overrides,
   };
@@ -56,6 +57,10 @@ test('gửi session ổn định và đọc phản hồi thành công', async ()
   ]);
   assert.equal(request.body.stream, false);
   assert.equal(request.body.tools, undefined);
+  assert.equal(
+    client.sessionKey(chatArgs()),
+    'agent:main:openai-user:discord:1239836342456942643:111111111111111111:3',
+  );
 });
 
 test('không retry khi OpenClaw trả lỗi', async () => {

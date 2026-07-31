@@ -54,6 +54,14 @@ function parseAgentId(value) {
   return agentId;
 }
 
+function parseBackendModel(value, name, fallback) {
+  const model = String(value || fallback).trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model)) {
+    throw new ConfigError(`${name} phải có dạng provider/model hợp lệ.`);
+  }
+  return model;
+}
+
 function parseLoopbackUrl(value) {
   let url;
   try {
@@ -85,6 +93,19 @@ function loadConfig(env = process.env) {
     throw new ConfigError('DISCORD_PREFIX phải dài 1-5 ký tự và không chứa khoảng trắng.');
   }
 
+  const openclawBackendModels = Object.freeze({
+    '9router': parseBackendModel(
+      env.OPENCLAW_BACKEND_MODEL_9ROUTER,
+      'OPENCLAW_BACKEND_MODEL_9ROUTER',
+      '9router/cx/gpt-5.6-sol',
+    ),
+    local: parseBackendModel(
+      env.OPENCLAW_BACKEND_MODEL_LOCAL,
+      'OPENCLAW_BACKEND_MODEL_LOCAL',
+      'ollama/qwen3:8b',
+    ),
+  });
+
   return Object.freeze({
     discordToken: requireValue(env, 'DISCORD_TOKEN'),
     applicationId: parseSnowflake(
@@ -98,6 +119,7 @@ function loadConfig(env = process.env) {
     openclawGatewayToken: requireValue(env, 'OPENCLAW_GATEWAY_TOKEN'),
     openclawModel: String(env.OPENCLAW_MODEL || 'openclaw/default').trim(),
     openclawAgentId: parseAgentId(env.OPENCLAW_AGENT_ID),
+    openclawBackendModels,
     requestIdleTimeoutMs: parseInteger(
       env.OPENCLAW_REQUEST_IDLE_TIMEOUT_MS || env.OPENCLAW_REQUEST_TIMEOUT_MS || '1800000',
       'OPENCLAW_REQUEST_IDLE_TIMEOUT_MS',

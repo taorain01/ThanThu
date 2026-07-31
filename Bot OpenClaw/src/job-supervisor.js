@@ -631,6 +631,7 @@ class JobSupervisor {
         guildId: current.guildId,
         channelId: current.channelId,
         sessionGeneration: current.sessionGeneration,
+        backendModel: current.backendModel || undefined,
         text: [
           `Khôi phục an toàn job Discord ${jobId} sau khi bot hoặc máy bị gián đoạn.`,
           'Đọc durable task và checkpoint liên quan trong workspace. Xác minh đúng ứng dụng, đúng conversation và trạng thái UI trước mọi click.',

@@ -105,6 +105,7 @@ class JobStore {
         requestMessageId: String(input.requestMessageId || input.id),
         statusMessageId: input.statusMessageId || null,
         sessionGeneration: input.sessionGeneration,
+        backendModel: input.backendModel || null,
         rootSessionKey: String(input.rootSessionKey),
         taskDiscoveryAfter: Date.parse(timestamp),
         status: 'queued',

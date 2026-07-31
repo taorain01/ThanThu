@@ -31,6 +31,10 @@ test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   assert.equal(config.maxPending, 5);
   assert.deepEqual(config.mediaSourceRoots, ['F:\\Hình Ảnh\\anhYoutube']);
   assert.equal(config.openclawAgentId, 'main');
+  assert.deepEqual(config.openclawBackendModels, {
+    '9router': '9router/cx/gpt-5.6-sol',
+    local: 'ollama/qwen3:8b',
+  });
   assert.equal(config.allowedUserIds.has('395151484179841024'), true);
   assert.equal(config.allowedUserIds.size, 2);
 });
@@ -68,6 +72,19 @@ test('từ chối OpenClaw agent ID không hợp lệ', () => {
   assert.throws(
     () => loadConfig(validEnv({ OPENCLAW_AGENT_ID: '../main' })),
     /OPENCLAW_AGENT_ID/,
+  );
+});
+
+test('đọc model backend tùy chỉnh và từ chối model không có provider', () => {
+  const config = loadConfig(validEnv({
+    OPENCLAW_BACKEND_MODEL_9ROUTER: '9router/custom-model',
+    OPENCLAW_BACKEND_MODEL_LOCAL: 'ollama/qwen3:14b',
+  }));
+  assert.equal(config.openclawBackendModels['9router'], '9router/custom-model');
+  assert.equal(config.openclawBackendModels.local, 'ollama/qwen3:14b');
+  assert.throws(
+    () => loadConfig(validEnv({ OPENCLAW_BACKEND_MODEL_LOCAL: 'qwen3:8b' })),
+    /provider\/model/,
   );
 });
 

@@ -23,6 +23,7 @@ function chatArgs(overrides = {}) {
     guildId: '1239836342456942643',
     channelId: '111111111111111111',
     sessionGeneration: 3,
+    backendModel: 'ollama/qwen3:8b',
     text: 'Chụp màn hình',
     imageParts: [],
     ...overrides,
@@ -42,6 +43,7 @@ test('gửi session ổn định và đọc phản hồi thành công', async ()
   assert.equal(request.url, 'http://127.0.0.1:18789/v1/chat/completions');
   assert.equal(request.options.headers.Authorization, 'Bearer gateway-secret');
   assert.equal(request.options.headers['x-openclaw-message-channel'], 'discord');
+  assert.equal(request.options.headers['x-openclaw-model'], 'ollama/qwen3:8b');
   assert.equal(
     request.body.user,
     'discord:1239836342456942643:111111111111111111:3',

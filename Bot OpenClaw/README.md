@@ -7,11 +7,19 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 - `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
 - `> openclaw status`: xem job hiện tại, thời gian chạy, bước gần nhất, số file đã gửi/chờ gửi và queue toàn cục.
 - `> openclaw jobs`: liệt kê 10 job gần nhất cùng ID và trạng thái.
+- `> openclaw model local`: chuyển riêng channel hiện tại sang model Ollama local.
+- `> openclaw model 9router`: chuyển riêng channel hiện tại về model qua 9Router.
 - `> openclaw resend [job-id] [all|số]`: gửi các file chưa delivery hoặc chủ động gửi lại một file đã delivery.
 - `> openclaw resume [job-id]`: khôi phục an toàn job đã dừng, thất bại hoặc hoàn tất có blocker.
 - `> openclaw reset`: ngắt hàng đợi và tạo phiên mới chỉ cho channel hiện tại.
 - `> openclaw stop [job-id|all]`: abort request cha, gọi `openclaw tasks cancel` và giữ khóa điều khiển cho tới khi task dừng hoặc hết cửa sổ xác nhận 2 phút.
 - `> openclaw off`: tắt tương tác chỉ trong channel hiện tại.
+
+Alias ngắn:
+
+- `> o`: tương đương `> openclaw`.
+- `> o s [job-id|all]`: tương đương `> openclaw stop [job-id|all]`.
+- `> o m [local|9router]`: tương đương `> openclaw model [local|9router]`.
 
 Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc và mỗi channel vẫn giữ session generation riêng, nhưng mọi yêu cầu điều khiển PC dùng chung một queue toàn cục để không có hai worker cùng giành Chrome, chuột hoặc bàn phím. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
 
@@ -25,7 +33,7 @@ Trạng thái job, transcript offset, durable task và delivery ledger được 
 
 ## Cấu hình
 
-Sao chép `.env.example` thành `.env` và điền hai token. `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính. `OPENCLAW_MEDIA_SOURCE_ROOTS` là danh sách thư mục tuyệt đối phân tách bằng dấu `;`; không cho phép dùng trực tiếp gốc ổ đĩa.
+Sao chép `.env.example` thành `.env` và điền hai token. `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính. `OPENCLAW_MEDIA_SOURCE_ROOTS` là danh sách thư mục tuyệt đối phân tách bằng dấu `;`; không cho phép dùng trực tiếp gốc ổ đĩa. `OPENCLAW_BACKEND_MODEL_9ROUTER` và `OPENCLAW_BACKEND_MODEL_LOCAL` đặt model thật tương ứng với hai lệnh chuyển model; `OPENCLAW_MODEL` vẫn phải giữ target Gateway như `openclaw/default`.
 
 OpenClaw cần bật Chat Completions API:
 
@@ -35,7 +43,7 @@ OpenClaw cần bật Chat Completions API:
 & "$env:APPDATA\npm\openclaw.cmd" gateway restart
 ```
 
-Bot dùng một session riêng cho từng channel và từng lần reset. Mọi yêu cầu thao tác OpenClaw được xử lý tuần tự trên queue toàn cục. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `stop`, `resume` và `resend` được xử lý ngay, không phải đợi queue tác vụ PC.
+Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Mọi yêu cầu thao tác OpenClaw được xử lý tuần tự trên queue toàn cục. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay, không phải đợi queue tác vụ PC.
 
 ## Discord Developer Portal
 

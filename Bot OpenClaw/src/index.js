@@ -356,6 +356,7 @@ async function handleCommand(message, command) {
       bound.changed
         ? `Phiên riêng của kênh đã sẵn sàng (phiên ${bound.sessionGeneration}).`
         : `Kênh này đang giữ nguyên phiên ${bound.sessionGeneration}.`,
+      `Model hiện tại: ${bound.modelProfile} (\`${config.openclawBackendModels[bound.modelProfile]}\`).`,
     ];
     if (everyoneCanView) {
       lines.push('Cảnh báo: kênh này đang hiển thị với @everyone; nội dung phản hồi có thể chứa dữ liệu nhạy cảm.');
@@ -382,6 +383,7 @@ async function handleCommand(message, command) {
       `Queue toàn cục: ${queue.active ? 'đang chạy' : 'rảnh'} · ${queue.pending} yêu cầu chờ`,
       `Job bền vững đang hoạt động: ${activeJobs.length}`,
       `Phiên kênh: ${current?.sessionGeneration || 0}`,
+      `Model kênh: ${current?.enabled ? `${current.modelProfile} (\`${config.openclawBackendModels[current.modelProfile]}\`)` : 'chưa chọn'}`,
       `Các kênh đang bật (${activeChannels.length}): ${activeChannels.length ? activeChannels.map((entry) => `<#${entry.channelId}>`).join(', ') : 'không có'}`,
       `Nguồn file được phép: ${OPENCLAW_MEDIA_ROOTS.length} thư mục · outbox giữ ${config.mediaOutboxRetentionHours} giờ`,
     ];
@@ -394,6 +396,31 @@ async function handleCommand(message, command) {
       lines.push('Cảnh báo: bot vẫn đang có quyền Administrator; nên hạ xuống quyền tối thiểu sau khi kiểm tra.');
     }
     await sendChunks(message, lines.join('\n'));
+    return;
+  }
+
+  if (command.action === 'model') {
+    if (!current?.enabled) {
+      await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
+      return;
+    }
+    const modelProfile = String(command.args?.[0] || '').toLowerCase();
+    if (!Object.hasOwn(config.openclawBackendModels, modelProfile)) {
+      await sendChunks(message, [
+        `Model hiện tại: ${current.modelProfile} (\`${config.openclawBackendModels[current.modelProfile]}\`).`,
+        `Dùng \`${config.prefix} openclaw model local\` hoặc \`${config.prefix} openclaw model 9router\`.`,
+      ].join('\n'));
+      return;
+    }
+    const selected = await stateStore.setModelProfile(
+      config.guildId,
+      message.channel.id,
+      modelProfile,
+    );
+    await sendChunks(message, [
+      `Đã chuyển model của kênh sang ${selected.modelProfile} (\`${config.openclawBackendModels[selected.modelProfile]}\`).`,
+      'Job đang chạy vẫn dùng model cũ; lựa chọn mới áp dụng từ yêu cầu tiếp theo.',
+    ].join('\n'));
     return;
   }
 
@@ -482,11 +509,13 @@ async function handleCommand(message, command) {
 
   await sendChunks(message, [
     `Lệnh hợp lệ: \`${config.prefix} openclaw\``,
+    `Lệnh tắt: \`${config.prefix} o\``,
     `\`${config.prefix} openclaw status\``,
+    `\`${config.prefix} openclaw model local|9router\` · tắt: \`${config.prefix} o m local|9router\``,
     `\`${config.prefix} openclaw jobs\``,
     `\`${config.prefix} openclaw resend [job-id] [all|số]\``,
     `\`${config.prefix} openclaw resume [job-id]\``,
-    `\`${config.prefix} openclaw stop [job-id|all]\``,
+    `\`${config.prefix} openclaw stop [job-id|all]\` · tắt: \`${config.prefix} o s [job-id|all]\``,
     `\`${config.prefix} openclaw reset\``,
     `\`${config.prefix} openclaw off\``,
   ].join('\n'));
@@ -534,6 +563,7 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       guildId: message.guildId,
       channelId: message.channelId,
       sessionGeneration: state.sessionGeneration,
+      backendModel: config.openclawBackendModels[state.modelProfile],
       text: appendAudioTranscripts(message.content, attachments.audioTranscripts),
       imageParts: attachments.imageParts,
       signal: deadline.signal,
@@ -593,6 +623,7 @@ client.on('messageCreate', async (message) => {
       channelId: message.channelId,
       sessionGeneration: state.sessionGeneration,
     };
+    const backendModel = config.openclawBackendModels[state.modelProfile];
     const job = await supervisor.createJob({
       id: message.id,
       guildId: message.guildId,
@@ -600,6 +631,7 @@ client.on('messageCreate', async (message) => {
       userId: message.author.id,
       requestMessageId: message.id,
       sessionGeneration: state.sessionGeneration,
+      backendModel,
       rootSessionKey: openclaw.sessionKey(sessionArgs),
     }, { watch: false });
     sourceMessages.set(job.id, message);

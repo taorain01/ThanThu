@@ -3,6 +3,9 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
+const DEFAULT_MODEL_PROFILE = '9router';
+const MODEL_PROFILES = new Set([DEFAULT_MODEL_PROFILE, 'local']);
+
 class StateStoreError extends Error {
   constructor(message, cause) {
     super(message, { cause });
@@ -19,6 +22,9 @@ function validateGuildId(guildId) {
 }
 
 function validateChannelEntry(guildId, channelId, entry) {
+  if (entry && entry.modelProfile === undefined) {
+    entry.modelProfile = DEFAULT_MODEL_PROFILE;
+  }
   if (
     !/^\d{17,20}$/.test(channelId)
     || !entry
@@ -26,6 +32,7 @@ function validateChannelEntry(guildId, channelId, entry) {
     || !Number.isSafeInteger(entry.sessionGeneration)
     || entry.sessionGeneration < 1
     || typeof entry.updatedAt !== 'string'
+    || !MODEL_PROFILES.has(entry.modelProfile)
   ) {
     throw new StateStoreError(`Dữ liệu state của channel ${channelId} trong guild ${guildId} không hợp lệ.`);
   }
@@ -73,6 +80,7 @@ function migrateStateV1(state) {
       channels[entry.channelId] = {
         enabled: true,
         sessionGeneration: entry.sessionGeneration,
+        modelProfile: DEFAULT_MODEL_PROFILE,
         updatedAt: entry.updatedAt,
       };
     }
@@ -144,6 +152,7 @@ class StateStore {
     guild.channels[channelId] = {
       enabled: true,
       sessionGeneration: previous?.sessionGeneration || 1,
+      modelProfile: previous?.modelProfile || DEFAULT_MODEL_PROFILE,
       updatedAt: this.now().toISOString(),
     };
     this.state.guilds[guildId] = guild;
@@ -168,12 +177,27 @@ class StateStore {
     return { channelId, ...previous };
   }
 
+  async setModelProfile(guildId, channelId, modelProfile) {
+    const previous = this.state.guilds[guildId]?.channels?.[channelId];
+    if (!previous?.enabled) {
+      throw new StateStoreError('Kênh hiện tại chưa bật OpenClaw.');
+    }
+    if (!MODEL_PROFILES.has(modelProfile)) {
+      throw new StateStoreError('Profile model không hợp lệ.');
+    }
+    previous.modelProfile = modelProfile;
+    previous.updatedAt = this.now().toISOString();
+    await this.save();
+    return { channelId, ...previous };
+  }
+
   async unbind(guildId, channelId) {
     const guild = this.state.guilds[guildId] || { channels: {} };
     const previous = guild.channels[channelId];
     guild.channels[channelId] = {
       enabled: false,
       sessionGeneration: (previous?.sessionGeneration || 0) + 1,
+      modelProfile: previous?.modelProfile || DEFAULT_MODEL_PROFILE,
       updatedAt: this.now().toISOString(),
     };
     this.state.guilds[guildId] = guild;

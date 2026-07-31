@@ -93,12 +93,16 @@ class OpenClawClient {
     return `agent:${this.agentId}:openai-user:${this.sessionUser(args)}`;
   }
 
-  headers() {
-    return {
+  headers(backendModel) {
+    const headers = {
       Authorization: `Bearer ${this.gatewayToken}`,
       'Content-Type': 'application/json',
       'x-openclaw-message-channel': 'discord',
     };
+    if (backendModel) {
+      headers['x-openclaw-model'] = backendModel;
+    }
+    return headers;
   }
 
   async health() {
@@ -115,7 +119,7 @@ class OpenClawClient {
     }
   }
 
-  async chat({ guildId, channelId, sessionGeneration, text, imageParts, signal }) {
+  async chat({ guildId, channelId, sessionGeneration, backendModel, text, imageParts, signal }) {
     const content = [];
     if (String(text || '').trim()) {
       content.push({ type: 'text', text: String(text).trim() });
@@ -138,7 +142,7 @@ class OpenClawClient {
     try {
       response = await this.fetchImpl(`${this.baseUrl}/v1/chat/completions`, {
         method: 'POST',
-        headers: this.headers(),
+        headers: this.headers(backendModel),
         body: JSON.stringify(body),
         signal,
       });

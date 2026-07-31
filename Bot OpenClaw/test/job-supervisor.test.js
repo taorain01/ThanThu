@@ -26,6 +26,7 @@ function jobInput(id, rootSessionKey) {
     userId: '395151484179841024',
     requestMessageId: id,
     sessionGeneration: 3,
+    backendModel: 'ollama/qwen3:8b',
     rootSessionKey,
   };
 }
@@ -326,11 +327,13 @@ test('recovery task bị mất chỉ chạy một lần và chuyển [blocked] �
     createdAt: Date.now(),
   });
   let recoveryCalls = 0;
+  let recoveryArgs;
   const supervisor = createSupervisor(fixture, store, { value: [] }, async () => 'unused', {
     terminalGraceMs: 50,
     openclaw: {
-      chat: async () => {
+      chat: async (args) => {
         recoveryCalls += 1;
+        recoveryArgs = args;
         return '[blocked] Không xác minh được C:\\Users\\songt\\checkpoint.json với sk-secretsecretsecret';
       },
     },
@@ -338,6 +341,7 @@ test('recovery task bị mất chỉ chạy một lần và chuyển [blocked] �
 
   const settled = await supervisor.recoverJob(job.id);
   assert.equal(recoveryCalls, 1);
+  assert.equal(recoveryArgs.backendModel, 'ollama/qwen3:8b');
   assert.equal(settled.recoveryCount, 1);
   assert.equal(settled.status, 'completed_with_blocker');
   assert.equal(settled.terminalReason.includes('checkpoint.json'), false);

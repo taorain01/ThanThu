@@ -15,6 +15,7 @@ function jobInput(id = 'job-1') {
     userId: '395151484179841024',
     requestMessageId: id,
     sessionGeneration: 3,
+    backendModel: 'ollama/qwen3:8b',
     rootSessionKey: `agent:main:openai-user:discord:guild:channel:${id}`,
   };
 }
@@ -48,6 +49,7 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
   await reloaded.load();
   const job = reloaded.getJob(created.id);
   assert.equal(job.sessionOffsets[created.rootSessionKey], 123);
+  assert.equal(job.backendModel, 'ollama/qwen3:8b');
   assert.equal(job.lastEvent, '✓ bước kiểm tra');
   assert.equal(job.artifacts['hash-1'].status, 'delivered');
   assert.equal(job.artifacts['hash-1'].lastDiscordMessageId, '999999999999999999');

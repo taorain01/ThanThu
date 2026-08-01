@@ -2,7 +2,17 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ResponseDeliveryGate } = require('../src/response-delivery-gate');
+const {
+  ResponseDeliveryGate,
+  isNoResponsePlaceholder,
+} = require('../src/response-delivery-gate');
+
+test('nhận diện chính xác placeholder kỹ thuật của OpenClaw', () => {
+  assert.equal(isNoResponsePlaceholder('No response from OpenClaw.'), true);
+  assert.equal(isNoResponsePlaceholder('  no response from openclaw  '), true);
+  assert.equal(isNoResponsePlaceholder('OpenClaw chưa trả lời.'), false);
+  assert.equal(isNoResponsePlaceholder('No response from another service.'), false);
+});
 
 test('SSE và transcript cạnh tranh vẫn chỉ gửi một phản hồi', async () => {
   const delivered = [];

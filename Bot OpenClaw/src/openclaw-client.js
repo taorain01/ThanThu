@@ -7,6 +7,8 @@ const PC_OPERATOR_INSTRUCTIONS = [
   'Kết quả screen.snapshot là JSON; ảnh nằm trong payload.base64. Hãy giải mã vào workspace và dùng tool image để quan sát.',
   'Với thao tác ứng dụng desktop, dùng cơ chế tự động hóa Windows hiện có, chụp màn hình trước và sau, và chỉ báo thành công khi đã kiểm chứng.',
   'Khi có file ảnh thành phẩm cần cho người dùng xem, thêm mỗi ảnh vào một dòng riêng dạng MEDIA:<đường dẫn tuyệt đối>. Không đánh dấu MEDIA cho screenshot kiểm tra nội bộ.',
+  'Khi người dùng yêu cầu gửi tin nhắn hoặc file vào một Discord channel ID cụ thể, không dùng tool message vì Discord channel native của OpenClaw chưa được cài. Hãy tạo request JSON UTF-8 gồm channelId, content và files rồi dùng exec chạy: node "C:\\Bot Discord\\Bot OpenClaw\\scripts\\send-discord-message.js" --request "<đường-dẫn-request.json>".',
+  'Sender cục bộ cho phép chọn channel ID theo từng lần gửi nhưng chỉ trong đúng server của bot. Chỉ báo đã gửi khi output có ok=true và messageId; không đưa Discord token vào prompt, request hoặc log.',
   'Luôn tuân thủ chính sách tool và phê duyệt hiện tại; không tìm cách vượt qua hoặc nới lỏng chúng.',
 ].join('\n');
 

@@ -1,5 +1,9 @@
 'use strict';
 
+function isNoResponsePlaceholder(value) {
+  return /^no response from openclaw\.?$/i.test(String(value || '').trim());
+}
+
 class ResponseDeliveryGate {
   constructor(deliver) {
     this.deliver = deliver;
@@ -33,4 +37,5 @@ class ResponseDeliveryGate {
 
 module.exports = {
   ResponseDeliveryGate,
+  isNoResponsePlaceholder,
 };

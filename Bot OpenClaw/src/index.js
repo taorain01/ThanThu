@@ -34,7 +34,10 @@ const { OpenClawClient, OpenClawError } = require('./openclaw-client');
 const { OpenClawTaskClient } = require('./openclaw-task-client');
 const { JobSupervisor, TERMINAL_JOB_STATUSES, artifactCounts } = require('./job-supervisor');
 const { RequestDeadline } = require('./request-deadline');
-const { ResponseDeliveryGate } = require('./response-delivery-gate');
+const {
+  ResponseDeliveryGate,
+  isNoResponsePlaceholder,
+} = require('./response-delivery-gate');
 const { splitDiscordText } = require('./message-utils');
 const {
   buildJobStatusEmbed,
@@ -952,6 +955,7 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   let responseWatcherController = null;
   let responseWatcherPromise = Promise.resolve(false);
   let firstDeltaRecorded = Boolean(jobStore.getJob(jobId)?.firstDeltaAt);
+  let waitForTranscriptAfterForeground = false;
 
   const responseGate = new ResponseDeliveryGate(async (text) => {
     const latest = stateStore.getChannel(config.guildId, message.channelId);
@@ -1045,7 +1049,12 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       signal: deadline.signal,
       onDelta: handleStreamDelta,
     });
-    await responseGate.deliverOnce(responseText);
+    if (isNoResponsePlaceholder(responseText)) {
+      waitForTranscriptAfterForeground = true;
+      logger.info('Bỏ qua placeholder của OpenClaw và tiếp tục chờ tác vụ nền.', { jobId });
+    } else {
+      await responseGate.deliverOnce(responseText);
+    }
   } catch (error) {
     if (responseGate.delivered) {
       logger.warn('OpenClaw kết thúc HTTP với lỗi sau khi Discord đã nhận phản hồi.', {
@@ -1056,8 +1065,10 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       foregroundError = error;
     }
   } finally {
-    responseWatcherController?.abort();
-    await responseWatcherPromise;
+    if (!waitForTranscriptAfterForeground) {
+      responseWatcherController?.abort();
+      await responseWatcherPromise;
+    }
     streamPreviews.delete(jobId);
     stopTyping();
     deadline.stop();
@@ -1066,6 +1077,16 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   }
 
   const settled = await supervisor.waitForSettled(jobId);
+  if (waitForTranscriptAfterForeground) {
+    if (!responseGate.delivered) {
+      await Promise.race([
+        responseWatcherPromise,
+        retryDelay(5000).then(() => false),
+      ]);
+    }
+    responseWatcherController?.abort();
+    await responseWatcherPromise;
+  }
   sourceMessages.delete(jobId);
   if (foregroundError && settled?.status === 'failed') {
     throw foregroundError;

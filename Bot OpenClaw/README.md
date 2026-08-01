@@ -24,6 +24,8 @@ Có thể lặp lại `--file`, dùng `--content-file` cho caption UTF-8 dài, h
 
 Bot luôn xác minh channel thuộc đúng server, vô hiệu hóa mention tự động và chỉ nhận file trong OpenClaw workspace/media hoặc `OPENCLAW_MEDIA_SOURCE_ROOTS`. Dùng `--dry-run` để kiểm tra channel, đường dẫn và dung lượng mà chưa gửi thật.
 
+OpenClaw không cần cài Discord channel native để dùng sender này. Prompt hệ thống của bridge yêu cầu agent dùng script cục bộ thay cho tool `message` khi người dùng chỉ định Channel ID. Bot cũng bỏ qua placeholder kỹ thuật `No response from OpenClaw.` và tiếp tục chờ transcript khi durable task vẫn hoàn tất ở nền.
+
 ## Lệnh Discord
 
 - `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.

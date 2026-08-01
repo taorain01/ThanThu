@@ -265,10 +265,14 @@ function recentActivityValue(events, terminal) {
     : 'Đang chuẩn bị phiên và chờ hoạt động đầu tiên…';
 }
 
-function jobFooter(job, counts, prefix, terminal, heartbeatMs) {
+function jobFooter(job, counts, prefix, terminal, heartbeatMs, updateDebounceMs) {
   if (!terminal) {
-    const seconds = Math.max(1, Math.round((Number(heartbeatMs) || 60000) / 1000));
-    return `Heartbeat ${seconds}s • Dừng: ${prefix} o stop (hoặc ${prefix} openclaw stop)`;
+    const heartbeatSeconds = Math.max(1, Math.round((Number(heartbeatMs) || 60000) / 1000));
+    const updateSeconds = Math.max(0.25, (Number(updateDebounceMs) || 1000) / 1000)
+      .toFixed(2)
+      .replace(/0+$/, '')
+      .replace(/\.$/, '');
+    return `Realtime ~${updateSeconds}s • dự phòng ${heartbeatSeconds}s • Dừng: ${prefix} o stop`;
   }
   if (counts.ready) {
     return `Còn ${counts.ready} file chờ gửi • ${prefix} openclaw resend ${job.id}`;
@@ -356,7 +360,14 @@ function buildJobStatusEmbed(job, options = {}) {
   embed
     .setFooter({
       text: truncate(
-        jobFooter(job, counts, prefix, terminal, options.heartbeatMs),
+        jobFooter(
+          job,
+          counts,
+          prefix,
+          terminal,
+          options.heartbeatMs,
+          options.updateDebounceMs,
+        ),
         EMBED_LIMITS.footer,
       ),
     })

@@ -1,5 +1,15 @@
 'use strict';
 
+function statusUpdateDelay(options = {}) {
+  if (options.immediate) {
+    return 100;
+  }
+  const now = Number(options.now) || Date.now();
+  const lastUpdatedAt = Number(options.lastUpdatedAt) || 0;
+  const debounceMs = Number(options.debounceMs) || 1000;
+  return Math.max(100, debounceMs - Math.max(0, now - lastUpdatedAt));
+}
+
 function startStatusHeartbeat(options) {
   const intervalMs = Number(options.intervalMs) || 60000;
   const setIntervalImpl = options.setIntervalImpl || setInterval;
@@ -20,4 +30,5 @@ function startStatusHeartbeat(options) {
 
 module.exports = {
   startStatusHeartbeat,
+  statusUpdateDelay,
 };

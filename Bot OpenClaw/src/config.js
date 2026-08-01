@@ -156,6 +156,12 @@ function loadConfig(env = process.env) {
       10000,
       3600000,
     ),
+    statusUpdateDebounceMs: parseInteger(
+      env.OPENCLAW_STATUS_UPDATE_DEBOUNCE_MS || '1000',
+      'OPENCLAW_STATUS_UPDATE_DEBOUNCE_MS',
+      250,
+      10000,
+    ),
     mediaOutboxRetentionHours: parseInteger(
       env.OPENCLAW_MEDIA_OUTBOX_RETENTION_HOURS || '168',
       'OPENCLAW_MEDIA_OUTBOX_RETENTION_HOURS',

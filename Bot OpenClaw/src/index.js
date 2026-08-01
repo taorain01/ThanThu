@@ -44,7 +44,7 @@ const {
 } = require('./response-recovery');
 const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
-const { startStatusHeartbeat } = require('./status-heartbeat');
+const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
 const OPENCLAW_HOME = path.join(os.homedir(), '.openclaw');
@@ -192,6 +192,7 @@ async function updateStatusMessage(job) {
     botName: 'OPENCLAW // JOB MONITOR',
     botIconUrl: botIconUrl(),
     heartbeatMs: config.jobHeartbeatMs,
+    updateDebounceMs: config.statusUpdateDebounceMs,
   });
   const channel = await resolveDiscordChannel(current.channelId);
   if (current.statusMessageId) {
@@ -271,8 +272,11 @@ function scheduleStatusUpdate(job, options = {}) {
     clearTimeout(statusUpdateTimers.get(job.id));
     statusUpdateTimers.delete(job.id);
   }
-  const elapsed = Date.now() - (statusUpdatedAt.get(job.id) || 0);
-  const waitMs = immediate ? 100 : Math.max(100, config.jobHeartbeatMs - elapsed);
+  const waitMs = statusUpdateDelay({
+    immediate,
+    lastUpdatedAt: statusUpdatedAt.get(job.id),
+    debounceMs: config.statusUpdateDebounceMs,
+  });
   const timer = setTimeout(() => {
     statusUpdateTimers.delete(job.id);
     void ensureStatusMessage(jobStore.getJob(job.id)).catch((error) => {

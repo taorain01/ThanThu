@@ -2,7 +2,21 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startStatusHeartbeat } = require('../src/status-heartbeat');
+const { startStatusHeartbeat, statusUpdateDelay } = require('../src/status-heartbeat');
+
+test('event tiến độ cập nhật gần realtime nhưng vẫn debounce để tránh rate-limit', () => {
+  assert.equal(statusUpdateDelay({
+    now: 10000,
+    lastUpdatedAt: 9500,
+    debounceMs: 1000,
+  }), 500);
+  assert.equal(statusUpdateDelay({
+    now: 10000,
+    lastUpdatedAt: 8000,
+    debounceMs: 1000,
+  }), 100);
+  assert.equal(statusUpdateDelay({ immediate: true }), 100);
+});
 
 test('heartbeat chủ động refresh job dù không có event mới', async () => {
   let intervalCallback;

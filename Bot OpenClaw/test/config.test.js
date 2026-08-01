@@ -31,6 +31,7 @@ test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   assert.equal(config.requestMaxRuntimeMs, 43200000);
   assert.equal(config.maxPending, 5);
   assert.equal(config.maxConcurrentSessions, 2);
+  assert.equal(config.statusUpdateDebounceMs, 1000);
   assert.deepEqual(config.mediaSourceRoots, ['F:\\Hình Ảnh\\anhYoutube']);
   assert.equal(config.openclawAgentId, 'main');
   assert.deepEqual(config.openclawBackendModels, {
@@ -60,6 +61,10 @@ test('từ chối Discord ID và giới hạn số không hợp lệ', () => {
   assert.throws(
     () => loadConfig(validEnv({ OPENCLAW_MAX_CONCURRENT_SESSIONS: '11' })),
     /khoảng 1-10/,
+  );
+  assert.throws(
+    () => loadConfig(validEnv({ OPENCLAW_STATUS_UPDATE_DEBOUNCE_MS: '100' })),
+    /khoảng 250-10000/,
   );
 });
 

@@ -9,7 +9,7 @@ function truncate(value, maxLength) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
-function sanitizeInline(value) {
+function sanitizeActivityText(value, maxLength = 24000) {
   const home = os.homedir();
   let text = String(value || '')
     .replace(/Bearer\s+[^\s"']+/gi, 'Bearer [REDACTED]')
@@ -27,9 +27,17 @@ function sanitizeInline(value) {
     .replace(/[A-Za-z]:\\[^"'`;|\r\n]+$/gm, '<đường dẫn>')
     .replace(/[A-Za-z]:\\(?:[^\s"'`;|]+\\)*[^\s"'`;|]*/g, '<đường dẫn>')
     .replace(/\\\\[^\s"'`;|]+\\[^\s"'`;|]+/g, '<đường dẫn mạng>')
-    .replace(/\s+/g, ' ')
+    .replace(/\[\[[^\]]+\]\]/g, '')
+    .replace(/[^\S\r\n]+/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return truncate(text, 180);
+  return truncate(text, maxLength);
+}
+
+function sanitizeInline(value) {
+  return truncate(sanitizeActivityText(value).replace(/\s+/g, ' '), 180);
 }
 
 function toolLabel(toolName) {
@@ -80,27 +88,41 @@ function extractActivityEvents(record) {
 
   const message = record.message;
   const events = [];
-  if (message.role === 'assistant' && Array.isArray(message.content)) {
-    for (const part of message.content) {
-      if (part?.type === 'text') {
-        const mediaReferences = mediaFromAssistantText(part.text);
-        const visibleText = String(part.text || '')
-          .split(/\r?\n/)
-          .filter((line) => !/^\s*MEDIA:/i.test(line))
-          .join(' ')
-          .replace(/\[\[[^\]]+\]\]/g, '');
-        const label = sanitizeInline(visibleText);
-        const text = message.stopReason === 'toolUse' ? label : '';
-        if (text || mediaReferences.length) {
-          events.push({
-            text: text ? `💬 ${text}` : '',
-            mediaReferences,
-            mediaLabel: label,
-          });
-        }
+  if (message.role === 'assistant') {
+    const content = Array.isArray(message.content)
+      ? message.content
+      : [{ type: 'text', text: message.content }];
+    const responseText = content
+      .filter((part) => part?.type === 'text')
+      .map((part) => String(part.text || ''))
+      .join('\n');
+    if (responseText) {
+      const mediaReferences = mediaFromAssistantText(responseText);
+      const visibleText = responseText
+        .split(/\r?\n/)
+        .filter((line) => !/^\s*MEDIA:/i.test(line))
+        .join('\n')
+        .replace(/\[\[[^\]]+\]\]/g, '');
+      const label = sanitizeInline(visibleText);
+      const notificationText = sanitizeActivityText(visibleText);
+      const text = label ? `💬 ${label}` : '';
+      if (text || mediaReferences.length) {
+        events.push({
+          kind: 'assistant',
+          text,
+          notificationText,
+          responseText,
+          final: message.stopReason !== 'toolUse',
+          stopReason: message.stopReason || '',
+          mediaReferences,
+          mediaLabel: label,
+        });
       }
+    }
+    for (const part of content) {
       if (part?.type === 'toolCall') {
         events.push({
+          kind: 'tool_call',
           text: summarizeToolCall(part),
           mediaReferences: [],
         });
@@ -111,6 +133,7 @@ function extractActivityEvents(record) {
   if (message.role === 'toolResult') {
     const name = toolLabel(message.toolName);
     events.push({
+      kind: 'tool_result',
       text: `${message.isError ? '✗' : '✓'} \`${name}\` ${message.isError ? 'gặp lỗi' : 'hoàn tất'}`,
       mediaReferences: [],
     });
@@ -314,5 +337,6 @@ module.exports = {
   formatFinishedActivity,
   formatLiveActivity,
   mediaFromAssistantText,
+  sanitizeActivityText,
   sanitizeInline,
 };

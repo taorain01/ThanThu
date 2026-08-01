@@ -91,6 +91,7 @@ function createSupervisor(fixture, store, tasksRef, sendArtifact, overrides = {}
     retryDelaysMs: overrides.retryDelaysMs ?? [],
     idleTimeoutMs: 1000,
     maxRuntimeMs: 5000,
+    sendActivity: overrides.sendActivity,
     sendArtifact,
   });
 }
@@ -123,11 +124,14 @@ test('parent kết thúc nhưng child vẫn gửi đủ bốn MEDIA, kể cả t
     progressSummary: 'Đang xử lý C:\\Users\\songt\\secret.txt với sk-secretsecretsecret',
   }] };
   const sent = [];
+  const activities = [];
   const store = new JobStore(fixture.storePath);
   await store.load();
   const supervisor = createSupervisor(fixture, store, tasksRef, async (_job, artifact) => {
     sent.push(path.basename(artifact.sourcePath));
     return `discord-${sent.length}`;
+  }, {
+    sendActivity: async (_job, event) => activities.push(event),
   });
   const job = await supervisor.createJob(jobInput('job-parent-child', rootSessionKey), { watch: false });
   await supervisor.watchJob(job.id, { rootStartAtEnd: true });
@@ -168,6 +172,14 @@ test('parent kết thúc nhưng child vẫn gửi đủ bốn MEDIA, kể cả t
     settled.events.filter((event) => event.startsWith('✓ Worker hoàn tất:')).length,
     1,
   );
+  assert.equal(activities.some((event) => (
+    event.kind === 'assistant'
+    && event.final
+    && !event.isRoot
+    && event.notificationText.includes('Ảnh 4/4')
+  )), true);
+  assert.equal(activities.some((event) => event.kind === 'tool_call' && !event.isRoot), true);
+  assert.equal(activities.some((event) => event.origin === 'terminal'), true);
 });
 
 test('restart dùng offset bền vững, không gửi trùng và tiếp tục giữ child session', async (t) => {

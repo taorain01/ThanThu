@@ -11,6 +11,7 @@ const {
   formatFinishedActivity,
   formatLiveActivity,
   mediaFromAssistantText,
+  sanitizeActivityText,
   sanitizeInline,
 } = require('../src/session-activity');
 
@@ -49,6 +50,9 @@ test('ẩn token, đường dẫn và dữ liệu dài', () => {
   assert.equal(safe.includes('secret\\file.txt'), false);
   assert.equal(safe.includes('A'.repeat(100)), false);
   assert.match(safe, /REDACTED/);
+  const direct = sanitizeActivityText(`Dòng một\nDòng hai sk-secretsecretsecret`);
+  assert.match(direct, /Dòng một\nDòng hai/);
+  assert.equal(direct.includes('sk-secret'), false);
 });
 
 test('định dạng tiến độ và tách nhật ký dài', () => {
@@ -73,9 +77,26 @@ test('lấy MEDIA từ câu trả lời cuối mà không đưa đường dẫn 
       content: [{ type: 'text', text: 'Đã xong.\nMEDIA:C:\\Users\\test\\screen.png' }],
     },
   });
-  assert.equal(events[0].text, '');
+  assert.equal(events[0].text, '💬 Đã xong.');
+  assert.equal(events[0].notificationText, 'Đã xong.');
+  assert.equal(events[0].kind, 'assistant');
+  assert.equal(events[0].final, true);
   assert.deepEqual(events[0].mediaReferences, ['C:\\Users\\test\\screen.png']);
   assert.equal(events[0].mediaLabel, 'Đã xong.');
+});
+
+test('nhận phản hồi assistant dạng chuỗi để relay trực tiếp', () => {
+  const events = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      stopReason: 'stop',
+      content: 'Sub-agent đã hoàn tất.',
+    },
+  });
+
+  assert.equal(events[0].notificationText, 'Sub-agent đã hoàn tất.');
+  assert.equal(events[0].final, true);
 });
 
 test('nhận MEDIA trong toolUse nhưng không lấy ảnh từ tham số tool image', () => {

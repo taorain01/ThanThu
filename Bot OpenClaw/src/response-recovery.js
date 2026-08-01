@@ -16,9 +16,22 @@ function fingerprintText(value) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
+function lineBoundaryCandidates(value) {
+  const text = String(value || '');
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const candidates = [text];
+  for (let end = 1; end < lines.length; end += 1) {
+    candidates.push(lines.slice(0, end).join('\n'));
+  }
+  for (let start = 1; start < lines.length; start += 1) {
+    candidates.push(lines.slice(start).join('\n'));
+  }
+  return candidates;
+}
+
 function contentCandidates(content) {
   if (typeof content === 'string') {
-    return [content];
+    return lineBoundaryCandidates(content);
   }
   if (!Array.isArray(content)) {
     return [];
@@ -26,7 +39,10 @@ function contentCandidates(content) {
   const parts = content
     .filter((part) => part?.type === 'text' && typeof part.text === 'string')
     .map((part) => part.text);
-  return [...parts, parts.join('\n')];
+  return [...new Set([
+    ...parts.flatMap(lineBoundaryCandidates),
+    ...lineBoundaryCandidates(parts.join('\n')),
+  ])];
 }
 
 function assistantText(content) {

@@ -71,6 +71,34 @@ test('khớp text part của user content có ảnh và resolve transcript từ 
   }), 'Đã xem ảnh.');
 });
 
+test('vẫn khớp request khi OpenClaw nối thêm một dòng nội bộ vào user message', async (t) => {
+  const sessionsDir = await fixture(t);
+  const transcriptPath = path.join(sessionsDir, 'appended-user-line.jsonl');
+  const requestText = 'Kiểm tra và báo trực tiếp tiến độ cho tôi.';
+  await fs.writeFile(transcriptPath, [
+    JSON.stringify({
+      type: 'message',
+      timestamp: '2026-08-01T00:01:00.000Z',
+      message: {
+        role: 'user',
+        content: `${requestText}\n[Dòng ngữ cảnh nội bộ do OpenClaw nối thêm]`,
+      },
+    }),
+    JSON.stringify({
+      type: 'message',
+      timestamp: '2026-08-01T00:01:02.000Z',
+      message: { role: 'assistant', stopReason: 'stop', content: 'Đã hoàn tất.' },
+    }),
+    '',
+  ].join('\n'), 'utf8');
+
+  assert.equal(await findTranscriptResponse({
+    transcriptPath,
+    requestFingerprint: fingerprintText(requestText),
+    afterTimestampMs: Date.parse('2026-08-01T00:00:59.000Z'),
+  }), 'Đã hoàn tất.');
+});
+
 test('không lấy phản hồi khi request không khớp hoặc chỉ mới toolUse', async (t) => {
   const sessionsDir = await fixture(t);
   const transcriptPath = path.join(sessionsDir, 'incomplete.jsonl');

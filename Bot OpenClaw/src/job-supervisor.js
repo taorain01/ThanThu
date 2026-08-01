@@ -5,6 +5,7 @@ const path = require('node:path');
 const {
   OpenClawSessionMonitor,
   mediaFromAssistantText,
+  sanitizeActivityText,
   sanitizeInline,
 } = require('./session-activity');
 const { stageMediaReference } = require('./response-media');
@@ -100,6 +101,7 @@ class JobSupervisor {
     this.maxRuntimeMs = options.maxRuntimeMs;
     this.logger = options.logger;
     this.onJobChanged = options.onJobChanged || (() => {});
+    this.sendActivity = options.sendActivity || (async () => {});
     this.sendArtifact = options.sendArtifact || (async () => {
       throw new Error('Chưa cấu hình bộ gửi artifact.');
     });
@@ -189,7 +191,12 @@ class JobSupervisor {
       afterTimestampMs: job.sessionStartedAt[sessionKey] || Date.parse(job.createdAt) - 1000,
       onOffset: (offset) => this.store.setSessionOffset(jobId, sessionKey, offset),
       onRecord: () => this.contexts.get(jobId)?.activityTouch?.(),
-      onEvent: (event) => this.handleEvent(jobId, event),
+      onEvent: (event) => this.handleEvent(jobId, {
+        ...event,
+        origin: 'transcript',
+        sessionKey,
+        isRoot: sessionKey === job.rootSessionKey,
+      }),
     });
     context.monitors.set(sessionKey, monitor);
     await monitor.start();
@@ -204,12 +211,38 @@ class JobSupervisor {
 
   async handleEvent(jobId, event) {
     const context = this.contexts.get(jobId);
-    context?.activityTouch?.();
-    if (event.text) {
-      await this.store.addEvent(jobId, event.text);
+    const job = this.store.getJob(jobId);
+    const activity = {
+      origin: 'system',
+      ...event,
+      isRoot: event.isRoot ?? (
+        event.sessionKey ? event.sessionKey === job?.rootSessionKey : false
+      ),
+    };
+    if (!activity.sourceLabel && activity.sessionKey && !activity.isRoot) {
+      const sourceTask = Object.values(job?.tasks || {}).find((task) => (
+        task.childSessionKey === activity.sessionKey && task.label
+      ));
+      activity.sourceLabel = sourceTask?.label || '';
     }
-    for (const reference of event.mediaReferences || []) {
-      await this.registerArtifact(jobId, reference, event.mediaLabel);
+    context?.activityTouch?.();
+    if (activity.text) {
+      await this.store.addEvent(jobId, activity.text);
+      try {
+        await this.sendActivity(this.store.getJob(jobId), activity);
+      } catch (error) {
+        this.logger?.warn('Không gửi được hoạt động OpenClaw trực tiếp lên Discord.', {
+          jobId,
+          kind: activity.kind,
+          name: error.name,
+        });
+        if (activity.origin === 'transcript') {
+          throw error;
+        }
+      }
+    }
+    for (const reference of activity.mediaReferences || []) {
+      await this.registerArtifact(jobId, reference, activity.mediaLabel);
     }
     await this.notifyJobChanged(jobId);
   }
@@ -237,7 +270,11 @@ class JobSupervisor {
           : `✓ Worker hoàn tất: ${worker.displayLabel}`;
       }
       if (text) {
-        await this.store.addEvent(jobId, text);
+        await this.handleEvent(jobId, {
+          kind: 'worker',
+          origin: 'task',
+          text,
+        });
         changed = true;
       }
     }
@@ -531,7 +568,11 @@ class JobSupervisor {
     context.foregroundError = result.error || null;
     context.discoveryDeadline = Date.now() + this.discoveryGraceMs;
     if (result.error) {
-      await this.store.addEvent(jobId, `✗ Yêu cầu cha gặp lỗi: ${result.error.code || result.error.name || 'Error'}`);
+      await this.handleEvent(jobId, {
+        kind: 'system',
+        origin: 'foreground',
+        text: `✗ Yêu cầu cha gặp lỗi: ${result.error.code || result.error.name || 'Error'}`,
+      });
     }
     await this.syncTasks(jobId);
   }
@@ -591,6 +632,17 @@ class JobSupervisor {
           terminalReason,
           stopRequested,
         });
+        const terminalEvents = {
+          completed: '✅ Job đã hoàn tất toàn bộ công việc.',
+          completed_with_blocker: `⚠️ Job hoàn tất nhưng còn blocker: ${terminalReason}`,
+          failed: `❌ Job không hoàn tất: ${terminalReason}`,
+          stopped: '⏹ Job đã dừng theo yêu cầu.',
+        };
+        await this.handleEvent(jobId, {
+          kind: 'system',
+          origin: 'terminal',
+          text: terminalEvents[status],
+        });
         this.contexts.delete(jobId);
         await this.notifyJobChanged(jobId);
         context.settleResolve(this.store.getJob(jobId));
@@ -634,8 +686,11 @@ class JobSupervisor {
     await this.cancelActiveTasks(context, activeTasks);
     const timer = setTimeout(() => void this.settle(jobId), this.cancelGraceMs);
     timer.unref?.();
-    await this.store.addEvent(jobId, '⏹ Đã yêu cầu OpenClaw hủy toàn bộ durable task của job.');
-    await this.notifyJobChanged(jobId);
+    await this.handleEvent(jobId, {
+      kind: 'system',
+      origin: 'command',
+      text: '⏹ Đã yêu cầu OpenClaw hủy toàn bộ durable task của job.',
+    });
     return this.store.getJob(jobId);
   }
 
@@ -736,7 +791,14 @@ class JobSupervisor {
       }
       const safeResponse = sanitizeInline(visibleText);
       if (safeResponse) {
-        await this.store.addEvent(jobId, `💬 ${safeResponse}`);
+        await this.handleEvent(jobId, {
+          kind: 'assistant',
+          origin: 'recovery',
+          isRoot: true,
+          final: true,
+          text: `💬 ${safeResponse}`,
+          notificationText: sanitizeActivityText(visibleText),
+        });
       }
       if (/\[blocked\]/i.test(responseText)) {
         context.explicitBlocker = safeResponse || 'OpenClaw không xác minh chắc chắn được checkpoint hoặc UI.';

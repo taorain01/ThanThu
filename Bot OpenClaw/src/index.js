@@ -41,6 +41,7 @@ const {
   buildResponseEmbeds,
   buildSystemStatusEmbed,
 } = require('./discord-embeds');
+const { buildActivityMessages, isRootTranscriptFinal } = require('./discord-activity');
 const { readSessionContextUsage } = require('./session-context');
 const {
   findSessionResponse,
@@ -87,6 +88,8 @@ const sourceMessages = new Map();
 const statusUpdateTimers = new Map();
 const statusUpdatePromises = new Map();
 const statusUpdatedAt = new Map();
+const activityDeliveryChains = new Map();
+const responseDeliveryPromises = new Map();
 const messageDispatches = new Map();
 const handledMessageIds = new Set();
 const bufferedGatewayMessages = [];
@@ -166,6 +169,57 @@ async function sendJobResponse(job, text) {
   }
 }
 
+function retryDelay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runActivityDelivery(job, event) {
+  const messages = buildActivityMessages(job, event);
+  if (messages.length === 0) {
+    return [];
+  }
+  const channel = await resolveDiscordChannel(job.channelId);
+  const sentIds = [];
+  for (const content of messages) {
+    let lastError;
+    for (const waitMs of [0, 1000, 5000]) {
+      if (waitMs) {
+        await retryDelay(waitMs);
+      }
+      try {
+        const sent = await channel.send(discordMessageOptions(content));
+        sentIds.push(sent.id);
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError) {
+      throw lastError;
+    }
+  }
+  return sentIds;
+}
+
+async function sendActivityToDiscord(job, event) {
+  const isRootFinal = isRootTranscriptFinal(event);
+  const previous = activityDeliveryChains.get(job.id) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(() => (
+    isRootFinal
+      ? sendOpenClawResponse(job.id, event.responseText || event.notificationText || event.text)
+      : runActivityDelivery(job, event)
+  ));
+  activityDeliveryChains.set(job.id, operation);
+  try {
+    return await operation;
+  } finally {
+    if (activityDeliveryChains.get(job.id) === operation) {
+      activityDeliveryChains.delete(job.id);
+    }
+  }
+}
+
 async function updateStatusMessage(job) {
   const current = jobStore.getJob(job.id);
   const queue = requestQueue.getDetailedStatus();
@@ -196,7 +250,19 @@ async function updateStatusMessage(job) {
   if (current.statusMessageId) {
     try {
       const statusMessage = await channel.messages.fetch(current.statusMessageId);
-      if (current.status !== 'queued' && channel.lastMessageId !== statusMessage.id) {
+      let shouldMoveToBottom = current.status !== 'queued'
+        && channel.lastMessageId !== statusMessage.id;
+      if (shouldMoveToBottom && channel.lastMessageId) {
+        try {
+          const lastMessage = await channel.messages.fetch(channel.lastMessageId);
+          if (lastMessage.author.id === client.user.id) {
+            shouldMoveToBottom = false;
+          }
+        } catch {
+          // Giữ hành vi cũ nếu không xác định được tác giả tin cuối kênh.
+        }
+      }
+      if (shouldMoveToBottom) {
         const source = sourceMessages.get(current.id);
         let replacement;
         if (source) {
@@ -312,10 +378,11 @@ supervisor = new JobSupervisor({
   maxRuntimeMs: config.requestMaxRuntimeMs,
   logger,
   onJobChanged: async (job) => scheduleStatusUpdate(job),
+  sendActivity: sendActivityToDiscord,
   sendArtifact: sendArtifactToDiscord,
 });
 
-async function sendOpenClawResponse(jobId, responseText) {
+async function runOpenClawResponseDelivery(jobId, responseText) {
   const parsed = extractMediaReferences(responseText);
   for (const reference of parsed.references) {
     await supervisor.registerArtifact(jobId, reference, 'Ảnh thành phẩm từ OpenClaw');
@@ -325,6 +392,30 @@ async function sendOpenClawResponse(jobId, responseText) {
     : responseText);
   await sendJobResponse(jobStore.getJob(jobId), visibleText);
   await jobStore.updateJob(jobId, { responseSent: true });
+  return true;
+}
+
+async function sendOpenClawResponse(jobId, responseText) {
+  if (jobStore.getJob(jobId)?.responseSent) {
+    return false;
+  }
+  if (responseDeliveryPromises.has(jobId)) {
+    return responseDeliveryPromises.get(jobId);
+  }
+  const operation = (async () => {
+    if (jobStore.getJob(jobId)?.responseSent) {
+      return false;
+    }
+    return runOpenClawResponseDelivery(jobId, responseText);
+  })();
+  responseDeliveryPromises.set(jobId, operation);
+  try {
+    return await operation;
+  } finally {
+    if (responseDeliveryPromises.get(jobId) === operation) {
+      responseDeliveryPromises.delete(jobId);
+    }
+  }
 }
 
 async function responseAlreadyOnDiscord(job, channel) {
@@ -739,6 +830,9 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       onAudioStart: () => {
         deadline.touch();
         return supervisor.handleEvent(jobId, {
+          kind: 'tool_call',
+          origin: 'audio',
+          isRoot: true,
           text: '▶ `audio.transcribe` — phiên âm file âm thanh',
           mediaReferences: [],
         });
@@ -746,6 +840,9 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       onAudioComplete: () => {
         deadline.touch();
         return supervisor.handleEvent(jobId, {
+          kind: 'tool_result',
+          origin: 'audio',
+          isRoot: true,
           text: '✓ `audio.transcribe` hoàn tất',
           mediaReferences: [],
         });

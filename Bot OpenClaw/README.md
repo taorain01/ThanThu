@@ -29,7 +29,7 @@ Mỗi lượt OpenClaw dùng idle timeout mặc định 30 phút và thời lư�
 
 Trong lúc OpenClaw làm việc, bot cập nhật một status message và heartbeat mỗi 60 giây. Embed hiển thị context chính xác của session theo số token đầy đủ, ưu tiên snapshot fresh của OpenClaw và fallback về usage provider gần nhất trong transcript; số estimate không được trình bày như usage chính xác. Nếu status của job đang chạy bị các tin nhắn mới đẩy lên trên, bot tạo bản cập nhật ở cuối channel rồi xóa bản cũ để tiến độ luôn dễ thấy mà không tích lũy embed. Bot theo dõi transcript của phiên cha cùng mọi session con, kể cả assistant text có `stopReason: toolUse`. Chỉ dòng rõ ràng `MEDIA:<đường dẫn tuyệt đối>` mới được xem là thành phẩm; tham số của tool `image` và screenshot kiểm tra nội bộ không bao giờ tự gửi. Mỗi file hợp lệ được gửi ngay khi xuất hiện, không chờ đủ cả lô.
 
-Trạng thái job, transcript offset, durable task và delivery ledger được lưu nguyên tử tại `data/jobs.json`. Khi bot khởi động lại, task còn chạy được reattach; task đã xong được quét nốt artifact chưa gửi; task bị mất chỉ được tự khôi phục một lần sau prompt xác minh UI. Nếu không chắc chắn, job kết thúc có blocker thay vì gửi lại prompt mù quáng.
+Trạng thái job, transcript offset, request fingerprint, durable task và delivery ledger được lưu nguyên tử tại `data/jobs.json`. Khi bot khởi động lại, bot dò đúng user message trong transcript và gửi nốt phản hồi final chưa delivery trước khi cân nhắc chạy recovery prompt. Task còn chạy được reattach; task đã xong được quét nốt artifact chưa gửi; task bị mất chỉ được tự khôi phục một lần sau prompt xác minh UI. Nếu không chắc chắn, job kết thúc có blocker thay vì gửi lại prompt mù quáng.
 
 ## Cấu hình
 
@@ -80,7 +80,7 @@ Task không tự chạy khi đăng nhập. Tạo ứng dụng điều khiển tr
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-control-app.ps1
 ```
 
-File `OpenClaw Discord Bot.exe` có giao diện trạng thái và các nút Bật bot, Tắt bot, Làm mới, Mở thư mục log. Bot được chạy nền qua Task Scheduler nên không xuất hiện cửa sổ console; Task Scheduler vẫn chống chạy trùng và tự restart khi tiến trình đang chạy gặp lỗi.
+File `OpenClaw Discord Bot.exe` có giao diện trạng thái và các nút Bật bot, Tắt bot, Làm mới, Mở thư mục log. Nút Tắt bot kết thúc cả Scheduled Task lẫn mọi tiến trình Node con còn sót để lần bật sau không tạo bot trùng. Bot được chạy nền qua Task Scheduler nên không xuất hiện cửa sổ console; Task Scheduler vẫn chống chạy trùng và tự restart khi tiến trình đang chạy gặp lỗi.
 
 Khi task của bot đang chạy, launcher `scripts/run-bot-awake.ps1` tạo yêu cầu giữ **hệ thống** thức nhưng không giữ **màn hình** sáng. Vì vậy Windows vẫn có thể tắt màn hình, còn CPU, mạng, OpenClaw Gateway và bot Discord tiếp tục chạy. Yêu cầu giữ thức được gỡ tự động ngay khi bot dừng.
 

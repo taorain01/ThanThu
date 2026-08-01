@@ -32,6 +32,7 @@ const { RequestDeadline } = require('./request-deadline');
 const { splitDiscordText } = require('./message-utils');
 const { buildJobStatusEmbed, buildResponseEmbeds } = require('./discord-embeds');
 const { readSessionContextUsage } = require('./session-context');
+const { findSessionResponse, fingerprintText } = require('./response-recovery');
 const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
 const { startStatusHeartbeat } = require('./status-heartbeat');
@@ -306,6 +307,59 @@ async function sendOpenClawResponse(jobId, responseText) {
     : responseText);
   await sendJobResponse(jobStore.getJob(jobId), visibleText);
   await jobStore.updateJob(jobId, { responseSent: true });
+}
+
+async function responseAlreadyOnDiscord(job, channel) {
+  try {
+    const messages = await channel.messages.fetch({ after: job.requestMessageId, limit: 100 });
+    const footerPrefix = `Job ${job.id} •`;
+    return messages.some((message) => (
+      message.author.id === client.user.id
+      && message.embeds.some((embed) => embed.footer?.text?.startsWith(footerPrefix))
+    ));
+  } catch {
+    return false;
+  }
+}
+
+async function recoverUnsentResponse(job) {
+  if (job.responseSent) {
+    return false;
+  }
+  const channel = await resolveDiscordChannel(job.channelId);
+  if (await responseAlreadyOnDiscord(job, channel)) {
+    await jobStore.updateJob(job.id, { responseSent: true });
+    return true;
+  }
+
+  let source = null;
+  try {
+    source = await channel.messages.fetch(job.requestMessageId);
+  } catch {
+    // Recovery can still send to the channel when the source message was deleted.
+  }
+  const requestFingerprint = job.requestFingerprint || fingerprintText(source?.content);
+  if (!requestFingerprint) {
+    return false;
+  }
+  const responseText = await findSessionResponse(OPENCLAW_SESSIONS_DIR, job.rootSessionKey, {
+    requestFingerprint,
+    afterTimestampMs: Number(job.requestSubmittedAt) || Date.parse(job.createdAt) - 1000,
+  });
+  if (!responseText) {
+    return false;
+  }
+
+  if (source) {
+    sourceMessages.set(job.id, source);
+  }
+  try {
+    await sendOpenClawResponse(job.id, responseText);
+  } finally {
+    sourceMessages.delete(job.id);
+  }
+  logger.info('Đã khôi phục phản hồi OpenClaw chưa gửi từ transcript.', { jobId: job.id });
+  return true;
 }
 
 function publicErrorMessage(error) {
@@ -604,12 +658,17 @@ async function processOpenClawMessage(message, state, jobId, signal) {
         });
       },
     });
+    const requestText = appendAudioTranscripts(message.content, attachments.audioTranscripts);
+    await jobStore.updateJob(jobId, {
+      requestFingerprint: fingerprintText(requestText),
+      requestSubmittedAt: Date.now(),
+    });
     responseText = await openclaw.chat({
       guildId: message.guildId,
       channelId: message.channelId,
       sessionGeneration: state.sessionGeneration,
       backendModel: config.openclawBackendModels[state.modelProfile],
-      text: appendAudioTranscripts(message.content, attachments.audioTranscripts),
+      text: requestText,
       imageParts: attachments.imageParts,
       signal: deadline.signal,
     });
@@ -750,6 +809,12 @@ async function enqueueRecoveredJobs() {
         continue;
       }
     } else {
+      await recoverUnsentResponse(job).catch((error) => {
+        logger.warn('Không thể dò phản hồi OpenClaw chưa gửi trong transcript.', {
+          jobId: job.id,
+          name: error.name,
+        });
+      });
       task = (signal) => supervisor.recoverJob(job.id, signal);
     }
     void requestQueue.enqueue(

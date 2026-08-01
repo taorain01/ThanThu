@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Management;
 using System.Threading;
 using System.Windows.Forms;
@@ -61,6 +62,35 @@ namespace OpenClawDiscordControl
                 }
                 return process.ExitCode == 0;
             }
+        }
+
+        internal static bool StopBotProcesses(out string error)
+        {
+            List<string> failures = new List<string>();
+            foreach (int processId in FindProcessIds())
+            {
+                try
+                {
+                    using (Process process = Process.GetProcessById(processId))
+                    {
+                        process.Kill();
+                        if (!process.WaitForExit(5000))
+                        {
+                            failures.Add(string.Format("PID {0} không dừng sau 5 giây", processId));
+                        }
+                    }
+                }
+                catch (ArgumentException)
+                {
+                    // Process exited between discovery and termination.
+                }
+                catch (Exception processError)
+                {
+                    failures.Add(string.Format("PID {0}: {1}", processId, processError.Message));
+                }
+            }
+            error = string.Join(Environment.NewLine, failures.ToArray());
+            return failures.Count == 0;
         }
     }
 
@@ -256,10 +286,18 @@ namespace OpenClawDiscordControl
         private void StopBot()
         {
             Cursor = Cursors.WaitCursor;
-            string error;
-            bool success = BotRuntime.RunScheduledTaskCommand(
+            string taskError;
+            bool taskStopped = BotRuntime.RunScheduledTaskCommand(
                 string.Format("/End /TN \"{0}\"", BotRuntime.TaskName),
-                out error);
+                out taskError);
+            string processError;
+            bool processesStopped = BotRuntime.StopBotProcesses(out processError);
+            bool success = taskStopped && processesStopped;
+            string error = string.Join(
+                Environment.NewLine,
+                new string[] { taskError, processError }
+                    .Where(delegate(string value) { return !string.IsNullOrWhiteSpace(value); })
+                    .ToArray());
             Thread.Sleep(700);
             Cursor = Cursors.Default;
             RefreshStatus();

@@ -121,6 +121,8 @@ class JobStore {
         recoveryCount: 0,
         stopRequested: false,
         responseSent: false,
+        requestFingerprint: null,
+        requestSubmittedAt: null,
         sessionOffsets: {},
         sessionStartedAt: { [String(input.rootSessionKey)]: Date.parse(timestamp) },
         tasks: {},

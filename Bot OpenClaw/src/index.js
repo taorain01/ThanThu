@@ -37,7 +37,11 @@ const { RequestDeadline } = require('./request-deadline');
 const { splitDiscordText } = require('./message-utils');
 const { buildJobStatusEmbed, buildResponseEmbeds } = require('./discord-embeds');
 const { readSessionContextUsage } = require('./session-context');
-const { findSessionResponse, fingerprintText } = require('./response-recovery');
+const {
+  findSessionResponse,
+  fingerprintText,
+  waitForSessionResponse,
+} = require('./response-recovery');
 const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
 const { startStatusHeartbeat } = require('./status-heartbeat');
@@ -646,10 +650,44 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   supervisor.setActivityTouch(jobId, () => deadline.touch());
   const typing = () => message.channel.sendTyping().catch(() => {});
   await typing();
-  const typingTimer = setInterval(typing, 8000);
+  let typingTimer = setInterval(typing, 8000);
   typingTimer.unref?.();
+  const stopTyping = () => {
+    if (typingTimer) {
+      clearInterval(typingTimer);
+      typingTimer = null;
+    }
+  };
   let responseText = '';
   let foregroundError = null;
+  let responseDelivered = false;
+  let responseDeliveryPromise = null;
+  let responseWatcherController = null;
+  let responseWatcherPromise = Promise.resolve(false);
+
+  const deliverResponseOnce = async (text) => {
+    if (responseDelivered) {
+      return false;
+    }
+    if (!responseDeliveryPromise) {
+      responseDeliveryPromise = (async () => {
+        const latest = stateStore.getChannel(config.guildId, message.channelId);
+        if (!latest?.enabled || latest.sessionGeneration !== state.sessionGeneration) {
+          throw new QueueStoppedError();
+        }
+        await sendOpenClawResponse(jobId, text);
+        responseDelivered = true;
+        stopTyping();
+        return true;
+      })();
+    }
+    try {
+      return await responseDeliveryPromise;
+    } catch (error) {
+      responseDeliveryPromise = null;
+      throw error;
+    }
+  };
 
   try {
     const attachments = await prepareMessageAttachments(message.attachments.values(), {
@@ -671,9 +709,36 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       },
     });
     const requestText = appendAudioTranscripts(message.content, attachments.audioTranscripts);
+    const requestFingerprint = fingerprintText(requestText);
+    const requestSubmittedAt = Date.now();
     await jobStore.updateJob(jobId, {
-      requestFingerprint: fingerprintText(requestText),
-      requestSubmittedAt: Date.now(),
+      requestFingerprint,
+      requestSubmittedAt,
+    });
+    responseWatcherController = new AbortController();
+    responseWatcherPromise = waitForSessionResponse(
+      OPENCLAW_SESSIONS_DIR,
+      jobStore.getJob(jobId).rootSessionKey,
+      {
+        requestFingerprint,
+        afterTimestampMs: requestSubmittedAt - 1000,
+        signal: responseWatcherController.signal,
+      },
+    ).then(async (transcriptResponse) => {
+      if (!transcriptResponse) {
+        return false;
+      }
+      await deliverResponseOnce(transcriptResponse);
+      logger.info('Đã gửi phản hồi Discord sớm từ transcript OpenClaw.', { jobId });
+      return true;
+    }).catch((error) => {
+      if (!responseWatcherController.signal.aborted) {
+        logger.warn('Không gửi được phản hồi sớm từ transcript OpenClaw.', {
+          jobId,
+          name: error.name,
+        });
+      }
+      return false;
     });
     responseText = await openclaw.chat({
       guildId: message.guildId,
@@ -684,17 +749,20 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       imageParts: attachments.imageParts,
       signal: deadline.signal,
     });
-
-    const latest = stateStore.getChannel(config.guildId, message.channelId);
-    if (!latest?.enabled || latest.sessionGeneration !== state.sessionGeneration) {
-      foregroundError = new QueueStoppedError();
-    } else {
-      await sendOpenClawResponse(jobId, responseText);
-    }
+    await deliverResponseOnce(responseText);
   } catch (error) {
-    foregroundError = error;
+    if (responseDelivered) {
+      logger.warn('OpenClaw kết thúc HTTP với lỗi sau khi Discord đã nhận phản hồi.', {
+        jobId,
+        name: error.name,
+      });
+    } else {
+      foregroundError = error;
+    }
   } finally {
-    clearInterval(typingTimer);
+    responseWatcherController?.abort();
+    await responseWatcherPromise;
+    stopTyping();
     deadline.stop();
     supervisor.setActivityTouch(jobId, null);
     await supervisor.markForegroundDone(jobId, { error: foregroundError });

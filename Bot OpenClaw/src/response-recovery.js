@@ -94,7 +94,7 @@ async function findTranscriptResponse(options) {
   return null;
 }
 
-async function findSessionResponse(sessionsDir, sessionKey, options) {
+async function resolveSessionTranscriptPath(sessionsDir, sessionKey) {
   try {
     const index = JSON.parse(await fs.readFile(path.join(sessionsDir, 'sessions.json'), 'utf8'));
     const entry = index?.[sessionKey];
@@ -107,14 +107,88 @@ async function findSessionResponse(sessionsDir, sessionKey, options) {
     if (!transcriptPath) {
       return null;
     }
-    return findTranscriptResponse({
-      transcriptPath,
-      requestFingerprint: options.requestFingerprint,
-      afterTimestampMs: options.afterTimestampMs,
-    });
+    return transcriptPath;
   } catch {
     return null;
   }
+}
+
+async function findSessionResponse(sessionsDir, sessionKey, options) {
+  const transcriptPath = await resolveSessionTranscriptPath(sessionsDir, sessionKey);
+  if (!transcriptPath) {
+    return null;
+  }
+  return findTranscriptResponse({
+    transcriptPath,
+    requestFingerprint: options.requestFingerprint,
+    afterTimestampMs: options.afterTimestampMs,
+  });
+}
+
+function waitForDelay(delayMs, signal) {
+  if (signal?.aborted) {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (completed) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      resolve(completed);
+    };
+    const onAbort = () => finish(false);
+    const timer = setTimeout(() => finish(true), delayMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function waitForSessionResponse(sessionsDir, sessionKey, options) {
+  const pollIntervalMs = Math.max(100, Number(options.pollIntervalMs) || 750);
+  const maxWaitMs = Math.max(0, Number(options.maxWaitMs) || 300000);
+  const startedAt = Date.now();
+  let transcriptPath = null;
+  let previousSignature = null;
+
+  while (!options.signal?.aborted) {
+    transcriptPath ||= await resolveSessionTranscriptPath(sessionsDir, sessionKey);
+    if (transcriptPath) {
+      try {
+        const stat = await fs.stat(transcriptPath);
+        const signature = `${stat.size}:${stat.mtimeMs}`;
+        if (signature !== previousSignature) {
+          previousSignature = signature;
+          const responseText = await findTranscriptResponse({
+            transcriptPath,
+            requestFingerprint: options.requestFingerprint,
+            afterTimestampMs: options.afterTimestampMs,
+          });
+          if (responseText) {
+            return responseText;
+          }
+        }
+      } catch {
+        transcriptPath = null;
+        previousSignature = null;
+      }
+    }
+
+    const remainingMs = maxWaitMs - (Date.now() - startedAt);
+    if (remainingMs <= 0) {
+      return null;
+    }
+    const completedDelay = await waitForDelay(
+      Math.min(pollIntervalMs, remainingMs),
+      options.signal,
+    );
+    if (!completedDelay) {
+      return null;
+    }
+  }
+  return null;
 }
 
 module.exports = {
@@ -124,4 +198,6 @@ module.exports = {
   findTranscriptResponse,
   fingerprintText,
   normalizeText,
+  resolveSessionTranscriptPath,
+  waitForSessionResponse,
 };

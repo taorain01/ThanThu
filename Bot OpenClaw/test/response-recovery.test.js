@@ -9,6 +9,7 @@ const {
   findSessionResponse,
   findTranscriptResponse,
   fingerprintText,
+  waitForSessionResponse,
 } = require('../src/response-recovery');
 
 async function fixture(t) {
@@ -85,5 +86,57 @@ test('không lấy phản hồi khi request không khớp hoặc chỉ mới too
   assert.equal(await findTranscriptResponse({
     transcriptPath,
     requestFingerprint: fingerprintText('Đúng request'),
+  }), null);
+});
+
+test('chờ transcript ghi final rồi trả phản hồi ngay', async (t) => {
+  const sessionsDir = await fixture(t);
+  const sessionKey = 'agent:main:openai-user:discord:guild:channel:2';
+  const transcriptPath = path.join(sessionsDir, 'live-session.jsonl');
+  await fs.writeFile(path.join(sessionsDir, 'sessions.json'), JSON.stringify({
+    [sessionKey]: { sessionId: 'live-session', sessionFile: transcriptPath },
+  }));
+  await fs.writeFile(transcriptPath, [
+    JSON.stringify({
+      type: 'message',
+      timestamp: '2026-08-01T00:03:00.000Z',
+      message: { role: 'user', content: 'Phản hồi ngay khi xong' },
+    }),
+    JSON.stringify({
+      type: 'message',
+      timestamp: '2026-08-01T00:03:01.000Z',
+      message: { role: 'assistant', stopReason: 'toolUse', content: 'Đang xử lý' },
+    }),
+  ].join('\n'));
+
+  const appendFinal = setTimeout(() => fs.appendFile(transcriptPath, [
+    '',
+    JSON.stringify({
+      type: 'message',
+      timestamp: '2026-08-01T00:03:02.000Z',
+      message: { role: 'assistant', stopReason: 'stop', content: 'Đã hoàn tất sớm.' },
+    }),
+  ].join('\n')), 30);
+  t.after(() => clearTimeout(appendFinal));
+
+  assert.equal(await waitForSessionResponse(sessionsDir, sessionKey, {
+    requestFingerprint: fingerprintText('Phản hồi ngay khi xong'),
+    afterTimestampMs: Date.parse('2026-08-01T00:02:59.000Z'),
+    pollIntervalMs: 10,
+    maxWaitMs: 500,
+  }), 'Đã hoàn tất sớm.');
+});
+
+test('dừng chờ transcript ngay khi signal bị hủy', async (t) => {
+  const sessionsDir = await fixture(t);
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), 20);
+  t.after(() => clearTimeout(abortTimer));
+
+  assert.equal(await waitForSessionResponse(sessionsDir, 'session-không-tồn-tại', {
+    requestFingerprint: fingerprintText('Không cần chờ lâu'),
+    pollIntervalMs: 100,
+    maxWaitMs: 5000,
+    signal: controller.signal,
   }), null);
 });

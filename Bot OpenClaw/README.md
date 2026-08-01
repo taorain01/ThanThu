@@ -4,17 +4,18 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 
 ## Gửi chủ động tới channel Discord
 
-OpenClaw có thể dùng chính bot này để gửi nội dung hoặc file tới bất kỳ text channel/thread nào thuộc server trong `DISCORD_GUILD_ID`. Channel đích được chọn theo từng lần gửi, không cần khai báo trước từng channel ID:
+OpenClaw có thể dùng chính bot này để gửi nội dung hoặc file tới bất kỳ text channel/thread nào thuộc server trong `DISCORD_GUILD_ID`. Channel đích được chọn theo tên hoặc ID ở từng lần gửi, không cần khai báo trước:
 
 ```powershell
 node .\scripts\send-discord-message.js --channel 1533105740145758248 --content "0001 — Make Room for a Beautiful Day" --file "F:\Hình Ảnh\anhYoutube\SeoraChill\0001 - Make Room for a Beautiful Day\(background)\0001 - Make Room for a Beautiful Day (background).png"
+node .\scripts\send-discord-message.js --channel output-seorachill --content "0001 — Make Room for a Beautiful Day"
 ```
 
 Có thể lặp lại `--file`, dùng `--content-file` cho caption UTF-8 dài, hoặc truyền một request JSON bằng `--request`:
 
 ```json
 {
-  "channelId": "1533105740145758248",
+  "channel": "output-seorachill",
   "content": "0001 — Make Room for a Beautiful Day (Background)",
   "files": [
     "F:\\Hình Ảnh\\anhYoutube\\SeoraChill\\0001 - Make Room for a Beautiful Day\\(background)\\0001 - Make Room for a Beautiful Day (background).png"
@@ -22,9 +23,19 @@ Có thể lặp lại `--file`, dùng `--content-file` cho caption UTF-8 dài, h
 }
 ```
 
-Bot luôn xác minh channel thuộc đúng server, vô hiệu hóa mention tự động và chỉ nhận file trong OpenClaw workspace/media hoặc `OPENCLAW_MEDIA_SOURCE_ROOTS`. Dùng `--dry-run` để kiểm tra channel, đường dẫn và dung lượng mà chưa gửi thật.
+Bot luôn xác minh channel thuộc đúng server, vô hiệu hóa mention tự động và chỉ nhận file trong OpenClaw workspace/media hoặc `OPENCLAW_MEDIA_SOURCE_ROOTS`. Tên channel được so khớp chính xác nhưng không phân biệt hoa/thường; nếu có tên trùng, sender bắt buộc dùng ID để tránh gửi nhầm. Dùng `--dry-run` để kiểm tra channel, đường dẫn và dung lượng mà chưa gửi thật.
 
-OpenClaw không cần cài Discord channel native để dùng sender này. Prompt hệ thống của bridge yêu cầu agent dùng script cục bộ thay cho tool `message` khi người dùng chỉ định Channel ID. Bot cũng bỏ qua placeholder kỹ thuật `No response from OpenClaw.` và tiếp tục chờ transcript khi durable task vẫn hoàn tất ở nền.
+## Chèn logo kênh vào ảnh
+
+Workflow ảnh dùng asset logo thật thay vì yêu cầu model tự vẽ lại. Script giữ nguyên kích thước ảnh, đặt logo giữa mép trên và ghi PNG mới:
+
+```powershell
+node "C:\Bot Discord\scripts\apply-channel-logo.js" --input "<master.png>" --logo "<logo.png>" --output "<final.png>" --width-percent 14 --top-percent 2.2
+```
+
+Dùng `--dry-run` để kiểm tra vị trí, `--no-shadow` để tắt bóng hỗ trợ tương phản và `--overwrite` khi chủ động thay file final cũ. Chế độ overwrite giữ bản cũ tạm thời và tự phục hồi nếu bước thay file gặp lỗi.
+
+OpenClaw không cần cài Discord channel native để dùng sender này. Prompt hệ thống của bridge yêu cầu agent dùng script cục bộ thay cho tool `message` khi người dùng chỉ định tên hoặc ID channel. Bot cũng bỏ qua placeholder kỹ thuật `No response from OpenClaw.` và tiếp tục chờ transcript khi durable task vẫn hoàn tất ở nền.
 
 ## Lệnh Discord
 

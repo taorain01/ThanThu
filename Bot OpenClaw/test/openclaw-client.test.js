@@ -173,6 +173,50 @@ test('health chỉ trả trạng thái an toàn', async () => {
   assert.deepEqual(await offline.health(), { ok: false, status: null });
 });
 
+test('gắn dispatcher tùy chỉnh cho health và chat', async () => {
+  const dispatcher = { close: async () => {} };
+  const requests = [];
+  const client = new OpenClawClient(config(), {
+    dispatcher,
+    fetchImpl: async (url, options) => {
+      requests.push({ url, dispatcher: options.dispatcher });
+      if (url.endsWith('/v1/models')) {
+        return new Response('{}', { status: 200 });
+      }
+      return Response.json({ choices: [{ message: { content: 'Đã xong.' } }] });
+    },
+  });
+
+  await client.health();
+  await client.chat(chatArgs());
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].dispatcher, dispatcher);
+  assert.equal(requests[1].dispatcher, dispatcher);
+});
+
+test('phân biệt stream bị gián đoạn với lỗi không thể kết nối Gateway', async () => {
+  const interrupted = new OpenClawClient(config(), {
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.error(new Error('socket closed'));
+      },
+    }), { headers: { 'content-type': 'text/event-stream' } }),
+  });
+  await assert.rejects(
+    () => interrupted.chat(chatArgs({ onDelta: () => {} })),
+    (error) => error instanceof OpenClawError && error.code === 'stream_interrupted',
+  );
+
+  const offline = new OpenClawClient(config(), {
+    fetchImpl: async () => { throw new Error('offline'); },
+  });
+  await assert.rejects(
+    () => offline.chat(chatArgs()),
+    (error) => error instanceof OpenClawError && error.code === 'network',
+  );
+});
+
 test('đọc SSE phân mảnh, ghép delta và dừng tại DONE', async () => {
   let requestBody;
   const updates = [];

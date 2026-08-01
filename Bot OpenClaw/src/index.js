@@ -645,8 +645,11 @@ function publicErrorMessage(error) {
       case 'payload_too_large':
         return 'Nội dung hoặc ảnh vượt giới hạn của OpenClaw.';
       case 'network':
-      case 'unavailable':
         return 'Không thể kết nối tới OpenClaw cục bộ. Hãy dùng `> openclaw status` để kiểm tra.';
+      case 'stream_interrupted':
+        return 'Kết nối của lượt xử lý này bị gián đoạn. OpenClaw có thể vẫn đang chạy; hãy gửi lại yêu cầu nếu chưa nhận được phản hồi.';
+      case 'unavailable':
+        return 'Gateway OpenClaw đã phản hồi nhưng tạm thời không xử lý được yêu cầu. Hãy thử lại sau.';
       default:
         return 'OpenClaw không xử lý được yêu cầu này.';
     }
@@ -1469,6 +1472,7 @@ async function shutdown(signalName) {
     clearTimeout(timer);
   }
   client.destroy();
+  await openclaw.close();
 }
 
 process.once('SIGINT', () => void shutdown('SIGINT'));

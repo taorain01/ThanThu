@@ -27,7 +27,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--channel') {
-      result.channelId = takeValue(argv, index, arg);
+      result.channel = takeValue(argv, index, arg);
       index += 1;
     } else if (arg === '--content') {
       result.content = takeValue(argv, index, arg);
@@ -54,7 +54,7 @@ async function readJsonRequest(filePath) {
   const content = await fs.readFile(path.resolve(filePath), 'utf8');
   const request = JSON.parse(content.replace(/^\uFEFF/, ''));
   return {
-    channelId: request.channelId,
+    channel: request.channel ?? request.channelName ?? request.channelId,
     content: request.content,
     filePaths: Array.isArray(request.files) ? request.files : [],
   };
@@ -67,7 +67,7 @@ async function buildRequest(args) {
     content = (await fs.readFile(path.resolve(args.contentFile), 'utf8')).replace(/^\uFEFF/, '');
   }
   return {
-    channelId: args.channelId || fromFile.channelId,
+    channel: args.channel || fromFile.channel,
     content,
     filePaths: args.filePaths.length ? args.filePaths : (fromFile.filePaths || []),
     dryRun: args.dryRun,

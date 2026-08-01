@@ -49,6 +49,33 @@ function parseSnowflake(value, name) {
   return normalized;
 }
 
+function normalizeChannelReference(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    throw new DiscordChannelSenderError(
+      'missing_channel',
+      'Thiếu tên hoặc ID Discord channel đích.',
+    );
+  }
+
+  const mention = normalized.match(/^<#(\d{17,20})>$/);
+  if (mention) {
+    return { type: 'id', value: mention[1] };
+  }
+  if (/^\d{17,20}$/.test(normalized)) {
+    return { type: 'id', value: normalized };
+  }
+
+  const name = normalized.replace(/^#/, '').trim();
+  if (!name || name.length > 100) {
+    throw new DiscordChannelSenderError(
+      'invalid_channel_name',
+      'Tên Discord channel phải dài từ 1 đến 100 ký tự.',
+    );
+  }
+  return { type: 'name', value: name };
+}
+
 function normalizeContent(value) {
   const content = String(value || '').trim();
   if (content.length > 2000) {
@@ -155,20 +182,50 @@ async function resolveDeliveryFiles(filePaths, options = {}) {
   return files;
 }
 
-async function resolveTargetChannel(rest, channelId, guildId) {
-  const channel = await rest.get(Routes.channel(channelId));
-  if (String(channel.guild_id || '') !== guildId) {
-    throw new DiscordChannelSenderError(
-      'wrong_guild',
-      'Channel đích không thuộc Discord server đã cấu hình cho bot.',
-    );
-  }
+function assertSendableChannel(channel) {
   if (!SENDABLE_CHANNEL_TYPES.has(channel.type)) {
     throw new DiscordChannelSenderError(
       'unsupported_channel',
       'Channel đích không phải text channel hoặc thread có thể nhận tin nhắn.',
     );
   }
+}
+
+async function resolveTargetChannel(rest, channelReference, guildId) {
+  const reference = normalizeChannelReference(channelReference);
+  if (reference.type === 'id') {
+    const channel = await rest.get(Routes.channel(reference.value));
+    if (String(channel.guild_id || '') !== guildId) {
+      throw new DiscordChannelSenderError(
+        'wrong_guild',
+        'Channel đích không thuộc Discord server đã cấu hình cho bot.',
+      );
+    }
+    assertSendableChannel(channel);
+    return channel;
+  }
+
+  const channels = await rest.get(Routes.guildChannels(guildId));
+  const expectedName = reference.value.toLocaleLowerCase('vi');
+  const matches = channels.filter((channel) => (
+    SENDABLE_CHANNEL_TYPES.has(channel.type)
+    && String(channel.name || '').toLocaleLowerCase('vi') === expectedName
+  ));
+  if (matches.length === 0) {
+    throw new DiscordChannelSenderError(
+      'channel_not_found',
+      `Không tìm thấy text channel có tên #${reference.value} trong server đã cấu hình.`,
+    );
+  }
+  if (matches.length > 1) {
+    throw new DiscordChannelSenderError(
+      'ambiguous_channel',
+      `Có nhiều channel cùng tên #${reference.value}; hãy dùng Channel ID để chọn chính xác.`,
+    );
+  }
+
+  const channel = matches[0];
+  assertSendableChannel(channel);
   return channel;
 }
 
@@ -178,8 +235,8 @@ async function sendDiscordChannelMessage(options = {}) {
     throw new TypeError('Thiếu Discord REST client hợp lệ.');
   }
 
-  const channelId = parseSnowflake(options.channelId, 'channelId');
   const guildId = parseSnowflake(options.guildId, 'guildId');
+  const channelReference = options.channel ?? options.channelName ?? options.channelId;
   const content = normalizeContent(options.content);
   const files = await resolveDeliveryFiles(options.filePaths, options);
   if (!content && files.length === 0) {
@@ -189,7 +246,8 @@ async function sendDiscordChannelMessage(options = {}) {
     );
   }
 
-  const channel = await resolveTargetChannel(rest, channelId, guildId);
+  const channel = await resolveTargetChannel(rest, channelReference, guildId);
+  const channelId = parseSnowflake(channel.id, 'channelId');
   if (options.dryRun) {
     return {
       dryRun: true,
@@ -225,6 +283,7 @@ module.exports = {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_FILES,
   DiscordChannelSenderError,
+  normalizeChannelReference,
   normalizeContent,
   parseSnowflake,
   resolveDeliveryFiles,

@@ -117,6 +117,27 @@ test('không lấy phản hồi khi request không khớp hoặc chỉ mới too
   }), null);
 });
 
+test('không phát lại placeholder khi assistant thất bại trước khi có nội dung', async (t) => {
+  const sessionsDir = await fixture(t);
+  const transcriptPath = path.join(sessionsDir, 'failed-placeholder.jsonl');
+  await fs.writeFile(transcriptPath, [
+    JSON.stringify({ type: 'message', message: { role: 'user', content: 'Yêu cầu lỗi' } }),
+    JSON.stringify({
+      type: 'message',
+      message: {
+        role: 'assistant',
+        stopReason: 'aborted',
+        content: '[assistant turn failed before producing content]',
+      },
+    }),
+  ].join('\n'));
+
+  assert.equal(await findTranscriptResponse({
+    transcriptPath,
+    requestFingerprint: fingerprintText('Yêu cầu lỗi'),
+  }), null);
+});
+
 test('chờ transcript ghi final rồi trả phản hồi ngay', async (t) => {
   const sessionsDir = await fixture(t);
   const sessionKey = 'agent:main:openai-user:discord:guild:channel:2';

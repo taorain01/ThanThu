@@ -51,13 +51,14 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
   assert.equal(job.sessionOffsets[created.rootSessionKey], 123);
   assert.equal(job.backendModel, 'ollama/qwen3:8b');
   assert.equal(job.stopRequested, false);
+  assert.equal(job.responseSentAt, null);
   assert.equal(job.lastEvent, '✓ bước kiểm tra');
   assert.equal(job.artifacts['hash-1'].status, 'delivered');
   assert.equal(job.artifacts['hash-1'].lastDiscordMessageId, '999999999999999999');
   assert.equal((await fs.readFile(filePath, 'utf8')).endsWith('\n'), true);
 });
 
-test('job cũ thiếu stopRequested được nâng cấp mặc định thành false', async (t) => {
+test('job cũ thiếu trường mới được nâng cấp bằng giá trị mặc định', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bot-openclaw-jobs-legacy-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const filePath = path.join(directory, 'jobs.json');
@@ -66,11 +67,13 @@ test('job cũ thiếu stopRequested được nâng cấp mặc định thành fa
   const job = await store.createJob(jobInput('job-legacy'));
   const state = JSON.parse(await fs.readFile(filePath, 'utf8'));
   delete state.jobs[job.id].stopRequested;
+  delete state.jobs[job.id].responseSentAt;
   await fs.writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 
   const reloaded = new JobStore(filePath);
   await reloaded.load();
   assert.equal(reloaded.getJob(job.id).stopRequested, false);
+  assert.equal(reloaded.getJob(job.id).responseSentAt, null);
 });
 
 test('không ghi đè jobs.json bị hỏng', async (t) => {

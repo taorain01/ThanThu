@@ -38,6 +38,9 @@ function validateState(state) {
     if (job && job.stopRequested === undefined) {
       job.stopRequested = false;
     }
+    if (job && job.responseSentAt === undefined) {
+      job.responseSentAt = null;
+    }
     if (
       !job
       || job.id !== jobId
@@ -121,6 +124,7 @@ class JobStore {
         recoveryCount: 0,
         stopRequested: false,
         responseSent: false,
+        responseSentAt: null,
         requestFingerprint: null,
         requestSubmittedAt: null,
         sessionOffsets: {},

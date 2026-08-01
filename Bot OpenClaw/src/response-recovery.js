@@ -46,17 +46,20 @@ function contentCandidates(content) {
 }
 
 function assistantText(content) {
+  let text = '';
   if (typeof content === 'string') {
-    return content.trim();
+    text = content.trim();
+  } else if (Array.isArray(content)) {
+    text = content
+      .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text)
+      .join('\n')
+      .trim();
   }
-  if (!Array.isArray(content)) {
+  if (/^\[assistant turn failed before producing content\]$/i.test(text)) {
     return '';
   }
-  return content
-    .filter((part) => part?.type === 'text' && typeof part.text === 'string')
-    .map((part) => part.text)
-    .join('\n')
-    .trim();
+  return text;
 }
 
 async function findTranscriptResponse(options) {

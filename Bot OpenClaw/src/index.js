@@ -52,6 +52,10 @@ const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
 const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat');
 const { collectSystemMetrics } = require('./system-metrics');
+const {
+  shouldMoveStatusToBottom,
+  shouldSendDirectActivity,
+} = require('./discord-ordering');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
 const OPENCLAW_HOME = path.join(os.homedir(), '.openclaw');
@@ -202,22 +206,31 @@ async function runActivityDelivery(job, event) {
   return sentIds;
 }
 
-async function sendActivityToDiscord(job, event) {
-  const isRootFinal = isRootTranscriptFinal(event);
-  const previous = activityDeliveryChains.get(job.id) || Promise.resolve();
-  const operation = previous.catch(() => {}).then(() => (
-    isRootFinal
-      ? sendOpenClawResponse(job.id, event.responseText || event.notificationText || event.text)
-      : runActivityDelivery(job, event)
-  ));
-  activityDeliveryChains.set(job.id, operation);
+async function enqueueDiscordDelivery(jobId, deliver) {
+  const previous = activityDeliveryChains.get(jobId) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(deliver);
+  activityDeliveryChains.set(jobId, operation);
   try {
     return await operation;
   } finally {
-    if (activityDeliveryChains.get(job.id) === operation) {
-      activityDeliveryChains.delete(job.id);
+    if (activityDeliveryChains.get(jobId) === operation) {
+      activityDeliveryChains.delete(jobId);
     }
   }
+}
+
+async function sendActivityToDiscord(job, event) {
+  const isRootFinal = isRootTranscriptFinal(event);
+  if (isRootFinal) {
+    return sendOpenClawResponse(
+      job.id,
+      event.responseText || event.notificationText || event.text,
+    );
+  }
+  return enqueueDiscordDelivery(job.id, () => {
+    const current = jobStore.getJob(job.id) || job;
+    return shouldSendDirectActivity(current) ? runActivityDelivery(current, event) : [];
+  });
 }
 
 async function updateStatusMessage(job) {
@@ -250,18 +263,21 @@ async function updateStatusMessage(job) {
   if (current.statusMessageId) {
     try {
       const statusMessage = await channel.messages.fetch(current.statusMessageId);
-      let shouldMoveToBottom = current.status !== 'queued'
-        && channel.lastMessageId !== statusMessage.id;
-      if (shouldMoveToBottom && channel.lastMessageId) {
+      let lastMessageIsBot = false;
+      if (channel.lastMessageId && channel.lastMessageId !== statusMessage.id) {
         try {
           const lastMessage = await channel.messages.fetch(channel.lastMessageId);
-          if (lastMessage.author.id === client.user.id) {
-            shouldMoveToBottom = false;
-          }
+          lastMessageIsBot = lastMessage.author.id === client.user.id;
         } catch {
           // Giữ hành vi cũ nếu không xác định được tác giả tin cuối kênh.
         }
       }
+      const shouldMoveToBottom = shouldMoveStatusToBottom({
+        job: current,
+        statusMessageId: statusMessage.id,
+        lastMessageId: channel.lastMessageId,
+        lastMessageIsBot,
+      });
       if (shouldMoveToBottom) {
         const source = sourceMessages.get(current.id);
         let replacement;
@@ -382,6 +398,22 @@ supervisor = new JobSupervisor({
   sendArtifact: sendArtifactToDiscord,
 });
 
+function clearScheduledStatusUpdate(jobId) {
+  if (!statusUpdateTimers.has(jobId)) {
+    return;
+  }
+  clearTimeout(statusUpdateTimers.get(jobId));
+  statusUpdateTimers.delete(jobId);
+}
+
+async function flushStatusBeforeResponse(jobId) {
+  clearScheduledStatusUpdate(jobId);
+  const job = jobStore.getJob(jobId);
+  if (job) {
+    await ensureStatusMessage(job);
+  }
+}
+
 async function runOpenClawResponseDelivery(jobId, responseText) {
   const parsed = extractMediaReferences(responseText);
   for (const reference of parsed.references) {
@@ -390,8 +422,12 @@ async function runOpenClawResponseDelivery(jobId, responseText) {
   const visibleText = parsed.text || (parsed.references.length
     ? 'OpenClaw đã hoàn tất bước hiện tại; file đang được gửi riêng.'
     : responseText);
+  await flushStatusBeforeResponse(jobId);
   await sendJobResponse(jobStore.getJob(jobId), visibleText);
-  await jobStore.updateJob(jobId, { responseSent: true });
+  await jobStore.updateJob(jobId, {
+    responseSent: true,
+    responseSentAt: new Date().toISOString(),
+  });
   return true;
 }
 
@@ -402,12 +438,12 @@ async function sendOpenClawResponse(jobId, responseText) {
   if (responseDeliveryPromises.has(jobId)) {
     return responseDeliveryPromises.get(jobId);
   }
-  const operation = (async () => {
+  const operation = enqueueDiscordDelivery(jobId, async () => {
     if (jobStore.getJob(jobId)?.responseSent) {
       return false;
     }
     return runOpenClawResponseDelivery(jobId, responseText);
-  })();
+  });
   responseDeliveryPromises.set(jobId, operation);
   try {
     return await operation;
@@ -437,7 +473,10 @@ async function recoverUnsentResponse(job) {
   }
   const channel = await resolveDiscordChannel(job.channelId);
   if (await responseAlreadyOnDiscord(job, channel)) {
-    await jobStore.updateJob(job.id, { responseSent: true });
+    await jobStore.updateJob(job.id, {
+      responseSent: true,
+      responseSentAt: job.responseSentAt || new Date().toISOString(),
+    });
     return true;
   }
 
@@ -862,6 +901,7 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       {
         requestFingerprint,
         afterTimestampMs: requestSubmittedAt - 1000,
+        maxWaitMs: config.requestMaxRuntimeMs,
         signal: responseWatcherController.signal,
       },
     ).then(async (transcriptResponse) => {
@@ -1170,6 +1210,20 @@ async function drainBufferedGatewayMessages() {
 }
 
 async function enqueueRecoveredJobs() {
+  const unsentFailedJobs = jobStore.listJobs().filter((job) => (
+    job.status === 'failed'
+    && !job.responseSent
+    && job.requestFingerprint
+  ));
+  for (const job of unsentFailedJobs) {
+    await recoverUnsentResponse(job).catch((error) => {
+      logger.warn('Không thể dò phản hồi của job thất bại chưa gửi trong transcript.', {
+        jobId: job.id,
+        name: error.name,
+      });
+    });
+  }
+
   const jobs = jobStore.listJobs({ activeOnly: true })
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   for (const job of jobs) {

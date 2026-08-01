@@ -8,6 +8,7 @@ const {
   RESPONSE_DESCRIPTION_LIMIT,
   buildJobStatusEmbed,
   buildResponseEmbeds,
+  buildSystemStatusEmbed,
   splitEmbedDescription,
 } = require('../src/discord-embeds');
 
@@ -249,4 +250,47 @@ test('bảng tiến độ không lộ token hoặc đường dẫn cục bộ', 
   assert.equal(serialized.includes('abc-secret'), false);
   assert.equal(serialized.includes('task-secret'), false);
   assert.equal(serialized.includes('sk-secret'), false);
+});
+
+test('dựng embed tài nguyên PC với số đo và nhiệt độ chính xác', () => {
+  const embed = buildSystemStatusEmbed({
+    timestamp: '2026-08-01T02:30:00.000Z',
+    uptimeSeconds: 90061,
+    cpu: {
+      model: 'AMD Ryzen Test CPU',
+      logicalCores: 16,
+      utilizationPercent: 25,
+    },
+    cpuTemperature: null,
+    memory: {
+      usedBytes: 32 * (1024 ** 3),
+      freeBytes: 32 * (1024 ** 3),
+      totalBytes: 64 * (1024 ** 3),
+      usedPercent: 50,
+    },
+    gpus: [{
+      name: 'NVIDIA GeForce RTX Test',
+      utilizationPercent: 23,
+      memoryUsedBytes: 2 * (1024 ** 3),
+      memoryTotalBytes: 8 * (1024 ** 3),
+      temperatureC: 42,
+    }],
+    disk: {
+      root: 'C:\\',
+      usedBytes: 400 * (1024 ** 3),
+      freeBytes: 600 * (1024 ** 3),
+      totalBytes: 1000 * (1024 ** 3),
+      usedPercent: 40,
+    },
+  }, {
+    gateway: { ok: true, latencyMs: 12 },
+  });
+  const data = embed.toJSON();
+  const serialized = JSON.stringify(data);
+  assertEmbedLimits(embed);
+  assert.match(serialized, /25%/);
+  assert.match(serialized, /50%/);
+  assert.match(serialized, /42°C/);
+  assert.match(serialized, /Windows chưa có nguồn cảm biến CPU tin cậy/);
+  assert.match(serialized, /12 ms/);
 });

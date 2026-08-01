@@ -5,7 +5,10 @@ const assert = require('node:assert/strict');
 const { parseCommand } = require('../src/commands');
 
 test('nhận diện lệnh bind và các subcommand', () => {
+  assert.deepEqual(parseCommand('> s', '>'), { action: 'system' });
+  assert.deepEqual(parseCommand('>s', '>'), { action: 'system' });
   assert.deepEqual(parseCommand('> openclaw', '>'), { action: 'bind' });
+  assert.deepEqual(parseCommand('> openclaw system', '>'), { action: 'system' });
   assert.deepEqual(parseCommand('>openclaw STATUS', '>'), { action: 'status' });
   assert.deepEqual(parseCommand('> openclaw reset', '>'), { action: 'reset' });
   assert.deepEqual(parseCommand('> openclaw stop', '>'), { action: 'stop' });

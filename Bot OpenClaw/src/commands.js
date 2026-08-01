@@ -2,6 +2,7 @@
 
 const VALID_ACTIONS = new Set([
   'status',
+  'system',
   'jobs',
   'model',
   'reset',
@@ -16,6 +17,14 @@ function escapeRegExp(value) {
 }
 
 function parseCommand(content, prefix) {
+  const systemPattern = new RegExp(
+    `^${escapeRegExp(prefix)}\\s*s\\s*$`,
+    'i',
+  );
+  if (systemPattern.test(String(content || '').trim())) {
+    return { action: 'system' };
+  }
+
   const shortPattern = new RegExp(
     `^${escapeRegExp(prefix)}\\s*o(?:\\s+(.+?))?\\s*$`,
     'i',

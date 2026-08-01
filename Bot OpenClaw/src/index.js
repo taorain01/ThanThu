@@ -35,7 +35,11 @@ const { OpenClawTaskClient } = require('./openclaw-task-client');
 const { JobSupervisor, TERMINAL_JOB_STATUSES, artifactCounts } = require('./job-supervisor');
 const { RequestDeadline } = require('./request-deadline');
 const { splitDiscordText } = require('./message-utils');
-const { buildJobStatusEmbed, buildResponseEmbeds } = require('./discord-embeds');
+const {
+  buildJobStatusEmbed,
+  buildResponseEmbeds,
+  buildSystemStatusEmbed,
+} = require('./discord-embeds');
 const { readSessionContextUsage } = require('./session-context');
 const {
   findSessionResponse,
@@ -45,6 +49,7 @@ const {
 const { createLogger } = require('./logger');
 const { cleanupOutbox, extractMediaReferences } = require('./response-media');
 const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat');
+const { collectSystemMetrics } = require('./system-metrics');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
 const OPENCLAW_HOME = path.join(os.homedir(), '.openclaw');
@@ -456,6 +461,29 @@ async function handleCommand(message, command) {
   }
 
   const current = stateStore.getChannel(config.guildId, message.channel.id);
+  if (command.action === 'system') {
+    await message.channel.sendTyping().catch(() => {});
+    const gatewayPromise = (async () => {
+      const startedAt = Date.now();
+      const health = await openclaw.health();
+      return { ...health, latencyMs: Date.now() - startedAt };
+    })();
+    const [metrics, gateway] = await Promise.all([
+      collectSystemMetrics(),
+      gatewayPromise,
+    ]);
+    const embed = buildSystemStatusEmbed(metrics, {
+      gateway,
+      botIconUrl: botIconUrl(),
+    });
+    try {
+      await message.reply(discordEmbedOptions(embed));
+    } catch {
+      await message.channel.send(discordEmbedOptions(embed));
+    }
+    return;
+  }
+
   if (command.action === 'bind') {
     if (message.channel.type !== ChannelType.GuildText) {
       await sendChunks(message, 'Chỉ cho phép bật OpenClaw trong text channel thông thường của server.');
@@ -628,6 +656,7 @@ async function handleCommand(message, command) {
 
   await sendChunks(message, [
     `Lệnh hợp lệ: \`${config.prefix} openclaw\``,
+    `Tài nguyên máy: \`${config.prefix} s\``,
     `Xem nhanh trạng thái: \`${config.prefix} o\` hoặc \`${config.prefix} o status\``,
     `\`${config.prefix} openclaw status\``,
     `\`${config.prefix} openclaw model local|9router\` · nhanh: \`${config.prefix} o m local|9router\``,

@@ -162,6 +162,124 @@ function buildResponseEmbeds(value, options = {}) {
   });
 }
 
+function formatBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0);
+  const gibibytes = bytes / (1024 ** 3);
+  return `${gibibytes.toFixed(gibibytes >= 10 ? 1 : 2)} GB`;
+}
+
+function percentText(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${numeric.toFixed(1).replace(/\.0$/, '')}%` : 'N/A';
+}
+
+function usageBar(value) {
+  const percent = Math.min(100, Math.max(0, Number(value) || 0));
+  const filled = Math.round(percent / 10);
+  return `\`${'█'.repeat(filled)}${'░'.repeat(10 - filled)}\``;
+}
+
+function uptimeLabel(secondsValue) {
+  const totalMinutes = Math.floor(Math.max(0, Number(secondsValue) || 0) / 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days) {
+    return `${days}d ${hours}h`;
+  }
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function systemStatusColor(metrics) {
+  const values = [
+    metrics.cpu?.utilizationPercent,
+    metrics.memory?.usedPercent,
+    metrics.disk?.usedPercent,
+    ...(metrics.gpus || []).map((gpu) => gpu.utilizationPercent),
+  ].filter(Number.isFinite);
+  const highest = values.length ? Math.max(...values) : 0;
+  if (highest >= 90) {
+    return 0xef4444;
+  }
+  if (highest >= 75) {
+    return 0xf59e0b;
+  }
+  return 0x22c55e;
+}
+
+function buildSystemStatusEmbed(metrics, options = {}) {
+  const cpuPercent = metrics.cpu?.utilizationPercent;
+  const memory = metrics.memory || {};
+  const disk = metrics.disk;
+  const cpuTemperature = Number(metrics.cpuTemperature?.celsius);
+  const cpuTemperatureText = Number.isFinite(cpuTemperature)
+    ? `**${cpuTemperature.toFixed(0)}°C** (${metrics.cpuTemperature.name})`
+    : 'Không khả dụng — Windows chưa có nguồn cảm biến CPU tin cậy.';
+  const gpuText = (metrics.gpus || []).length
+    ? metrics.gpus.map((gpu) => {
+      const memoryPercent = Number(gpu.memoryTotalBytes) > 0
+        ? (Number(gpu.memoryUsedBytes) / Number(gpu.memoryTotalBytes)) * 100
+        : null;
+      const temperature = Number.isFinite(Number(gpu.temperatureC))
+        ? ` • **${Number(gpu.temperatureC).toFixed(0)}°C**`
+        : '';
+      return [
+        `**${truncate(gpu.name, 80)}**${temperature}`,
+        `${usageBar(gpu.utilizationPercent)} tải **${percentText(gpu.utilizationPercent)}**`,
+        `VRAM **${formatBytes(gpu.memoryUsedBytes)} / ${formatBytes(gpu.memoryTotalBytes)}** (${percentText(memoryPercent)})`,
+      ].join('\n');
+    }).join('\n\n')
+    : 'Không tìm thấy NVIDIA GPU hoặc `nvidia-smi` không khả dụng.';
+
+  const gatewayText = options.gateway?.ok
+    ? `✅ Online • phản hồi **${Math.max(0, Number(options.gateway.latencyMs) || 0)} ms**`
+    : '❌ Không kết nối được Gateway';
+  const embed = new EmbedBuilder()
+    .setColor(systemStatusColor(metrics))
+    .setAuthor(identityOptions(options, 'OPENCLAW // SYSTEM MONITOR'))
+    .setTitle('🖥️ Tài nguyên máy tính')
+    .addFields(
+      {
+        name: '🧠 CPU',
+        value: [
+          `${usageBar(cpuPercent)} tải **${percentText(cpuPercent)}**`,
+          `${truncate(metrics.cpu?.model || 'CPU', 90)} • ${metrics.cpu?.logicalCores || 0} luồng`,
+          `Nhiệt độ: ${cpuTemperatureText}`,
+        ].join('\n'),
+      },
+      {
+        name: '💾 RAM',
+        value: [
+          `${usageBar(memory.usedPercent)} dùng **${percentText(memory.usedPercent)}**`,
+          `**${formatBytes(memory.usedBytes)} / ${formatBytes(memory.totalBytes)}** • còn ${formatBytes(memory.freeBytes)}`,
+        ].join('\n'),
+        inline: true,
+      },
+      {
+        name: `🗄️ Ổ đĩa ${disk?.root || ''}`.trim(),
+        value: disk
+          ? [
+            `${usageBar(disk.usedPercent)} dùng **${percentText(disk.usedPercent)}**`,
+            `**${formatBytes(disk.usedBytes)} / ${formatBytes(disk.totalBytes)}** • còn ${formatBytes(disk.freeBytes)}`,
+          ].join('\n')
+          : 'Không đọc được dung lượng ổ đĩa.',
+        inline: true,
+      },
+      { name: '🎮 GPU', value: truncate(gpuText, EMBED_LIMITS.fieldValue, '') },
+      {
+        name: '🦞 OpenClaw',
+        value: `${gatewayText}\nUptime máy: **${uptimeLabel(metrics.uptimeSeconds)}**`,
+      },
+    )
+    .setFooter({ text: 'Đo trực tiếp • CPU lấy mẫu 500 ms • GPU từ NVIDIA SMI' })
+    .setTimestamp(safeTimestamp(metrics.timestamp));
+
+  if (validHttpUrl(options.botIconUrl)) {
+    embed.setThumbnail(options.botIconUrl);
+  }
+  return embed;
+}
+
 function elapsedLabel(startedAt, now = Date.now()) {
   const startedMs = Date.parse(startedAt);
   const elapsedMs = Math.max(0, now - (Number.isNaN(startedMs) ? now : startedMs));
@@ -385,5 +503,6 @@ module.exports = {
   RESPONSE_DESCRIPTION_LIMIT,
   buildJobStatusEmbed,
   buildResponseEmbeds,
+  buildSystemStatusEmbed,
   splitEmbedDescription,
 };

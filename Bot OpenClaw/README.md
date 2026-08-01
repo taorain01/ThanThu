@@ -2,6 +2,28 @@
 
 Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển tiếp tin nhắn tới OpenClaw Gateway qua loopback và không trực tiếp chạy PowerShell hay shell.
 
+## Gửi chủ động tới channel Discord
+
+OpenClaw có thể dùng chính bot này để gửi nội dung hoặc file tới bất kỳ text channel/thread nào thuộc server trong `DISCORD_GUILD_ID`. Channel đích được chọn theo từng lần gửi, không cần khai báo trước từng channel ID:
+
+```powershell
+node .\scripts\send-discord-message.js --channel 1533105740145758248 --content "0001 — Make Room for a Beautiful Day" --file "F:\Hình Ảnh\anhYoutube\SeoraChill\0001 - Make Room for a Beautiful Day\(background)\0001 - Make Room for a Beautiful Day (background).png"
+```
+
+Có thể lặp lại `--file`, dùng `--content-file` cho caption UTF-8 dài, hoặc truyền một request JSON bằng `--request`:
+
+```json
+{
+  "channelId": "1533105740145758248",
+  "content": "0001 — Make Room for a Beautiful Day (Background)",
+  "files": [
+    "F:\\Hình Ảnh\\anhYoutube\\SeoraChill\\0001 - Make Room for a Beautiful Day\\(background)\\0001 - Make Room for a Beautiful Day (background).png"
+  ]
+}
+```
+
+Bot luôn xác minh channel thuộc đúng server, vô hiệu hóa mention tự động và chỉ nhận file trong OpenClaw workspace/media hoặc `OPENCLAW_MEDIA_SOURCE_ROOTS`. Dùng `--dry-run` để kiểm tra channel, đường dẫn và dung lượng mà chưa gửi thật.
+
 ## Lệnh Discord
 
 - `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.

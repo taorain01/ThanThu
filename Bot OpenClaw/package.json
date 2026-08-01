@@ -5,6 +5,7 @@
   "description": "Bot Discord riêng chuyển tiếp yêu cầu tới OpenClaw cục bộ",
   "main": "src/index.js",
   "scripts": {
+    "send:discord": "node scripts/send-discord-message.js",
     "start": "node src/index.js",
     "test": "node --test test/*.test.js"
   },

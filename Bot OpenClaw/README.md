@@ -82,6 +82,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-control-app.
 
 File `OpenClaw Discord Bot.exe` có giao diện trạng thái và các nút Bật bot, Tắt bot, Làm mới, Mở thư mục log. Nút Tắt bot kết thúc cả Scheduled Task lẫn mọi tiến trình Node con còn sót để lần bật sau không tạo bot trùng. Bot được chạy nền qua Task Scheduler nên không xuất hiện cửa sổ console; Task Scheduler vẫn chống chạy trùng và tự restart khi tiến trình đang chạy gặp lỗi.
 
+Với OpenClaw `2026.7.1`, launcher Gateway chạy `scripts/patch-openclaw-browser-proxy-scope.ps1` trước khi khởi động để sửa lỗi `node.invoke` chỉ xin `operator.write` cho `browser.proxy`. Launcher đồng thời đặt `OPENCLAW_EAGER_BROWSER_CONTROL_SERVER=1` để browser-control host luôn mở trên cổng Gateway + 2 (`18791` khi Gateway dùng `18789`). Bản vá chỉ áp dụng cho đúng nhánh phiên bản bị lỗi, có backup bundle gốc và tự bỏ qua khi OpenClaw đã nâng cấp.
+
 Khi task của bot đang chạy, launcher `scripts/run-bot-awake.ps1` tạo yêu cầu giữ **hệ thống** thức nhưng không giữ **màn hình** sáng. Vì vậy Windows vẫn có thể tắt màn hình, còn CPU, mạng, OpenClaw Gateway và bot Discord tiếp tục chạy. Yêu cầu giữ thức được gỡ tự động ngay khi bot dừng.
 
 Không khóa Windows bằng `Win+L` nếu job cần chụp hoặc điều khiển desktop. Nếu nút nguồn của màn hình/DisplayPort làm Windows mất hẳn display, các lệnh `screen.snapshot` vẫn cần một HDMI dummy plug hoặc virtual display; các job chỉ dùng file, API hay browser headless không bị giới hạn này.

@@ -31,6 +31,13 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
     store.setSessionOffset(created.id, created.rootSessionKey, 123),
     store.addEvent(created.id, '✓ bước kiểm tra'),
   ]);
+  const childSessionKey = 'agent:main:subagent:worker-1';
+  await store.addSessionEvent(created.id, childSessionKey, {
+    kind: 'tool_call',
+    text: '▶ `browser` — mở tab',
+    label: 'Worker trình duyệt',
+  });
+  await store.setSessionActivityMessageId(created.id, childSessionKey, '888888888888888888');
   await store.upsertArtifact(created.id, {
     id: 'hash-1',
     sha256: 'hash-1',
@@ -52,7 +59,13 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
   assert.equal(job.backendModel, 'ollama/qwen3:8b');
   assert.equal(job.stopRequested, false);
   assert.equal(job.responseSentAt, null);
-  assert.equal(job.lastEvent, '✓ bước kiểm tra');
+  assert.equal(job.startedAt, null);
+  assert.equal(job.firstDeltaAt, null);
+  assert.equal(job.lastEvent, '▶ `browser` — mở tab');
+  assert.deepEqual(job.events, ['✓ bước kiểm tra']);
+  assert.equal(job.sessionActivities[childSessionKey].label, 'Worker trình duyệt');
+  assert.equal(job.sessionActivities[childSessionKey].messageId, '888888888888888888');
+  assert.equal(job.sessionActivities[childSessionKey].events[0].kind, 'tool_call');
   assert.equal(job.artifacts['hash-1'].status, 'delivered');
   assert.equal(job.artifacts['hash-1'].lastDiscordMessageId, '999999999999999999');
   assert.equal((await fs.readFile(filePath, 'utf8')).endsWith('\n'), true);
@@ -68,12 +81,20 @@ test('job cũ thiếu trường mới được nâng cấp bằng giá trị m�
   const state = JSON.parse(await fs.readFile(filePath, 'utf8'));
   delete state.jobs[job.id].stopRequested;
   delete state.jobs[job.id].responseSentAt;
+  delete state.jobs[job.id].startedAt;
+  delete state.jobs[job.id].firstDeltaAt;
+  delete state.jobs[job.id].requestSubmittedAt;
+  delete state.jobs[job.id].sessionActivities;
   await fs.writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 
   const reloaded = new JobStore(filePath);
   await reloaded.load();
   assert.equal(reloaded.getJob(job.id).stopRequested, false);
   assert.equal(reloaded.getJob(job.id).responseSentAt, null);
+  assert.equal(reloaded.getJob(job.id).startedAt, null);
+  assert.equal(reloaded.getJob(job.id).firstDeltaAt, null);
+  assert.equal(reloaded.getJob(job.id).requestSubmittedAt, null);
+  assert.deepEqual(reloaded.getJob(job.id).sessionActivities, {});
 });
 
 test('không ghi đè jobs.json bị hỏng', async (t) => {

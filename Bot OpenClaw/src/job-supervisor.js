@@ -8,6 +8,7 @@ const {
   sanitizeActivityText,
   sanitizeInline,
 } = require('./session-activity');
+const { sessionActivityRecord } = require('./discord-activity');
 const { stageMediaReference } = require('./response-media');
 const { RequestDeadline } = require('./request-deadline');
 const {
@@ -227,7 +228,12 @@ class JobSupervisor {
     }
     context?.activityTouch?.();
     if (activity.text) {
-      await this.store.addEvent(jobId, activity.text);
+      const sessionRecord = sessionActivityRecord(activity);
+      if (sessionRecord) {
+        await this.store.addSessionEvent(jobId, activity.sessionKey, sessionRecord);
+      } else {
+        await this.store.addEvent(jobId, activity.text);
+      }
       try {
         await this.sendActivity(this.store.getJob(jobId), activity);
       } catch (error) {
@@ -436,7 +442,7 @@ class JobSupervisor {
     return this.store.getJob(jobId).artifacts[artifactId];
   }
 
-  async syncTasks(jobId) {
+  async syncTasks(jobId, options = {}) {
     const context = this.contexts.get(jobId);
     if (!context || context.settling) {
       return;
@@ -452,7 +458,10 @@ class JobSupervisor {
       }
       let tasks;
       try {
-        tasks = await this.taskClient.list();
+        tasks = await this.taskClient.list({
+          fresh: options.fresh === true,
+          maxAgeMs: this.pollMs,
+        });
       } catch (error) {
         this.logger?.warn('Không đồng bộ được durable task OpenClaw.', {
           jobId,
@@ -579,7 +588,7 @@ class JobSupervisor {
         text: `✗ Yêu cầu cha gặp lỗi: ${result.error.code || result.error.name || 'Error'}`,
       });
     }
-    await this.syncTasks(jobId);
+    await this.syncTasks(jobId, { fresh: true });
   }
 
   async settle(jobId) {
@@ -685,7 +694,7 @@ class JobSupervisor {
     const context = await this.watchJob(jobId, { recovered: true });
     context.stopRequested = true;
     context.cancelDeadline = Date.now() + this.cancelGraceMs;
-    await this.syncTasks(jobId);
+    await this.syncTasks(jobId, { fresh: true });
     const activeTasks = Object.values(this.store.getJob(jobId).tasks)
       .filter((task) => ACTIVE_TASK_STATUSES.has(task.status));
     await this.cancelActiveTasks(context, activeTasks);
@@ -722,7 +731,7 @@ class JobSupervisor {
       job = this.store.getJob(jobId);
     }
     const context = await this.watchJob(jobId, { recovered: true });
-    await this.syncTasks(jobId);
+    await this.syncTasks(jobId, { fresh: true });
     let current = this.store.getJob(jobId);
     if (!current || TERMINAL_JOB_STATUSES.has(current.status) || context.settling) {
       return context.settled;

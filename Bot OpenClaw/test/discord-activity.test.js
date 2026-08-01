@@ -3,12 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  buildActivityMessages,
+  isAuxiliarySessionActivity,
   isRootTranscriptFinal,
-  shouldSendActivity,
+  sessionActivityRecord,
 } = require('../src/discord-activity');
-
-const job = { id: '1533010068075970710' };
 
 test('không gửi trùng phản hồi final của phiên chính từ transcript', () => {
   const event = {
@@ -19,49 +17,54 @@ test('không gửi trùng phản hồi final của phiên chính từ transcript
     notificationText: 'Đã hoàn tất.',
   };
   assert.equal(isRootTranscriptFinal(event), true);
-  assert.equal(shouldSendActivity(event), false);
-  assert.deepEqual(buildActivityMessages(job, event), []);
+  assert.equal(isAuxiliarySessionActivity(event), false);
+  assert.equal(sessionActivityRecord(event), null);
 });
 
-test('gửi trực tiếp cập nhật chính, tool và phản hồi final của sub-agent', () => {
-  const main = buildActivityMessages(job, {
+test('chỉ đưa hoạt động của session phụ vào bản ghi embed riêng', () => {
+  const main = sessionActivityRecord({
     origin: 'transcript',
     isRoot: true,
     kind: 'assistant',
     final: false,
     notificationText: 'Mình đang kiểm tra dữ liệu.',
   });
-  const tool = buildActivityMessages(job, {
+  const tool = sessionActivityRecord({
     origin: 'transcript',
     isRoot: false,
+    sessionKey: 'agent:main:subagent:worker-1',
     kind: 'tool_call',
     text: '▶ `browser` — snapshot',
   });
-  const child = buildActivityMessages(job, {
+  const child = sessionActivityRecord({
     origin: 'transcript',
     isRoot: false,
+    sessionKey: 'agent:main:subagent:worker-1',
     sourceLabel: 'Worker tạo ảnh 0012',
     kind: 'assistant',
     final: true,
     notificationText: 'Đã xử lý xong toàn bộ checkpoint.',
   });
 
-  assert.match(main[0], /Cập nhật từ OpenClaw chính/);
-  assert.match(tool[0], /Thao tác của sub-agent/);
-  assert.match(child[0], /Phản hồi từ Worker tạo ảnh 0012/);
-  assert.match(child[0], /checkpoint/);
+  assert.equal(main, null);
+  assert.equal(tool.kind, 'tool_call');
+  assert.match(tool.text, /browser/);
+  assert.equal(child.label, 'Worker tạo ảnh 0012');
+  assert.equal(child.final, true);
+  assert.match(child.text, /checkpoint/);
 });
 
-test('chia phản hồi dài thành nhiều tin nhắn có nhãn tiếp', () => {
-  const messages = buildActivityMessages(job, {
+test('lọc dữ liệu nhạy cảm và giới hạn nội dung trước khi lưu vào embed session phụ', () => {
+  const record = sessionActivityRecord({
     origin: 'transcript',
     isRoot: false,
+    sessionKey: 'agent:main:subagent:worker-2',
     kind: 'assistant',
     final: true,
-    notificationText: 'nội dung '.repeat(300),
-  }, 300);
+    notificationText: `Bearer secret-token C:\\Users\\songt\\secret\\file.txt ${'nội dung '.repeat(800)}`,
+  });
 
-  assert.ok(messages.length > 1);
-  assert.equal(messages.every((message) => message.length <= 300), true);
-  assert.match(messages[1], /\(tiếp\)/);
+  assert.ok(record.text.length <= 4000);
+  assert.equal(record.text.includes('secret-token'), false);
+  assert.equal(record.text.includes('file.txt'), false);
 });

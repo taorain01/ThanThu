@@ -6,7 +6,6 @@ const {
   RESPONSE_PRIORITY_MS,
   responseCanYieldToActivity,
   shouldMoveStatusToBottom,
-  shouldSendDirectActivity,
 } = require('../src/discord-ordering');
 
 const responseSentAt = '2026-08-01T08:00:00.000Z';
@@ -21,11 +20,6 @@ function job(overrides = {}) {
     ...overrides,
   };
 }
-
-test('chỉ gửi hoạt động trực tiếp trước phản hồi chính', () => {
-  assert.equal(shouldSendDirectActivity(job({ responseSent: false })), true);
-  assert.equal(shouldSendDirectActivity(job()), false);
-});
 
 test('giữ phản hồi ở cuối trong hai phút dù task có cập nhật mới', () => {
   assert.equal(responseCanYieldToActivity(

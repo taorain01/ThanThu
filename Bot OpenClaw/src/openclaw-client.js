@@ -21,20 +21,24 @@ class OpenClawError extends Error {
 
 function extractAssistantText(payload) {
   const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content === 'string' && content.trim()) {
-    return content.trim();
-  }
-  if (Array.isArray(content)) {
-    const text = content
-      .filter((part) => part && (part.type === 'text' || typeof part.text === 'string'))
-      .map((part) => part.text || '')
-      .join('\n')
-      .trim();
-    if (text) {
-      return text;
-    }
+  const text = extractTextContent(content).trim();
+  if (text) {
+    return text;
   }
   throw new OpenClawError('invalid_response', 'OpenClaw không trả về nội dung văn bản hợp lệ.');
+}
+
+function extractTextContent(content) {
+  if (typeof content === 'string' && content.trim()) {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part && (part.type === 'text' || typeof part.text === 'string'))
+      .map((part) => part.text || '')
+      .join('\n');
+  }
+  return '';
 }
 
 function mapHttpError(status) {
@@ -74,6 +78,92 @@ function appendLabeledImages(content, imageParts) {
       },
     });
   }
+}
+
+async function notifyDelta(onDelta, delta, text) {
+  if (typeof onDelta !== 'function') {
+    return;
+  }
+  try {
+    await onDelta({ delta, text });
+  } catch {
+    // Preview Discord không được phép làm hỏng request OpenClaw đang chạy.
+  }
+}
+
+function parseSsePayload(value) {
+  let payload;
+  try {
+    payload = JSON.parse(value);
+  } catch {
+    throw new OpenClawError('invalid_response', 'OpenClaw trả về SSE không hợp lệ.');
+  }
+  if (payload?.error) {
+    throw new OpenClawError('stream_error', 'OpenClaw kết thúc stream với lỗi.');
+  }
+  return extractTextContent(payload?.choices?.[0]?.delta?.content);
+}
+
+async function readStreamingAssistant(response, onDelta) {
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    throw new OpenClawError('invalid_response', 'OpenClaw không trả về stream hợp lệ.');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  let finished = false;
+
+  const processEvent = async (eventBlock) => {
+    const data = eventBlock
+      .split('\n')
+      .map((line) => line.match(/^data:\s?(.*)$/)?.[1])
+      .filter((line) => line !== undefined)
+      .join('\n')
+      .trim();
+    if (!data) {
+      return false;
+    }
+    if (data === '[DONE]') {
+      return true;
+    }
+    const delta = parseSsePayload(data);
+    if (delta) {
+      text += delta;
+      await notifyDelta(onDelta, delta, text);
+    }
+    return false;
+  };
+
+  while (!finished) {
+    const chunk = await reader.read();
+    buffer += decoder.decode(chunk.value || new Uint8Array(), { stream: !chunk.done });
+    buffer = buffer.replace(/\r\n/g, '\n');
+
+    let separatorIndex = buffer.indexOf('\n\n');
+    while (separatorIndex !== -1) {
+      const eventBlock = buffer.slice(0, separatorIndex);
+      buffer = buffer.slice(separatorIndex + 2);
+      if (await processEvent(eventBlock)) {
+        finished = true;
+        break;
+      }
+      separatorIndex = buffer.indexOf('\n\n');
+    }
+
+    if (chunk.done) {
+      if (!finished && buffer.trim()) {
+        finished = await processEvent(buffer);
+      }
+      break;
+    }
+  }
+
+  if (!text.trim()) {
+    throw new OpenClawError('invalid_response', 'OpenClaw không trả về nội dung văn bản hợp lệ.');
+  }
+  return text.trim();
 }
 
 class OpenClawClient {
@@ -119,7 +209,16 @@ class OpenClawClient {
     }
   }
 
-  async chat({ guildId, channelId, sessionGeneration, backendModel, text, imageParts, signal }) {
+  async chat({
+    guildId,
+    channelId,
+    sessionGeneration,
+    backendModel,
+    text,
+    imageParts,
+    signal,
+    onDelta,
+  }) {
     const content = [];
     if (String(text || '').trim()) {
       content.push({ type: 'text', text: String(text).trim() });
@@ -131,7 +230,7 @@ class OpenClawClient {
 
     const body = {
       model: this.model,
-      stream: false,
+      stream: typeof onDelta === 'function',
       user: this.sessionUser({ guildId, channelId, sessionGeneration }),
       messages: [
         { role: 'system', content: PC_OPERATOR_INSTRUCTIONS },
@@ -157,13 +256,32 @@ class OpenClawClient {
       throw mapHttpError(response.status);
     }
 
-    let payload;
     try {
-      payload = await response.json();
-    } catch {
-      throw new OpenClawError('invalid_response', 'OpenClaw trả về JSON không hợp lệ.');
+      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+      if (body.stream && !contentType.includes('application/json')) {
+        return await readStreamingAssistant(response, onDelta);
+      }
+
+      let payload;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new OpenClawError('invalid_response', 'OpenClaw trả về JSON không hợp lệ.');
+      }
+      const result = extractAssistantText(payload);
+      if (body.stream) {
+        await notifyDelta(onDelta, result, result);
+      }
+      return result;
+    } catch (error) {
+      if (signal?.aborted) {
+        throw signal.reason || error;
+      }
+      if (error instanceof OpenClawError) {
+        throw error;
+      }
+      throw new OpenClawError('network', 'Kết nối stream OpenClaw bị gián đoạn.');
     }
-    return extractAssistantText(payload);
   }
 }
 
@@ -172,4 +290,6 @@ module.exports = {
   OpenClawError,
   PC_OPERATOR_INSTRUCTIONS,
   extractAssistantText,
+  parseSsePayload,
+  readStreamingAssistant,
 };

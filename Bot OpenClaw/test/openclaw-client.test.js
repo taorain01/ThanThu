@@ -30,6 +30,20 @@ function chatArgs(overrides = {}) {
   };
 }
 
+function sseResponse(chunks) {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk));
+      }
+      controller.close();
+    },
+  }), {
+    headers: { 'content-type': 'text/event-stream; charset=utf-8' },
+  });
+}
+
 test('gửi session ổn định và đọc phản hồi thành công', async () => {
   let request;
   const client = new OpenClawClient(config(), {
@@ -157,4 +171,98 @@ test('health chỉ trả trạng thái an toàn', async () => {
     fetchImpl: async () => { throw new Error('offline'); },
   });
   assert.deepEqual(await offline.health(), { ok: false, status: null });
+});
+
+test('đọc SSE phân mảnh, ghép delta và dừng tại DONE', async () => {
+  let requestBody;
+  const updates = [];
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return sseResponse([
+        'data: {"choices":[{"delta":{"con',
+        'tent":"Xin "}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"chào"}}]}\n\n',
+        'data: [DONE]\n\n',
+      ]);
+    },
+  });
+
+  const result = await client.chat(chatArgs({
+    onDelta: ({ delta, text }) => updates.push({ delta, text }),
+  }));
+
+  assert.equal(requestBody.stream, true);
+  assert.equal(result, 'Xin chào');
+  assert.deepEqual(updates, [
+    { delta: 'Xin ', text: 'Xin ' },
+    { delta: 'chào', text: 'Xin chào' },
+  ]);
+});
+
+test('stream chấp nhận JSON fallback và phát một delta hoàn chỉnh', async () => {
+  const updates = [];
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async () => Response.json({
+      choices: [{ message: { content: 'Phản hồi đầy đủ.' } }],
+    }),
+  });
+
+  const result = await client.chat(chatArgs({
+    onDelta: (update) => updates.push(update),
+  }));
+
+  assert.equal(result, 'Phản hồi đầy đủ.');
+  assert.deepEqual(updates, [{
+    delta: 'Phản hồi đầy đủ.',
+    text: 'Phản hồi đầy đủ.',
+  }]);
+});
+
+test('không retry khi SSE báo lỗi sau khi đã có delta', async () => {
+  let calls = 0;
+  const updates = [];
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async () => {
+      calls += 1;
+      return sseResponse([
+        'data: {"choices":[{"delta":{"content":"Đang làm"}}]}\n\n',
+        'data: {"error":{"message":"gateway failed"}}\n\n',
+      ]);
+    },
+  });
+
+  await assert.rejects(
+    () => client.chat(chatArgs({ onDelta: (update) => updates.push(update) })),
+    (error) => error instanceof OpenClawError && error.code === 'stream_error',
+  );
+  assert.equal(calls, 1);
+  assert.equal(updates.length, 1);
+});
+
+test('abort trong lúc đọc SSE giữ nguyên lý do dừng và không retry', async () => {
+  let calls = 0;
+  const controller = new AbortController();
+  const reason = Object.assign(new Error('stop'), { code: 'queue_stopped' });
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async (_url, options) => {
+      calls += 1;
+      return new Response(new ReadableStream({
+        start(streamController) {
+          options.signal.addEventListener('abort', () => {
+            streamController.error(options.signal.reason);
+          }, { once: true });
+        },
+      }), {
+        headers: { 'content-type': 'text/event-stream' },
+      });
+    },
+  });
+
+  setTimeout(() => controller.abort(reason), 20);
+  await assert.rejects(
+    () => client.chat(chatArgs({ signal: controller.signal, onDelta: () => {} })),
+    (error) => error === reason,
+  );
+  assert.equal(calls, 1);
 });

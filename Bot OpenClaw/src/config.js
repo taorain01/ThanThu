@@ -162,6 +162,12 @@ function loadConfig(env = process.env) {
       250,
       10000,
     ),
+    streamUpdateMs: parseInteger(
+      env.OPENCLAW_STREAM_UPDATE_MS || '2000',
+      'OPENCLAW_STREAM_UPDATE_MS',
+      1000,
+      10000,
+    ),
     mediaOutboxRetentionHours: parseInteger(
       env.OPENCLAW_MEDIA_OUTBOX_RETENTION_HOURS || '168',
       'OPENCLAW_MEDIA_OUTBOX_RETENTION_HOURS',

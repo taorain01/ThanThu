@@ -7,10 +7,6 @@ function timestampMs(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function shouldSendDirectActivity(job) {
-  return !job?.responseSent;
-}
-
 function responseCanYieldToActivity(job, now = Date.now(), priorityMs = RESPONSE_PRIORITY_MS) {
   const responseSentAt = timestampMs(job?.responseSentAt);
   const lastActivityAt = timestampMs(job?.lastActivityAt);
@@ -40,6 +36,5 @@ module.exports = {
   RESPONSE_PRIORITY_MS,
   responseCanYieldToActivity,
   shouldMoveStatusToBottom,
-  shouldSendDirectActivity,
   timestampMs,
 };

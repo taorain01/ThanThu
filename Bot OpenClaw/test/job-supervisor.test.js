@@ -172,6 +172,13 @@ test('parent kết thúc nhưng child vẫn gửi đủ bốn MEDIA, kể cả t
     settled.events.filter((event) => event.startsWith('✓ Worker hoàn tất:')).length,
     1,
   );
+  assert.equal(settled.events.some((event) => event.includes('Ảnh 4/4')), false);
+  assert.equal(settled.sessionActivities[childSessionKey].events.some((event) => (
+    event.kind === 'assistant' && event.text.includes('Ảnh 4/4')
+  )), true);
+  assert.equal(settled.sessionActivities[childSessionKey].events.some((event) => (
+    event.kind === 'tool_call'
+  )), true);
   assert.equal(activities.some((event) => (
     event.kind === 'assistant'
     && event.final

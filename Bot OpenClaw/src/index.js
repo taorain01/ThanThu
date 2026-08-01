@@ -34,14 +34,16 @@ const { OpenClawClient, OpenClawError } = require('./openclaw-client');
 const { OpenClawTaskClient } = require('./openclaw-task-client');
 const { JobSupervisor, TERMINAL_JOB_STATUSES, artifactCounts } = require('./job-supervisor');
 const { RequestDeadline } = require('./request-deadline');
+const { ResponseDeliveryGate } = require('./response-delivery-gate');
 const { splitDiscordText } = require('./message-utils');
 const {
   buildJobStatusEmbed,
   buildOpenClawStatusEmbed,
-  buildResponseEmbeds,
+  buildSessionActivityEmbed,
   buildSystemStatusEmbed,
 } = require('./discord-embeds');
-const { buildActivityMessages, isRootTranscriptFinal } = require('./discord-activity');
+const { isRootTranscriptFinal } = require('./discord-activity');
+const { sanitizeActivityText } = require('./session-activity');
 const { readSessionContextUsage } = require('./session-context');
 const {
   findSessionResponse,
@@ -58,7 +60,6 @@ const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat'
 const { collectSystemMetrics } = require('./system-metrics');
 const {
   shouldMoveStatusToBottom,
-  shouldSendDirectActivity,
 } = require('./discord-ordering');
 
 const BOT_ROOT = path.resolve(__dirname, '..');
@@ -86,7 +87,7 @@ const messageCursorStore = new MessageCursorStore(
   path.join(BOT_ROOT, 'data', 'message-cursors.json'),
 );
 const openclaw = new OpenClawClient(config);
-const taskClient = new OpenClawTaskClient();
+const taskClient = new OpenClawTaskClient({ listCacheMs: config.jobPollMs });
 const audioTranscriber = new AudioTranscriber({ timeoutMs: config.requestIdleTimeoutMs });
 const requestQueue = new SessionRequestQueue(
   config.maxPending,
@@ -96,8 +97,11 @@ const sourceMessages = new Map();
 const statusUpdateTimers = new Map();
 const statusUpdatePromises = new Map();
 const statusUpdatedAt = new Map();
+const sessionActivityUpdateTimers = new Map();
+const sessionActivityUpdatePromises = new Map();
 const activityDeliveryChains = new Map();
 const responseDeliveryPromises = new Map();
+const streamPreviews = new Map();
 const messageDispatches = new Map();
 const handledMessageIds = new Set();
 const bufferedGatewayMessages = [];
@@ -156,58 +160,25 @@ async function resolveDiscordChannel(channelId) {
 }
 
 async function sendJobResponse(job, text) {
-  const embeds = buildResponseEmbeds(text, {
-    jobId: job.id,
-    botName: 'OPENCLAW // ASSISTANT',
-    botIconUrl: botIconUrl(),
-  });
+  const chunks = splitDiscordText(text);
   const source = sourceMessages.get(job.id);
   const channel = source?.channel || await resolveDiscordChannel(job.channelId);
   if (source) {
     try {
-      await source.reply(discordEmbedOptions(embeds[0]));
+      await source.reply(discordMessageOptions(chunks[0]));
     } catch {
-      await channel.send(discordEmbedOptions(embeds[0]));
+      await channel.send(discordMessageOptions(chunks[0]));
     }
   } else {
-    await channel.send(discordEmbedOptions(embeds[0]));
+    await channel.send(discordMessageOptions(chunks[0]));
   }
-  for (const embed of embeds.slice(1)) {
-    await channel.send(discordEmbedOptions(embed));
+  for (const chunk of chunks.slice(1)) {
+    await channel.send(discordMessageOptions(chunk));
   }
 }
 
 function retryDelay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function runActivityDelivery(job, event) {
-  const messages = buildActivityMessages(job, event);
-  if (messages.length === 0) {
-    return [];
-  }
-  const channel = await resolveDiscordChannel(job.channelId);
-  const sentIds = [];
-  for (const content of messages) {
-    let lastError;
-    for (const waitMs of [0, 1000, 5000]) {
-      if (waitMs) {
-        await retryDelay(waitMs);
-      }
-      try {
-        const sent = await channel.send(discordMessageOptions(content));
-        sentIds.push(sent.id);
-        lastError = null;
-        break;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    if (lastError) {
-      throw lastError;
-    }
-  }
-  return sentIds;
 }
 
 async function enqueueDiscordDelivery(jobId, deliver) {
@@ -224,21 +195,119 @@ async function enqueueDiscordDelivery(jobId, deliver) {
 }
 
 async function sendActivityToDiscord(job, event) {
-  const isRootFinal = isRootTranscriptFinal(event);
-  if (isRootFinal) {
+  if (isRootTranscriptFinal(event)) {
     return sendOpenClawResponse(
       job.id,
       event.responseText || event.notificationText || event.text,
     );
   }
-  return enqueueDiscordDelivery(job.id, () => {
-    const current = jobStore.getJob(job.id) || job;
-    return shouldSendDirectActivity(current) ? runActivityDelivery(current, event) : [];
+  return [];
+}
+
+function sessionActivityUpdateKey(jobId, sessionKey) {
+  return `${jobId}\u0000${sessionKey}`;
+}
+
+async function updateSessionActivityMessage(jobId, sessionKey) {
+  const current = jobStore.getJob(jobId);
+  const activity = current?.sessionActivities?.[sessionKey];
+  if (!current || !activity || !activity.events?.length) {
+    return null;
+  }
+  const sessionKeys = Object.keys(current.sessionActivities).sort((left, right) => (
+    Number(current.sessionStartedAt?.[left] || 0) - Number(current.sessionStartedAt?.[right] || 0)
+  ));
+  const embed = buildSessionActivityEmbed(current, sessionKey, {
+    sessionNumber: Math.max(1, sessionKeys.indexOf(sessionKey) + 1),
+    botName: 'OPENCLAW // SUB-SESSION',
+    botIconUrl: botIconUrl(),
   });
+  const channel = await resolveDiscordChannel(current.channelId);
+
+  if (activity.messageId) {
+    let lastError;
+    for (const waitMs of [0, 1000, 5000]) {
+      if (waitMs) {
+        await retryDelay(waitMs);
+      }
+      try {
+        const message = await channel.messages.fetch(activity.messageId);
+        await message.edit(discordEmbedOptions(embed, { clearContent: true }));
+        return message;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    logger.warn('Không cập nhật được embed session phụ cũ; sẽ tạo embed thay thế.', {
+      jobId,
+      name: lastError?.name,
+    });
+  }
+
+  let lastError;
+  for (const waitMs of [0, 1000, 5000]) {
+    if (waitMs) {
+      await retryDelay(waitMs);
+    }
+    try {
+      const sent = await channel.send(discordEmbedOptions(embed));
+      await jobStore.setSessionActivityMessageId(jobId, sessionKey, sent.id);
+      return sent;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+async function ensureSessionActivityMessage(jobId, sessionKey) {
+  const key = sessionActivityUpdateKey(jobId, sessionKey);
+  const previous = sessionActivityUpdatePromises.get(key) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(() => (
+    updateSessionActivityMessage(jobId, sessionKey)
+  ));
+  sessionActivityUpdatePromises.set(key, operation);
+  try {
+    return await operation;
+  } finally {
+    sessionActivityUpdatePromises.delete(key);
+  }
+}
+
+function scheduleSessionActivityUpdates(job, options = {}) {
+  if (!job) {
+    return;
+  }
+  const immediate = options.immediate === true || TERMINAL_JOB_STATUSES.has(job.status);
+  for (const sessionKey of Object.keys(job.sessionActivities || {})) {
+    const key = sessionActivityUpdateKey(job.id, sessionKey);
+    if (sessionActivityUpdateTimers.has(key)) {
+      if (!immediate) {
+        continue;
+      }
+      clearTimeout(sessionActivityUpdateTimers.get(key));
+      sessionActivityUpdateTimers.delete(key);
+    }
+    const timer = setTimeout(() => {
+      sessionActivityUpdateTimers.delete(key);
+      void ensureSessionActivityMessage(job.id, sessionKey).catch((error) => {
+        logger.warn('Không thể cập nhật embed session phụ trên Discord.', {
+          jobId: job.id,
+          name: error.name,
+        });
+      });
+    }, immediate ? 0 : config.statusUpdateDebounceMs);
+    timer.unref?.();
+    sessionActivityUpdateTimers.set(key, timer);
+  }
 }
 
 async function updateStatusMessage(job) {
   const current = jobStore.getJob(job.id);
+  if (!current) {
+    return null;
+  }
+  const streamPreview = streamPreviews.get(current.id) || '';
   const queue = requestQueue.getDetailedStatus();
   const queueIndex = queue.pendingMetadata.findIndex((item) => item.jobId === current.id);
   const queueItem = queueIndex >= 0 ? queue.pendingMetadata[queueIndex] : null;
@@ -261,7 +330,8 @@ async function updateStatusMessage(job) {
     botName: 'OPENCLAW // JOB MONITOR',
     botIconUrl: botIconUrl(),
     heartbeatMs: config.jobHeartbeatMs,
-    updateDebounceMs: config.statusUpdateDebounceMs,
+    updateDebounceMs: streamPreview ? config.streamUpdateMs : config.statusUpdateDebounceMs,
+    streamPreview,
   });
   const channel = await resolveDiscordChannel(current.channelId);
   if (current.statusMessageId) {
@@ -359,7 +429,7 @@ function scheduleStatusUpdate(job, options = {}) {
   const waitMs = statusUpdateDelay({
     immediate,
     lastUpdatedAt: statusUpdatedAt.get(job.id),
-    debounceMs: config.statusUpdateDebounceMs,
+    debounceMs: options.debounceMs || config.statusUpdateDebounceMs,
   });
   const timer = setTimeout(() => {
     statusUpdateTimers.delete(job.id);
@@ -397,7 +467,10 @@ supervisor = new JobSupervisor({
   idleTimeoutMs: config.requestIdleTimeoutMs,
   maxRuntimeMs: config.requestMaxRuntimeMs,
   logger,
-  onJobChanged: async (job) => scheduleStatusUpdate(job),
+  onJobChanged: async (job) => {
+    scheduleStatusUpdate(job);
+    scheduleSessionActivityUpdates(job);
+  },
   sendActivity: sendActivityToDiscord,
   sendArtifact: sendArtifactToDiscord,
 });
@@ -419,6 +492,7 @@ async function flushStatusBeforeResponse(jobId) {
 }
 
 async function runOpenClawResponseDelivery(jobId, responseText) {
+  streamPreviews.delete(jobId);
   const parsed = extractMediaReferences(responseText);
   const artifacts = [];
   for (const item of parsed.items) {
@@ -442,9 +516,32 @@ async function runOpenClawResponseDelivery(jobId, responseText) {
   for (const artifact of artifacts) {
     await supervisor.deliverArtifact(jobId, artifact.id);
   }
+  const responseSentAt = new Date();
   await jobStore.updateJob(jobId, {
     responseSent: true,
-    responseSentAt: new Date().toISOString(),
+    responseSentAt: responseSentAt.toISOString(),
+  });
+  const completedJob = jobStore.getJob(jobId);
+  const createdAt = Date.parse(completedJob.createdAt);
+  const startedAt = completedJob.startedAt == null ? Number.NaN : Number(completedJob.startedAt);
+  const requestSubmittedAt = completedJob.requestSubmittedAt == null
+    ? Number.NaN
+    : Number(completedJob.requestSubmittedAt);
+  const firstDeltaAt = completedJob.firstDeltaAt == null
+    ? Number.NaN
+    : Number(completedJob.firstDeltaAt);
+  const responseSentAtMs = responseSentAt.getTime();
+  logger.info('Đã gửi phản hồi OpenClaw lên Discord.', {
+    jobId,
+    queueWaitMs: Number.isFinite(startedAt) && Number.isFinite(createdAt)
+      ? Math.max(0, startedAt - createdAt)
+      : null,
+    firstDeltaMs: Number.isFinite(firstDeltaAt) && Number.isFinite(requestSubmittedAt)
+      ? Math.max(0, firstDeltaAt - requestSubmittedAt)
+      : null,
+    responseDeliveryMs: Number.isFinite(requestSubmittedAt)
+      ? Math.max(0, responseSentAtMs - requestSubmittedAt)
+      : null,
   });
   return true;
 }
@@ -828,10 +925,11 @@ async function handleCommand(message, command) {
 }
 
 async function processOpenClawMessage(message, state, jobId, signal) {
+  const startedAt = Date.now();
   sourceMessages.set(jobId, message);
   await supervisor.watchJob(jobId, { rootStartAtEnd: true });
-  await jobStore.updateJob(jobId, { status: 'running' });
-  await ensureStatusMessage(jobStore.getJob(jobId));
+  await jobStore.updateJob(jobId, { status: 'running', startedAt });
+  scheduleStatusUpdate(jobStore.getJob(jobId), { immediate: true });
 
   const deadline = new RequestDeadline({
     signal,
@@ -851,32 +949,31 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   };
   let responseText = '';
   let foregroundError = null;
-  let responseDelivered = false;
-  let responseDeliveryPromise = null;
   let responseWatcherController = null;
   let responseWatcherPromise = Promise.resolve(false);
+  let firstDeltaRecorded = Boolean(jobStore.getJob(jobId)?.firstDeltaAt);
 
-  const deliverResponseOnce = async (text) => {
-    if (responseDelivered) {
-      return false;
+  const responseGate = new ResponseDeliveryGate(async (text) => {
+    const latest = stateStore.getChannel(config.guildId, message.channelId);
+    if (!latest?.enabled || latest.sessionGeneration !== state.sessionGeneration) {
+      throw new QueueStoppedError();
     }
-    if (!responseDeliveryPromise) {
-      responseDeliveryPromise = (async () => {
-        const latest = stateStore.getChannel(config.guildId, message.channelId);
-        if (!latest?.enabled || latest.sessionGeneration !== state.sessionGeneration) {
-          throw new QueueStoppedError();
-        }
-        await sendOpenClawResponse(jobId, text);
-        responseDelivered = true;
-        stopTyping();
-        return true;
-      })();
+    await sendOpenClawResponse(jobId, text);
+    stopTyping();
+  });
+
+  const handleStreamDelta = async ({ text }) => {
+    deadline.touch();
+    if (responseGate.pending || responseGate.delivered) {
+      return;
     }
-    try {
-      return await responseDeliveryPromise;
-    } catch (error) {
-      responseDeliveryPromise = null;
-      throw error;
+    streamPreviews.set(jobId, sanitizeActivityText(text, 1000));
+    scheduleStatusUpdate({ id: jobId, status: 'running' }, {
+      debounceMs: config.streamUpdateMs,
+    });
+    if (!firstDeltaRecorded) {
+      firstDeltaRecorded = true;
+      await jobStore.updateJob(jobId, { firstDeltaAt: Date.now() });
     }
   };
 
@@ -926,7 +1023,7 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       if (!transcriptResponse) {
         return false;
       }
-      await deliverResponseOnce(transcriptResponse);
+      await responseGate.deliverOnce(transcriptResponse);
       logger.info('Đã gửi phản hồi Discord sớm từ transcript OpenClaw.', { jobId });
       return true;
     }).catch((error) => {
@@ -946,10 +1043,11 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       text: requestText,
       imageParts: attachments.imageParts,
       signal: deadline.signal,
+      onDelta: handleStreamDelta,
     });
-    await deliverResponseOnce(responseText);
+    await responseGate.deliverOnce(responseText);
   } catch (error) {
-    if (responseDelivered) {
+    if (responseGate.delivered) {
       logger.warn('OpenClaw kết thúc HTTP với lỗi sau khi Discord đã nhận phản hồi.', {
         jobId,
         name: error.name,
@@ -960,6 +1058,7 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   } finally {
     responseWatcherController?.abort();
     await responseWatcherPromise;
+    streamPreviews.delete(jobId);
     stopTyping();
     deadline.stop();
     supervisor.setActivityTouch(jobId, null);
@@ -1343,6 +1442,9 @@ async function shutdown(signalName) {
   requestQueue.stop();
   statusHeartbeat?.stop();
   for (const timer of statusUpdateTimers.values()) {
+    clearTimeout(timer);
+  }
+  for (const timer of sessionActivityUpdateTimers.values()) {
     clearTimeout(timer);
   }
   client.destroy();

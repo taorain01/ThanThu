@@ -1,23 +1,6 @@
 'use strict';
 
-const { splitDiscordText } = require('./message-utils');
-
-function activityTitle(event) {
-  const source = event.sourceLabel || (event.isRoot ? 'OpenClaw chính' : 'sub-agent');
-  if (event.kind === 'assistant') {
-    return event.final ? `✅ Phản hồi từ ${source}` : `💬 Cập nhật từ ${source}`;
-  }
-  if (event.kind === 'tool_call') {
-    return `⚙️ Thao tác của ${source}`;
-  }
-  if (event.kind === 'tool_result') {
-    return `🧾 Kết quả thao tác của ${source}`;
-  }
-  if (event.kind === 'worker') {
-    return '🤖 Điều phối sub-agent';
-  }
-  return '📣 Tiến trình OpenClaw';
-}
+const { sanitizeActivityText, sanitizeInline } = require('./session-activity');
 
 function isRootTranscriptFinal(event) {
   return Boolean(
@@ -28,31 +11,32 @@ function isRootTranscriptFinal(event) {
   );
 }
 
-function shouldSendActivity(event) {
-  if (!String(event?.notificationText || event?.text || '').trim()) {
-    return false;
-  }
-  return !isRootTranscriptFinal(event);
+function isAuxiliarySessionActivity(event) {
+  return Boolean(
+    event?.origin === 'transcript'
+    && !event.isRoot
+    && event.sessionKey
+  );
 }
 
-function buildActivityMessages(job, event, maxLength = 1900) {
-  if (!shouldSendActivity(event)) {
-    return [];
+function sessionActivityRecord(event) {
+  if (!isAuxiliarySessionActivity(event)) {
+    return null;
   }
-  const body = String(event.notificationText || event.text).trim();
-  const title = activityTitle(event);
-  const baseHeader = `**${title}** · Job \`${job.id}\``;
-  const continuationHeader = `**${title} (tiếp)** · Job \`${job.id}\``;
-  const bodyLimit = Math.max(200, maxLength - continuationHeader.length - 1);
-  return splitDiscordText(body, bodyLimit).map((chunk, index) => {
-    const header = index === 0 ? baseHeader : continuationHeader;
-    return `${header}\n${chunk}`;
-  });
+  const text = sanitizeActivityText(event.notificationText || event.text, 4000);
+  if (!text) {
+    return null;
+  }
+  return {
+    kind: String(event.kind || 'activity'),
+    text,
+    final: event.final === true,
+    label: sanitizeInline(event.sourceLabel || ''),
+  };
 }
 
 module.exports = {
-  activityTitle,
-  buildActivityMessages,
+  isAuxiliarySessionActivity,
   isRootTranscriptFinal,
-  shouldSendActivity,
+  sessionActivityRecord,
 };

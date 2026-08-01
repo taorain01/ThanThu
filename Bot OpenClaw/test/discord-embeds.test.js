@@ -9,6 +9,7 @@ const {
   buildJobStatusEmbed,
   buildOpenClawStatusEmbed,
   buildResponseEmbeds,
+  buildSessionActivityEmbed,
   buildSystemStatusEmbed,
   splitEmbedDescription,
 } = require('../src/discord-embeds');
@@ -183,6 +184,73 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
       assert.match(queueField.value, /2\/2 session đang chạy/);
     }
   }
+});
+
+test('hiển thị preview streaming an toàn và ẩn preview khi job kết thúc', () => {
+  const preview = [
+    'Đang tổng hợp kết quả tiếng Việt có dấu.',
+    'Bearer preview-secret',
+    'C:\\Users\\songt\\secret\\draft.txt',
+    'x'.repeat(2000),
+  ].join('\n');
+  const running = buildJobStatusEmbed(createJob('running'), {
+    streamPreview: preview,
+    updateDebounceMs: 2000,
+  });
+  const runningData = running.toJSON();
+  const previewField = runningData.fields.find((field) => field.name.includes('Phản hồi đang tạo'));
+  assertEmbedLimits(running);
+  assert.match(previewField.value, /tiếng Việt có dấu/);
+  assert.equal(previewField.value.includes('preview-secret'), false);
+  assert.equal(previewField.value.includes('draft.txt'), false);
+  assert.ok(previewField.value.length <= EMBED_LIMITS.fieldValue);
+
+  const completed = buildJobStatusEmbed(createJob('completed'), { streamPreview: preview }).toJSON();
+  assert.equal(completed.fields.some((field) => field.name.includes('Phản hồi đang tạo')), false);
+});
+
+test('dựng embed riêng cho session phụ và chỉ giữ hoạt động mới nhất', () => {
+  const sessionKey = 'agent:main:subagent:worker-1';
+  const embed = buildSessionActivityEmbed(createJob('background', {
+    tasks: {
+      child: {
+        taskId: 'child',
+        childSessionKey: sessionKey,
+        status: 'running',
+        label: 'Resume Playlist 0001',
+        progressSummary: 'Đang kiểm tra danh sách phát',
+        createdAt: Date.parse('2026-08-01T01:10:00.000Z'),
+        lastEventAt: Date.parse('2026-08-01T01:29:00.000Z'),
+      },
+    },
+    sessionActivities: {
+      [sessionKey]: {
+        label: 'Resume Playlist 0001',
+        updatedAt: '2026-08-01T01:29:00.000Z',
+        events: Array.from({ length: 20 }, (_, index) => ({
+          kind: index % 2 ? 'tool_result' : 'tool_call',
+          text: index === 19
+            ? '✓ `browser` hoàn tất Bearer child-secret tại C:\\Users\\songt\\secret\\tabs.json'
+            : `Bước ${index}: ${'x'.repeat(120)}`,
+        })),
+      },
+    },
+  }), sessionKey, {
+    sessionNumber: 2,
+    botName: 'OPENCLAW // SUB-SESSION',
+    botIconUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
+  });
+  const data = embed.toJSON();
+  const serialized = JSON.stringify(data);
+
+  assertEmbedLimits(embed);
+  assert.match(data.title, /Session phụ 2/);
+  assert.match(data.title, /Resume Playlist 0001/);
+  assert.match(data.fields.find((field) => field.name.includes('Trạng thái')).value, /Đang chạy/);
+  assert.match(data.fields.find((field) => field.name.includes('Luồng hoạt động')).value, /browser/);
+  assert.match(data.fields.find((field) => field.name.includes('Luồng hoạt động')).value, /Đã ẩn/);
+  assert.equal(serialized.includes('child-secret'), false);
+  assert.equal(serialized.includes('tabs.json'), false);
 });
 
 test('gộp record cùng runId và hiển thị task hiện tại theo heartbeat', () => {

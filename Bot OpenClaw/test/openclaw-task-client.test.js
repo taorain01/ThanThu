@@ -48,3 +48,28 @@ test('không lộ stdout lỗi và báo JSON sai định dạng', async () => {
   });
   await assert.rejects(() => invalid.list(), /JSON không hợp lệ/);
 });
+
+test('dùng chung snapshot tasks list trong một chu kỳ và cho phép làm mới cưỡng bức', async () => {
+  let calls = 0;
+  let now = 1000;
+  const client = new OpenClawTaskClient({
+    listCacheMs: 2000,
+    now: () => now,
+    execFileImpl: async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return { stdout: JSON.stringify({ tasks: [{ taskId: `task-${calls}` }] }) };
+    },
+  });
+
+  const concurrent = await Promise.all([client.list(), client.list(), client.list()]);
+  assert.equal(calls, 1);
+  assert.deepEqual(concurrent.map((tasks) => tasks[0].taskId), ['task-1', 'task-1', 'task-1']);
+
+  now += 1000;
+  assert.equal((await client.list())[0].taskId, 'task-1');
+  assert.equal(calls, 1);
+
+  assert.equal((await client.list({ fresh: true }))[0].taskId, 'task-2');
+  assert.equal(calls, 2);
+});

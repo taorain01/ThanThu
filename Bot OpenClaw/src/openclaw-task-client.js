@@ -29,6 +29,11 @@ class OpenClawTaskClient {
     this.openclawModulePath = options.openclawModulePath || defaultOpenClawModulePath();
     this.timeoutMs = options.timeoutMs || 15000;
     this.execFileImpl = options.execFileImpl || execFileAsync;
+    this.listCacheMs = Math.max(0, Number(options.listCacheMs) || 0);
+    this.now = options.now || Date.now;
+    this.listSnapshot = null;
+    this.listSnapshotAt = 0;
+    this.listPromise = null;
   }
 
   async run(args, expectJson = false) {
@@ -59,9 +64,31 @@ class OpenClawTaskClient {
     }
   }
 
-  async list() {
-    const payload = await this.run(['tasks', 'list', '--json'], true);
-    return Array.isArray(payload?.tasks) ? payload.tasks : [];
+  async list(options = {}) {
+    const fresh = options.fresh === true;
+    const maxAgeMs = Math.max(0, Number(options.maxAgeMs) || this.listCacheMs);
+    const now = this.now();
+    if (!fresh && this.listSnapshot && now - this.listSnapshotAt < maxAgeMs) {
+      return this.listSnapshot.map((task) => ({ ...task }));
+    }
+    if (this.listPromise) {
+      const tasks = await this.listPromise;
+      return tasks.map((task) => ({ ...task }));
+    }
+
+    this.listPromise = (async () => {
+      const payload = await this.run(['tasks', 'list', '--json'], true);
+      const tasks = Array.isArray(payload?.tasks) ? payload.tasks : [];
+      this.listSnapshot = tasks.map((task) => ({ ...task }));
+      this.listSnapshotAt = this.now();
+      return this.listSnapshot;
+    })();
+    try {
+      const tasks = await this.listPromise;
+      return tasks.map((task) => ({ ...task }));
+    } finally {
+      this.listPromise = null;
+    }
   }
 
   async show(lookup) {

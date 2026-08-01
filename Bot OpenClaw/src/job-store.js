@@ -41,6 +41,18 @@ function validateState(state) {
     if (job && job.responseSentAt === undefined) {
       job.responseSentAt = null;
     }
+    if (job && job.startedAt === undefined) {
+      job.startedAt = null;
+    }
+    if (job && job.firstDeltaAt === undefined) {
+      job.firstDeltaAt = null;
+    }
+    if (job && job.requestSubmittedAt === undefined) {
+      job.requestSubmittedAt = null;
+    }
+    if (job && job.sessionActivities === undefined) {
+      job.sessionActivities = {};
+    }
     if (
       !job
       || job.id !== jobId
@@ -49,6 +61,9 @@ function validateState(state) {
       || !JOB_STATUSES.has(job.status)
       || !job.sessionOffsets
       || typeof job.sessionOffsets !== 'object'
+      || !job.sessionActivities
+      || typeof job.sessionActivities !== 'object'
+      || Array.isArray(job.sessionActivities)
       || !job.tasks
       || typeof job.tasks !== 'object'
       || !job.artifacts
@@ -117,6 +132,8 @@ class JobStore {
         taskDiscoveryAfter: Date.parse(timestamp),
         status: 'queued',
         createdAt: timestamp,
+        startedAt: null,
+        firstDeltaAt: null,
         updatedAt: timestamp,
         lastActivityAt: timestamp,
         lastEvent: '',
@@ -129,6 +146,7 @@ class JobStore {
         requestSubmittedAt: null,
         sessionOffsets: {},
         sessionStartedAt: { [String(input.rootSessionKey)]: Date.parse(timestamp) },
+        sessionActivities: {},
         tasks: {},
         artifacts: {},
         terminalReason: '',
@@ -166,6 +184,56 @@ class JobStore {
       if (job.events.length > 50) {
         job.events.splice(0, job.events.length - 50);
       }
+    });
+  }
+
+  async addSessionEvent(jobId, sessionKey, event) {
+    const key = String(sessionKey || '').trim();
+    const cleanText = String(event?.text || '').trim();
+    if (!key || !cleanText) {
+      return this.getJob(jobId);
+    }
+    return this.updateJob(jobId, (job) => {
+      const timestamp = this.now().toISOString();
+      const activity = job.sessionActivities[key] || {
+        label: '',
+        messageId: null,
+        events: [],
+        updatedAt: timestamp,
+      };
+      if (event.label) {
+        activity.label = String(event.label);
+      }
+      activity.events.push({
+        kind: String(event.kind || 'activity'),
+        text: cleanText,
+        final: event.final === true,
+        createdAt: event.createdAt || timestamp,
+      });
+      if (activity.events.length > 50) {
+        activity.events.splice(0, activity.events.length - 50);
+      }
+      activity.updatedAt = timestamp;
+      job.sessionActivities[key] = activity;
+      job.lastEvent = cleanText;
+      job.lastActivityAt = timestamp;
+    });
+  }
+
+  async setSessionActivityMessageId(jobId, sessionKey, messageId) {
+    const key = String(sessionKey || '').trim();
+    if (!key) {
+      return this.getJob(jobId);
+    }
+    return this.updateJob(jobId, (job) => {
+      const timestamp = this.now().toISOString();
+      const activity = job.sessionActivities[key] || {
+        label: '',
+        events: [],
+        updatedAt: timestamp,
+      };
+      activity.messageId = messageId ? String(messageId) : null;
+      job.sessionActivities[key] = activity;
     });
   }
 

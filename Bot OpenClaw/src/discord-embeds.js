@@ -1,7 +1,7 @@
 'use strict';
 
 const { EmbedBuilder } = require('discord.js');
-const { sanitizeInline } = require('./session-activity');
+const { sanitizeActivityText, sanitizeInline } = require('./session-activity');
 const { summarizeWorkers } = require('./task-summary');
 
 const EMBED_LIMITS = Object.freeze({
@@ -611,6 +611,89 @@ function recentActivityValue(events, terminal) {
     : 'Đang chuẩn bị phiên và chờ hoạt động đầu tiên…';
 }
 
+const SESSION_STATUS_META = Object.freeze({
+  queued: { icon: '🕓', label: 'Đang chờ', color: COLORS.queued },
+  running: { icon: '⚙️', label: 'Đang chạy', color: COLORS.running },
+  succeeded: { icon: '✅', label: 'Đã hoàn tất', color: COLORS.completed },
+  problem: { icon: '⚠️', label: 'Gặp vấn đề', color: COLORS.failed },
+  unknown: { icon: '•', label: 'Chưa xác định', color: COLORS.background },
+});
+
+function sessionEventPrefix(event) {
+  if (event.kind === 'assistant') {
+    return event.final ? '✅' : '💬';
+  }
+  if (event.kind === 'tool_call') {
+    return '⚙️';
+  }
+  if (event.kind === 'tool_result') {
+    return '🧾';
+  }
+  return '•';
+}
+
+function sessionActivityValue(events) {
+  const allEvents = events || [];
+  const recent = allEvents.slice(-10).map((event) => {
+    const text = truncate(sanitizeActivityText(event.text, 360), 360);
+    return `${sessionEventPrefix(event)} ${text}`;
+  });
+  while (recent.length > 1 && recent.join('\n\n').length > EMBED_LIMITS.fieldValue) {
+    recent.shift();
+  }
+  let value = recent.join('\n\n') || 'Session phụ đang khởi tạo và chờ hoạt động đầu tiên…';
+  const omitted = Math.max(0, allEvents.length - recent.length);
+  if (omitted) {
+    const note = `_Đã ẩn ${omitted} hoạt động cũ; embed này luôn giữ các bước mới nhất._`;
+    value = `${note}\n${value}`;
+  }
+  return truncate(value, EMBED_LIMITS.fieldValue);
+}
+
+function buildSessionActivityEmbed(job, sessionKey, options = {}) {
+  const activity = job.sessionActivities?.[sessionKey] || {};
+  const relatedTasks = Object.fromEntries(
+    Object.entries(job.tasks || {}).filter(([, task]) => task.childSessionKey === sessionKey),
+  );
+  const worker = summarizeWorkers(relatedTasks).current;
+  const fallbackStatus = TERMINAL_STATUSES.has(job.status)
+    ? (job.status === 'completed' ? 'succeeded' : 'problem')
+    : 'unknown';
+  const status = SESSION_STATUS_META[worker?.status || fallbackStatus] || SESSION_STATUS_META.unknown;
+  const sessionNumber = Math.max(1, Number(options.sessionNumber) || 1);
+  const displayLabel = sanitizeInline(worker?.displayLabel || activity.label || `Session phụ ${sessionNumber}`);
+  const progress = sanitizeInline(worker?.progress || '');
+  const statusValue = progress
+    ? `${status.icon} **${status.label}**\n${progress}`
+    : `${status.icon} **${status.label}**`;
+  const embed = new EmbedBuilder()
+    .setColor(status.color)
+    .setAuthor(identityOptions(options, 'OPENCLAW // SUB-SESSION'))
+    .setTitle(truncate(`🤖 Session phụ ${sessionNumber} · ${displayLabel}`, EMBED_LIMITS.title))
+    .setDescription(`**Job** \`${truncate(job.id || 'không-xác-định', 100)}\`\n**Worker** ${displayLabel}`)
+    .addFields(
+      {
+        name: '🧭 Trạng thái',
+        value: truncate(statusValue, EMBED_LIMITS.fieldValue),
+        inline: false,
+      },
+      {
+        name: '📡 Luồng hoạt động riêng',
+        value: sessionActivityValue(activity.events),
+        inline: false,
+      },
+    )
+    .setFooter({
+      text: truncate('Session phụ được cập nhật tại chỗ • không tạo chuỗi chat mới', EMBED_LIMITS.footer),
+    })
+    .setTimestamp(safeTimestamp(activity.updatedAt || job.updatedAt));
+
+  if (validHttpUrl(options.botIconUrl)) {
+    embed.setThumbnail(options.botIconUrl);
+  }
+  return embed;
+}
+
 function jobFooter(job, counts, prefix, terminal, heartbeatMs, updateDebounceMs) {
   if (!terminal) {
     const heartbeatSeconds = Math.max(1, Math.round((Number(heartbeatMs) || 60000) / 1000));
@@ -689,6 +772,17 @@ function buildJobStatusEmbed(job, options = {}) {
     inline: false,
   });
 
+  const streamPreview = terminal
+    ? ''
+    : sanitizeActivityText(options.streamPreview, EMBED_LIMITS.fieldValue);
+  if (streamPreview) {
+    embed.addFields({
+      name: '✍️ Phản hồi đang tạo',
+      value: streamPreview,
+      inline: false,
+    });
+  }
+
   embed.addFields({
     name: terminal ? '📋 Hoạt động gần nhất' : '📡 Luồng hoạt động',
     value: recentActivityValue(job.events, terminal),
@@ -732,6 +826,7 @@ module.exports = {
   buildJobStatusEmbed,
   buildOpenClawStatusEmbed,
   buildResponseEmbeds,
+  buildSessionActivityEmbed,
   buildSystemStatusEmbed,
   splitEmbedDescription,
 };

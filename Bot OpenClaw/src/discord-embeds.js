@@ -19,6 +19,9 @@ const DEFAULT_RESPONSE = 'OpenClaw không trả về nội dung.';
 
 const COLORS = Object.freeze({
   response: 0x22d3ee,
+  statusOnline: 0x22c55e,
+  statusWarning: 0xf59e0b,
+  statusOffline: 0xef4444,
   queued: 0x38bdf8,
   running: 0x22d3ee,
   background: 0x6366f1,
@@ -280,6 +283,231 @@ function buildSystemStatusEmbed(metrics, options = {}) {
   return embed;
 }
 
+function inlineCode(value, maxLength = 160) {
+  return truncate(String(value || '').replace(/`/g, "'"), maxLength);
+}
+
+function jobArtifactCounts(job) {
+  const artifacts = Object.values(job?.artifacts || {});
+  return {
+    total: artifacts.length,
+    delivered: artifacts.filter((artifact) => artifact.status === 'delivered').length,
+    ready: artifacts.filter((artifact) => artifact.status === 'ready').length,
+  };
+}
+
+function jobStatusMeta(job) {
+  return STATUS_META[job?.status] || {
+    icon: '•',
+    label: String(job?.status || 'Không xác định'),
+  };
+}
+
+function currentChannelValue(channel, now) {
+  if (!channel) {
+    return '⚪ **Chưa bật**\nKênh này chưa có phiên OpenClaw.';
+  }
+  const state = channel.enabled ? '🟢 **Đang bật**' : '⚪ **Đang tắt**';
+  return [
+    `${state} • <#${channel.channelId}>`,
+    `Phiên **${Math.max(0, Number(channel.sessionGeneration) || 0)}** • cập nhật ${activityAgeLabel(channel.updatedAt, now)}`,
+  ].join('\n');
+}
+
+function modelStatusValue(channel) {
+  if (!channel?.modelProfile) {
+    return 'Chưa có model được chọn cho kênh này.';
+  }
+  const state = channel.enabled ? 'đang dùng' : 'đã lưu';
+  const backendModel = channel.backendModel
+    ? `\n\`${inlineCode(channel.backendModel, 140)}\``
+    : '';
+  return `**${inlineCode(channel.modelProfile, 40)}** • ${state}${backendModel}`;
+}
+
+function gatewayStatusValue(gateway) {
+  const latency = Math.max(0, Number(gateway?.latencyMs) || 0);
+  if (gateway?.ok) {
+    return `🟢 **Online**\nHTTP ${gateway.status || 200} • **${latency} ms**`;
+  }
+  const response = gateway?.status ? `HTTP ${gateway.status}` : 'Không nhận được phản hồi';
+  return `🔴 **Ngoại tuyến**\n${response} • ${latency} ms`;
+}
+
+function schedulerStatusValue(queue) {
+  const active = Math.max(0, Number(queue?.activeCount) || 0);
+  const maxConcurrent = Math.max(1, Number(queue?.maxConcurrent) || 1);
+  const pending = Math.max(0, Number(queue?.pending) || 0);
+  const maxPending = Math.max(1, Number(queue?.maxPending) || pending || 1);
+  const lines = [
+    `${usageBar((active / maxConcurrent) * 100)} **${active}/${maxConcurrent} session đang chạy**`,
+    `Hàng chờ: **${pending}/${maxPending} yêu cầu**`,
+  ];
+  const activeChannelIds = [...new Set((queue?.activeMetadataList || [])
+    .map((item) => item.channelId)
+    .filter(Boolean))];
+  if (activeChannelIds.length) {
+    lines.push(`Đang xử lý: ${activeChannelIds.slice(0, 8).map((id) => `<#${id}>`).join(', ')}`);
+  }
+  return truncate(lines.join('\n'), EMBED_LIMITS.fieldValue);
+}
+
+function currentJobValue(job, now) {
+  if (!job) {
+    return 'Không có lịch sử job trong kênh này.';
+  }
+  const status = jobStatusMeta(job);
+  const counts = jobArtifactCounts(job);
+  const activity = activityAgeLabel(job.lastActivityAt || job.updatedAt, now);
+  const lines = [
+    `${status.icon} **${status.label}** • \`${inlineCode(job.id, 80)}\``,
+    `⏱️ ${elapsedLabel(job.createdAt, now)} • 📦 ${counts.delivered}/${counts.total} file${counts.ready ? ` • ${counts.ready} chờ gửi` : ''} • cập nhật ${activity}`,
+  ];
+  if (job.stopRequested) {
+    lines.push('⏹️ Đang chờ OpenClaw xác nhận dừng toàn bộ task.');
+  }
+  if (job.lastEvent) {
+    lines.push(`↳ ${truncate(sanitizeInline(job.lastEvent), 420)}`);
+  } else if (job.terminalReason) {
+    lines.push(`↳ ${truncate(sanitizeInline(job.terminalReason), 420)}`);
+  }
+  return truncate(lines.join('\n'), EMBED_LIMITS.fieldValue);
+}
+
+function activeJobsValue(jobs, now) {
+  if (!jobs.length) {
+    return '✅ Không có job nào đang chạy hoặc chờ xử lý.';
+  }
+  const lines = jobs.slice(0, 4).map((job) => {
+    const status = jobStatusMeta(job);
+    const counts = jobArtifactCounts(job);
+    return `${status.icon} \`${inlineCode(job.id, 60)}\` • <#${job.channelId}> • **${status.label}** • ${elapsedLabel(job.createdAt, now)} • ${counts.delivered}/${counts.total} file`;
+  });
+  if (jobs.length > lines.length) {
+    lines.push(`… và **${jobs.length - lines.length} job** khác.`);
+  }
+  return truncate(lines.join('\n'), EMBED_LIMITS.fieldValue);
+}
+
+function activeChannelsValue(channels) {
+  if (!channels.length) {
+    return 'Không có channel nào đang bật OpenClaw.';
+  }
+  const visible = channels.slice(0, 12)
+    .map((channel) => `<#${channel.channelId}> · ${inlineCode(channel.modelProfile || 'chưa chọn', 30)}`);
+  if (channels.length > visible.length) {
+    visible.push(`… và **${channels.length - visible.length} channel** khác.`);
+  }
+  return truncate(visible.join('\n'), EMBED_LIMITS.fieldValue);
+}
+
+function mediaStatusValue(media) {
+  const roots = Math.max(0, Number(media?.sourceRoots) || 0);
+  const retentionHours = Math.max(0, Number(media?.retentionHours) || 0);
+  const retentionDays = retentionHours >= 24
+    ? ` (${(retentionHours / 24).toFixed(retentionHours % 24 ? 1 : 0)} ngày)`
+    : '';
+  return `**${roots}** thư mục nguồn được phép\nOutbox giữ **${retentionHours} giờ**${retentionDays}`;
+}
+
+function securityStatusValue(security) {
+  const lines = [];
+  if (security?.publicChannel === true) {
+    lines.push('⚠️ `@everyone` có thể xem kênh hiện tại; phản hồi có thể chứa dữ liệu nhạy cảm.');
+  } else if (security?.publicChannel === false) {
+    lines.push('✅ `@everyone` không xem được kênh hiện tại.');
+  } else {
+    lines.push('• Chưa xác định được phạm vi xem của kênh hiện tại.');
+  }
+  lines.push(security?.botIsAdmin
+    ? '⚠️ Bot đang có quyền Administrator; nên dùng bộ quyền tối thiểu.'
+    : '✅ Bot không dùng quyền Administrator.');
+  lines.push(`👤 **${Math.max(0, Number(security?.allowedUsers) || 0)}** Discord user được phép điều khiển.`);
+  return truncate(lines.join('\n'), EMBED_LIMITS.fieldValue);
+}
+
+function buildOpenClawStatusEmbed(options = {}) {
+  const now = Number(options.now) || Date.now();
+  const gateway = options.gateway || {};
+  const currentChannel = options.currentChannel || null;
+  const activeJobs = options.activeJobs || [];
+  const activeChannels = options.activeChannels || [];
+  const ready = Boolean(gateway.ok && currentChannel?.enabled);
+  const headline = !gateway.ok
+    ? '🔴 **Gateway không sẵn sàng**'
+    : currentChannel?.enabled
+      ? '🟢 **Sẵn sàng nhận yêu cầu trong kênh này**'
+      : '🟡 **Gateway online, kênh hiện tại chưa bật**';
+  const color = !gateway.ok
+    ? COLORS.statusOffline
+    : ready
+      ? COLORS.statusOnline
+      : COLORS.statusWarning;
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setAuthor(identityOptions(options, 'OPENCLAW // STATUS CONSOLE'))
+    .setTitle('🦞 Trung tâm điều khiển OpenClaw')
+    .setDescription([
+      headline,
+      `**${activeJobs.length} job** đang hoạt động • **${activeChannels.length} channel** đã bật`,
+    ].join('\n'))
+    .addFields(
+      {
+        name: '📍 Kênh hiện tại',
+        value: currentChannelValue(currentChannel, now),
+        inline: true,
+      },
+      {
+        name: '🧠 Model',
+        value: modelStatusValue(currentChannel),
+        inline: true,
+      },
+      {
+        name: '🌐 Gateway',
+        value: gatewayStatusValue(gateway),
+        inline: true,
+      },
+      {
+        name: '🛰️ Scheduler',
+        value: schedulerStatusValue(options.queue),
+      },
+      {
+        name: '📌 Job gần nhất của kênh',
+        value: currentJobValue(options.currentJob, now),
+      },
+      {
+        name: `⚙️ Job đang hoạt động toàn bot (${activeJobs.length})`,
+        value: activeJobsValue(activeJobs, now),
+      },
+      {
+        name: `🔗 Channel đang bật (${activeChannels.length})`,
+        value: activeChannelsValue(activeChannels),
+        inline: true,
+      },
+      {
+        name: '📦 Media & lưu trữ',
+        value: mediaStatusValue(options.media),
+        inline: true,
+      },
+      {
+        name: '🛡️ An toàn & quyền',
+        value: securityStatusValue(options.security),
+      },
+    )
+    .setFooter({
+      text: truncate(
+        `Cập nhật trực tiếp • Dừng: ${options.prefix || '>'} o stop • Model: ${options.prefix || '>'} o m`,
+        EMBED_LIMITS.footer,
+      ),
+    })
+    .setTimestamp(safeTimestamp(now));
+
+  if (validHttpUrl(options.botIconUrl)) {
+    embed.setThumbnail(options.botIconUrl);
+  }
+  return embed;
+}
+
 function elapsedLabel(startedAt, now = Date.now()) {
   const startedMs = Date.parse(startedAt);
   const elapsedMs = Math.max(0, now - (Number.isNaN(startedMs) ? now : startedMs));
@@ -502,6 +730,7 @@ module.exports = {
   EMBED_LIMITS,
   RESPONSE_DESCRIPTION_LIMIT,
   buildJobStatusEmbed,
+  buildOpenClawStatusEmbed,
   buildResponseEmbeds,
   buildSystemStatusEmbed,
   splitEmbedDescription,

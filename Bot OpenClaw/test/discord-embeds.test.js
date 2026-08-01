@@ -7,6 +7,7 @@ const {
   EMBED_LIMITS,
   RESPONSE_DESCRIPTION_LIMIT,
   buildJobStatusEmbed,
+  buildOpenClawStatusEmbed,
   buildResponseEmbeds,
   buildSystemStatusEmbed,
   splitEmbedDescription,
@@ -250,6 +251,100 @@ test('bảng tiến độ không lộ token hoặc đường dẫn cục bộ', 
   assert.equal(serialized.includes('abc-secret'), false);
   assert.equal(serialized.includes('task-secret'), false);
   assert.equal(serialized.includes('sk-secret'), false);
+});
+
+test('dựng dashboard OpenClaw đầy đủ, dễ quét và không lộ dữ liệu nhạy cảm', () => {
+  const now = Date.parse('2026-08-01T03:00:00.000Z');
+  const currentJob = createJob('running', {
+    id: '123456789012345678',
+    channelId: '987654321098765432',
+    lastActivityAt: '2026-08-01T02:59:00.000Z',
+    lastEvent: 'Đọc C:\\Users\\songt\\secret\\checkpoint.json bằng Bearer abc-secret',
+    artifacts: {
+      delivered: { status: 'delivered' },
+      ready: { status: 'ready' },
+    },
+  });
+  const embed = buildOpenClawStatusEmbed({
+    gateway: { ok: true, status: 200, latencyMs: 18 },
+    currentChannel: {
+      channelId: '987654321098765432',
+      enabled: true,
+      sessionGeneration: 4,
+      modelProfile: '9router',
+      backendModel: 'openrouter/anthropic/claude-sonnet',
+      updatedAt: '2026-08-01T02:58:00.000Z',
+    },
+    currentJob,
+    activeJobs: [
+      currentJob,
+      createJob('background', {
+        id: '223456789012345678',
+        channelId: '887654321098765432',
+        artifacts: {},
+      }),
+    ],
+    activeChannels: [
+      { channelId: '987654321098765432', modelProfile: '9router' },
+      { channelId: '887654321098765432', modelProfile: 'local' },
+    ],
+    queue: {
+      activeCount: 2,
+      maxConcurrent: 3,
+      pending: 1,
+      maxPending: 5,
+      activeMetadataList: [
+        { channelId: '987654321098765432' },
+        { channelId: '887654321098765432' },
+      ],
+    },
+    media: { sourceRoots: 4, retentionHours: 168 },
+    security: { publicChannel: false, botIsAdmin: true, allowedUsers: 2 },
+    prefix: '>',
+    botName: 'OPENCLAW // STATUS CONSOLE',
+    botIconUrl: 'https://cdn.discordapp.com/embed/avatars/0.png',
+    now,
+  });
+  const data = embed.toJSON();
+  const serialized = JSON.stringify(data);
+
+  assertEmbedLimits(embed);
+  assert.equal(data.color, COLORS.statusOnline);
+  assert.match(data.title, /Trung tâm điều khiển OpenClaw/);
+  assert.match(data.description, /Sẵn sàng nhận yêu cầu/);
+  assert.match(data.fields.find((field) => field.name.includes('Kênh hiện tại')).value, /Phiên \*\*4\*\*/);
+  assert.match(data.fields.find((field) => field.name.includes('Model')).value, /claude-sonnet/);
+  assert.match(data.fields.find((field) => field.name.includes('Gateway')).value, /18 ms/);
+  assert.match(data.fields.find((field) => field.name.includes('Scheduler')).value, /2\/3 session/);
+  assert.match(data.fields.find((field) => field.name.includes('Job gần nhất')).value, /1\/2 file/);
+  assert.match(data.fields.find((field) => field.name.includes('Media')).value, /7 ngày/);
+  assert.match(data.fields.find((field) => field.name.includes('An toàn')).value, /Administrator/);
+  assert.equal(serialized.includes('checkpoint.json'), false);
+  assert.equal(serialized.includes('abc-secret'), false);
+  assert.equal(data.footer.text, 'Cập nhật trực tiếp • Dừng: > o stop • Model: > o m');
+  assert.equal(data.timestamp, '2026-08-01T03:00:00.000Z');
+});
+
+test('dashboard báo rõ Gateway ngoại tuyến và channel chưa bật', () => {
+  const embed = buildOpenClawStatusEmbed({
+    gateway: { ok: false, status: 503, latencyMs: 10001 },
+    currentChannel: null,
+    currentJob: null,
+    activeJobs: [],
+    activeChannels: [],
+    queue: { activeCount: 0, maxConcurrent: 2, pending: 0, maxPending: 5 },
+    media: { sourceRoots: 3, retentionHours: 12 },
+    security: { publicChannel: null, botIsAdmin: false, allowedUsers: 1 },
+    now: Date.parse('2026-08-01T03:00:00.000Z'),
+  });
+  const data = embed.toJSON();
+
+  assertEmbedLimits(embed);
+  assert.equal(data.color, COLORS.statusOffline);
+  assert.match(data.description, /Gateway không sẵn sàng/);
+  assert.match(data.fields.find((field) => field.name.includes('Kênh hiện tại')).value, /Chưa bật/);
+  assert.match(data.fields.find((field) => field.name.includes('Gateway')).value, /HTTP 503/);
+  assert.match(data.fields.find((field) => field.name.includes('Job đang hoạt động')).value, /Không có job/);
 });
 
 test('dựng embed tài nguyên PC với số đo và nhiệt độ chính xác', () => {

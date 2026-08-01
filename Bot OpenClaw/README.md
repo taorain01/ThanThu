@@ -5,7 +5,7 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 ## Lệnh Discord
 
 - `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
-- `> openclaw status`: xem job hiện tại, thời gian chạy, bước gần nhất, số file đã gửi/chờ gửi và số session đang chạy/chờ.
+- `> openclaw status`: mở dashboard embed gồm Gateway, channel/model/session, scheduler, job, media và cảnh báo quyền.
 - `> openclaw jobs`: liệt kê 10 job gần nhất cùng ID và trạng thái.
 - `> openclaw model local`: chuyển riêng channel hiện tại sang model Ollama local.
 - `> openclaw model 9router`: chuyển riêng channel hiện tại về model qua 9Router.
@@ -17,7 +17,7 @@ Bot Discord riêng chạy trên cùng máy với OpenClaw. Bot chỉ chuyển ti
 
 Alias ngắn:
 
-- `> o` hoặc `> o status`: xem trạng thái trực tiếp, tương đương `> openclaw status`.
+- `> o` hoặc `> o status`: mở dashboard trạng thái trực tiếp, tương đương `> openclaw status`.
 - `> o stop [job-id|all]`: dừng trực tiếp, tương đương `> openclaw stop [job-id|all]`; vẫn hỗ trợ dạng cũ `> o s`.
 - `> o m [local|9router]`: tương đương `> openclaw model [local|9router]`.
 

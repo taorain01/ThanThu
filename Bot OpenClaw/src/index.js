@@ -37,6 +37,7 @@ const { RequestDeadline } = require('./request-deadline');
 const { splitDiscordText } = require('./message-utils');
 const {
   buildJobStatusEmbed,
+  buildOpenClawStatusEmbed,
   buildResponseEmbeds,
   buildSystemStatusEmbed,
 } = require('./discord-embeds');
@@ -163,14 +164,6 @@ async function sendJobResponse(job, text) {
   for (const embed of embeds.slice(1)) {
     await channel.send(discordEmbedOptions(embed));
   }
-}
-
-function elapsedLabel(startedAt) {
-  const elapsedMs = Math.max(0, Date.now() - Date.parse(startedAt));
-  const totalMinutes = Math.floor(elapsedMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${minutes}m`;
 }
 
 async function updateStatusMessage(job) {
@@ -514,30 +507,47 @@ async function handleCommand(message, command) {
   }
 
   if (command.action === 'status') {
+    await message.channel.sendTyping().catch(() => {});
+    const healthStartedAt = Date.now();
     const health = await openclaw.health();
+    const gateway = { ...health, latencyMs: Date.now() - healthStartedAt };
     const activeChannels = stateStore.getActiveChannels(config.guildId);
     const queue = requestQueue.getDetailedStatus();
     const activeJobs = jobStore.listJobs({ activeOnly: true });
     const botIsAdmin = message.guild.members.me?.permissions.has(PermissionFlagsBits.Administrator);
-    const lines = [
-      `Kênh hiện tại: <#${message.channel.id}> (${current?.enabled ? 'đang bật' : 'chưa bật'})`,
-      `OpenClaw Gateway: ${health.ok ? 'đang hoạt động' : `không sẵn sàng${health.status ? ` (HTTP ${health.status})` : ''}`}`,
-      `Luồng session: ${queue.activeCount}/${queue.maxConcurrent} đang chạy · ${queue.pending} yêu cầu chờ`,
-      `Job bền vững đang hoạt động: ${activeJobs.length}`,
-      `Phiên kênh: ${current?.sessionGeneration || 0}`,
-      `Model kênh: ${current?.enabled ? `${current.modelProfile} (\`${config.openclawBackendModels[current.modelProfile]}\`)` : 'chưa chọn'}`,
-      `Các kênh đang bật (${activeChannels.length}): ${activeChannels.length ? activeChannels.map((entry) => `<#${entry.channelId}>`).join(', ') : 'không có'}`,
-      `Nguồn file được phép: ${OPENCLAW_MEDIA_ROOTS.length} thư mục · outbox giữ ${config.mediaOutboxRetentionHours} giờ`,
-    ];
-    for (const job of activeJobs.slice(0, 3)) {
-      const counts = artifactCounts(job);
-      const latestStep = job.lastEvent ? ` · bước gần nhất: ${job.lastEvent}` : '';
-      lines.push(`• \`${job.id}\` <#${job.channelId}>: ${job.status} · ${elapsedLabel(job.createdAt)} · ${counts.delivered}/${counts.total} file${latestStep}`);
+    const everyoneCanView = message.channel
+      .permissionsFor(message.guild.roles.everyone)
+      ?.has(PermissionFlagsBits.ViewChannel);
+    const currentChannel = current
+      ? {
+        ...current,
+        backendModel: config.openclawBackendModels[current.modelProfile],
+      }
+      : null;
+    const embed = buildOpenClawStatusEmbed({
+      gateway,
+      currentChannel,
+      currentJob: jobStore.latestJob(message.channel.id),
+      activeChannels,
+      activeJobs,
+      queue: { ...queue, maxPending: config.maxPending },
+      media: {
+        sourceRoots: OPENCLAW_MEDIA_ROOTS.length,
+        retentionHours: config.mediaOutboxRetentionHours,
+      },
+      security: {
+        publicChannel: typeof everyoneCanView === 'boolean' ? everyoneCanView : null,
+        botIsAdmin: Boolean(botIsAdmin),
+        allowedUsers: config.allowedUserIds.size,
+      },
+      prefix: config.prefix,
+      botIconUrl: botIconUrl(),
+    });
+    try {
+      await message.reply(discordEmbedOptions(embed));
+    } catch {
+      await message.channel.send(discordEmbedOptions(embed));
     }
-    if (botIsAdmin) {
-      lines.push('Cảnh báo: bot vẫn đang có quyền Administrator; nên hạ xuống quyền tối thiểu sau khi kiểm tra.');
-    }
-    await sendChunks(message, lines.join('\n'));
     return;
   }
 

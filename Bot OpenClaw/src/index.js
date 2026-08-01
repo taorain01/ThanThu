@@ -15,6 +15,11 @@ const { parseCommand } = require('./commands');
 const { StateStore, StateStoreError } = require('./state-store');
 const { JobStore, JobStoreError } = require('./job-store');
 const {
+  MessageCursorStore,
+  MessageCursorStoreError,
+  compareSnowflakes,
+} = require('./message-cursor-store');
+const {
   QueueFullError,
   QueueStoppedError,
   SessionRequestQueue,
@@ -58,6 +63,9 @@ const OPENCLAW_MEDIA_ROOTS = [...new Set([
 const logger = createLogger(path.join(BOT_ROOT, 'logs', 'bot.log'));
 const stateStore = new StateStore(path.join(BOT_ROOT, 'data', 'state.json'));
 const jobStore = new JobStore(path.join(BOT_ROOT, 'data', 'jobs.json'));
+const messageCursorStore = new MessageCursorStore(
+  path.join(BOT_ROOT, 'data', 'message-cursors.json'),
+);
 const openclaw = new OpenClawClient(config);
 const taskClient = new OpenClawTaskClient();
 const audioTranscriber = new AudioTranscriber({ timeoutMs: config.requestIdleTimeoutMs });
@@ -69,6 +77,10 @@ const sourceMessages = new Map();
 const statusUpdateTimers = new Map();
 const statusUpdatePromises = new Map();
 const statusUpdatedAt = new Map();
+const messageDispatches = new Map();
+const handledMessageIds = new Set();
+const bufferedGatewayMessages = [];
+let acceptingGatewayMessages = false;
 let statusHeartbeat = null;
 let supervisor;
 
@@ -696,21 +708,28 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   return settled;
 }
 
-client.on('messageCreate', async (message) => {
+async function handleDiscordMessage(message, options = {}) {
   if (
     !message.guild
     || message.guildId !== config.guildId
     || message.author.bot
     || message.webhookId
   ) {
-    return;
+    return true;
   }
 
   try {
     const command = parseCommand(message.content, config.prefix);
     if (command) {
+      if (options.recovered) {
+        logger.info('Bỏ qua lệnh Discord cũ khi quét bù sau restart.', {
+          channelId: message.channelId,
+          messageId: message.id,
+        });
+        return true;
+      }
       await handleCommand(message, command);
-      return;
+      return true;
     }
 
     const state = stateStore.getChannel(config.guildId, message.channelId);
@@ -719,7 +738,11 @@ client.on('messageCreate', async (message) => {
       || !state?.enabled
       || (!String(message.content || '').trim() && message.attachments.size === 0)
     ) {
-      return;
+      return true;
+    }
+
+    if (jobStore.getJob(message.id)) {
+      return true;
     }
 
     const sessionArgs = {
@@ -769,14 +792,174 @@ client.on('messageCreate', async (message) => {
       });
       await sendChunks(message, publicErrorMessage(error)).catch(() => {});
     });
+    return true;
   } catch (error) {
     logger.error('Lỗi khi xử lý sự kiện messageCreate.', {
       name: error.name,
       messageId: message.id,
     });
     await sendChunks(message, publicErrorMessage(error)).catch(() => {});
+    return false;
   }
+}
+
+function rememberHandledMessage(messageId) {
+  handledMessageIds.add(messageId);
+  if (handledMessageIds.size > 2000) {
+    handledMessageIds.delete(handledMessageIds.values().next().value);
+  }
+}
+
+async function dispatchDiscordMessage(message, options = {}) {
+  if (handledMessageIds.has(message.id)) {
+    return true;
+  }
+  if (messageDispatches.has(message.id)) {
+    return messageDispatches.get(message.id);
+  }
+
+  const dispatch = (async () => {
+    const handled = await handleDiscordMessage(message, options);
+    if (!handled) {
+      return false;
+    }
+    if (message.guildId === config.guildId) {
+      await messageCursorStore.advance(message.channelId, message.id);
+    }
+    rememberHandledMessage(message.id);
+    return true;
+  })().catch((error) => {
+    logger.error('Không thể cập nhật cursor tin nhắn Discord.', {
+      name: error.name,
+      channelId: message.channelId,
+      messageId: message.id,
+    });
+    return false;
+  }).finally(() => {
+    messageDispatches.delete(message.id);
+  });
+  messageDispatches.set(message.id, dispatch);
+  return dispatch;
+}
+
+client.on('messageCreate', (message) => {
+  if (
+    !message.guild
+    || message.guildId !== config.guildId
+    || message.author.bot
+    || message.webhookId
+  ) {
+    return;
+  }
+  if (!acceptingGatewayMessages) {
+    bufferedGatewayMessages.push(message);
+    return;
+  }
+  void dispatchDiscordMessage(message);
 });
+
+function latestKnownRequestMessageId(channelId) {
+  return jobStore.listJobs({ channelId })
+    .map((job) => job.requestMessageId)
+    .filter((messageId) => /^\d{17,20}$/.test(String(messageId || '')))
+    .sort(compareSnowflakes)
+    .at(-1) || null;
+}
+
+async function initializeMessageCursor(channel) {
+  const knownRequestId = latestKnownRequestMessageId(channel.id);
+  if (knownRequestId) {
+    await messageCursorStore.advance(channel.id, knownRequestId);
+    return knownRequestId;
+  }
+
+  let latestMessageId = channel.lastMessageId;
+  if (!latestMessageId) {
+    const latest = await channel.messages.fetch({ limit: 1, cache: false });
+    latestMessageId = latest.first()?.id || null;
+  }
+  if (latestMessageId) {
+    await messageCursorStore.advance(channel.id, latestMessageId);
+  }
+  return null;
+}
+
+async function recoverMissedChannelMessages(channelState) {
+  const channel = await resolveDiscordChannel(channelState.channelId);
+  if (!channel.isTextBased() || !channel.messages) {
+    return;
+  }
+
+  let afterMessageId = messageCursorStore.getChannel(channel.id)?.lastMessageId || null;
+  if (!afterMessageId) {
+    afterMessageId = await initializeMessageCursor(channel);
+    if (!afterMessageId) {
+      return;
+    }
+  }
+
+  let recoveredJobs = 0;
+  while (true) {
+    const messages = await channel.messages.fetch({
+      after: afterMessageId,
+      limit: 100,
+      cache: false,
+    });
+    const ordered = [...messages.values()]
+      .sort((left, right) => compareSnowflakes(left.id, right.id));
+    if (ordered.length === 0) {
+      break;
+    }
+
+    for (const message of ordered) {
+      const existed = Boolean(jobStore.getJob(message.id));
+      const handled = await dispatchDiscordMessage(message, { recovered: true });
+      if (!handled) {
+        logger.warn('Dừng quét bù để không bỏ qua tin nhắn Discord chưa xử lý được.', {
+          channelId: channel.id,
+          messageId: message.id,
+        });
+        return;
+      }
+      if (!existed && jobStore.getJob(message.id)) {
+        recoveredJobs += 1;
+      }
+      afterMessageId = message.id;
+    }
+    if (ordered.length < 100) {
+      break;
+    }
+  }
+
+  if (recoveredJobs > 0) {
+    logger.info('Đã xếp lại chat Discord bị lỡ trong lúc bot offline.', {
+      channelId: channel.id,
+      recoveredJobs,
+    });
+  }
+}
+
+async function recoverMissedMessages() {
+  for (const channelState of stateStore.getActiveChannels(config.guildId)) {
+    await recoverMissedChannelMessages(channelState).catch((error) => {
+      logger.warn('Không thể quét bù chat Discord sau restart.', {
+        name: error.name,
+        channelId: channelState.channelId,
+      });
+    });
+  }
+}
+
+async function drainBufferedGatewayMessages() {
+  while (bufferedGatewayMessages.length > 0) {
+    const messages = bufferedGatewayMessages.splice(0)
+      .sort((left, right) => compareSnowflakes(left.id, right.id));
+    for (const message of messages) {
+      await dispatchDiscordMessage(message);
+    }
+  }
+  acceptingGatewayMessages = true;
+}
 
 async function enqueueRecoveredJobs() {
   const jobs = jobStore.listJobs({ activeOnly: true })
@@ -854,6 +1037,8 @@ client.once('ready', async () => {
   });
   client.user.setPresence({ activities: [{ name: `${config.prefix} openclaw` }] });
   await enqueueRecoveredJobs();
+  await recoverMissedMessages();
+  await drainBufferedGatewayMessages();
   statusHeartbeat = startStatusHeartbeat({
     intervalMs: config.jobHeartbeatMs,
     listActiveJobs: () => jobStore.listJobs({ activeOnly: true }),
@@ -890,7 +1075,7 @@ process.on('unhandledRejection', (error) => {
 });
 
 async function main() {
-  await Promise.all([stateStore.load(), jobStore.load()]);
+  await Promise.all([stateStore.load(), jobStore.load(), messageCursorStore.load()]);
   await cleanupOutbox(
     OPENCLAW_OUTBOX_ROOT,
     config.mediaOutboxRetentionHours * 60 * 60 * 1000,
@@ -899,7 +1084,9 @@ async function main() {
 }
 
 main().catch((error) => {
-  const stateError = error instanceof StateStoreError || error instanceof JobStoreError;
+  const stateError = error instanceof StateStoreError
+    || error instanceof JobStoreError
+    || error instanceof MessageCursorStoreError;
   logger.error(stateError ? error.message : 'Không thể khởi động bot.', {
     name: error.name,
   });

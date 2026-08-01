@@ -51,27 +51,116 @@ function cleanReference(value) {
   return reference;
 }
 
+function trimLineEdges(lines) {
+  let start = 0;
+  let end = lines.length;
+  while (start < end && !String(lines[start] || '').trim()) {
+    start += 1;
+  }
+  while (end > start && !String(lines[end - 1] || '').trim()) {
+    end -= 1;
+  }
+  return lines.slice(start, end);
+}
+
+function captionBounds(lines) {
+  let end = lines.length - 1;
+  while (end >= 0 && !String(lines[end] || '').trim()) {
+    end -= 1;
+  }
+  if (end < 0) {
+    return null;
+  }
+  let start = end;
+  while (start > 0 && String(lines[start - 1] || '').trim()) {
+    start -= 1;
+  }
+  return { start, end };
+}
+
 function extractMediaReferences(value) {
   const references = [];
+  const items = [];
   const lines = String(value || '').split(/\r?\n/);
   const visibleLines = [];
+  const standaloneLines = [];
+  let pendingLines = [];
+  const seen = new Set();
 
   for (const line of lines) {
     const match = line.match(/^\s*MEDIA:\s*(.+?)\s*$/i);
     if (match) {
       const reference = cleanReference(match[1]);
-      if (reference) {
+      visibleLines.push(...pendingLines);
+      if (reference && !seen.has(reference)) {
+        const bounds = captionBounds(pendingLines);
+        const label = bounds
+          ? pendingLines.slice(bounds.start, bounds.end + 1).join('\n').trim()
+          : '';
+        standaloneLines.push(...(bounds ? pendingLines.slice(0, bounds.start) : pendingLines));
         references.push(reference);
+        items.push({ reference, label });
+        seen.add(reference);
+      } else {
+        standaloneLines.push(...pendingLines);
       }
+      pendingLines = [];
       continue;
     }
-    visibleLines.push(line);
+    pendingLines.push(line);
   }
+  visibleLines.push(...pendingLines);
+  standaloneLines.push(...pendingLines);
 
   return {
-    text: visibleLines.join('\n').trim(),
-    references: [...new Set(references)],
+    text: trimLineEdges(visibleLines).join('\n'),
+    standaloneText: trimLineEdges(standaloneLines).join('\n'),
+    references,
+    items,
   };
+}
+
+function mediaNameFromReference(reference) {
+  const cleaned = cleanReference(reference);
+  if (!cleaned) {
+    return '';
+  }
+  let decoded = cleaned;
+  try {
+    decoded = decodeURIComponent(cleaned);
+  } catch {
+    // Keep the original text when the reference is not URI encoded.
+  }
+  const basename = path.win32.basename(decoded.replace(/\//g, '\\'));
+  const extension = path.extname(basename);
+  const withoutExtension = extension ? basename.slice(0, -extension.length) : basename;
+  const withoutVariant = withoutExtension
+    .replace(/\s*\((?:background|playlist|thumbnail|cover)\)\s*$/i, '')
+    .trim();
+  return withoutVariant.replace(/^(\d{3,})\s*[-–—]\s*/, '$1 — ');
+}
+
+function artifactCaption(artifact = {}) {
+  const supplied = String(artifact.label || '').trim();
+  const derived = mediaNameFromReference(artifact.sourcePath || artifact.reference || '');
+  const suppliedPlain = supplied.replace(/[*_`~]/g, '').trim();
+  const suppliedIds = suppliedPlain.match(/\b\d{3,}\s*[-–—]/g) || [];
+  const derivedId = derived.match(/^(\d{3,})\s+—\s+/)?.[1] || '';
+  const suppliedHasDerivedId = derivedId
+    ? new RegExp(`\\b${derivedId}\\s*[-–—]`).test(suppliedPlain)
+    : false;
+  const generic = /^Ảnh(?:\s+thành phẩm từ OpenClaw|\s+\d+)?$/i.test(suppliedPlain);
+
+  if (supplied && suppliedIds.length <= 1 && !generic) {
+    if (derivedId && !suppliedHasDerivedId) {
+      return `**${derived}**\n${supplied}`;
+    }
+    return supplied;
+  }
+  if (derived) {
+    return `**${derived}**`;
+  }
+  return supplied || `Ảnh ${Math.max(1, Number(artifact.order) || 1)}`;
 }
 
 function isInsideRoot(filePath, rootPath) {
@@ -228,10 +317,12 @@ async function cleanupOutbox(outboxRoot, retentionMs, now = Date.now()) {
 
 module.exports = {
   DEFAULT_MAX_BYTES,
+  artifactCaption,
   cleanupOutbox,
   extractMediaReferences,
   hasImageSignature,
   isDecodableImage,
+  mediaNameFromReference,
   resolveMediaReferences,
   stageMediaReference,
 };

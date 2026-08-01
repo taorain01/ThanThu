@@ -49,7 +49,11 @@ const {
   waitForSessionResponse,
 } = require('./response-recovery');
 const { createLogger } = require('./logger');
-const { cleanupOutbox, extractMediaReferences } = require('./response-media');
+const {
+  artifactCaption,
+  cleanupOutbox,
+  extractMediaReferences,
+} = require('./response-media');
 const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat');
 const { collectSystemMetrics } = require('./system-metrics');
 const {
@@ -373,7 +377,7 @@ function scheduleStatusUpdate(job, options = {}) {
 async function sendArtifactToDiscord(job, artifact) {
   const channel = await resolveDiscordChannel(job.channelId);
   const prefix = artifact.resend ? '🔁 Gửi lại' : '🖼️';
-  const label = artifact.label || `Ảnh ${artifact.order}`;
+  const label = artifactCaption(artifact);
   const attachment = new AttachmentBuilder(artifact.stagedPath, {
     name: `openclaw-${job.id}-${artifact.order}${artifact.extension}`,
   });
@@ -416,14 +420,28 @@ async function flushStatusBeforeResponse(jobId) {
 
 async function runOpenClawResponseDelivery(jobId, responseText) {
   const parsed = extractMediaReferences(responseText);
-  for (const reference of parsed.references) {
-    await supervisor.registerArtifact(jobId, reference, 'Ảnh thành phẩm từ OpenClaw');
+  const artifacts = [];
+  for (const item of parsed.items) {
+    const artifact = await supervisor.registerArtifact(
+      jobId,
+      item.reference,
+      item.label || 'Ảnh thành phẩm từ OpenClaw',
+      { deliver: false },
+    );
+    if (artifact) {
+      artifacts.push(artifact);
+    }
   }
-  const visibleText = parsed.text || (parsed.references.length
-    ? 'OpenClaw đã hoàn tất bước hiện tại; file đang được gửi riêng.'
-    : responseText);
+  const allMediaRegistered = artifacts.length === parsed.items.length;
+  const visibleText = (allMediaRegistered ? parsed.standaloneText : parsed.text)
+    || (!artifacts.length ? responseText || 'OpenClaw không trả về nội dung.' : '');
   await flushStatusBeforeResponse(jobId);
-  await sendJobResponse(jobStore.getJob(jobId), visibleText);
+  if (visibleText) {
+    await sendJobResponse(jobStore.getJob(jobId), visibleText);
+  }
+  for (const artifact of artifacts) {
+    await supervisor.deliverArtifact(jobId, artifact.id);
+  }
   await jobStore.updateJob(jobId, {
     responseSent: true,
     responseSentAt: new Date().toISOString(),

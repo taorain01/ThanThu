@@ -82,7 +82,33 @@ test('lấy MEDIA từ câu trả lời cuối mà không đưa đường dẫn 
   assert.equal(events[0].kind, 'assistant');
   assert.equal(events[0].final, true);
   assert.deepEqual(events[0].mediaReferences, ['C:\\Users\\test\\screen.png']);
+  assert.deepEqual(events[0].mediaLabels, ['Đã xong.']);
   assert.equal(events[0].mediaLabel, 'Đã xong.');
+});
+
+test('giữ caption riêng cho từng MEDIA trong cùng phản hồi', () => {
+  const events = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      stopReason: 'stop',
+      content: [{
+        type: 'text',
+        text: [
+          '**0001 — Ảnh thứ nhất**',
+          'MEDIA:F:\\output\\0001.png',
+          '',
+          '**0002 — Ảnh thứ hai**',
+          'MEDIA:F:\\output\\0002.png',
+        ].join('\n'),
+      }],
+    },
+  });
+
+  assert.deepEqual(events[0].mediaLabels, [
+    '**0001 — Ảnh thứ nhất**',
+    '**0002 — Ảnh thứ hai**',
+  ]);
 });
 
 test('nhận phản hồi assistant dạng chuỗi để relay trực tiếp', () => {

@@ -241,8 +241,13 @@ class JobSupervisor {
         }
       }
     }
-    for (const reference of activity.mediaReferences || []) {
-      await this.registerArtifact(jobId, reference, activity.mediaLabel);
+    const mediaReferences = activity.mediaReferences || [];
+    for (let index = 0; index < mediaReferences.length; index += 1) {
+      await this.registerArtifact(
+        jobId,
+        mediaReferences[index],
+        activity.mediaLabels?.[index] || activity.mediaLabel,
+      );
     }
     await this.notifyJobChanged(jobId);
   }
@@ -281,7 +286,7 @@ class JobSupervisor {
     return changed;
   }
 
-  async registerArtifact(jobId, reference, label = '') {
+  async registerArtifact(jobId, reference, label = '', options = {}) {
     const staged = await stageMediaReference(reference, {
       jobId,
       openclawHome: this.openclawHome,
@@ -301,7 +306,7 @@ class JobSupervisor {
       status: existing?.status || 'ready',
     };
     await this.store.upsertArtifact(jobId, artifact);
-    if (existing?.status !== 'delivered') {
+    if (options.deliver !== false && existing?.status !== 'delivered') {
       void this.deliverArtifact(jobId, artifact.id);
     }
     return artifact;

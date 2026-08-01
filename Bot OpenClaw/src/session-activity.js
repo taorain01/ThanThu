@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { extractMediaReferences } = require('./response-media');
 
 function truncate(value, maxLength) {
   const text = String(value || '').trim();
@@ -71,14 +72,7 @@ function summarizeToolCall(call) {
 }
 
 function mediaFromAssistantText(value) {
-  const references = [];
-  for (const line of String(value || '').split(/\r?\n/)) {
-    const match = line.match(/^\s*MEDIA:\s*(.+?)\s*$/i);
-    if (match?.[1]) {
-      references.push(match[1].trim().replace(/^["'`]|["'`]$/g, ''));
-    }
-  }
-  return references;
+  return extractMediaReferences(value).references;
 }
 
 function extractActivityEvents(record) {
@@ -97,12 +91,10 @@ function extractActivityEvents(record) {
       .map((part) => String(part.text || ''))
       .join('\n');
     if (responseText) {
-      const mediaReferences = mediaFromAssistantText(responseText);
-      const visibleText = responseText
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*MEDIA:/i.test(line))
-        .join('\n')
-        .replace(/\[\[[^\]]+\]\]/g, '');
+      const parsedMedia = extractMediaReferences(responseText);
+      const mediaReferences = parsedMedia.references;
+      const mediaLabels = parsedMedia.items.map((item) => sanitizeInline(item.label));
+      const visibleText = parsedMedia.text.replace(/\[\[[^\]]+\]\]/g, '');
       const label = sanitizeInline(visibleText);
       const notificationText = sanitizeActivityText(visibleText);
       const text = label ? `💬 ${label}` : '';
@@ -115,6 +107,7 @@ function extractActivityEvents(record) {
           final: message.stopReason !== 'toolUse',
           stopReason: message.stopReason || '',
           mediaReferences,
+          mediaLabels,
           mediaLabel: label,
         });
       }

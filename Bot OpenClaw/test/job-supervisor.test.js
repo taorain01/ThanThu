@@ -289,6 +289,40 @@ test('delivery chỉ xác nhận sau Discord message ID, retry ba lần và rese
   assert.deepEqual(artifact.discordMessageIds, ['message-1', 'message-2']);
 });
 
+test('có thể staging nhiều ảnh trước rồi gửi tuần tự với caption riêng', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-sequential-delivery');
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:sequential';
+  const job = await store.createJob(jobInput('job-sequential', rootSessionKey));
+  const sent = [];
+  const supervisor = createSupervisor(fixture, store, { value: [] }, async (_job, artifact) => {
+    sent.push({ order: artifact.order, label: artifact.label });
+    return `message-${sent.length}`;
+  });
+
+  const first = await supervisor.registerArtifact(
+    job.id,
+    fixture.images[0],
+    '**0001 — Ảnh thứ nhất**',
+    { deliver: false },
+  );
+  const second = await supervisor.registerArtifact(
+    job.id,
+    fixture.images[1],
+    '**0002 — Ảnh thứ hai**',
+    { deliver: false },
+  );
+  assert.deepEqual(sent, []);
+
+  await supervisor.deliverArtifact(job.id, first.id);
+  await supervisor.deliverArtifact(job.id, second.id);
+  assert.deepEqual(sent, [
+    { order: 1, label: '**0001 — Ảnh thứ nhất**' },
+    { order: 2, label: '**0002 — Ảnh thứ hai**' },
+  ]);
+});
+
 test('delivery thất bại sau ba lần vẫn giữ ready và stop gọi task cancel chính thức', async (t) => {
   const fixture = await createFixture(t, 'bot-openclaw-failure');
   const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:6';

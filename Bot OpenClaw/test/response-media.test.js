@@ -6,8 +6,10 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const {
+  artifactCaption,
   cleanupOutbox,
   extractMediaReferences,
+  mediaNameFromReference,
   resolveMediaReferences,
   stageMediaReference,
 } = require('../src/response-media');
@@ -29,6 +31,59 @@ test('tách MEDIA khỏi phản hồi và giữ nguyên văn bản hiển thị'
   assert.deepEqual(parsed.references, [
     'C:\\Users\\test\\.openclaw\\workspace\\screen one.png',
   ]);
+  assert.deepEqual(parsed.items, [{
+    reference: 'C:\\Users\\test\\.openclaw\\workspace\\screen one.png',
+    label: 'Đã chụp xong.',
+  }]);
+  assert.equal(parsed.standaloneText, 'Dòng cuối.');
+});
+
+test('ghép từng caption với đúng MEDIA và chỉ giữ lời dẫn làm văn bản riêng', () => {
+  const parsed = extractMediaReferences([
+    'Đã chép đủ 2 ảnh, gửi lại để duyệt:',
+    '',
+    '**0001 — Trời xanh yên bình**  ',
+    'MEDIA:C:\\output\\0001 - Trời xanh yên bình (background).png',
+    '',
+    '**0002 — Buổi chiều nhẹ nhàng**  ',
+    'MEDIA:C:\\output\\0002 - Buổi chiều nhẹ nhàng (background).png',
+  ].join('\n'));
+
+  assert.equal(parsed.standaloneText, 'Đã chép đủ 2 ảnh, gửi lại để duyệt:');
+  assert.deepEqual(parsed.items, [
+    {
+      reference: 'C:\\output\\0001 - Trời xanh yên bình (background).png',
+      label: '**0001 — Trời xanh yên bình**',
+    },
+    {
+      reference: 'C:\\output\\0002 - Buổi chiều nhẹ nhàng (background).png',
+      label: '**0002 — Buổi chiều nhẹ nhàng**',
+    },
+  ]);
+});
+
+test('tạo caption ảnh từ đúng tên file khi nhãn chung hoặc chứa nhiều ID', () => {
+  const sourcePath = 'F:\\Hình Ảnh\\0013 - Give Yourself an Easy Start Today (background).png';
+  assert.equal(
+    mediaNameFromReference(sourcePath),
+    '0013 — Give Yourself an Easy Start Today',
+  );
+  assert.equal(
+    artifactCaption({ sourcePath, label: 'Ảnh thành phẩm từ OpenClaw', order: 13 }),
+    '**0013 — Give Yourself an Easy Start Today**',
+  );
+  assert.equal(
+    artifactCaption({
+      sourcePath,
+      label: '**0001 — Tên một** **0002 — Tên hai**',
+      order: 13,
+    }),
+    '**0013 — Give Yourself an Easy Start Today**',
+  );
+  assert.equal(
+    artifactCaption({ sourcePath, label: 'Phản hồi để duyệt: `duyệt 0013`', order: 13 }),
+    '**0013 — Give Yourself an Easy Start Today**\nPhản hồi để duyệt: `duyệt 0013`',
+  );
 });
 
 test('chỉ cho gửi ảnh trong workspace hoặc media của OpenClaw', async (t) => {

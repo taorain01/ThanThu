@@ -36,6 +36,13 @@ test('mỗi channel giữ generation và trạng thái hoạt động độc l�
   assert.equal((await store.bindChannel(GUILD_ID, CHANNEL_A)).sessionGeneration, 1);
   assert.equal((await store.bindChannel(GUILD_ID, CHANNEL_B)).sessionGeneration, 1);
   assert.equal((await store.setModelProfile(GUILD_ID, CHANNEL_A, 'local')).modelProfile, 'local');
+  const fingerprint = 'a'.repeat(64);
+  assert.equal(
+    (await store.setAppProfileFingerprint(GUILD_ID, CHANNEL_A, fingerprint)).appProfileFingerprint,
+    fingerprint,
+  );
+  assert.equal((await store.setCustomModel(GUILD_ID, CHANNEL_A, ' anthropic/claude-opus-5 ')).customModel, 'anthropic/claude-opus-5');
+  assert.equal((await store.setCustomModel(GUILD_ID, CHANNEL_A, null)).customModel, undefined);
   assert.equal((await store.resetSession(GUILD_ID, CHANNEL_A)).sessionGeneration, 2);
   assert.equal(store.getChannel(GUILD_ID, CHANNEL_B).sessionGeneration, 1);
   assert.equal((await store.unbind(GUILD_ID, CHANNEL_A)).sessionGeneration, 3);
@@ -52,6 +59,7 @@ test('mỗi channel giữ generation và trạng thái hoạt động độc l�
   await reloaded.load();
   assert.equal(reloaded.getChannel(GUILD_ID, CHANNEL_A).sessionGeneration, 3);
   assert.equal(reloaded.getChannel(GUILD_ID, CHANNEL_A).modelProfile, 'local');
+  assert.equal(reloaded.getChannel(GUILD_ID, CHANNEL_A).appProfileFingerprint, fingerprint);
   assert.equal(reloaded.getChannel(GUILD_ID, CHANNEL_B).sessionGeneration, 1);
   assert.equal(reloaded.getGuild(GUILD_ID).channels[CHANNEL_A].enabled, true);
 });
@@ -124,4 +132,13 @@ test('từ chối profile model lạ trong state', async (t) => {
   }), 'utf8');
   const store = new StateStore(filePath);
   await assert.rejects(() => store.load(), StateStoreError);
+});
+
+test('từ chối fingerprint profile app không hợp lệ', async (t) => {
+  const { store } = await makeStore(t);
+  await store.bindChannel(GUILD_ID, CHANNEL_A);
+  await assert.rejects(
+    () => store.setAppProfileFingerprint(GUILD_ID, CHANNEL_A, 'co-api-key-tho'),
+    StateStoreError,
+  );
 });

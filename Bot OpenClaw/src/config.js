@@ -104,6 +104,11 @@ function loadConfig(env = process.env) {
       'OPENCLAW_BACKEND_MODEL_LOCAL',
       'ollama/qwen3:8b',
     ),
+    opus: parseBackendModel(
+      env.OPENCLAW_BACKEND_MODEL_OPUS,
+      'OPENCLAW_BACKEND_MODEL_OPUS',
+      'anthropic/claude-opus-5',
+    ),
   });
 
   return Object.freeze({

@@ -4,11 +4,16 @@ const os = require('node:os');
 const path = require('node:path');
 const dotenv = require('dotenv');
 const {
+  ActionRowBuilder,
   AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ChannelType,
   Client,
+  EmbedBuilder,
   GatewayIntentBits,
   PermissionFlagsBits,
+  StringSelectMenuBuilder,
 } = require('discord.js');
 const { loadConfig } = require('./config');
 const { parseCommand } = require('./commands');
@@ -32,6 +37,12 @@ const {
 const { AudioTranscriber, AudioTranscriptionError } = require('./audio-transcriber');
 const { OpenClawClient, OpenClawError } = require('./openclaw-client');
 const { OpenClawTaskClient } = require('./openclaw-task-client');
+const {
+  appProfileFingerprint,
+  readAppProfile,
+  readOpenClawProviders,
+  resolveAppBackend,
+} = require('./app-profile');
 const { JobSupervisor, TERMINAL_JOB_STATUSES, artifactCounts } = require('./job-supervisor');
 const { RequestDeadline } = require('./request-deadline');
 const {
@@ -111,6 +122,128 @@ const bufferedGatewayMessages = [];
 let acceptingGatewayMessages = false;
 let statusHeartbeat = null;
 let supervisor;
+
+// Model cache — làm mới mỗi 5 phút
+let modelsCache = null;
+let modelsCacheExpiresAt = 0;
+const MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+// Đồng bộ profile từ Claude Profile Switcher (app desktop): khi app KÍCH HOẠT
+// profile khác, ~/.claude/settings.json đổi nội dung → bot tự cập nhật model
+// cho từng kênh. Fingerprint được lưu trong state để không đè lựa chọn thủ công
+// sau khi bot restart.
+
+async function rememberCurrentAppProfile(channelId) {
+  const fingerprint = appProfileFingerprint(readAppProfile());
+  await stateStore.setAppProfileFingerprint(config.guildId, channelId, fingerprint);
+}
+
+async function syncModelFromApp(channelId) {
+  const state = stateStore.getChannel(config.guildId, channelId);
+  if (!state?.enabled) {
+    return { changed: false, current: state };
+  }
+  const appProfile = readAppProfile();
+  const fingerprint = appProfileFingerprint(appProfile);
+  if (fingerprint === state.appProfileFingerprint) {
+    return { changed: false, current: state };
+  }
+
+  if (!appProfile) {
+    // Không có profile app (Claude mặc định) — giữ nguyên lựa chọn hiện tại.
+    return { changed: false, current: state };
+  }
+
+  const providers = readOpenClawProviders();
+  const resolved = resolveAppBackend(appProfile, providers, config);
+  if (!resolved) {
+    logger.warn('Không tìm thấy provider OpenClaw khớp profile app.', {
+      channelId,
+      appProfile: appProfile.name,
+      baseUrl: appProfile.baseUrl,
+    });
+    return { changed: false, current: state };
+  }
+
+  if (resolved.kind === 'profile') {
+    await stateStore.setCustomModel(config.guildId, channelId, null);
+    await stateStore.setModelProfile(config.guildId, channelId, resolved.name);
+  } else {
+    await stateStore.setCustomModel(config.guildId, channelId, resolved.id);
+  }
+  const current = await stateStore.setAppProfileFingerprint(
+    config.guildId,
+    channelId,
+    fingerprint,
+  );
+  logger.info('Tự đồng bộ model từ Claude Profile Switcher.', {
+    channelId,
+    appProfile: appProfile.name,
+    backend: resolved.label,
+  });
+  return {
+    changed: true,
+    label: resolved.label,
+    current,
+  };
+}
+
+async function fetchModelsCached(openclawClient) {
+  const now = Date.now();
+  if (modelsCache && now < modelsCacheExpiresAt) {
+    return modelsCache;
+  }
+  const models = await openclawClient.listModels();
+  modelsCache = models;
+  modelsCacheExpiresAt = now + MODELS_CACHE_TTL_MS;
+  return models;
+}
+
+// Lựa chọn cho bảng chọn model (Discord giới hạn tối đa 25 options)
+function buildModelPickOptions(models, current) {
+  const options = [];
+  const profileNames = Object.keys(config.openclawBackendModels);
+  for (const name of profileNames) {
+    const active = !current.customModel && current.modelProfile === name;
+    options.push({
+      label: `${name} — ${config.openclawBackendModels[name]}`,
+      description: active ? 'Đang dùng' : 'Profile cứng',
+      value: `profile:${name}`,
+    });
+  }
+
+  const priorityIds = [
+    'anthropic/claude-opus-5',
+    'anthropic/claude-sonnet-5',
+    'anthropic/claude-haiku-4-5',
+    'anthropic/claude-opus-4-8',
+    'openai/gpt-5.6-sol',
+  ];
+  const chosen = new Set();
+  const prioritized = priorityIds
+    .map((id) => models.find((m) => m.id === id))
+    .filter(Boolean);
+  for (const m of prioritized) {
+    chosen.add(m.id);
+  }
+  const rest = models
+    .filter((m) => !chosen.has(m.id))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  for (const m of [...prioritized, ...rest]) {
+    if (options.length >= 25) {
+      break;
+    }
+    const active = current.customModel === m.id;
+    const label = (m.displayName && m.displayName !== m.id ? m.displayName : m.id).slice(0, 100);
+    options.push({
+      label,
+      description: `${active ? 'Đang dùng · ' : ''}${m.id}`.slice(0, 100),
+      value: `model:${m.id}`.slice(0, 100),
+    });
+  }
+  return options;
+}
 
 const client = new Client({
   intents: [
@@ -704,7 +837,7 @@ async function handleCommand(message, command) {
     return;
   }
 
-  const current = stateStore.getChannel(config.guildId, message.channel.id);
+  let current = stateStore.getChannel(config.guildId, message.channel.id);
   if (command.action === 'system') {
     await message.channel.sendTyping().catch(() => {});
     const gatewayPromise = (async () => {
@@ -737,12 +870,15 @@ async function handleCommand(message, command) {
     const everyoneCanView = message.channel
       .permissionsFor(message.guild.roles.everyone)
       ?.has(PermissionFlagsBits.ViewChannel);
+    const displayModel = bound.customModel || config.openclawBackendModels[bound.modelProfile];
     const lines = [
       `Đã bật OpenClaw cho <#${message.channel.id}>.`,
       bound.changed
         ? `Phiên riêng của kênh đã sẵn sàng (phiên ${bound.sessionGeneration}).`
         : `Kênh này đang giữ nguyên phiên ${bound.sessionGeneration}.`,
-      `Model hiện tại: ${bound.modelProfile} (\`${config.openclawBackendModels[bound.modelProfile]}\`).`,
+      bound.customModel
+        ? `Model: **${displayModel}** (tùy chọn) · Provider: ${config.openclawBackendModels[bound.modelProfile]}.`
+        : `Model profile: ${bound.modelProfile} (\`${displayModel}\`).`,
     ];
     if (everyoneCanView) {
       lines.push('Cảnh báo: kênh này đang hiển thị với @everyone; nội dung phản hồi có thể chứa dữ liệu nhạy cảm.');
@@ -772,7 +908,8 @@ async function handleCommand(message, command) {
     const currentChannel = current
       ? {
         ...current,
-        backendModel: config.openclawBackendModels[current.modelProfile],
+        backendModel: current.customModel || config.openclawBackendModels[current.modelProfile],
+        customModel: current.customModel || null,
       }
       : null;
     const embed = buildOpenClawStatusEmbed({
@@ -807,23 +944,114 @@ async function handleCommand(message, command) {
       await sendChunks(message, 'Kênh hiện tại chưa bật OpenClaw.');
       return;
     }
-    const modelProfile = String(command.args?.[0] || '').toLowerCase();
-    if (!Object.hasOwn(config.openclawBackendModels, modelProfile)) {
+
+    const modelArg = String(command.args?.[0] || '').toLowerCase().trim();
+
+    // Không có args → mở bảng chọn model
+    if (!modelArg) {
+      await message.channel.sendTyping().catch(() => {});
+      try {
+        const syncResult = await syncModelFromApp(message.channelId);
+        if (syncResult.changed) {
+          current = syncResult.current;
+        }
+        const models = await fetchModelsCached(openclaw);
+
+        const embed = new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle('🎛️ BẢNG CHỌN MODEL')
+          .setDescription(
+            `Model hiện tại: **${current.customModel || config.openclawBackendModels[current.modelProfile]}**\n\n` +
+            (syncResult.changed
+              ? `🔄 Đã tự đồng bộ từ Claude Profile Switcher: **${syncResult.label}**\n`
+              : '') +
+            `Chọn model trong menu bên dưới để chuyển cho kênh này.\n` +
+            `Muốn chọn model bất kỳ: \`${config.prefix} o m <model-id>\` · Làm mới cache: \`${config.prefix} o m refresh\``
+          )
+          .setFooter({ text: `${models.length} models · OpenClaw Gateway` })
+          .setTimestamp();
+
+        const selectRow = new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('oc-model-pick')
+            .setPlaceholder('Chọn model để chuyển cho kênh này...')
+            .addOptions(buildModelPickOptions(models, current)),
+        );
+        const buttonRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('oc-model-pick-cancel')
+            .setLabel('Hủy')
+            .setStyle(ButtonStyle.Secondary),
+        );
+        const payload = {
+          embeds: [embed],
+          components: [selectRow, buttonRow],
+          allowedMentions: { repliedUser: false },
+        };
+        try {
+          await message.reply(payload);
+        } catch {
+          await message.channel.send(payload);
+        }
+      } catch (error) {
+        await sendChunks(message, `Không thể lấy danh sách model: ${publicErrorMessage(error)}`);
+      }
+      return;
+    }
+
+    // refresh cache
+    if (modelArg === 'refresh') {
+      modelsCache = null;
+      modelsCacheExpiresAt = 0;
+      await sendChunks(message, 'Đã xóa cache model. Dùng `> o m` để tải lại danh sách.');
+      return;
+    }
+
+    // Profile cứng (local / 9router)
+    if (Object.hasOwn(config.openclawBackendModels, modelArg)) {
+      const selected = await stateStore.setCustomModel(
+        config.guildId,
+        message.channel.id,
+        null,
+      );
+      const profileSelected = await stateStore.setModelProfile(
+        config.guildId,
+        message.channel.id,
+        modelArg,
+      );
+      await rememberCurrentAppProfile(message.channel.id);
       await sendChunks(message, [
-        `Model hiện tại: ${current.modelProfile} (\`${config.openclawBackendModels[current.modelProfile]}\`).`,
-        `Dùng \`${config.prefix} openclaw model local\` hoặc \`${config.prefix} openclaw model 9router\`.`,
+        `Đã chuyển model của kênh sang **${profileSelected.modelProfile}** (\`${config.openclawBackendModels[profileSelected.modelProfile]}\`).`,
+        'Job đang chạy vẫn dùng model cũ; lựa chọn mới áp dụng từ yêu cầu tiếp theo.',
       ].join('\n'));
       return;
     }
-    const selected = await stateStore.setModelProfile(
-      config.guildId,
-      message.channel.id,
-      modelProfile,
-    );
-    await sendChunks(message, [
-      `Đã chuyển model của kênh sang ${selected.modelProfile} (\`${config.openclawBackendModels[selected.modelProfile]}\`).`,
-      'Job đang chạy vẫn dùng model cũ; lựa chọn mới áp dụng từ yêu cầu tiếp theo.',
-    ].join('\n'));
+
+    // Thử chọn model từ danh sách API
+    try {
+      const models = await fetchModelsCached(openclaw);
+      const matched = models.find((m) => m.id.toLowerCase() === modelArg);
+      if (!matched) {
+        await sendChunks(message, [
+          `Không tìm thấy model \`${modelArg}\`.`,
+          `Dùng \`${config.prefix} o m\` để xem danh sách model khả dụng.`,
+        ].join('\n'));
+        return;
+      }
+      const selected = await stateStore.setCustomModel(
+        config.guildId,
+        message.channel.id,
+        matched.id,
+      );
+      await rememberCurrentAppProfile(message.channel.id);
+      await sendChunks(message, [
+        `Đã chọn model **${matched.id}** cho kênh này.`,
+        `Provider: ${config.openclawBackendModels[selected.modelProfile]}`,
+        'Job đang chạy vẫn dùng model cũ; lựa chọn mới áp dụng từ yêu cầu tiếp theo.',
+      ].join('\n'));
+    } catch (error) {
+      await sendChunks(message, `Không thể xác minh model: ${publicErrorMessage(error)}`);
+    }
     return;
   }
 
@@ -836,6 +1064,36 @@ async function handleCommand(message, command) {
       })
       : ['Chưa có job OpenClaw nào được lưu.'];
     await sendChunks(message, ['**10 job OpenClaw gần nhất**', ...lines].join('\n'));
+    return;
+  }
+
+  if (command.action === 'restartoc') {
+    if (!isAllowed(message.author.id)) {
+      await sendChunks(message, 'Bạn không có quyền restart bot.');
+      return;
+    }
+    const replyMsg = await sendChunks(message, '🔄 Đang restart Bot OpenClaw...');
+    // Gửi phản hồi trước rồi mới restart để user biết
+    await message.channel.send('🔄 Bot sẽ restart trong giây lát...').catch(() => {});
+    logger.info('Người dùng yêu cầu restart Bot OpenClaw qua Discord.', {
+      userId: message.author.id,
+      channelId: message.channel.id,
+    });
+    // Spawn script restart bên ngoài, bot này sẽ bị kill bởi script
+    const { spawn } = require('node:child_process');
+    const scriptPath = path.join(BOT_ROOT, 'scripts', 'restart-bot.ps1');
+    const ps = spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File', scriptPath,
+      '-ForceKill',
+    ], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    ps.unref();
+    // Để script kịp chạy trước khi process này bị kill
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     return;
   }
 
@@ -920,7 +1178,8 @@ async function handleCommand(message, command) {
     `Tài nguyên máy: \`${config.prefix} s\``,
     `Xem nhanh trạng thái: \`${config.prefix} o\` hoặc \`${config.prefix} o status\``,
     `\`${config.prefix} openclaw status\``,
-    `\`${config.prefix} openclaw model local|9router\` · nhanh: \`${config.prefix} o m local|9router\``,
+    `\`${config.prefix} openclaw model\` · nhanh: \`${config.prefix} o m\` — xem & chọn model`,
+    `\`${config.prefix} openclaw restartoc\` · nhanh: \`${config.prefix} o rsoc\` — restart bot`,
     `\`${config.prefix} openclaw jobs\``,
     `\`${config.prefix} openclaw resend [job-id] [all|số]\``,
     `\`${config.prefix} openclaw resume [job-id]\``,
@@ -1046,7 +1305,7 @@ async function processOpenClawMessage(message, state, jobId, signal) {
       guildId: message.guildId,
       channelId: message.channelId,
       sessionGeneration: state.sessionGeneration,
-      backendModel: config.openclawBackendModels[state.modelProfile],
+      backendModel: state.customModel || config.openclawBackendModels[state.modelProfile],
       text: requestText,
       imageParts: attachments.imageParts,
       signal: deadline.signal,
@@ -1121,13 +1380,19 @@ async function handleDiscordMessage(message, options = {}) {
       return true;
     }
 
-    const state = stateStore.getChannel(config.guildId, message.channelId);
+    let state = stateStore.getChannel(config.guildId, message.channelId);
     if (
       !isAllowed(message.author.id)
       || !state?.enabled
       || (!String(message.content || '').trim() && message.attachments.size === 0)
     ) {
       return true;
+    }
+
+    // Tự đồng bộ model theo profile vừa kích hoạt trong Claude Profile Switcher.
+    const syncResult = await syncModelFromApp(message.channelId);
+    if (syncResult.changed) {
+      state = syncResult.current;
     }
 
     if (jobStore.getJob(message.id)) {
@@ -1139,7 +1404,7 @@ async function handleDiscordMessage(message, options = {}) {
       channelId: message.channelId,
       sessionGeneration: state.sessionGeneration,
     };
-    const backendModel = config.openclawBackendModels[state.modelProfile];
+    const backendModel = state.customModel || config.openclawBackendModels[state.modelProfile];
     const job = await supervisor.createJob({
       id: message.id,
       guildId: message.guildId,
@@ -1245,6 +1510,85 @@ client.on('messageCreate', (message) => {
     return;
   }
   void dispatchDiscordMessage(message);
+});
+
+client.on('interactionCreate', async (interaction) => {
+  const isModelPick = interaction.isStringSelectMenu() && interaction.customId === 'oc-model-pick';
+  const isModelPickCancel = interaction.isButton() && interaction.customId === 'oc-model-pick-cancel';
+  if (!isModelPick && !isModelPickCancel) {
+    return;
+  }
+  if (!interaction.inGuild() || interaction.guildId !== config.guildId) {
+    return;
+  }
+  if (!isAllowed(interaction.user.id)) {
+    await interaction.reply({
+      content: 'Bạn không được phép thay đổi model của kênh này.',
+      ephemeral: true,
+    }).catch(() => {});
+    return;
+  }
+
+  const channelId = interaction.channelId;
+  const channelState = stateStore.getChannel(config.guildId, channelId);
+  if (!channelState?.enabled) {
+    await interaction.reply({
+      content: 'Kênh này chưa bật OpenClaw, không thể chọn model.',
+      ephemeral: true,
+    }).catch(() => {});
+    return;
+  }
+
+  try {
+    const baseEmbed = interaction.message.embeds[0]
+      ? EmbedBuilder.from(interaction.message.embeds[0])
+      : new EmbedBuilder().setColor(0x5865F2).setTitle('🎛️ BẢNG CHỌN MODEL');
+
+    if (isModelPickCancel) {
+      await interaction.update({
+        embeds: [baseEmbed.setDescription('Đã hủy chọn model.')],
+        components: [],
+      });
+      return;
+    }
+
+    const value = String(interaction.values?.[0] || '');
+    let summary;
+    if (value.startsWith('profile:')) {
+      const profileName = value.slice('profile:'.length);
+      await stateStore.setCustomModel(config.guildId, channelId, null);
+      await stateStore.setModelProfile(config.guildId, channelId, profileName);
+      summary = `Profile **${profileName}** (\`${config.openclawBackendModels[profileName]}\`)`;
+    } else if (value.startsWith('model:')) {
+      const modelId = value.slice('model:'.length);
+      await stateStore.setCustomModel(config.guildId, channelId, modelId);
+      summary = `Model **${modelId}**`;
+    } else {
+      throw new Error('Lựa chọn model không hợp lệ.');
+    }
+    await rememberCurrentAppProfile(channelId);
+
+    await interaction.update({
+      embeds: [baseEmbed.setDescription(
+        `✅ Đã chuyển model của kênh sang ${summary}.\nJob đang chạy vẫn dùng model cũ; lựa chọn mới áp dụng từ yêu cầu tiếp theo.`,
+      )],
+      components: [],
+    });
+    logger.info('Đã chọn model qua bảng chọn Discord.', {
+      channelId,
+      value,
+      userId: interaction.user.id,
+    });
+  } catch (error) {
+    logger.error('Không thể chọn model qua bảng chọn.', {
+      name: error.name,
+      message: error.message,
+    });
+    await interaction.reply({
+      content: `Không thể chuyển model: ${publicErrorMessage(error)}`,
+      ephemeral: true,
+    }).catch(() => {});
+  }
 });
 
 function latestKnownRequestMessageId(channelId) {

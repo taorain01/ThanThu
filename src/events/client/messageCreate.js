@@ -672,6 +672,37 @@ module.exports = {
             return serverbotCommand.execute(message, args);
         }
 
+        // ?restartoc - Restart Bot OpenClaw từ xa (chỉ dùng khi Bot OpenClaw offline)
+        if (['restartoc', 'rsoc'].includes(commandName)) {
+            if (message.author.id !== '395151484179841024') {
+                return message.reply('❌ Chỉ chủ bot mới dùng được lệnh này!');
+            }
+            const { execFile } = require('child_process');
+            const path = require('path');
+            const powerShellExe = process.env.SystemRoot
+                ? path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+                : 'powershell.exe';
+            const scriptPath = path.resolve(__dirname, '../../../Bot OpenClaw/scripts/restart-bot.ps1');
+            const replyMsg = await message.reply('🔄 Đang restart Bot OpenClaw qua Task Scheduler...');
+
+            execFile(powerShellExe, [
+                '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                '-File', scriptPath,
+                '-ForceKill',
+            ], { timeout: 30000 }, async (error, stdout, stderr) => {
+                const output = (stdout || '').trim();
+                const errOutput = (stderr || '').trim();
+                if (error) {
+                    await replyMsg.edit(`❌ **Restart thất bại:**\n\`\`\`\n${errOutput || error.message}\n\`\`\``).catch(() => {});
+                    return;
+                }
+                const lines = output.split('\n').filter(l => l.trim());
+                const summary = lines.slice(-4).join('\n');
+                await replyMsg.edit(`✅ **Bot OpenClaw đã được restart!**\n\`\`\`\n${summary}\n\`\`\``).catch(() => {});
+            });
+            return;
+        }
+
         // Check if channel is muted (chặn TẤT CẢ lệnh khác)
         const { isChannelMuted } = require('../../commands/admin/muteall');
         const mutedBypassCommands = new Set(['setchannelanh', 'setchannelphonganh', 'phonganh']);

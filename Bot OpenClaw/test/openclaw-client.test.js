@@ -78,6 +78,20 @@ test('gửi session ổn định và đọc phản hồi thành công', async ()
   );
 });
 
+test('chuẩn hóa model Claude cũ trước khi gửi Gateway', async () => {
+  let requestHeaders;
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async (_url, options) => {
+      requestHeaders = options.headers;
+      return Response.json({ choices: [{ message: { content: 'Đã xong.' } }] });
+    },
+  });
+
+  await client.chat(chatArgs({ backendModel: 'claude-opus-5' }));
+
+  assert.equal(requestHeaders['x-openclaw-model'], 'anthropic/claude-opus-5');
+});
+
 test('đánh số ảnh và yêu cầu vision chi tiết cao', async () => {
   let requestBody;
   const client = new OpenClawClient(config(), {

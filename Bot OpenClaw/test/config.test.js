@@ -38,6 +38,7 @@ test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   assert.deepEqual(config.openclawBackendModels, {
     '9router': '9router/cx/gpt-5.6-sol',
     local: 'ollama/qwen3:8b',
+    opus: 'anthropic/claude-opus-5',
   });
   assert.equal(config.allowedUserIds.has('395151484179841024'), true);
   assert.equal(config.allowedUserIds.size, 2);

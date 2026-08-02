@@ -33,7 +33,7 @@ Workflow ảnh dùng asset logo thật thay vì yêu cầu model tự vẽ lại
 node "C:\Bot Discord\scripts\apply-channel-logo.js" --input "<master.png>" --logo "<logo.png>" --output "<final.png>" --width-percent 14 --top-percent 2.2
 ```
 
-Dùng `--dry-run` để kiểm tra vị trí, `--no-shadow` để tắt bóng hỗ trợ tương phản và `--overwrite` khi chủ động thay file final cũ. Chế độ overwrite giữ bản cũ tạm thời và tự phục hồi nếu bước thay file gặp lỗi.
+Dùng `--dry-run` để kiểm tra vị trí và xem `contrastEstimate` (tương phản logo trắng trên nền thực tế, PASS khi ≥ 3), `--shadow-strength 0.5–5` để chỉnh độ đậm bóng đổ khi nền sáng (mặc định 2), `--no-shadow` để tắt bóng và `--overwrite` khi chủ động thay file final cũ. Chế độ overwrite giữ bản cũ tạm thời và tự phục hồi nếu bước thay file gặp lỗi.
 
 OpenClaw không cần cài Discord channel native để dùng sender này. Prompt hệ thống của bridge yêu cầu agent dùng script cục bộ thay cho tool `message` khi người dùng chỉ định tên hoặc ID channel. Bot cũng bỏ qua placeholder kỹ thuật `No response from OpenClaw.` và tiếp tục chờ transcript khi durable task vẫn hoàn tất ở nền.
 
@@ -80,6 +80,8 @@ OpenClaw cần bật Chat Completions API:
 
 Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Tối đa `OPENCLAW_MAX_CONCURRENT_SESSIONS` session khác nhau chạy đồng thời; mỗi session chỉ chạy một yêu cầu tại một thời điểm. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay trong chat Discord, không phải đợi scheduler.
 
+Bot tự đồng bộ profile đang kích hoạt trong app **Claude Profile Switcher** (`~/.claude/settings.json`): khi app kích hoạt profile mới, bot đọc Base URL + API Key + model Opus của profile, đối chiếu với providers trong `~/.openclaw/openclaw.json` rồi tự đổi model cho kênh (chỉ khi fingerprint profile thay đổi nên không đè lệnh chọn model thủ công). Base URL khớp provider anthropic → model `anthropic/<opus_model>`; khớp 9router/ollama → về profile cứng tương ứng. Kênh chưa khớp provider nào (key khác) được giữ nguyên và ghi log cảnh báo. Lệnh `> o m` hiển thị dòng "🔄 Đã tự đồng bộ từ Claude Profile Switcher" khi có thay đổi.
+
 ## Discord Developer Portal
 
 Bật **Message Content Intent** trong trang **Bot** của ứng dụng Discord. Bot chỉ cần các quyền:
@@ -108,6 +110,33 @@ Cài hoặc gỡ Scheduled Task chạy nền theo chế độ thủ công:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-task.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\uninstall-task.ps1
 ```
+
+Cài watchdog tự động restart mỗi 5 phút nếu bot chết (khuyến nghị):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-watchdog.ps1
+```
+
+Restart thủ công từ PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\restart-bot.ps1
+```
+
+Restart từ xa qua Discord (trong chính Bot OpenClaw):
+
+```
+> openclaw restartoc
+> o restartoc
+> o rsoc
+```
+
+> Khi bot còn online nhưng bị treo session hoặc cần reset. Script sẽ spawn `restart-bot.ps1 -ForceKill`, kill process cũ và start lại qua Scheduled Task. Nếu bot đã offline hoàn toàn, Watchdog 5 phút sẽ tự restart.
+
+Cơ chế auto-restart (3 lớp bảo vệ):
+1. **Scheduled Task** — tự restart sau 1 phút nếu process crash (tối đa 999 lần)
+2. **Watchdog 5 phút** — kiểm tra process Node.js + Task state; nếu bot không chạy → restart
+3. **Lệnh Discord** — `?restartoc` từ Bot Đại Ngỗng để restart thủ công từ xa
 
 Task không tự chạy khi đăng nhập. Tạo ứng dụng điều khiển trên Desktop bằng:
 

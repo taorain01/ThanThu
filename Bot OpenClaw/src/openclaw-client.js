@@ -1,6 +1,36 @@
 'use strict';
 
 const { Agent } = require('undici');
+const os = require('node:os');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
+
+// Backend proxy (vd xpiki) trả model Claude dạng "claude-opus-5" không prefix,
+// nhưng OpenClaw chỉ nhận ID đầy đủ "anthropic/claude-opus-5". Map về đúng chuẩn.
+function normalizeBackendModelId(id) {
+  if (id && !id.includes('/') && /^claude-/i.test(id)) {
+    return `anthropic/${id}`;
+  }
+  return id;
+}
+
+function readBackendCredentials() {
+  try {
+    const raw = fs.readFileSync(CLAUDE_SETTINGS_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    const env = data?.env || {};
+    const baseUrl = String(env.ANTHROPIC_BASE_URL || '').trim().replace(/\/+$/, '');
+    const apiKey = String(env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN || '').trim();
+    if (baseUrl && apiKey) {
+      return { baseUrl, apiKey };
+    }
+  } catch {
+    // settings.json không đọc được
+  }
+  return null;
+}
 
 const PC_OPERATOR_INSTRUCTIONS = [
   'Bạn là trợ lý điều khiển PC của chủ máy qua Discord.',
@@ -209,7 +239,7 @@ class OpenClawClient {
       'x-openclaw-message-channel': 'discord',
     };
     if (backendModel) {
-      headers['x-openclaw-model'] = backendModel;
+      headers['x-openclaw-model'] = normalizeBackendModelId(backendModel);
     }
     return headers;
   }
@@ -226,6 +256,63 @@ class OpenClawClient {
     } catch {
       return { ok: false, status: null };
     }
+  }
+
+  async listModels() {
+    const signal = AbortSignal.timeout(15000);
+
+    // Gọi thẳng backend API (không qua Gateway — Gateway chỉ trả model routing)
+    const creds = readBackendCredentials();
+    if (creds) {
+      // Thử cả 2 endpoint: /models và /v1/models (tùy proxy)
+      const endpoints = [
+        `${creds.baseUrl}/models`,
+        `${creds.baseUrl}/v1/models`,
+      ];
+      for (const modelsUrl of endpoints) {
+        try {
+          const response = await this.fetchImpl(modelsUrl, this.requestOptions({
+            method: 'GET',
+            headers: { Authorization: `Bearer ${creds.apiKey}` },
+            signal,
+          }));
+          if (response.ok) {
+            const payload = await response.json();
+            const models = (payload?.data || payload?.models || [])
+              .filter((m) => m?.id && typeof m.id === 'string')
+              .map((m) => ({
+                id: normalizeBackendModelId(m.id),
+                displayName: m.display_name || m.id,
+                ownedBy: m.owned_by || '',
+              }));
+            if (models.length > 0) {
+              return models;
+            }
+          }
+        } catch {
+          // Thử endpoint tiếp theo
+        }
+      }
+    }
+
+    // Fallback: gọi qua Gateway
+    const response = await this.fetchImpl(`${this.baseUrl}/v1/models`, this.requestOptions({
+      method: 'GET',
+      headers: { Authorization: `Bearer ${this.gatewayToken}` },
+      signal,
+    }));
+    if (!response.ok) {
+      throw mapHttpError(response.status);
+    }
+    const payload = await response.json();
+    const models = (payload?.data || payload?.models || [])
+      .filter((m) => m?.id && typeof m.id === 'string')
+      .map((m) => ({
+        id: normalizeBackendModelId(m.id),
+        displayName: m.display_name || m.id,
+        ownedBy: m.owned_by || '',
+      }));
+    return models;
   }
 
   async chat({

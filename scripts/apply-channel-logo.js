@@ -6,6 +6,8 @@ const sharp = require('sharp');
 
 const DEFAULT_WIDTH_PERCENT = 14;
 const DEFAULT_TOP_PERCENT = 2.2;
+const DEFAULT_SHADOW_STRENGTH = 2;
+const MIN_LOGO_CONTRAST = 3;
 
 class ChannelLogoError extends Error {
   constructor(code, message) {
@@ -34,11 +36,64 @@ function parsePercent(value, name, minimum, maximum) {
   return number;
 }
 
+/** Hệ số nhân alpha cho lớp shadow: càng lớn shadow càng đậm. */
+function parseShadowStrength(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0.5 || number > 5) {
+    throw new ChannelLogoError(
+      'invalid_shadow_strength',
+      '--shadow-strength phải nằm trong khoảng 0.5–5.',
+    );
+  }
+  return number;
+}
+
+function relativeLuminance({ r, g, b }) {
+  const linear = (channel) => {
+    const s = channel / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+}
+
+function contrastRatio(a, b) {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** Màu trung bình (theo alpha) của một vùng ảnh. */
+async function regionAverageColor(filePath, region) {
+  const { data } = await sharp(filePath)
+    .ensureAlpha()
+    .extract(region)
+    .resize({ width: 16, height: 16, fit: 'fill' })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let weight = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a === 0) continue;
+    r += data[i] * a;
+    g += data[i + 1] * a;
+    b += data[i + 2] * a;
+    weight += a;
+  }
+  if (weight === 0) {
+    return { r: 255, g: 255, b: 255 };
+  }
+  return { r: r / weight, g: g / weight, b: b / weight };
+}
+
 function parseArgs(argv) {
   const result = {
     widthPercent: DEFAULT_WIDTH_PERCENT,
     topPercent: DEFAULT_TOP_PERCENT,
     shadow: true,
+    shadowStrength: DEFAULT_SHADOW_STRENGTH,
     dryRun: false,
     overwrite: false,
   };
@@ -58,6 +113,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === '--top-percent') {
       result.topPercent = parsePercent(takeValue(argv, index, arg), arg, 0, 20);
+      index += 1;
+    } else if (arg === '--shadow-strength') {
+      result.shadowStrength = parseShadowStrength(takeValue(argv, index, arg));
       index += 1;
     } else if (arg === '--no-shadow') {
       result.shadow = false;
@@ -118,6 +176,15 @@ async function planChannelLogo(options = {}) {
     throw new ChannelLogoError('logo_out_of_bounds', 'Logo vượt ra ngoài khung ảnh nguồn.');
   }
 
+  // Ước lượng tương phản logo trắng trên nền thực tế của vùng đặt logo (trước khi chèn).
+  const logoZoneColor = await regionAverageColor(inputPath, {
+    left,
+    top,
+    width,
+    height,
+  });
+  const contrastEstimate = contrastRatio({ r: 255, g: 255, b: 255 }, logoZoneColor);
+
   return {
     inputPath,
     logoPath,
@@ -127,7 +194,37 @@ async function planChannelLogo(options = {}) {
     top,
     canvasWidth: inputMetadata.width,
     canvasHeight: inputMetadata.height,
+    logoZoneColor,
+    contrastEstimate,
   };
+}
+
+/**
+ * Tạo lớp bóng đổ cho logo. Asset logo có nét rất mảnh (chỉ ~14% pixel opaque);
+ * sau resize xuống 7% chiều rộng, nét còn ~8% opaque và blur lớn sẽ bào mòn
+ * lõi tới mức bóng gần như vô hình. Vì vậy: blur giữ ở mức nhỏ để lõi còn
+ * nguyên, rồi nhân alpha rất mạnh (clamp 255) để bóng đậm đặc phía dưới logo.
+ * Lưu ý: sharp `.tint()` giữ luminance nên không dùng được để tạo bóng đen —
+ * phải set kênh RGB về 0 trực tiếp trên raw data.
+ * strength 0.5–5, mặc định 2.
+ */
+async function buildShadow(logoBuffer, canvasWidth, canvasHeight, strength) {
+  const blur = Math.max(1.2, canvasWidth / 2000 * strength);
+  const { data, info } = await sharp(logoBuffer)
+    .ensureAlpha()
+    .blur(blur)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const alphaScale = 2 + strength * 1.5;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 0;
+    data[i + 1] = 0;
+    data[i + 2] = 0;
+    data[i + 3] = Math.min(255, Math.round(data[i + 3] * alphaScale));
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .png()
+    .toBuffer();
 }
 
 async function applyChannelLogo(options = {}) {
@@ -150,7 +247,13 @@ async function applyChannelLogo(options = {}) {
     }
   }
   if (options.dryRun) {
-    return { dryRun: true, outputPath, ...plan };
+    return {
+      dryRun: true,
+      outputPath,
+      shadowStrength: options.shadow === false ? 0 : parseShadowStrength(String(options.shadowStrength ?? DEFAULT_SHADOW_STRENGTH)),
+      minContrast: MIN_LOGO_CONTRAST,
+      ...plan,
+    };
   }
 
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
@@ -160,15 +263,14 @@ async function applyChannelLogo(options = {}) {
     .toBuffer();
   const composites = [];
   if (options.shadow !== false) {
-    const shadow = await sharp(logo)
-      .tint({ r: 0, g: 0, b: 0 })
-      .blur(Math.max(0.6, plan.canvasWidth / 1800))
-      .png()
-      .toBuffer();
+    const strength = parseShadowStrength(
+      options.shadowStrength === undefined ? DEFAULT_SHADOW_STRENGTH : String(options.shadowStrength),
+    );
+    const shadow = await buildShadow(logo, plan.canvasWidth, plan.canvasHeight, strength);
     composites.push({
       input: shadow,
       left: plan.left,
-      top: Math.min(plan.canvasHeight - plan.height, plan.top + Math.max(1, Math.round(plan.canvasHeight / 540))),
+      top: Math.min(plan.canvasHeight - plan.height, plan.top + Math.max(2, Math.round(plan.canvasHeight / 320 * strength))),
       blend: 'over',
     });
   }
@@ -204,7 +306,13 @@ async function applyChannelLogo(options = {}) {
     throw error;
   }
 
-  return { dryRun: false, outputPath, ...plan };
+  return {
+    dryRun: false,
+    outputPath,
+    shadowStrength: options.shadow === false ? 0 : parseShadowStrength(String(options.shadowStrength ?? DEFAULT_SHADOW_STRENGTH)),
+    minContrast: MIN_LOGO_CONTRAST,
+    ...plan,
+  };
 }
 
 async function main() {
@@ -227,6 +335,7 @@ if (require.main === module) {
 module.exports = {
   ChannelLogoError,
   applyChannelLogo,
+  buildShadow,
   parseArgs,
   planChannelLogo,
 };

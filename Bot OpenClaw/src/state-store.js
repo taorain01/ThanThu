@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const DEFAULT_MODEL_PROFILE = '9router';
-const MODEL_PROFILES = new Set([DEFAULT_MODEL_PROFILE, 'local']);
+const MODEL_PROFILES = new Set([DEFAULT_MODEL_PROFILE, 'local', 'opus']);
 
 class StateStoreError extends Error {
   constructor(message, cause) {
@@ -35,6 +35,16 @@ function validateChannelEntry(guildId, channelId, entry) {
     || !MODEL_PROFILES.has(entry.modelProfile)
   ) {
     throw new StateStoreError(`Dữ liệu state của channel ${channelId} trong guild ${guildId} không hợp lệ.`);
+  }
+  // customModel là tùy chọn, nếu có phải là string không rỗng
+  if (entry.customModel !== undefined && (typeof entry.customModel !== 'string' || !entry.customModel.trim())) {
+    throw new StateStoreError(`customModel của channel ${channelId} không hợp lệ.`);
+  }
+  if (
+    entry.appProfileFingerprint !== undefined
+    && !/^[a-f0-9]{64}$/.test(entry.appProfileFingerprint)
+  ) {
+    throw new StateStoreError(`appProfileFingerprint của channel ${channelId} không hợp lệ.`);
   }
 }
 
@@ -153,6 +163,10 @@ class StateStore {
       enabled: true,
       sessionGeneration: previous?.sessionGeneration || 1,
       modelProfile: previous?.modelProfile || DEFAULT_MODEL_PROFILE,
+      ...(previous?.customModel ? { customModel: previous.customModel } : {}),
+      ...(previous?.appProfileFingerprint
+        ? { appProfileFingerprint: previous.appProfileFingerprint }
+        : {}),
       updatedAt: this.now().toISOString(),
     };
     this.state.guilds[guildId] = guild;
@@ -191,6 +205,42 @@ class StateStore {
     return { channelId, ...previous };
   }
 
+  async setCustomModel(guildId, channelId, customModel) {
+    const previous = this.state.guilds[guildId]?.channels?.[channelId];
+    if (!previous?.enabled) {
+      throw new StateStoreError('Kênh hiện tại chưa bật OpenClaw.');
+    }
+    if (customModel && (typeof customModel !== 'string' || !customModel.trim())) {
+      throw new StateStoreError('Tên model không hợp lệ.');
+    }
+    if (customModel) {
+      previous.customModel = customModel.trim();
+    } else {
+      delete previous.customModel;
+    }
+    previous.updatedAt = this.now().toISOString();
+    await this.save();
+    return { channelId, ...previous };
+  }
+
+  async setAppProfileFingerprint(guildId, channelId, fingerprint) {
+    const previous = this.state.guilds[guildId]?.channels?.[channelId];
+    if (!previous?.enabled) {
+      throw new StateStoreError('Kênh hiện tại chưa bật OpenClaw.');
+    }
+    if (fingerprint !== null && !/^[a-f0-9]{64}$/.test(String(fingerprint || ''))) {
+      throw new StateStoreError('Fingerprint profile app không hợp lệ.');
+    }
+    if (fingerprint) {
+      previous.appProfileFingerprint = fingerprint;
+    } else {
+      delete previous.appProfileFingerprint;
+    }
+    previous.updatedAt = this.now().toISOString();
+    await this.save();
+    return { channelId, ...previous };
+  }
+
   async unbind(guildId, channelId) {
     const guild = this.state.guilds[guildId] || { channels: {} };
     const previous = guild.channels[channelId];
@@ -198,6 +248,10 @@ class StateStore {
       enabled: false,
       sessionGeneration: (previous?.sessionGeneration || 0) + 1,
       modelProfile: previous?.modelProfile || DEFAULT_MODEL_PROFILE,
+      ...(previous?.customModel ? { customModel: previous.customModel } : {}),
+      ...(previous?.appProfileFingerprint
+        ? { appProfileFingerprint: previous.appProfileFingerprint }
+        : {}),
       updatedAt: this.now().toISOString(),
     };
     this.state.guilds[guildId] = guild;

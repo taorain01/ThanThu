@@ -15,6 +15,42 @@ namespace OpenClawDiscordControl
         internal const string TaskName = "OpenClaw Discord Bot";
         internal const string BotEntryPath = @"C:\Bot Discord\Bot OpenClaw\src\index.js";
         internal const string LogDirectory = @"C:\Bot Discord\Bot OpenClaw\logs";
+        // File cờ: khi tồn tại = user đã tắt bot có chủ ý, watchdog sẽ không restart
+        internal const string IntentionalStopFile = @"C:\Bot Discord\Bot OpenClaw\data\.intentional_stop";
+
+        internal static void WriteIntentionalStop()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(IntentionalStopFile));
+                File.WriteAllText(IntentionalStopFile, DateTime.UtcNow.ToString("o"));
+            }
+            catch { }
+        }
+
+        internal static void ClearIntentionalStop()
+        {
+            try
+            {
+                if (File.Exists(IntentionalStopFile))
+                    File.Delete(IntentionalStopFile);
+            }
+            catch { }
+        }
+
+        internal static bool DisableTask(out string error)
+        {
+            return RunScheduledTaskCommand(
+                string.Format("/Change /TN \"{0}\" /DISABLE", TaskName),
+                out error);
+        }
+
+        internal static bool EnableTask(out string error)
+        {
+            return RunScheduledTaskCommand(
+                string.Format("/Change /TN \"{0}\" /ENABLE", TaskName),
+                out error);
+        }
 
         internal static List<int> FindProcessIds()
         {
@@ -270,10 +306,17 @@ namespace OpenClawDiscordControl
         private void StartBot()
         {
             Cursor = Cursors.WaitCursor;
-            string error;
+            // 1. Xóa cờ intentional_stop để watchdog hoạt động bình thường trở lại
+            BotRuntime.ClearIntentionalStop();
+            // 2. Enable task trước (phòng khi đã bị disable lúc tắt)
+            string enableError;
+            BotRuntime.EnableTask(out enableError);
+            // 3. Chạy task
+            string runError;
             bool success = BotRuntime.RunScheduledTaskCommand(
                 string.Format("/Run /TN \"{0}\"", BotRuntime.TaskName),
-                out error);
+                out runError);
+            string error = !string.IsNullOrWhiteSpace(enableError) ? enableError : runError;
             Thread.Sleep(900);
             Cursor = Cursors.Default;
             RefreshStatus();
@@ -286,16 +329,23 @@ namespace OpenClawDiscordControl
         private void StopBot()
         {
             Cursor = Cursors.WaitCursor;
+            // 1. Ghi cờ intentional_stop TRƯỚC để watchdog biết đây là tắt có chủ ý
+            BotRuntime.WriteIntentionalStop();
+            // 2. Disable task để Task Scheduler không tự restart
+            string disableError;
+            BotRuntime.DisableTask(out disableError);
+            // 3. End lần chạy hiện tại (nếu task đang Running)
             string taskError;
-            bool taskStopped = BotRuntime.RunScheduledTaskCommand(
+            BotRuntime.RunScheduledTaskCommand(
                 string.Format("/End /TN \"{0}\"", BotRuntime.TaskName),
                 out taskError);
+            // 4. Kill process Node.js còn lại
             string processError;
             bool processesStopped = BotRuntime.StopBotProcesses(out processError);
-            bool success = taskStopped && processesStopped;
+            bool success = processesStopped;
             string error = string.Join(
                 Environment.NewLine,
-                new string[] { taskError, processError }
+                new string[] { disableError, processError }
                     .Where(delegate(string value) { return !string.IsNullOrWhiteSpace(value); })
                     .ToArray());
             Thread.Sleep(700);

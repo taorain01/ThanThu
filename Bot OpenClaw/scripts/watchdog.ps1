@@ -13,6 +13,7 @@ $ErrorActionPreference = 'Continue'
 $taskName = 'OpenClaw Discord Bot'
 $botRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $cooldownFile = Join-Path $botRoot 'data\.watchdog_last_restart'
+$intentionalStopFile = Join-Path $botRoot 'data\.intentional_stop'
 
 function Write-Log {
   param([string]$Message)
@@ -33,6 +34,12 @@ if (Test-Path -LiteralPath $cooldownFile) {
   catch {
     # File cooldown hong -> bo qua
   }
+}
+
+# ---------------------------------------------------------- Kiem tra co intentional_stop
+if (Test-Path -LiteralPath $intentionalStopFile) {
+  Write-Log "Bot da tat co chu y (file .intentional_stop ton tai). Watchdog se khong restart."
+  exit 0
 }
 
 # ---------------------------------------------------------- Kiem tra bot con song

@@ -64,6 +64,44 @@ test('mỗi channel giữ generation và trạng thái hoạt động độc l�
   assert.equal(reloaded.getGuild(GUILD_ID).channels[CHANNEL_A].enabled, true);
 });
 
+test('setModelForAllChannels áp dụng model cho toàn bộ kênh đang bật, giữ kênh tắt', async (t) => {
+  const { store } = await makeStore(t);
+  await store.bindChannel(GUILD_ID, CHANNEL_A);
+  await store.bindChannel(GUILD_ID, CHANNEL_B);
+  await store.unbind(GUILD_ID, CHANNEL_B);
+  await store.setCustomModel(GUILD_ID, CHANNEL_A, 'capp-ying/claude-opus-5');
+
+  // Chưa có guild → trả [] không lỗi.
+  assert.deepEqual(await store.setModelForAllChannels('999999999999999999', { customModel: 'x/y' }), []);
+
+  const updated = await store.setModelForAllChannels(GUILD_ID, {
+    customModel: 'ollama/qwen3.5:9b',
+    modelProfile: 'local',
+  });
+  assert.deepEqual(updated, [CHANNEL_A]);
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_A).customModel, 'ollama/qwen3.5:9b');
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_A).modelProfile, 'local');
+  // Kênh tắt không bị đổi.
+  const disabled = store.getGuild(GUILD_ID).channels[CHANNEL_B];
+  assert.equal(disabled.customModel, undefined);
+  assert.equal(disabled.modelProfile, '9router');
+
+  // customModel null xóa model, modelProfile null giữ nguyên profile.
+  await store.setModelForAllChannels(GUILD_ID, { customModel: null });
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_A).customModel, undefined);
+  assert.equal(store.getChannel(GUILD_ID, CHANNEL_A).modelProfile, 'local');
+
+  // Model/profile không hợp lệ bị từ chối.
+  await assert.rejects(
+    () => store.setModelForAllChannels(GUILD_ID, { customModel: '  ' }),
+    StateStoreError,
+  );
+  await assert.rejects(
+    () => store.setModelForAllChannels(GUILD_ID, { modelProfile: 'abc' }),
+    StateStoreError,
+  );
+});
+
 test('tự chuyển state phiên bản 1 sang nhiều channel mà không mất phiên', async (t) => {
   const { filePath } = await makeStore(t);
   await fs.mkdir(path.dirname(filePath), { recursive: true });

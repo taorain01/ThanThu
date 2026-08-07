@@ -26,6 +26,7 @@ const COLORS = Object.freeze({
   running: 0x22d3ee,
   background: 0x6366f1,
   recovering: 0x3b82f6,
+  stopping: 0xf59e0b,
   completed: 0x22c55e,
   completed_with_blocker: 0xf59e0b,
   failed: 0xef4444,
@@ -37,6 +38,7 @@ const STATUS_META = Object.freeze({
   running: { icon: '⏳', label: 'Đang xử lý' },
   background: { icon: '⚙️', label: 'Worker nền đang chạy' },
   recovering: { icon: '♻️', label: 'Đang khôi phục an toàn' },
+  stopping: { icon: '⏹️', label: 'Đang hủy worker' },
   completed: { icon: '✅', label: 'Đã hoàn tất' },
   completed_with_blocker: { icon: '⚠️', label: 'Hoàn tất có blocker' },
   failed: { icon: '❌', label: 'Gặp lỗi' },
@@ -147,19 +149,25 @@ function buildResponseEmbeds(value, options = {}) {
   const totalParts = descriptions.length;
   const jobId = truncate(options.jobId || 'không-xác-định', 80);
   const timestamp = safeTimestamp(options.timestamp);
+  const modelLabel = String(options.model || '').trim();
 
   return descriptions.map((description, index) => {
     const part = index + 1;
     const title = totalParts === 1
       ? '✦ Phản hồi từ OpenClaw'
       : `✦ Phản hồi từ OpenClaw · ${part}/${totalParts}`;
+    const footerParts = [`Job ${jobId}`];
+    if (modelLabel) {
+      footerParts.push(`Model: ${modelLabel}`);
+    }
+    footerParts.push(`Phần ${part}/${totalParts}`);
     return new EmbedBuilder()
       .setColor(COLORS.response)
       .setAuthor(identityOptions(options, 'OPENCLAW // ASSISTANT'))
       .setTitle(truncate(title, EMBED_LIMITS.title))
       .setDescription(description)
       .setFooter({
-        text: truncate(`Job ${jobId} • Phần ${part}/${totalParts}`, EMBED_LIMITS.footer),
+        text: truncate(footerParts.join(' • '), EMBED_LIMITS.footer),
       })
       .setTimestamp(timestamp);
   });
@@ -364,7 +372,9 @@ function currentJobValue(job, now) {
     `⏱️ ${elapsedLabel(job.createdAt, now)} • 📦 ${counts.delivered}/${counts.total} file${counts.ready ? ` • ${counts.ready} chờ gửi` : ''} • cập nhật ${activity}`,
   ];
   if (job.stopRequested) {
-    lines.push('⏹️ Đang chờ OpenClaw xác nhận dừng toàn bộ task.');
+    lines.push(job.cancelWarningAt
+      ? '⚠️ Hủy chưa được OpenClaw xác nhận; bot vẫn đang theo dõi worker.'
+      : '⏹️ Đang chờ OpenClaw xác nhận dừng toàn bộ task.');
   }
   if (job.lastEvent) {
     lines.push(`↳ ${truncate(sanitizeInline(job.lastEvent), 420)}`);
@@ -563,6 +573,11 @@ function contextUsageValue(usage) {
 function currentTaskValue(job, summary, now) {
   const worker = summary.current;
   if (!worker) {
+    if (job.status === 'stopping') {
+      return job.cancelWarningAt
+        ? '⚠️ Hủy chưa được OpenClaw xác nhận; vẫn giữ khóa session và tiếp tục kiểm tra.'
+        : '⏹️ Đã gửi yêu cầu hủy; đang kiểm tra task và chờ xác nhận dừng.';
+    }
     if (job.status === 'queued') {
       return 'Chưa khởi chạy; yêu cầu đang chờ lượt xử lý của session này.';
     }
@@ -587,7 +602,11 @@ function currentTaskValue(job, summary, now) {
     : `**Worker ${worker.number}**`;
   const lines = [
     title,
-    `${job.stopRequested ? '⏹️ Đang yêu cầu dừng' : labels[worker.status] || labels.unknown} • cập nhật ${activityAgeLabel(worker.lastActivityAt, now)}`,
+    `${job.cancelWarningAt
+      ? '⚠️ Hủy chưa được xác nhận'
+      : job.stopRequested
+        ? '⏹️ Đang yêu cầu dừng'
+        : labels[worker.status] || labels.unknown} • cập nhật ${activityAgeLabel(worker.lastActivityAt, now)}`,
   ];
   if (worker.progress) {
     lines.push(truncate(worker.progress, 560));
@@ -616,6 +635,7 @@ const SESSION_STATUS_META = Object.freeze({
   running: { icon: '⚙️', label: 'Đang chạy', color: COLORS.running },
   succeeded: { icon: '✅', label: 'Đã hoàn tất', color: COLORS.completed },
   problem: { icon: '⚠️', label: 'Gặp vấn đề', color: COLORS.failed },
+  stopping: { icon: '⏹️', label: 'Đang yêu cầu dừng', color: COLORS.stopping },
   unknown: { icon: '•', label: 'Chưa xác định', color: COLORS.background },
 });
 
@@ -659,7 +679,8 @@ function buildSessionActivityEmbed(job, sessionKey, options = {}) {
   const fallbackStatus = TERMINAL_STATUSES.has(job.status)
     ? (job.status === 'completed' ? 'succeeded' : 'problem')
     : 'unknown';
-  const status = SESSION_STATUS_META[worker?.status || fallbackStatus] || SESSION_STATUS_META.unknown;
+  const statusKey = job.status === 'stopping' ? 'stopping' : worker?.status || fallbackStatus;
+  const status = SESSION_STATUS_META[statusKey] || SESSION_STATUS_META.unknown;
   const sessionNumber = Math.max(1, Number(options.sessionNumber) || 1);
   const displayLabel = sanitizeInline(worker?.displayLabel || activity.label || `Session phụ ${sessionNumber}`);
   const progress = sanitizeInline(worker?.progress || '');
@@ -771,6 +792,14 @@ function buildJobStatusEmbed(job, options = {}) {
     value: currentTaskValue(job, workerSummary, now),
     inline: false,
   });
+
+  if (job.taskSyncState === 'degraded') {
+    embed.addFields({
+      name: '⚠️ Đồng bộ worker',
+      value: 'Tạm thời không xác minh được task mới từ OpenClaw; bot giữ trạng thái cuối đã biết và sẽ tự thử lại.',
+      inline: false,
+    });
+  }
 
   const streamPreview = terminal
     ? ''

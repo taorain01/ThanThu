@@ -114,10 +114,28 @@ function extractActivityEvents(record) {
     }
     for (const part of content) {
       if (part?.type === 'toolCall') {
+        const callName = toolLabel(part.name);
+        const callArgs = part.arguments && typeof part.arguments === 'object'
+          ? part.arguments
+          : {};
+        // Đánh dấu lệnh chụp màn hình để supervisor gửi ảnh xem trước cho user;
+        // tool image kế tiếp mang đường dẫn ảnh thật (vd windows-current.png).
+        const screenSnapshot = callName === 'exec'
+          && /screen\.snapshot/i.test(String(callArgs.command || ''));
+        let imageFile = '';
+        if (callName === 'image') {
+          imageFile = String(callArgs.image
+            || callArgs.file_path
+            || callArgs.path
+            || callArgs.file
+            || '');
+        }
         events.push({
           kind: 'tool_call',
           text: summarizeToolCall(part),
           mediaReferences: [],
+          screenSnapshot,
+          imageFile: imageFile || null,
         });
       }
     }
@@ -163,7 +181,7 @@ function formatLiveActivity(events, elapsedMs, maxLength = 1900) {
   if (lines.length === 0) {
     lines.push('Đang chuẩn bị phiên và chờ tool đầu tiên…');
   }
-  return fitRecentLines(header, lines, 'Dùng `> openclaw stop` để ngắt chờ.', maxLength);
+  return fitRecentLines(header, lines, 'Dùng lệnh stop để ngắt chờ.', maxLength);
 }
 
 function formatFinishedActivity(events, elapsedMs, status = 'completed', maxLength = 1900) {

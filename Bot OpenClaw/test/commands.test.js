@@ -45,3 +45,14 @@ test('nhận diện alias model và để nội dung khác đi vào chat trực 
   assert.deepEqual(parseCommand('> o model local', '>'), { action: 'model', args: ['local'] });
   assert.equal(parseCommand('> o x', '>'), null);
 });
+
+test('nhận diện lệnh reset bot với nhiều cách gõ', () => {
+  assert.deepEqual(parseCommand('> openclaw resetbot', '>'), { action: 'resetbot' });
+  assert.deepEqual(parseCommand('> o rb', '>'), { action: 'resetbot' });
+  assert.deepEqual(parseCommand('> o rs', '>'), { action: 'resetbot' });
+  assert.deepEqual(parseCommand('> o resetbot', '>'), { action: 'resetbot' });
+  // reset (reset session kênh) và restartoc (restart bot) vẫn giữ nguyên
+  assert.deepEqual(parseCommand('> openclaw reset', '>'), { action: 'reset' });
+  assert.deepEqual(parseCommand('> o rsoc', '>'), { action: 'restartoc' });
+  assert.deepEqual(parseCommand('> o restart', '>'), { action: 'restartoc' });
+});

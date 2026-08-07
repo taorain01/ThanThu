@@ -6,6 +6,8 @@ const {
   OpenClawClient,
   OpenClawError,
   PC_OPERATOR_INSTRUCTIONS,
+  isGatewayFailureText,
+  isGatewayNonDeliverableText,
 } = require('../src/openclaw-client');
 
 function config(overrides = {}) {
@@ -43,6 +45,48 @@ function sseResponse(chunks) {
     headers: { 'content-type': 'text/event-stream; charset=utf-8' },
   });
 }
+
+test('nhận diện chuỗi lỗi model của Gateway để tự retry', () => {
+  assert.equal(isGatewayFailureText('LLM request failed.'), true);
+  assert.equal(isGatewayFailureText('LLM request failed with an unknown error.'), true);
+  assert.equal(isGatewayFailureText('LLM error api_error: Đã xảy ra lỗi, vui lòng xem thêm thông tin ở https://t.me/krokeyviet'), true);
+  assert.equal(isGatewayFailureText('LLM streaming response contained a malformed fragment. Please try again.'), true);
+  assert.equal(isGatewayFailureText('The AI service returned an internal error. Please try again in a moment.'), true);
+  assert.equal(isGatewayFailureText('The AI service is temporarily unavailable (HTTP 502). Please try again in a moment.'), true);
+  assert.equal(isGatewayFailureText('The provider returned an HTML error page instead of an API response.'), true);
+  assert.equal(isGatewayFailureText('Error: internal error'), true);
+  assert.equal(isGatewayFailureText('HTTP 429: Too Many Requests'), true);
+  assert.equal(isGatewayFailureText('HTTP 500: Internal Server Error'), true);
+
+  // Phản hồi thật không bị nhầm thành lỗi
+  assert.equal(isGatewayFailureText(''), false);
+  assert.equal(isGatewayFailureText('Xin chào, tôi có thể giúp gì?'), false);
+  assert.equal(isGatewayFailureText('Tôi sẽ chạy skill tạo ảnh ngay.'), false);
+  // Văn bản nhiều dòng hoặc dài là phản hồi thật, không phải chuỗi lỗi gateway
+  assert.equal(isGatewayFailureText('LLM request failed\nvà đây là giải thích chi tiết.'), false);
+  assert.equal(isGatewayFailureText('The AI service returned an internal error. Please try again in a moment.' + ' x'.repeat(300)), false);
+});
+
+test('nhận diện lượt không sinh text của Gateway (model kết thúc trong <think>)', () => {
+  // Hai biến thể duy nhất do resolveIncompleteTurnPayloadText phát ra.
+  assert.equal(
+    isGatewayNonDeliverableText("⚠️ Agent couldn't generate a response. Please try again."),
+    true,
+  );
+  assert.equal(
+    isGatewayNonDeliverableText("⚠️ Agent couldn't generate a response. Note: some tool actions may have already been executed — please verify before retrying."),
+    true,
+  );
+
+  // Không nhầm với lỗi provider (đã có nhánh retry riêng) hay phản hồi thật.
+  assert.equal(isGatewayNonDeliverableText('LLM request failed.'), false);
+  assert.equal(isGatewayNonDeliverableText(''), false);
+  assert.equal(isGatewayNonDeliverableText('Đã chụp màn hình xong.'), false);
+  assert.equal(
+    isGatewayNonDeliverableText("⚠️ Agent couldn't generate a response." + ' x'.repeat(300)),
+    false,
+  );
+});
 
 test('gửi session ổn định và đọc phản hồi thành công', async () => {
   let request;
@@ -90,6 +134,30 @@ test('chuẩn hóa model Claude cũ trước khi gửi Gateway', async () => {
   await client.chat(chatArgs({ backendModel: 'claude-opus-5' }));
 
   assert.equal(requestHeaders['x-openclaw-model'], 'anthropic/claude-opus-5');
+});
+
+test('kênh model cục bộ route sang agent local, kênh khác giữ agent main', async () => {
+  let requestHeaders;
+  const client = new OpenClawClient(config(), {
+    fetchImpl: async (_url, options) => {
+      requestHeaders = options.headers;
+      return Response.json({ choices: [{ message: { content: 'Đã xong.' } }] });
+    },
+  });
+
+  await client.chat(chatArgs({ modelProfile: 'local' }));
+  assert.equal(requestHeaders['x-openclaw-agent-id'], 'local');
+  assert.equal(
+    client.sessionKey(chatArgs({ modelProfile: 'local' })),
+    'agent:local:openai-user:discord:1239836342456942643:111111111111111111:3',
+  );
+
+  await client.chat(chatArgs({ modelProfile: '9router' }));
+  assert.equal(requestHeaders['x-openclaw-agent-id'], 'main');
+  assert.equal(
+    client.sessionKey(chatArgs({ modelProfile: '9router' })),
+    'agent:main:openai-user:discord:1239836342456942643:111111111111111111:3',
+  );
 });
 
 test('đánh số ảnh và yêu cầu vision chi tiết cao', async () => {

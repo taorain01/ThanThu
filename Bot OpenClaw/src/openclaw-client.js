@@ -36,10 +36,12 @@ const PC_OPERATOR_INSTRUCTIONS = [
   'Bạn là trợ lý điều khiển PC của chủ máy qua Discord.',
   'Khi người dùng yêu cầu xem hoặc thao tác trên máy, hãy chủ động dùng tool thay vì yêu cầu họ tự chụp màn hình nếu máy có thể tự chụp.',
   'Trên Windows, hãy dùng openclaw.cmd (không dùng openclaw.ps1). Nếu tool nodes không xuất hiện, dùng exec trên gateway để chạy openclaw.cmd nodes status --json rồi gọi openclaw.cmd nodes invoke với screen.snapshot.',
+  'Khi cần chụp màn hình PC, KHÔNG tự viết script Python/PowerShell và không tự giải mã base64. Chỉ cần dùng exec chạy đúng một lệnh này, gõ nguyên văn không thêm dấu ngoặc và không đổi dấu gạch chéo: node C:/oc-tools/shot.js --out C:/Users/songt/.openclaw/workspace/screenshot.png . Lệnh in một dòng JSON có ok và path; nếu ok=true thì ảnh đã lưu xong, hãy dùng tool image để xem nếu cần quan sát nội dung.',
   'Kết quả screen.snapshot là JSON; ảnh nằm trong payload.base64. Hãy giải mã vào workspace và dùng tool image để quan sát.',
   'Với thao tác ứng dụng desktop, dùng cơ chế tự động hóa Windows hiện có, chụp màn hình trước và sau, và chỉ báo thành công khi đã kiểm chứng.',
   'Khi có file ảnh thành phẩm cần cho người dùng xem, thêm mỗi ảnh vào một dòng riêng dạng MEDIA:<đường dẫn tuyệt đối>. Không đánh dấu MEDIA cho screenshot kiểm tra nội bộ.',
   'Khi người dùng yêu cầu gửi tin nhắn hoặc file vào một Discord channel theo tên hoặc ID, không dùng tool message vì Discord channel native của OpenClaw chưa được cài. Hãy tạo request JSON UTF-8 gồm channel, content và files rồi dùng exec chạy: node "C:\\Bot Discord\\Bot OpenClaw\\scripts\\send-discord-message.js" --request "<đường-dẫn-request.json>".',
+  'Đường dẫn thư mục ảnh chính luôn là F:\\Hình Ảnh (chữ "Hình Ảnh" đúng dấu tiếng Việt). KHÔNG được tạo hoặc ghi vào thư mục tên lỗi ký tự như "HĂ¬nh áº¢nh". Không bao giờ nhúng đường dẫn tiếng Việt vào file .ps1 chạy bằng PowerShell — PowerShell 5.1 đọc file UTF-8 không BOM theo ANSI làm hỏng ký tự; nếu cần lệnh PowerShell có đường dẫn tiếng Việt, dùng -EncodedCommand (Base64 UTF-16LE) hoặc viết script Node. Nếu vô tình tạo ra thư mục tên lỗi, chạy: node "C:\\Bot Discord\\Bot OpenClaw\\scripts\\fix-media-folder-mojibake.js" để gộp về đúng rồi tiếp tục dùng đường dẫn chuẩn.',
   'Sender cục bộ resolve chính xác tên hoặc ID channel theo từng lần gửi nhưng chỉ trong đúng server của bot. Phải dùng đúng channel được yêu cầu cho job hiện tại; không tái sử dụng channel hardcode từ job khác. Chỉ báo đã gửi khi output có ok=true và messageId; không đưa Discord token vào prompt, request hoặc log.',
   'Luôn tuân thủ chính sách tool và phê duyệt hiện tại; không tìm cách vượt qua hoặc nới lỏng chúng.',
 ].join('\n');
@@ -73,6 +75,36 @@ function extractTextContent(content) {
       .join('\n');
   }
   return '';
+}
+
+// Chuỗi lỗi user-facing do Gateway phát hành khi lượt chạy agent thất bại
+// (nguồn: formatRawAssistantErrorForUi và terminal-error của OpenClaw 2026.7.1).
+// Bot dùng chúng để nhận diện phản hồi lỗi và tự retry thay vì chuyển tiếp tới Discord.
+const GATEWAY_FAILURE_TEXT_PATTERN = /^(?:LLM request failed|LLM error|LLM streaming response|The AI service|The provider returned an HTML error page|Error: internal error|HTTP \d{3}:)/;
+
+function isGatewayFailureText(value) {
+  const text = String(value || '').trim();
+  if (!text || text.includes('\n') || text.length > 200) {
+    return false;
+  }
+  return GATEWAY_FAILURE_TEXT_PATTERN.test(text);
+}
+
+// Gateway đánh dấu lượt là `non_deliverable_terminal_turn` khi model kết thúc
+// (stopReason "stop") mà không sinh phần text nào — hay gặp với model cục bộ
+// suy luận nhiều: chúng trả lời xong trong <think> rồi phát EOS luôn. Lúc đó
+// gateway trả về đúng một trong hai chuỗi dưới đây thay cho câu trả lời. Đây
+// KHÔNG phải lỗi provider nên GATEWAY_FAILURE_TEXT_PATTERN không khớp; bot phải
+// nhận diện riêng để nhắc model chốt lại câu trả lời (ngữ cảnh vẫn còn trong
+// session, và tool có thể đã chạy xong).
+const GATEWAY_NON_DELIVERABLE_TEXT_PATTERN = /^⚠️\s*Agent couldn't generate a response\./;
+
+function isGatewayNonDeliverableText(value) {
+  const text = String(value || '').trim();
+  if (!text || text.length > 300) {
+    return false;
+  }
+  return GATEWAY_NON_DELIVERABLE_TEXT_PATTERN.test(text);
 }
 
 function mapHttpError(status) {
@@ -228,16 +260,25 @@ class OpenClawClient {
     return `discord:${guildId}:${channelId}:${sessionGeneration}`;
   }
 
-  sessionKey(args) {
-    return `agent:${this.agentId}:openai-user:${this.sessionUser(args)}`;
+  // Kênh chạy model cục bộ được route sang agent riêng (`local`) để chỉ agent đó
+  // bật localModelLean; các kênh Claude/9router giữ nguyên bộ tool đầy đủ trên `main`.
+  resolveAgentId(modelProfile) {
+    return modelProfile === 'local' ? 'local' : this.agentId;
   }
 
-  headers(backendModel) {
+  sessionKey(args) {
+    return `agent:${this.resolveAgentId(args?.modelProfile)}:openai-user:${this.sessionUser(args)}`;
+  }
+
+  headers(backendModel, agentId) {
     const headers = {
       Authorization: `Bearer ${this.gatewayToken}`,
       'Content-Type': 'application/json',
       'x-openclaw-message-channel': 'discord',
     };
+    if (agentId) {
+      headers['x-openclaw-agent-id'] = agentId;
+    }
     if (backendModel) {
       headers['x-openclaw-model'] = normalizeBackendModelId(backendModel);
     }
@@ -319,6 +360,7 @@ class OpenClawClient {
     guildId,
     channelId,
     sessionGeneration,
+    modelProfile,
     backendModel,
     text,
     imageParts,
@@ -347,7 +389,7 @@ class OpenClawClient {
     try {
       response = await this.fetchImpl(`${this.baseUrl}/v1/chat/completions`, this.requestOptions({
         method: 'POST',
-        headers: this.headers(backendModel),
+        headers: this.headers(backendModel, this.resolveAgentId(modelProfile)),
         body: JSON.stringify(body),
         signal,
       }));
@@ -401,6 +443,8 @@ module.exports = {
   PC_OPERATOR_INSTRUCTIONS,
   createOpenClawDispatcher,
   extractAssistantText,
+  isGatewayFailureText,
+  isGatewayNonDeliverableText,
   parseSsePayload,
   readStreamingAssistant,
 };

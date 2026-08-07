@@ -15,13 +15,13 @@ class ResponseDeliveryGate {
     return this.promise !== null && !this.delivered;
   }
 
-  async deliverOnce(text) {
+  async deliverOnce(text, options = {}) {
     if (this.delivered) {
       return false;
     }
     if (!this.promise) {
       this.promise = (async () => {
-        await this.deliver(text);
+        await this.deliver(text, options);
         this.delivered = true;
         return true;
       })();

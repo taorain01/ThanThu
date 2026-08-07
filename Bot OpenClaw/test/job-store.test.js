@@ -58,6 +58,11 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
   assert.equal(job.sessionOffsets[created.rootSessionKey], 123);
   assert.equal(job.backendModel, 'ollama/qwen3:8b');
   assert.equal(job.stopRequested, false);
+  assert.equal(job.cancelRequestedAt, null);
+  assert.equal(job.cancelConfirmedAt, null);
+  assert.equal(job.cancelWarningAt, null);
+  assert.equal(job.taskSyncState, 'idle');
+  assert.equal(job.lastTaskSyncAt, null);
   assert.equal(job.responseSentAt, null);
   assert.equal(job.startedAt, null);
   assert.equal(job.firstDeltaAt, null);
@@ -80,6 +85,12 @@ test('job cũ thiếu trường mới được nâng cấp bằng giá trị m�
   const job = await store.createJob(jobInput('job-legacy'));
   const state = JSON.parse(await fs.readFile(filePath, 'utf8'));
   delete state.jobs[job.id].stopRequested;
+  delete state.jobs[job.id].cancelRequestedAt;
+  delete state.jobs[job.id].cancelConfirmedAt;
+  delete state.jobs[job.id].cancelWarningAt;
+  delete state.jobs[job.id].taskSyncState;
+  delete state.jobs[job.id].lastTaskSyncAt;
+  delete state.jobs[job.id].taskSyncSource;
   delete state.jobs[job.id].responseSentAt;
   delete state.jobs[job.id].startedAt;
   delete state.jobs[job.id].firstDeltaAt;
@@ -90,11 +101,31 @@ test('job cũ thiếu trường mới được nâng cấp bằng giá trị m�
   const reloaded = new JobStore(filePath);
   await reloaded.load();
   assert.equal(reloaded.getJob(job.id).stopRequested, false);
+  assert.equal(reloaded.getJob(job.id).cancelRequestedAt, null);
+  assert.equal(reloaded.getJob(job.id).cancelConfirmedAt, null);
+  assert.equal(reloaded.getJob(job.id).cancelWarningAt, null);
+  assert.equal(reloaded.getJob(job.id).taskSyncState, 'idle');
+  assert.equal(reloaded.getJob(job.id).lastTaskSyncAt, null);
   assert.equal(reloaded.getJob(job.id).responseSentAt, null);
   assert.equal(reloaded.getJob(job.id).startedAt, null);
   assert.equal(reloaded.getJob(job.id).firstDeltaAt, null);
   assert.equal(reloaded.getJob(job.id).requestSubmittedAt, null);
   assert.deepEqual(reloaded.getJob(job.id).sessionActivities, {});
+});
+
+test('nâng job active đã yêu cầu dừng thành stopping khi load', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bot-openclaw-jobs-stopping-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const filePath = path.join(directory, 'jobs.json');
+  const store = new JobStore(filePath);
+  await store.load();
+  const job = await store.createJob(jobInput('job-stopping'));
+  await store.updateJob(job.id, { status: 'background', stopRequested: true });
+
+  const reloaded = new JobStore(filePath);
+  await reloaded.load();
+  assert.equal(reloaded.getJob(job.id).status, 'stopping');
+  assert.equal(reloaded.listJobs({ activeOnly: true })[0].id, job.id);
 });
 
 test('không ghi đè jobs.json bị hỏng', async (t) => {

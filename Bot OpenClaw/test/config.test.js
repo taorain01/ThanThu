@@ -31,13 +31,15 @@ test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   assert.equal(config.requestMaxRuntimeMs, 43200000);
   assert.equal(config.maxPending, 5);
   assert.equal(config.maxConcurrentSessions, 2);
+  assert.equal(config.taskRpcTimeoutMs, 5000);
+  assert.equal(config.cancelWarningMs, 120000);
   assert.equal(config.statusUpdateDebounceMs, 1000);
   assert.equal(config.streamUpdateMs, 2000);
   assert.deepEqual(config.mediaSourceRoots, ['F:\\Hình Ảnh\\anhYoutube']);
   assert.equal(config.openclawAgentId, 'main');
   assert.deepEqual(config.openclawBackendModels, {
     '9router': '9router/cx/gpt-5.6-sol',
-    local: 'ollama/qwen3:8b',
+    local: 'ollama/qwen3.5:9b',
     opus: 'anthropic/claude-opus-5',
   });
   assert.equal(config.allowedUserIds.has('395151484179841024'), true);
@@ -71,6 +73,10 @@ test('từ chối Discord ID và giới hạn số không hợp lệ', () => {
   assert.throws(
     () => loadConfig(validEnv({ OPENCLAW_STREAM_UPDATE_MS: '500' })),
     /khoảng 1000-10000/,
+  );
+  assert.throws(
+    () => loadConfig(validEnv({ OPENCLAW_TASK_RPC_TIMEOUT_MS: '500' })),
+    /khoảng 1000-60000/,
   );
 });
 

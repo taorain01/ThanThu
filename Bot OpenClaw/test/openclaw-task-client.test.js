@@ -4,6 +4,72 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { OpenClawTaskClient, OpenClawTaskError } = require('../src/openclaw-task-client');
 
+function jsonResponse(payload, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+  };
+}
+
+test('dùng Admin HTTP RPC, lọc active task và xử lý phân trang', async () => {
+  const calls = [];
+  const client = new OpenClawTaskClient({
+    baseUrl: 'http://127.0.0.1:18789',
+    gatewayToken: 'gateway-token',
+    fetchImpl: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      calls.push({ body, headers: options.headers });
+      if (body.method === 'tasks.list') {
+        return jsonResponse({
+          ok: true,
+          payload: body.params.cursor
+            ? { tasks: [{ taskId: 'task-2', status: 'queued' }] }
+            : { tasks: [{ taskId: 'task-1', status: 'running' }], nextCursor: '1' },
+        });
+      }
+      if (body.method === 'tasks.get') {
+        return jsonResponse({ ok: true, payload: { task: { taskId: 'task-1', status: 'succeeded' } } });
+      }
+      return jsonResponse({ ok: true, payload: { found: true, cancelled: true } });
+    },
+  });
+
+  assert.deepEqual((await client.list()).map((task) => task.taskId), ['task-1', 'task-2']);
+  assert.equal((await client.show('task-1')).status, 'succeeded');
+  assert.equal((await client.cancel('task-1')).cancelled, true);
+  assert.deepEqual(calls.slice(0, 2).map((call) => call.body.params.status), [
+    ['queued', 'running'],
+    ['queued', 'running'],
+  ]);
+  assert.equal(calls[0].headers.Authorization, 'Bearer gateway-token');
+  assert.equal(client.getLastSyncInfo().source, 'rpc');
+});
+
+test('RPC lỗi chỉ chạy một CLI fallback trong cửa sổ giới hạn', async () => {
+  let now = 1000;
+  let cliCalls = 0;
+  const client = new OpenClawTaskClient({
+    baseUrl: 'http://127.0.0.1:18789',
+    gatewayToken: 'gateway-token',
+    cliFallbackMs: 30000,
+    now: () => now,
+    fetchImpl: async () => { throw new Error('offline'); },
+    execFileImpl: async () => {
+      cliCalls += 1;
+      return { stdout: JSON.stringify({ tasks: [{ taskId: 'fallback' }] }) };
+    },
+  });
+
+  assert.equal((await client.list({ fresh: true }))[0].taskId, 'fallback');
+  now += 1000;
+  await assert.rejects(() => client.list({ fresh: true }), /Admin HTTP RPC/);
+  assert.equal(cliCalls, 1);
+  now += 30000;
+  await client.list({ fresh: true });
+  assert.equal(cliCalls, 2);
+});
+
 test('gọi tasks list/show/cancel bằng execFile, không qua shell', async () => {
   const calls = [];
   const client = new OpenClawTaskClient({

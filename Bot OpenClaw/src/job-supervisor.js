@@ -11,6 +11,7 @@ const {
 const { sessionActivityRecord } = require('./discord-activity');
 const { stageMediaReference } = require('./response-media');
 const { RequestDeadline } = require('./request-deadline');
+const { TaskSnapshotService } = require('./task-snapshot-service');
 const {
   ACTIVE_TASK_STATUSES,
   PROBLEM_TASK_STATUSES,
@@ -75,6 +76,13 @@ function durableTaskRecord(task) {
   return record;
 }
 
+function taskRecordChanged(current, next) {
+  if (!current) {
+    return true;
+  }
+  return Object.entries(next).some(([key, value]) => current[key] !== value);
+}
+
 function artifactCounts(job) {
   const artifacts = Object.values(job.artifacts || {});
   return {
@@ -97,14 +105,29 @@ class JobSupervisor {
     this.retryDelaysMs = options.retryDelaysMs ?? [5000, 30000, 120000];
     this.discoveryGraceMs = options.discoveryGraceMs ?? 5000;
     this.terminalGraceMs = options.terminalGraceMs ?? 3000;
+    // Khi agent đã kết thúc lượt trả lời (transcript final) nhưng durable task
+    // vẫn còn chạy nền, session OpenClaw thường TỰ TIẾP TỤC công việc sau khi
+    // task xong (tạo task mới hoặc giao MEDIA muộn hơn nhiều so với lúc task
+    // kết thúc — quan sát thấy tới ~50s). Sau task cuối, đợi thêm khoảng này
+    // trước khi settle để không đóng job khi agent còn continuation.
+    this.taskContinuationGraceMs = options.taskContinuationGraceMs ?? 90000;
     this.cancelGraceMs = options.cancelGraceMs ?? 120000;
+    this.cancelConfirmationGraceMs = options.cancelConfirmationGraceMs ?? 10000;
+    this.cancelRetryMs = options.cancelRetryMs ?? 5000;
     this.idleTimeoutMs = options.idleTimeoutMs;
     this.maxRuntimeMs = options.maxRuntimeMs;
     this.logger = options.logger;
     this.onJobChanged = options.onJobChanged || (() => {});
     this.sendActivity = options.sendActivity || (async () => {});
+    this.onScreenshot = options.onScreenshot || (async () => {});
     this.sendArtifact = options.sendArtifact || (async () => {
       throw new Error('Chưa cấu hình bộ gửi artifact.');
+    });
+    this.taskSnapshotService = options.taskSnapshotService || new TaskSnapshotService({
+      taskClient: this.taskClient,
+      normalPollMs: this.pollMs,
+      stoppingPollMs: Math.min(this.pollMs, options.stoppingPollMs ?? 1000),
+      logger: this.logger,
     });
     this.contexts = new Map();
     this.deliveryPromises = new Map();
@@ -142,7 +165,6 @@ class JobSupervisor {
     const context = {
       monitors: new Map(),
       deliveries: new Map(),
-      pollTimer: null,
       syncPromise: Promise.resolve(),
       settled,
       settleResolve,
@@ -151,8 +173,21 @@ class JobSupervisor {
       settling: false,
       discoveryDeadline: null,
       terminalDeadline: null,
+      terminalWaitDeadline: null,
+      // Agent kết thúc lượt trả lời (transcript final / foreground xong) TRONG
+      // khi durable task vẫn còn chạy nền → session OpenClaw có thể tự tiếp tục
+      // sau khi task xong; cần chờ taskContinuationGraceMs trước khi settle.
+      rootFinalWhileTasksActive: false,
       cancelDeadline: null,
-      cancelRequestedTaskIds: new Set(),
+      cancelConfirmationDeadline: null,
+      cancelWarningTimer: null,
+      cancelConfirmed: false,
+      lastRootActivityAt: undefined,
+      rootFinalReceived: false,
+      cancelRequestedTaskIds: new Map(),
+      removeTaskSubscription: null,
+      lastTaskSyncPersistedAt: 0,
+      lastTaskSyncErrorAt: 0,
       stopRequested: Boolean(
         job.stopRequested
         || (job.status === 'background' && job.terminalReason === 'Đã dừng theo yêu cầu người dùng.'),
@@ -165,15 +200,14 @@ class JobSupervisor {
     this.contexts.set(jobId, context);
     await this.addSessionMonitor(jobId, job.rootSessionKey, context.rootStartAtEnd);
     await this.resumePendingDeliveries(jobId);
-    context.pollTimer = setInterval(() => {
-      void this.syncTasks(jobId).catch((error) => {
-        this.logger?.error('Không thể giám sát durable task OpenClaw.', {
-          jobId,
-          name: error.name,
-        });
-      });
-    }, this.pollMs);
-    context.pollTimer.unref?.();
+    context.removeTaskSubscription = this.taskSnapshotService.subscribe(jobId, {
+      stopping: context.stopRequested,
+      onSnapshot: (snapshot) => this.applyTaskSnapshot(jobId, snapshot),
+      onError: (error, state) => this.handleTaskSyncError(jobId, error, state),
+    });
+    if (context.stopRequested) {
+      await this.ensureStoppingState(jobId, context);
+    }
     return context;
   }
 
@@ -191,7 +225,13 @@ class JobSupervisor {
       startAtEnd: savedOffset === undefined ? startAtEnd : false,
       afterTimestampMs: job.sessionStartedAt[sessionKey] || Date.parse(job.createdAt) - 1000,
       onOffset: (offset) => this.store.setSessionOffset(jobId, sessionKey, offset),
-      onRecord: () => this.contexts.get(jobId)?.activityTouch?.(),
+      onRecord: () => {
+        const currentContext = this.contexts.get(jobId);
+        if (currentContext && sessionKey === job.rootSessionKey) {
+          currentContext.lastRootActivityAt = Date.now();
+        }
+        currentContext?.activityTouch?.();
+      },
       onEvent: (event) => this.handleEvent(jobId, {
         ...event,
         origin: 'transcript',
@@ -227,6 +267,14 @@ class JobSupervisor {
       activity.sourceLabel = sourceTask?.label || '';
     }
     context?.activityTouch?.();
+    if (
+      activity.isRoot
+      && activity.origin === 'transcript'
+      && activity.kind === 'assistant'
+      && activity.final === true
+    ) {
+      context.rootFinalReceived = true;
+    }
     if (activity.text) {
       const sessionRecord = sessionActivityRecord(activity);
       if (sessionRecord) {
@@ -254,6 +302,24 @@ class JobSupervisor {
         mediaReferences[index],
         activity.mediaLabels?.[index] || activity.mediaLabel,
       );
+    }
+    // Xem trước ảnh chụp màn hình: exec screen.snapshot "nạp đạn" cho job; tool
+    // image kế tiếp mang đường dẫn ảnh thật → gửi 1 ảnh mới nhất lên Discord
+    // (message cũ bị thay thế, không spam).
+    if (activity.screenSnapshot) {
+      context.screenshotArmed = true;
+    }
+    if (activity.imageFile && context?.screenshotArmed) {
+      context.screenshotArmed = false;
+      try {
+        await this.onScreenshot(this.store.getJob(jobId), activity.imageFile);
+      } catch (error) {
+        this.logger?.warn('Không gửi được ảnh chụp màn hình xem trước.', {
+          jobId,
+          name: error.name,
+          message: error.message,
+        });
+      }
     }
     await this.notifyJobChanged(jobId);
   }
@@ -447,6 +513,68 @@ class JobSupervisor {
     if (!context || context.settling) {
       return;
     }
+    if (Array.isArray(options.tasks)) {
+      return this.applyTaskSnapshot(jobId, {
+        tasks: options.tasks,
+        source: options.source || 'test',
+        latencyMs: Number(options.latencyMs) || 0,
+        at: new Date().toISOString(),
+      });
+    }
+    try {
+      await this.taskSnapshotService.refresh({
+        fresh: options.fresh !== false,
+        reason: options.reason || 'job-sync',
+      });
+    } catch {
+      // TaskSnapshotService đã ghi trạng thái degraded cho mọi job đang theo dõi.
+    }
+  }
+
+  async handleTaskSyncError(jobId, error, state = {}) {
+    const context = this.contexts.get(jobId);
+    const job = this.store.getJob(jobId);
+    if (!context || context.settling || !job || TERMINAL_JOB_STATUSES.has(job.status)) {
+      return;
+    }
+    const now = Date.now();
+    const shouldPersist = job.taskSyncState !== 'degraded'
+      || now - context.lastTaskSyncErrorAt >= 30000;
+    if (!shouldPersist) {
+      return;
+    }
+    context.lastTaskSyncErrorAt = now;
+    await this.store.updateJob(jobId, {
+      taskSyncState: 'degraded',
+    });
+    await this.notifyJobChanged(jobId);
+  }
+
+  async persistTaskSyncSuccess(jobId, context, snapshot) {
+    const job = this.store.getJob(jobId);
+    if (!job) {
+      return false;
+    }
+    const now = Date.now();
+    const stateChanged = job.taskSyncState !== 'healthy'
+      || job.taskSyncSource !== snapshot.source;
+    if (!stateChanged && now - context.lastTaskSyncPersistedAt < 15000) {
+      return false;
+    }
+    context.lastTaskSyncPersistedAt = now;
+    await this.store.updateJob(jobId, {
+      taskSyncState: 'healthy',
+      taskSyncSource: snapshot.source,
+      lastTaskSyncAt: snapshot.at || new Date(now).toISOString(),
+    });
+    return stateChanged;
+  }
+
+  async applyTaskSnapshot(jobId, snapshot) {
+    const context = this.contexts.get(jobId);
+    if (!context || context.settling) {
+      return;
+    }
     const operation = context.syncPromise.catch((error) => {
       this.logger?.error('Lần đồng bộ durable task trước đó gặp lỗi.', {
         jobId,
@@ -456,25 +584,31 @@ class JobSupervisor {
       if (context.settling || this.contexts.get(jobId) !== context) {
         return;
       }
-      let tasks;
-      try {
-        tasks = await this.taskClient.list({
-          fresh: options.fresh === true,
-          maxAgeMs: this.pollMs,
-        });
-      } catch (error) {
-        this.logger?.warn('Không đồng bộ được durable task OpenClaw.', {
-          jobId,
-          name: error.name,
-        });
-        return;
-      }
-
       let job = this.store.getJob(jobId);
       if (!job || TERMINAL_JOB_STATUSES.has(job.status)) {
         return;
       }
+      let jobChanged = await this.persistTaskSyncSuccess(jobId, context, snapshot);
+      job = this.store.getJob(jobId);
       const workersBefore = summarizeWorkers(job);
+      const knownTaskIds = new Set(Object.keys(job.tasks));
+      let snapshotIncomplete = false;
+      let taskCandidates = [...(snapshot.tasks || [])];
+      if (context.stopRequested || job.stopRequested || job.status === 'stopping') {
+        try {
+          const sessionTasks = await this.taskSnapshotService.getSessionTasks(job.rootSessionKey);
+          const byId = new Map(taskCandidates.map((task) => [task.taskId, task]));
+          for (const task of sessionTasks) {
+            byId.set(task.taskId, task);
+          }
+          taskCandidates = [...byId.values()];
+        } catch (error) {
+          snapshotIncomplete = true;
+          await this.handleTaskSyncError(jobId, error, {
+            retryInMs: this.taskSnapshotService.nextDelay(),
+          });
+        }
+      }
       const knownSessions = new Set([
         job.rootSessionKey,
         ...Object.values(job.tasks).map((task) => task.childSessionKey).filter(Boolean),
@@ -483,7 +617,7 @@ class JobSupervisor {
       let changed = true;
       while (changed) {
         changed = false;
-        for (const task of tasks) {
+        for (const task of taskCandidates) {
           if (matched.has(task.taskId) || !taskBelongsToJob(task, job, knownSessions)) {
             continue;
           }
@@ -495,25 +629,38 @@ class JobSupervisor {
         }
       }
 
+      if ([...matched.keys()].some((taskId) => !knownTaskIds.has(taskId))) {
+        context.cancelConfirmationDeadline = null;
+      }
+
       for (const task of matched.values()) {
-        await this.store.upsertTask(jobId, durableTaskRecord(task));
+        const record = durableTaskRecord(task);
+        if (taskRecordChanged(job.tasks[task.taskId], record)) {
+          await this.store.upsertTask(jobId, record);
+          jobChanged = true;
+        }
         if (task.childSessionKey && task.childSessionKey !== job.rootSessionKey) {
           await this.addSessionMonitor(jobId, task.childSessionKey, false);
         }
       }
+
+      job = this.store.getJob(jobId);
       for (const task of Object.values(job.tasks)) {
         if (!ACTIVE_TASK_STATUSES.has(task.status) || matched.has(task.taskId)) {
           continue;
         }
         try {
-          const refreshed = await this.taskClient.show(task.taskId);
-          await this.store.upsertTask(jobId, durableTaskRecord(refreshed?.task || refreshed));
-        } catch {
-          await this.store.upsertTask(jobId, durableTaskRecord({
-            ...task,
-            status: 'lost',
-            error: 'Durable task không còn xuất hiện trong OpenClaw tasks.',
-          }));
+          const refreshed = await this.taskSnapshotService.getTask(task.taskId);
+          const record = durableTaskRecord(refreshed?.task || refreshed);
+          if (taskRecordChanged(task, record)) {
+            await this.store.upsertTask(jobId, record);
+            jobChanged = true;
+          }
+        } catch (error) {
+          snapshotIncomplete = true;
+          await this.handleTaskSyncError(jobId, error, {
+            retryInMs: this.taskSnapshotService.nextDelay(),
+          });
         }
       }
       job = this.store.getJob(jobId);
@@ -522,36 +669,57 @@ class JobSupervisor {
       }
       const workersAfter = summarizeWorkers(job);
       const workerChanged = await this.recordWorkerTransitions(jobId, workersBefore, workersAfter);
+      jobChanged ||= workerChanged;
       job = this.store.getJob(jobId);
       const jobTasks = Object.values(job.tasks);
       const activeTasks = jobTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status));
+      const stopping = context.stopRequested || job.stopRequested || job.status === 'stopping';
       if (activeTasks.length) {
-        if (context.stopRequested || job.stopRequested) {
-          await this.cancelActiveTasks(context, activeTasks);
+        context.cancelConfirmationDeadline = null;
+        if (stopping) {
+          await this.ensureStoppingState(jobId, context);
+          await this.cancelActiveTasks(jobId, context, activeTasks);
+        } else {
+          const latest = this.store.getJob(jobId);
+          context.terminalDeadline = null;
+          if (context.foregroundDone && latest.status !== 'background') {
+            await this.store.updateJob(jobId, { status: 'background' });
+            jobChanged = true;
+          }
         }
-        const latest = this.store.getJob(jobId);
-        if (
-          context.settling
-          || this.contexts.get(jobId) !== context
-          || !latest
-          || TERMINAL_JOB_STATUSES.has(latest.status)
-        ) {
-          return;
-        }
-        context.terminalDeadline = null;
-        if (context.foregroundDone && latest.status !== 'background') {
-          await this.store.updateJob(jobId, { status: 'background' });
-          await this.notifyJobChanged(jobId);
-        } else if (workerChanged) {
+        if (jobChanged) {
           await this.notifyJobChanged(jobId);
         }
         return;
       }
 
-      if (workerChanged) {
-        await this.notifyJobChanged(jobId);
+      if (stopping) {
+        await this.ensureStoppingState(jobId, context);
+        if (snapshotIncomplete || !context.foregroundDone) {
+          if (jobChanged) {
+            await this.notifyJobChanged(jobId);
+          }
+          return;
+        }
+        const now = Date.now();
+        context.cancelConfirmationDeadline ||= now + this.cancelConfirmationGraceMs;
+        if (now < context.cancelConfirmationDeadline) {
+          if (jobChanged) {
+            await this.notifyJobChanged(jobId);
+          }
+          return;
+        }
+        context.cancelConfirmed = true;
+        await this.store.updateJob(jobId, {
+          cancelConfirmedAt: new Date(now).toISOString(),
+        });
+        await this.settle(jobId);
+        return;
       }
 
+      if (jobChanged) {
+        await this.notifyJobChanged(jobId);
+      }
       if (!context.foregroundDone) {
         return;
       }
@@ -562,9 +730,30 @@ class JobSupervisor {
           return;
         }
       } else {
-        context.terminalDeadline ||= now + this.terminalGraceMs;
+        // Agent đã trả lời xong (final) trong khi worker nền còn chạy → session
+        // có thể tự tiếp tục tạo task/giao MEDIA sau đó (quan sát thấy tới ~50s
+        // sau task cuối). Đợi lâu hơn để không đóng job khi agent còn continuation.
+        const continuationGrace = context.rootFinalWhileTasksActive
+          ? this.taskContinuationGraceMs
+          : this.terminalGraceMs;
+        context.terminalDeadline ||= now + continuationGrace;
         if (now < context.terminalDeadline) {
           return;
+        }
+      }
+      // Hoãn settle khi session gốc vẫn còn hoạt động mà chưa ra phản hồi cuối:
+      // durable task có thể báo failed (vd image_generate "request timed out")
+      // trong khi agent vẫn tiếp tục và phục hồi được. Chỉ settle khi session
+      // gốc im lặng đủ lâu (idleTimeoutMs) hoặc đã có phản hồi cuối.
+      if (!context.rootFinalReceived && !context.foregroundError) {
+        const lastActivityAt = context.lastRootActivityAt;
+        const rootAlive = lastActivityAt !== undefined
+          && (now - lastActivityAt) < this.idleTimeoutMs;
+        if (rootAlive) {
+          context.terminalWaitDeadline ||= now + (this.maxRuntimeMs || this.idleTimeoutMs);
+          if (now < context.terminalWaitDeadline) {
+            return;
+          }
         }
       }
       await this.settle(jobId);
@@ -581,6 +770,11 @@ class JobSupervisor {
     context.foregroundDone = true;
     context.foregroundError = result.error || null;
     context.discoveryDeadline = Date.now() + this.discoveryGraceMs;
+    const stillHasActiveTask = Object.values(this.store.getJob(jobId)?.tasks || {})
+      .some((task) => ACTIVE_TASK_STATUSES.has(task.status));
+    if (stillHasActiveTask) {
+      context.rootFinalWhileTasksActive = true;
+    }
     if (result.error) {
       await this.handleEvent(jobId, {
         kind: 'system',
@@ -591,17 +785,84 @@ class JobSupervisor {
     await this.syncTasks(jobId, { fresh: true });
   }
 
+  async ensureStoppingState(jobId, context) {
+    const job = this.store.getJob(jobId);
+    if (!job || TERMINAL_JOB_STATUSES.has(job.status)) {
+      return false;
+    }
+    const requestedAt = job.cancelRequestedAt || new Date().toISOString();
+    const requestedAtMs = Date.parse(requestedAt) || Date.now();
+    context.stopRequested = true;
+    context.cancelDeadline = requestedAtMs + this.cancelGraceMs;
+    this.taskSnapshotService.setStopping(jobId, true);
+    const changed = job.status !== 'stopping'
+      || !job.stopRequested
+      || !job.cancelRequestedAt;
+    if (changed) {
+      await this.store.updateJob(jobId, {
+        status: 'stopping',
+        stopRequested: true,
+        cancelRequestedAt: requestedAt,
+        cancelConfirmedAt: null,
+      });
+    }
+    this.scheduleCancelWarning(jobId, context);
+    return changed;
+  }
+
+  scheduleCancelWarning(jobId, context) {
+    if (context.cancelWarningTimer || context.cancelConfirmed) {
+      return;
+    }
+    const job = this.store.getJob(jobId);
+    if (!job || job.cancelWarningAt) {
+      return;
+    }
+    const waitMs = Math.max(0, Number(context.cancelDeadline) - Date.now());
+    context.cancelWarningTimer = setTimeout(() => {
+      context.cancelWarningTimer = null;
+      void (async () => {
+        const current = this.store.getJob(jobId);
+        if (
+          !current
+          || current.status !== 'stopping'
+          || context.cancelConfirmed
+          || this.contexts.get(jobId) !== context
+        ) {
+          return;
+        }
+        await this.store.updateJob(jobId, {
+          cancelWarningAt: new Date().toISOString(),
+        });
+        await this.handleEvent(jobId, {
+          kind: 'system',
+          origin: 'cancel-timeout',
+          text: '⚠️ Hủy chưa được OpenClaw xác nhận; bot vẫn tiếp tục theo dõi worker.',
+        });
+      })().catch((error) => {
+        this.logger?.warn('Không cập nhật được cảnh báo hủy chưa xác nhận.', {
+          jobId,
+          name: error.name,
+        });
+      });
+    }, waitMs);
+    context.cancelWarningTimer.unref?.();
+  }
+
   async settle(jobId) {
     const context = this.contexts.get(jobId);
     if (!context) {
       return;
     }
+    const currentJob = this.store.getJob(jobId);
+    const stopRequested = context.stopRequested
+      || currentJob?.stopRequested
+      || currentJob?.status === 'stopping';
+    if (stopRequested && !context.cancelConfirmed) {
+      return currentJob;
+    }
     if (!context.settlePromise) {
       context.settling = true;
-      if (context.pollTimer) {
-        clearInterval(context.pollTimer);
-        context.pollTimer = null;
-      }
       context.settlePromise = (async () => {
         await this.stopMonitoring(context);
         const pendingDeliveries = [...context.deliveries.values()];
@@ -616,15 +877,18 @@ class JobSupervisor {
           || /^\s*\[blocked\]/i.test(task.progressSummary || '')
         ));
         const hasFailed = tasks.some((task) => FAILED_TASK_STATUSES.has(task.status));
+        // Session gốc đã ra phản hồi cuối = agent tự quyết định kết quả; task con
+        // báo failed (vd timeout phía gateway) không còn là cơ sở đánh fail job.
+        const rootFinished = context.rootFinalReceived === true;
         let status = 'completed';
         let terminalReason = '';
-        const stopRequested = context.stopRequested
+        const shouldStop = context.stopRequested
           || job.stopRequested
-          || (job.status === 'background' && job.terminalReason === 'Đã dừng theo yêu cầu người dùng.');
-        if (stopRequested) {
+          || job.status === 'stopping';
+        if (shouldStop) {
           status = 'stopped';
           terminalReason = 'Đã dừng theo yêu cầu người dùng.';
-        } else if (hasBlocked || (hasFailed && counts.total > 0)) {
+        } else if (hasBlocked || (hasFailed && !rootFinished && counts.total > 0)) {
           status = 'completed_with_blocker';
           terminalReason = sanitizeInline(
             context.explicitBlocker
@@ -632,7 +896,7 @@ class JobSupervisor {
             || tasks.find((task) => task.error)?.error
             || 'Có task con gặp blocker.',
           );
-        } else if (hasFailed) {
+        } else if (hasFailed && !rootFinished) {
           status = 'failed';
           terminalReason = 'OpenClaw không hoàn tất được yêu cầu.';
         } else if (context.foregroundError && tasks.length === 0 && counts.total === 0) {
@@ -644,7 +908,10 @@ class JobSupervisor {
         await this.store.updateJob(jobId, {
           status,
           terminalReason,
-          stopRequested,
+          stopRequested: shouldStop,
+          ...(shouldStop && !job.cancelConfirmedAt
+            ? { cancelConfirmedAt: new Date().toISOString() }
+            : {}),
         });
         const terminalEvents = {
           completed: '✅ Job đã hoàn tất toàn bộ công việc.',
@@ -659,6 +926,12 @@ class JobSupervisor {
         });
         this.contexts.delete(jobId);
         await this.notifyJobChanged(jobId);
+        if (shouldStop && job.cancelRequestedAt) {
+          this.logger?.info('OpenClaw đã xác nhận dừng job.', {
+            jobId,
+            cancelConfirmMs: Math.max(0, Date.now() - Date.parse(job.cancelRequestedAt)),
+          });
+        }
         context.settleResolve(this.store.getJob(jobId));
       })();
     }
@@ -666,10 +939,12 @@ class JobSupervisor {
   }
 
   async stopMonitoring(context) {
-    if (context.pollTimer) {
-      clearInterval(context.pollTimer);
-      context.pollTimer = null;
+    if (context.cancelWarningTimer) {
+      clearTimeout(context.cancelWarningTimer);
+      context.cancelWarningTimer = null;
     }
+    context.removeTaskSubscription?.();
+    context.removeTaskSubscription = null;
     for (const monitor of context.monitors.values()) {
       await monitor.stop();
     }
@@ -690,32 +965,44 @@ class JobSupervisor {
     if (!job || TERMINAL_JOB_STATUSES.has(job.status)) {
       return job;
     }
-    await this.store.updateJob(jobId, { stopRequested: true });
+    const firstRequest = !job.stopRequested && job.status !== 'stopping';
     const context = await this.watchJob(jobId, { recovered: true });
-    context.stopRequested = true;
-    context.cancelDeadline = Date.now() + this.cancelGraceMs;
-    await this.syncTasks(jobId, { fresh: true });
+    await this.ensureStoppingState(jobId, context);
+    await this.syncTasks(jobId, { fresh: true, reason: 'cancel' });
     const activeTasks = Object.values(this.store.getJob(jobId).tasks)
       .filter((task) => ACTIVE_TASK_STATUSES.has(task.status));
-    await this.cancelActiveTasks(context, activeTasks);
-    const timer = setTimeout(() => void this.settle(jobId), this.cancelGraceMs);
-    timer.unref?.();
-    await this.handleEvent(jobId, {
-      kind: 'system',
-      origin: 'command',
-      text: '⏹ Đã yêu cầu OpenClaw hủy toàn bộ durable task của job.',
-    });
+    await this.cancelActiveTasks(jobId, context, activeTasks);
+    if (firstRequest) {
+      await this.handleEvent(jobId, {
+        kind: 'system',
+        origin: 'command',
+        text: '⏹ Đã gửi yêu cầu hủy; bot đang chờ OpenClaw xác nhận toàn bộ worker đã dừng.',
+      });
+    } else {
+      await this.notifyJobChanged(jobId);
+    }
     return this.store.getJob(jobId);
   }
 
-  async cancelActiveTasks(context, tasks) {
-    const taskIds = tasks
-      .map((task) => task.taskId)
-      .filter((taskId) => taskId && !context.cancelRequestedTaskIds.has(taskId));
-    for (const taskId of taskIds) {
-      context.cancelRequestedTaskIds.add(taskId);
-    }
-    await Promise.allSettled(taskIds.map((taskId) => this.taskClient.cancel(taskId)));
+  async cancelActiveTasks(jobId, context, tasks) {
+    const now = Date.now();
+    const candidates = tasks.filter((task) => {
+      const lastRequestedAt = context.cancelRequestedTaskIds.get(task.taskId) || 0;
+      return task.taskId && now - lastRequestedAt >= this.cancelRetryMs;
+    });
+    await Promise.allSettled(candidates.map(async (task) => {
+      context.cancelRequestedTaskIds.set(task.taskId, now);
+      try {
+        const result = await this.taskClient.cancel(task.taskId);
+        if (result?.task) {
+          await this.store.upsertTask(jobId, durableTaskRecord(result.task));
+        }
+        return result;
+      } catch (error) {
+        context.cancelRequestedTaskIds.delete(task.taskId);
+        throw error;
+      }
+    }));
   }
 
   async recoverJob(jobId, signal, options = {}) {
@@ -727,6 +1014,10 @@ class JobSupervisor {
       await this.store.updateJob(jobId, {
         status: 'recovering',
         terminalReason: '',
+        stopRequested: false,
+        cancelRequestedAt: null,
+        cancelConfirmedAt: null,
+        cancelWarningAt: null,
       });
       job = this.store.getJob(jobId);
     }
@@ -734,6 +1025,10 @@ class JobSupervisor {
     await this.syncTasks(jobId, { fresh: true });
     let current = this.store.getJob(jobId);
     if (!current || TERMINAL_JOB_STATUSES.has(current.status) || context.settling) {
+      return context.settled;
+    }
+    if (current.stopRequested || current.status === 'stopping' || context.stopRequested) {
+      await this.ensureStoppingState(jobId, context);
       return context.settled;
     }
     if (Object.values(current.tasks).some((task) => ACTIVE_TASK_STATUSES.has(task.status))) {
@@ -841,6 +1136,11 @@ class JobSupervisor {
       results.push(await this.deliverArtifact(jobId, artifact.id, { force }));
     }
     return results;
+  }
+
+  async close() {
+    await Promise.allSettled([...this.contexts.keys()].map((jobId) => this.closeContext(jobId)));
+    this.taskSnapshotService.close();
   }
 
   waitForSettled(jobId) {

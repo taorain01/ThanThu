@@ -8,12 +8,19 @@ const JOB_STATUSES = new Set([
   'running',
   'background',
   'recovering',
+  'stopping',
   'completed',
   'completed_with_blocker',
   'failed',
   'stopped',
 ]);
-const ACTIVE_JOB_STATUSES = new Set(['queued', 'running', 'background', 'recovering']);
+const ACTIVE_JOB_STATUSES = new Set([
+  'queued',
+  'running',
+  'background',
+  'recovering',
+  'stopping',
+]);
 
 class JobStoreError extends Error {
   constructor(message, cause) {
@@ -37,6 +44,32 @@ function validateState(state) {
   for (const [jobId, job] of Object.entries(state.jobs)) {
     if (job && job.stopRequested === undefined) {
       job.stopRequested = false;
+    }
+    if (
+      job
+      && (job.stopRequested || job.terminalReason === 'Đã dừng theo yêu cầu người dùng.')
+      && ['running', 'background', 'recovering'].includes(job.status)
+    ) {
+      job.stopRequested = true;
+      job.status = 'stopping';
+    }
+    if (job && job.cancelRequestedAt === undefined) {
+      job.cancelRequestedAt = null;
+    }
+    if (job && job.cancelConfirmedAt === undefined) {
+      job.cancelConfirmedAt = null;
+    }
+    if (job && job.cancelWarningAt === undefined) {
+      job.cancelWarningAt = null;
+    }
+    if (job && job.taskSyncState === undefined) {
+      job.taskSyncState = 'idle';
+    }
+    if (job && job.lastTaskSyncAt === undefined) {
+      job.lastTaskSyncAt = null;
+    }
+    if (job && job.taskSyncSource === undefined) {
+      job.taskSyncSource = null;
     }
     if (job && job.responseSentAt === undefined) {
       job.responseSentAt = null;
@@ -140,6 +173,12 @@ class JobStore {
         events: [],
         recoveryCount: 0,
         stopRequested: false,
+        cancelRequestedAt: null,
+        cancelConfirmedAt: null,
+        cancelWarningAt: null,
+        taskSyncState: 'idle',
+        lastTaskSyncAt: null,
+        taskSyncSource: null,
         responseSent: false,
         responseSentAt: null,
         requestFingerprint: null,

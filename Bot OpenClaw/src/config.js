@@ -99,10 +99,12 @@ function loadConfig(env = process.env) {
       'OPENCLAW_BACKEND_MODEL_9ROUTER',
       '9router/cx/gpt-5.6-sol',
     ),
+    // Mặc định phải là tag Ollama ĐANG tồn tại: tag cũ (qwen3:8b) đã bị xoá nên
+    // gateway trả 404 khi profile local không có OPENCLAW_BACKEND_MODEL_LOCAL.
     local: parseBackendModel(
       env.OPENCLAW_BACKEND_MODEL_LOCAL,
       'OPENCLAW_BACKEND_MODEL_LOCAL',
-      'ollama/qwen3:8b',
+      'ollama/qwen3.5:9b',
     ),
     opus: parseBackendModel(
       env.OPENCLAW_BACKEND_MODEL_OPUS,
@@ -155,11 +157,32 @@ function loadConfig(env = process.env) {
       500,
       60000,
     ),
+    taskRpcTimeoutMs: parseInteger(
+      env.OPENCLAW_TASK_RPC_TIMEOUT_MS || '5000',
+      'OPENCLAW_TASK_RPC_TIMEOUT_MS',
+      1000,
+      60000,
+    ),
+    cancelWarningMs: parseInteger(
+      env.OPENCLAW_CANCEL_WARNING_MS || '120000',
+      'OPENCLAW_CANCEL_WARNING_MS',
+      1000,
+      3600000,
+    ),
     jobHeartbeatMs: parseInteger(
       env.OPENCLAW_JOB_HEARTBEAT_MS || '60000',
       'OPENCLAW_JOB_HEARTBEAT_MS',
       10000,
       3600000,
+    ),
+    // Chờ thêm sau khi durable task cuối kết thúc nếu agent đã trả lời xong mà
+    // worker nền vẫn còn chạy: session OpenClaw tự tiếp tục công việc sau đó
+    // (tạo task mới / giao MEDIA), settle sớm sẽ bỏ lỡ toàn bộ phần còn lại.
+    taskContinuationGraceMs: parseInteger(
+      env.OPENCLAW_TASK_CONTINUATION_GRACE_MS || '90000',
+      'OPENCLAW_TASK_CONTINUATION_GRACE_MS',
+      30000,
+      600000,
     ),
     statusUpdateDebounceMs: parseInteger(
       env.OPENCLAW_STATUS_UPDATE_DEBOUNCE_MS || '1000',

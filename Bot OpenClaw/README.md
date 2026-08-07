@@ -33,28 +33,31 @@ Workflow ảnh dùng asset logo thật thay vì yêu cầu model tự vẽ lại
 node "C:\Bot Discord\scripts\apply-channel-logo.js" --input "<master.png>" --logo "<logo.png>" --output "<final.png>" --width-percent 14 --top-percent 2.2
 ```
 
-Dùng `--dry-run` để kiểm tra vị trí và xem `contrastEstimate` (tương phản logo trắng trên nền thực tế, PASS khi ≥ 3), `--shadow-strength 0.5–5` để chỉnh độ đậm bóng đổ khi nền sáng (mặc định 2), `--no-shadow` để tắt bóng và `--overwrite` khi chủ động thay file final cũ. Chế độ overwrite giữ bản cũ tạm thời và tự phục hồi nếu bước thay file gặp lỗi.
+Dùng `--dry-run` để kiểm tra vị trí và xem `contrastEstimate` (tương phản logo trắng trên nền thực tế, PASS khi ≥ 3), `--shadow-strength 0.5–5` để chỉnh độ đậm halo khi nền sáng (mặc định 2), `--no-shadow` để tắt halo và `--overwrite` khi chủ động thay file final cũ. Chế độ overwrite giữ bản cũ tạm thời và tự phục hồi nếu bước thay file gặp lỗi.
+
+Lớp tối phía sau logo là **halo mềm bao quanh đều**, không phải drop-shadow lệch hướng: blur tính theo chiều cao logo và không có offset, nên nó chỉ tách logo khỏi nền sáng chứ không đọc ra như vệt bóng đen. Alpha bị chặn trần thấp để ngay ở `--shadow-strength 5` cũng không có pixel nào tối đi quá 60/255 — ngưỡng mà halo bắt đầu trông như khối đen bám dưới chữ.
 
 OpenClaw không cần cài Discord channel native để dùng sender này. Prompt hệ thống của bridge yêu cầu agent dùng script cục bộ thay cho tool `message` khi người dùng chỉ định tên hoặc ID channel. Bot cũng bỏ qua placeholder kỹ thuật `No response from OpenClaw.` và tiếp tục chờ transcript khi durable task vẫn hoàn tất ở nền.
 
 ## Lệnh Discord
 
-- `> openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
-- `> openclaw status`: mở dashboard embed gồm Gateway, channel/model/session, scheduler, job, media và cảnh báo quyền.
-- `> openclaw jobs`: liệt kê 10 job gần nhất cùng ID và trạng thái.
-- `> openclaw model local`: chuyển riêng channel hiện tại sang model Ollama local.
-- `> openclaw model 9router`: chuyển riêng channel hiện tại về model qua 9Router.
-- `> openclaw resend [job-id] [all|số]`: gửi các file chưa delivery hoặc chủ động gửi lại một file đã delivery.
-- `> openclaw resume [job-id]`: khôi phục an toàn job đã dừng, thất bại hoặc hoàn tất có blocker.
-- `> openclaw reset`: ngắt hàng đợi và tạo phiên mới chỉ cho channel hiện tại.
-- `> openclaw stop [job-id|all]`: abort request cha, gọi `openclaw tasks cancel` và giữ khóa điều khiển cho tới khi task dừng hoặc hết cửa sổ xác nhận 2 phút.
-- `> openclaw off`: tắt tương tác chỉ trong channel hiện tại.
+- `. openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
+- `. openclaw status`: mở dashboard embed gồm Gateway, channel/model/session, scheduler, job, media và cảnh báo quyền.
+- `. openclaw jobs`: liệt kê 10 job gần nhất cùng ID và trạng thái.
+- `. openclaw model local`: chuyển riêng channel hiện tại sang model Ollama local.
+- `. openclaw model 9router`: chuyển riêng channel hiện tại về model qua 9Router.
+- `. openclaw resend [job-id] [all|số]`: gửi các file chưa delivery hoặc chủ động gửi lại một file đã delivery.
+- `. openclaw resume [job-id]`: khôi phục an toàn job đã dừng, thất bại hoặc hoàn tất có blocker.
+- `. openclaw reset`: ngắt hàng đợi và tạo phiên mới chỉ cho channel hiện tại.
+- `. openclaw stop [job-id|all]`: abort request cha, gọi `openclaw tasks cancel` và giữ khóa điều khiển cho tới khi task dừng hoặc hết cửa sổ xác nhận 2 phút.
+- `. openclaw off`: tắt tương tác chỉ trong channel hiện tại.
 
 Alias ngắn:
 
-- `> o` hoặc `> o status`: mở dashboard trạng thái trực tiếp, tương đương `> openclaw status`.
-- `> o stop [job-id|all]`: dừng trực tiếp, tương đương `> openclaw stop [job-id|all]`; vẫn hỗ trợ dạng cũ `> o s`.
-- `> o m [local|9router]`: tương đương `> openclaw model [local|9router]`.
+- `. o` hoặc `. o status`: mở dashboard trạng thái trực tiếp, tương đương `. openclaw status`.
+- `. o stop [job-id|all]`: dừng trực tiếp, tương đương `. openclaw stop [job-id|all]`; vẫn hỗ trợ dạng cũ `. o s`.
+- `. o m`: mở bảng chọn model **3 cấp** — chọn nhóm (**Claude** / **9router** / **local** / **opus**) trước, bấm vào nhóm Claude để chọn profile app (Tuat, Ying, BBDEV…), bấm vào profile để chọn model (opus/sonnet/haiku + mọi model của backend); nhóm 9router/local/opus hiển thị thẳng mọi model của backend đó (vd local có gemma4:e4b, qwen3.5:27b…). Nút ◀/▶ lật trang khi quá 25 lựa chọn, nút ← quay lại cấp trước.
+- `. o m <tên profile | model-id>`: chuyển thẳng theo tên/slug profile app, theo `local|9router` (hoặc model thật của profile cứng), hoặc theo ID model bất kỳ trong danh mục (vd `. o m claude-opus-4-6`, `. o m ollama/qwen3.5:4b`); `. o m refresh` làm mới cache danh mục.
 
 Sau khi bật một kênh, mọi tin nhắn của Discord User ID nằm trong `DISCORD_ALLOWED_USER_IDS` ở kênh đó sẽ được chuyển tới OpenClaw. Có thể bật nhiều text channel cùng lúc và mỗi channel giữ session generation riêng. Scheduler cho phép các session khác nhau chạy song song, còn tin nhắn trong cùng một session luôn chạy tuần tự để không đảo thứ tự hội thoại. Bot bỏ qua DM, bot khác, webhook, server khác và người dùng không được phép.
 
@@ -64,23 +67,30 @@ Mỗi lượt OpenClaw dùng idle timeout mặc định 30 phút và thời lư�
 
 Trong lúc OpenClaw làm việc, bot cập nhật task, tool call, kết quả tool, context và trạng thái worker ngay trong status embed, kèm heartbeat mỗi 60 giây; các bước này không còn tạo chuỗi chat thường. Mỗi session phụ có một embed riêng được cập nhật tại chỗ và lưu message ID để tiếp tục dùng sau khi bot khởi động lại. Trước khi gửi phản hồi chính dưới dạng chat thường, bot cập nhật status trước nên câu trả lời luôn nằm mới nhất ở cuối kênh. Trong 2 phút tiếp theo, hoạt động nền chỉ ghi đè vào status cũ để giữ câu trả lời ở cuối; nếu sau 2 phút vẫn có task mới, status được tạo lại ở cuối channel rồi xóa bản cũ. Phản hồi final của phiên chính vẫn đi qua cổng delivery chống gửi trùng. Embed hiển thị context chính xác của session theo số token đầy đủ, ưu tiên snapshot fresh của OpenClaw và fallback về usage provider gần nhất trong transcript; số estimate không được trình bày như usage chính xác. Nếu status của job đang chạy bị tin nhắn người dùng đẩy lên trên, bot tạo bản cập nhật ở cuối channel rồi xóa bản cũ. Bot theo dõi transcript của phiên cha cùng mọi session con, kể cả assistant text có `stopReason: toolUse`, `stopReason: stop` hoặc có nội dung trước khi run bị abort. Chỉ dòng rõ ràng `MEDIA:<đường dẫn tuyệt đối>` mới được xem là thành phẩm; tham số của tool `image` và screenshot kiểm tra nội bộ không bao giờ tự gửi. Mỗi file hợp lệ được gửi ngay khi xuất hiện, không chờ đủ cả lô.
 
-Trạng thái job, transcript offset, hoạt động và message ID của session phụ, request fingerprint, thời điểm gửi phản hồi, durable task và delivery ledger được lưu nguyên tử tại `data/jobs.json`. Cursor tin nhắn Discord được lưu riêng theo từng kênh, vì vậy khi tiến trình bot khởi động lại, bot giữ nguyên session OpenClaw và quét bù các chat thường được gửi trong lúc offline; lệnh cũ không được tự phát lại. Bộ theo dõi transcript sống theo thời lượng tối đa của request thay vì tự dừng ở phút thứ 5. Bot cũng dò đúng user message trong transcript và gửi nốt phản hồi final chưa delivery của cả job đang chạy lẫn job terminal thất bại trước khi cân nhắc chạy recovery prompt. Task còn chạy được reattach; task đã xong được quét nốt artifact chưa gửi; task bị mất chỉ được tự khôi phục một lần sau prompt xác minh UI. Nếu không chắc chắn, job kết thúc có blocker thay vì gửi lại prompt mù quáng.
+Khi OpenClaw chạy `screen.snapshot` rồi dùng tool `image` phân tích ảnh, bot gửi ảnh đó lên Discord để người dùng xem theo thời gian thực — nhưng mỗi job chỉ giữ **1 message ảnh duy nhất**: ảnh mới nhất edit thay thế ảnh cũ (không spam chuỗi ảnh). Chỉ chấp nhận file ảnh png/jpg/jpeg/webp nằm trong OpenClaw workspace/media dưới 10 MB; ảnh ngoài allowlist bị bỏ qua im lặng. Message này độc lập với status embed và thành phẩm `MEDIA:`.
+
+Trạng thái job, transcript offset, hoạt động và message ID của session phụ, request fingerprint, thời điểm gửi phản hồi, durable task và delivery ledger được lưu nguyên tử tại `data/jobs.json`. Cursor tin nhắn Discord được lưu riêng theo từng kênh, vì vậy khi tiến trình bot khởi động lại, bot giữ nguyên session OpenClaw và quét bù các chat thường được gửi trong lúc offline; lệnh cũ không được tự phát lại. Bộ theo dõi transcript sống theo thời lượng tối đa của request thay vì tự dừng ở phút thứ 5. Bot cũng dò đúng user message trong transcript và gửi nốt phản hồi final chưa delivery của cả job đang chạy lẫn job terminal thất bại trước khi cân nhắc chạy recovery prompt. Task còn chạy được reattach; task đã xong được quét nốt artifact chưa gửi. Nếu RPC không xác minh được task từng đang chạy, bot giữ trạng thái cuối đã biết và báo đồng bộ degraded thay vì tự đánh dấu `lost`, tự recovery hoặc kết thúc job mù quáng.
+
+Lệnh `. o stop` chuyển job sang `stopping` và gửi `tasks.cancel` cho mọi worker đã biết. Mốc cảnh báo mặc định 120 giây chỉ đổi nội dung embed thành “Hủy chưa được OpenClaw xác nhận”; bot vẫn giữ khóa session và theo dõi tiếp. Chỉ khi request cha đã kết thúc, mọi worker đã biết có trạng thái terminal và không xuất hiện task con mới trong cửa sổ xác nhận 10 giây thì job mới chuyển sang `stopped`.
 
 ## Cấu hình
 
-Sao chép `.env.example` thành `.env` và điền hai token. `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính. `OPENCLAW_MEDIA_SOURCE_ROOTS` là danh sách thư mục tuyệt đối phân tách bằng dấu `;`; không cho phép dùng trực tiếp gốc ổ đĩa. `OPENCLAW_BACKEND_MODEL_9ROUTER` và `OPENCLAW_BACKEND_MODEL_LOCAL` đặt model thật tương ứng với hai lệnh chuyển model; `OPENCLAW_MODEL` vẫn phải giữ target Gateway như `openclaw/default`. `OPENCLAW_MAX_CONCURRENT_SESSIONS` mặc định là `2`; giảm về `1` nếu nhiều job cùng điều khiển chung một desktop, chuột, bàn phím hoặc cùng một profile trình duyệt. `OPENCLAW_STREAM_UPDATE_MS` mặc định `2000` ms, giới hạn tần suất cập nhật phần xem trước phản hồi trong status embed.
+Sao chép `.env.example` thành `.env` và điền hai token. `DISCORD_PREFIX` đặt ký tự đầu của mọi lệnh bot (mặc định `>`, bản cài này dùng `.` nên lệnh có dạng `. o m`). `OPENCLAW_BASE_URL` bị giới hạn cứng ở HTTP loopback để tránh vô tình công khai quyền điều khiển máy tính. `OPENCLAW_MEDIA_SOURCE_ROOTS` là danh sách thư mục tuyệt đối phân tách bằng dấu `;`; không cho phép dùng trực tiếp gốc ổ đĩa. `OPENCLAW_BACKEND_MODEL_9ROUTER` và `OPENCLAW_BACKEND_MODEL_LOCAL` đặt model thật tương ứng với hai lệnh chuyển model; `OPENCLAW_MODEL` vẫn phải giữ target Gateway như `openclaw/default`. `OPENCLAW_MAX_CONCURRENT_SESSIONS` mặc định là `2`; giảm về `1` nếu nhiều job cùng điều khiển chung một desktop, chuột, bàn phím hoặc cùng một profile trình duyệt. `OPENCLAW_STREAM_UPDATE_MS` mặc định `2000` ms, giới hạn tần suất cập nhật phần xem trước phản hồi trong status embed. `OPENCLAW_JOB_POLL_MS` là chu kỳ đồng bộ chung cho toàn bot, không còn tạo một CLI poll riêng cho từng job. `OPENCLAW_TASK_RPC_TIMEOUT_MS` giới hạn mỗi lần gọi Admin HTTP RPC; `OPENCLAW_CANCEL_WARNING_MS` chỉ quyết định lúc hiển thị cảnh báo hủy chưa xác nhận, không tự kết thúc job.
 
 OpenClaw cần bật Chat Completions API:
 
 ```powershell
 & "$env:APPDATA\npm\openclaw.cmd" config set gateway.http.endpoints.chatCompletions.enabled true --strict-json
+& "$env:APPDATA\npm\openclaw.cmd" plugins enable admin-http-rpc
 & "$env:APPDATA\npm\openclaw.cmd" config validate
 & "$env:APPDATA\npm\openclaw.cmd" gateway restart
 ```
 
 Bot dùng một session và lựa chọn model riêng cho từng channel. Lệnh đổi model không thay đổi job đang chạy; model mới áp dụng từ yêu cầu tiếp theo và được lưu cùng job để quá trình recovery tiếp tục đúng provider. Tối đa `OPENCLAW_MAX_CONCURRENT_SESSIONS` session khác nhau chạy đồng thời; mỗi session chỉ chạy một yêu cầu tại một thời điểm. `OPENCLAW_MAX_PENDING` là tổng số yêu cầu đang chờ trên toàn bot. Các lệnh `status`, `jobs`, `model`, `stop`, `resume` và `resend` được xử lý ngay trong chat Discord, không phải đợi scheduler.
 
-Bot tự đồng bộ profile đang kích hoạt trong app **Claude Profile Switcher** (`~/.claude/settings.json`): khi app kích hoạt profile mới, bot đọc Base URL + API Key + model Opus của profile, đối chiếu với providers trong `~/.openclaw/openclaw.json` rồi tự đổi model cho kênh (chỉ khi fingerprint profile thay đổi nên không đè lệnh chọn model thủ công). Base URL khớp provider anthropic → model `anthropic/<opus_model>`; khớp 9router/ollama → về profile cứng tương ứng. Kênh chưa khớp provider nào (key khác) được giữ nguyên và ghi log cảnh báo. Lệnh `> o m` hiển thị dòng "🔄 Đã tự đồng bộ từ Claude Profile Switcher" khi có thay đổi.
+Bot tự đồng bộ profile đang kích hoạt trong app **Claude Profile Switcher** (`~/.claude/settings.json`): khi app kích hoạt profile mới, bot đọc Base URL + API Key + model Opus của profile, đối chiếu với providers trong `~/.openclaw/openclaw.json` rồi tự đổi model cho kênh (chỉ khi fingerprint profile thay đổi nên không đè lệnh chọn model thủ công). Base URL khớp provider anthropic → model `anthropic/<opus_model>`; khớp 9router/ollama → về profile cứng tương ứng. Kênh chưa khớp provider nào (key khác) được giữ nguyên và ghi log cảnh báo. Lệnh `. o m` hiển thị dòng "🔄 Đã tự đồng bộ từ Claude Profile Switcher" khi có thay đổi.
+
+Bảng chọn `. o m` chia 3 cấp để tránh giới hạn 25 options/menu của Discord: cấp 1 là nhóm (Claude gom profile app + từng profile cứng), cấp 2 là profile app (nhóm Claude) hoặc model của backend (nhóm cứng), cấp 3 là model của profile. Model được gom từ: model opus/sonnet/haiku khai báo trong từng profile app, toàn bộ model mà mỗi backend proxy trả về (gọi `/models` hoặc `/v1/models`, cache 5 phút — gồm cả ollama local và 9router) và model khai báo của profile cứng. Mỗi model được chọn qua provider tương ứng (`capp-<slug>/<model>`, `ollama/<model>`, `9router/<model>`, `anthropic/<model>` — route `*` đã đăng ký trong `openclaw.json`) nên chọn được model của backend chưa kích hoạt; backend offline chỉ bị bỏ qua, profile vẫn giữ model khai báo.
 
 ## Discord Developer Portal
 

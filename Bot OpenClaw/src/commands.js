@@ -11,6 +11,7 @@ const VALID_ACTIONS = new Set([
   'stop',
   'off',
   'restartoc',
+  'resetbot',
 ]);
 
 function escapeRegExp(value) {
@@ -46,6 +47,9 @@ function parseCommand(content, prefix) {
       rsoc: 'restartoc',
       restartoc: 'restartoc',
       restart: 'restartoc',
+      resetbot: 'resetbot',
+      rb: 'resetbot',
+      rs: 'resetbot',
     }[parts.shift().toLowerCase()];
     if (!action) {
       return null;

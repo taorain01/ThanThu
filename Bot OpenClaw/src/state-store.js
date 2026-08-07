@@ -223,6 +223,41 @@ class StateStore {
     return { channelId, ...previous };
   }
 
+  // Áp dụng model/profile cho TOÀN BỘ kênh đang bật (mỗi kênh = một session
+  // OpenClaw). Ghi một lần duy nhất thay vì save mỗi kênh. Kênh tắt không đổi.
+  async setModelForAllChannels(guildId, { customModel = null, modelProfile = null } = {}) {
+    const guild = this.state.guilds[guildId];
+    if (!guild) {
+      return [];
+    }
+    if (modelProfile !== null && !MODEL_PROFILES.has(modelProfile)) {
+      throw new StateStoreError('Profile model không hợp lệ.');
+    }
+    if (customModel !== null && (typeof customModel !== 'string' || !customModel.trim())) {
+      throw new StateStoreError('Tên model không hợp lệ.');
+    }
+    const updated = [];
+    for (const [channelId, entry] of Object.entries(guild.channels)) {
+      if (!entry.enabled) {
+        continue;
+      }
+      if (customModel) {
+        entry.customModel = customModel.trim();
+      } else {
+        delete entry.customModel;
+      }
+      if (modelProfile !== null) {
+        entry.modelProfile = modelProfile;
+      }
+      entry.updatedAt = this.now().toISOString();
+      updated.push(channelId);
+    }
+    if (updated.length > 0) {
+      await this.save();
+    }
+    return updated;
+  }
+
   async setAppProfileFingerprint(guildId, channelId, fingerprint) {
     const previous = this.state.guilds[guildId]?.channels?.[channelId];
     if (!previous?.enabled) {

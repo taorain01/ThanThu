@@ -137,12 +137,29 @@ test('dựng chuỗi embed phản hồi có nhận diện, phân trang và giớ
   }
 });
 
+test('embed phản hồi hiển thị model đã dùng trong footer', () => {
+  const embeds = buildResponseEmbeds('Trả lời bình thường.', {
+    jobId: '123456789012345678',
+    model: 'Tuat 1 ngay (capp-tuat-1-ngay/claude-opus-5)',
+    timestamp: '2026-08-01T01:02:03.000Z',
+  });
+  assert.equal(embeds.length, 1);
+  const data = embeds[0].toJSON();
+  assert.equal(data.footer.text, 'Job 123456789012345678 • Model: Tuat 1 ngay (capp-tuat-1-ngay/claude-opus-5) • Phần 1/1');
+  assertEmbedLimits(embeds[0]);
+
+  // Không truyền model → footer giữ định dạng cũ
+  const plain = buildResponseEmbeds('Trả lời bình thường.', { jobId: '123456789012345678' })[0].toJSON();
+  assert.equal(plain.footer.text, 'Job 123456789012345678 • Phần 1/1');
+});
+
 test('dựng embed hợp lệ cho mọi trạng thái job', () => {
   const statuses = [
     'queued',
     'running',
     'background',
     'recovering',
+    'stopping',
     'completed',
     'completed_with_blocker',
     'failed',
@@ -278,10 +295,19 @@ test('mô tả hợp lý khi job chưa có worker', () => {
   const queued = buildJobStatusEmbed(createJob('queued', { tasks: {} })).toJSON();
   const running = buildJobStatusEmbed(createJob('running', { tasks: {} })).toJSON();
   const background = buildJobStatusEmbed(createJob('background', { tasks: {} })).toJSON();
+  const stopping = buildJobStatusEmbed(createJob('stopping', {
+    tasks: {},
+    stopRequested: true,
+    cancelWarningAt: '2026-08-01T01:00:00.000Z',
+    taskSyncState: 'degraded',
+  })).toJSON();
 
   assert.match(queued.fields.find((field) => field.name.includes('Task hiện tại')).value, /Chưa khởi chạy/);
   assert.match(running.fields.find((field) => field.name.includes('Task hiện tại')).value, /Agent chính đang xử lý/);
   assert.match(background.fields.find((field) => field.name.includes('Task hiện tại')).value, /Đang tổng hợp kết quả/);
+  assert.match(stopping.title, /Đang hủy worker/);
+  assert.match(stopping.fields.find((field) => field.name.includes('Task hiện tại')).value, /Hủy chưa được/);
+  assert.ok(stopping.fields.some((field) => field.name.includes('Đồng bộ worker')));
 });
 
 test('rút gọn nhật ký và kết quả dài mà không vượt giới hạn field', () => {

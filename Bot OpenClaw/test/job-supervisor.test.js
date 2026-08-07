@@ -6,7 +6,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { JobStore } = require('../src/job-store');
-const { JobSupervisor } = require('../src/job-supervisor');
+const { JobSupervisor, TERMINAL_JOB_STATUSES } = require('../src/job-supervisor');
 const { stageMediaReference } = require('../src/response-media');
 
 const PNG_BYTES = Buffer.from(
@@ -58,6 +58,11 @@ async function createFixture(t, name) {
 function createTaskClient(tasksRef, cancelled = []) {
   return {
     list: async () => tasksRef.value.map((task) => ({ ...task })),
+    listForSession: async (sessionKey) => tasksRef.value.filter((task) => (
+      task.requesterSessionKey === sessionKey
+      || task.ownerKey === sessionKey
+      || task.childSessionKey === sessionKey
+    )).map((task) => ({ ...task })),
     show: async (taskId) => {
       const task = tasksRef.value.find((item) => item.taskId === taskId);
       if (!task) {
@@ -87,7 +92,10 @@ function createSupervisor(fixture, store, tasksRef, sendArtifact, overrides = {}
     pollMs: 60000,
     discoveryGraceMs: overrides.discoveryGraceMs ?? 0,
     terminalGraceMs: overrides.terminalGraceMs ?? 0,
+    taskContinuationGraceMs: overrides.taskContinuationGraceMs ?? 0,
     cancelGraceMs: overrides.cancelGraceMs ?? 10,
+    cancelConfirmationGraceMs: overrides.cancelConfirmationGraceMs ?? 0,
+    cancelRetryMs: overrides.cancelRetryMs ?? 0,
     retryDelaysMs: overrides.retryDelaysMs ?? [],
     idleTimeoutMs: 1000,
     maxRuntimeMs: 5000,
@@ -371,7 +379,7 @@ test('delivery thất bại sau ba lần vẫn giữ ready và stop gọi task c
   assert.equal((await supervisor.waitForSettled(job.id)).status, 'stopped');
 });
 
-test('recovery task bị mất chỉ chạy một lần và chuyển [blocked] đúng trạng thái', async (t) => {
+test('task từng chạy nhưng không truy vấn được vẫn giữ last-known và không recovery mù quáng', async (t) => {
   const fixture = await createFixture(t, 'bot-openclaw-recover-blocked');
   const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:7';
   await writeSessionIndex(fixture, rootSessionKey, rootSessionKey);
@@ -388,28 +396,27 @@ test('recovery task bị mất chỉ chạy một lần và chuyển [blocked] �
     createdAt: Date.now(),
   });
   let recoveryCalls = 0;
-  let recoveryArgs;
   const supervisor = createSupervisor(fixture, store, { value: [] }, async () => 'unused', {
     terminalGraceMs: 50,
     openclaw: {
-      chat: async (args) => {
+      chat: async () => {
         recoveryCalls += 1;
-        recoveryArgs = args;
-        return '[blocked] Không xác minh được C:\\Users\\songt\\checkpoint.json với sk-secretsecretsecret';
+        return 'không được gọi';
       },
     },
   });
 
-  const settled = await supervisor.recoverJob(job.id);
-  assert.equal(recoveryCalls, 1);
-  assert.equal(recoveryArgs.backendModel, 'ollama/qwen3:8b');
-  assert.equal(settled.recoveryCount, 1);
-  assert.equal(settled.status, 'completed_with_blocker');
-  assert.equal(settled.terminalReason.includes('checkpoint.json'), false);
-  assert.equal(settled.terminalReason.includes('sk-secret'), false);
-
-  await supervisor.recoverJob(job.id);
-  assert.equal(recoveryCalls, 1);
+  await supervisor.watchJob(job.id, { recovered: true });
+  await supervisor.syncTasks(job.id);
+  void supervisor.recoverJob(job.id);
+  await supervisor.syncTasks(job.id);
+  const current = store.getJob(job.id);
+  assert.equal(recoveryCalls, 0);
+  assert.equal(current.recoveryCount, 0);
+  assert.equal(current.status, 'background');
+  assert.equal(current.taskSyncState, 'degraded');
+  assert.equal(current.tasks['task-missing'].status, 'running');
+  await supervisor.closeContext(job.id);
 });
 
 test('restart sau khi đã gửi phản hồi không phát lại prompt nếu không có task', async (t) => {
@@ -437,7 +444,7 @@ test('restart sau khi đã gửi phản hồi không phát lại prompt nếu kh
   assert.equal(settled.status, 'completed');
 });
 
-test('stop đồng thời với syncTasks không thể bị ghi đè về background', async (t) => {
+test('stop đồng thời với syncTasks giữ stopping và không bị ghi đè về background', async (t) => {
   const fixture = await createFixture(t, 'bot-openclaw-stop-race');
   const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:9';
   const childSessionKey = 'agent:main:subagent:child-race';
@@ -478,7 +485,7 @@ test('stop đồng thời với syncTasks không thể bị ghi đè về backgr
   releaseList();
   await pendingSync;
 
-  assert.equal(store.getJob(job.id).status, 'stopped');
+  assert.equal(store.getJob(job.id).status, 'stopping');
   assert.equal(store.getJob(job.id).stopRequested, true);
 });
 
@@ -516,4 +523,322 @@ test('restart hòa giải background cũ đã yêu cầu dừng mà không chạ
   assert.equal(recoveryCalls, 0);
   assert.equal(settled.status, 'stopped');
   assert.equal(settled.stopRequested, true);
+});
+
+test('task thất bại nhưng session gốc phục hồi và ra phản hồi cuối thì job hoàn tất', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-root-recovery');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:recovery';
+  const rootTranscript = path.join(fixture.sessionsDir, 'root.jsonl');
+  await fs.writeFile(rootTranscript, '', 'utf8');
+  await fs.writeFile(path.join(fixture.sessionsDir, 'sessions.json'), JSON.stringify({
+    [rootSessionKey]: { sessionId: 'root', sessionFile: rootTranscript },
+  }), 'utf8');
+  const tasksRef = { value: [{
+    taskId: 'task-failed-timeout',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey: rootSessionKey,
+    status: 'failed',
+    error: 'request timed out',
+    terminalSummary: 'request timed out',
+    createdAt: Date.now() - 1000,
+    endedAt: Date.now() - 1000,
+  }] };
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const sent = [];
+  const activities = [];
+  const supervisor = createSupervisor(fixture, store, tasksRef, async (_job, artifact) => {
+    sent.push(path.basename(artifact.sourcePath));
+    return `discord-${sent.length}`;
+  }, {
+    sendActivity: async (_job, event) => activities.push(event),
+  });
+  const job = await supervisor.createJob(jobInput('job-root-recovery', rootSessionKey), { watch: false });
+  await supervisor.watchJob(job.id, { rootStartAtEnd: true });
+
+  // Session gốc vẫn hoạt động sau khi task thất bại (agent đang phục hồi).
+  await fs.appendFile(rootTranscript, transcriptMessage({
+    role: 'assistant',
+    stopReason: 'toolUse',
+    content: [{ type: 'toolCall', name: 'exec', arguments: { command: 'retry generate' } }],
+  }), 'utf8');
+  await supervisor.contexts.get(job.id).monitors.get(rootSessionKey).poll();
+  await supervisor.markForegroundDone(job.id);
+  await supervisor.syncTasks(job.id);
+  assert.equal(TERMINAL_JOB_STATUSES.has(store.getJob(job.id).status), false);
+
+  // Agent tiếp tục và ra phản hồi cuối với MEDIA → job phải settle completed,
+  // không failed, và artifact được gửi.
+  await fs.appendFile(rootTranscript, transcriptMessage({
+    role: 'assistant',
+    stopReason: 'stop',
+    content: [{
+      type: 'text',
+      text: `Đã phục hồi sau lỗi task.\nMEDIA:${fixture.images[0]}`,
+    }],
+  }), 'utf8');
+  await supervisor.contexts.get(job.id).monitors.get(rootSessionKey).poll();
+  const settledPromise = supervisor.waitForSettled(job.id);
+  await supervisor.syncTasks(job.id);
+  const settled = await settledPromise;
+
+  assert.equal(settled.status, 'completed');
+  assert.equal(settled.terminalReason, '');
+  assert.deepEqual(sent, [path.basename(fixture.images[0])]);
+  assert.equal(settled.events.some((event) => event.startsWith('✗ Worker gặp vấn đề:')), true);
+  assert.equal(activities.some((event) => (
+    event.kind === 'assistant' && event.final && event.isRoot && event.responseText.includes('Đã phục hồi')
+  )), true);
+});
+
+test('task thất bại và session gốc im lặng thì vẫn settle failed sau idle', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-root-idle-fail');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:idle-fail';
+  const rootTranscript = path.join(fixture.sessionsDir, 'root.jsonl');
+  await fs.writeFile(rootTranscript, '', 'utf8');
+  await fs.writeFile(path.join(fixture.sessionsDir, 'sessions.json'), JSON.stringify({
+    [rootSessionKey]: { sessionId: 'root', sessionFile: rootTranscript },
+  }), 'utf8');
+  const tasksRef = { value: [{
+    taskId: 'task-failed-quiet',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey: rootSessionKey,
+    status: 'failed',
+    error: 'request timed out',
+    createdAt: Date.now() - 1000,
+    endedAt: Date.now() - 1000,
+  }] };
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const supervisor = createSupervisor(fixture, store, tasksRef, async () => 'discord-x');
+  const job = await supervisor.createJob(jobInput('job-idle-fail', rootSessionKey), { watch: false });
+  await supervisor.watchJob(job.id, { rootStartAtEnd: true });
+
+  await fs.appendFile(rootTranscript, transcriptMessage({
+    role: 'assistant',
+    stopReason: 'toolUse',
+    content: [{ type: 'toolCall', name: 'exec', arguments: { command: 'work' } }],
+  }), 'utf8');
+  await supervisor.contexts.get(job.id).monitors.get(rootSessionKey).poll();
+  await supervisor.markForegroundDone(job.id);
+  await supervisor.syncTasks(job.id);
+  assert.equal(TERMINAL_JOB_STATUSES.has(store.getJob(job.id).status), false);
+
+  // Session gốc không ra phản hồi cuối; sau idleTimeoutMs (1000ms) phải settle failed.
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  const settledPromise = supervisor.waitForSettled(job.id);
+  await supervisor.syncTasks(job.id);
+  const settled = await settledPromise;
+
+  assert.equal(settled.status, 'failed');
+  assert.equal(settled.terminalReason, 'OpenClaw không hoàn tất được yêu cầu.');
+});
+
+test('foreground kết thúc khi worker nền còn chạy: chờ continuation, bắt task mới xuất hiện muộn', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-continuation');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:continuation';
+  const childSessionKey = 'agent:main:subagent:child-continuation';
+  const transcripts = await writeSessionIndex(fixture, rootSessionKey, childSessionKey);
+  const tasksRef = { value: [{
+    taskId: 'task-1',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey,
+    status: 'running',
+    createdAt: Date.now(),
+  }] };
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const supervisor = createSupervisor(fixture, store, tasksRef, async () => 'discord-x', {
+    taskContinuationGraceMs: 1000,
+  });
+  const job = await supervisor.createJob(jobInput('job-continuation', rootSessionKey), { watch: false });
+  await supervisor.watchJob(job.id, { rootStartAtEnd: true });
+  await supervisor.syncTasks(job.id);
+
+  // Agent trả lời xong (foreground) trong khi worker nền vẫn chạy.
+  await supervisor.markForegroundDone(job.id);
+  assert.equal(store.getJob(job.id).status, 'background');
+
+  // Worker nền kết thúc → job chưa được settle vì còn chờ continuation.
+  tasksRef.value[0].status = 'succeeded';
+  await supervisor.syncTasks(job.id);
+  assert.equal(TERMINAL_JOB_STATUSES.has(store.getJob(job.id).status), false);
+
+  // Agent tự tiếp tục nền: task MỚI xuất hiện sau task cũ (trong grace).
+  tasksRef.value.push({
+    taskId: 'task-2',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey,
+    status: 'running',
+    createdAt: Date.now(),
+  });
+  await supervisor.syncTasks(job.id);
+  assert.equal(TERMINAL_JOB_STATUSES.has(store.getJob(job.id).status), false);
+  assert.equal(
+    Object.values(store.getJob(job.id).tasks).some((task) => task.taskId === 'task-2'),
+    true,
+  );
+
+  // Task continuation kết thúc → sau grace job mới settle.
+  tasksRef.value[1].status = 'succeeded';
+  await supervisor.syncTasks(job.id);
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const settledPromise = supervisor.waitForSettled(job.id);
+  await supervisor.syncTasks(job.id);
+  const settled = await settledPromise;
+  assert.equal(settled.status, 'completed');
+  assert.equal(Object.keys(settled.tasks).length, 2);
+});
+
+test('foreground kết thúc sau khi worker xong: settle ngay, không chờ continuation', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-continuation-fast');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:continuation-fast';
+  const childSessionKey = 'agent:main:subagent:child-continuation-fast';
+  const transcripts = await writeSessionIndex(fixture, rootSessionKey, childSessionKey);
+  const tasksRef = { value: [{
+    taskId: 'task-1',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey,
+    status: 'succeeded',
+    createdAt: Date.now() - 1000,
+    endedAt: Date.now() - 1000,
+  }] };
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const supervisor = createSupervisor(fixture, store, tasksRef, async () => 'discord-x', {
+    terminalGraceMs: 0,
+    taskContinuationGraceMs: 600000,
+  });
+  const job = await supervisor.createJob(jobInput('job-continuation-fast', rootSessionKey), { watch: false });
+  await supervisor.watchJob(job.id, { rootStartAtEnd: true });
+  await supervisor.syncTasks(job.id);
+  await supervisor.markForegroundDone(job.id);
+  const settledPromise = supervisor.waitForSettled(job.id);
+  await supervisor.syncTasks(job.id);
+  const settled = await settledPromise;
+  assert.equal(settled.status, 'completed');
+});
+
+test('hết thời gian cảnh báo vẫn giữ stopping khi worker còn chạy', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-cancel-unconfirmed');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:cancel-unconfirmed';
+  const childSessionKey = 'agent:main:subagent:cancel-unconfirmed';
+  await writeSessionIndex(fixture, rootSessionKey, childSessionKey);
+  const tasksRef = { value: [{
+    taskId: 'task-cancel-unconfirmed',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey,
+    status: 'running',
+    createdAt: Date.now(),
+  }] };
+  const cancelled = [];
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const supervisor = createSupervisor(fixture, store, tasksRef, async () => 'unused', {
+    cancelled,
+    cancelGraceMs: 10,
+    cancelRetryMs: 10000,
+  });
+  supervisor.taskClient.cancel = async (taskId) => {
+    cancelled.push(taskId);
+    return { found: true, cancelled: false };
+  };
+  const job = await supervisor.createJob(jobInput('job-cancel-unconfirmed', rootSessionKey), { watch: false });
+  const context = await supervisor.watchJob(job.id);
+  context.foregroundDone = true;
+  await supervisor.syncTasks(job.id);
+  await supervisor.cancelJob(job.id);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.equal(store.getJob(job.id).status, 'stopping');
+  assert.ok(store.getJob(job.id).cancelWarningAt);
+  assert.equal((await supervisor.settle(job.id)).status, 'stopping');
+  await supervisor.cancelJob(job.id);
+  assert.deepEqual(cancelled, ['task-cancel-unconfirmed']);
+
+  tasksRef.value[0].status = 'cancelled';
+  const settledPromise = supervisor.waitForSettled(job.id);
+  await supervisor.syncTasks(job.id);
+  const settled = await settledPromise;
+  assert.equal(settled.status, 'stopped');
+  assert.ok(settled.cancelConfirmedAt);
+});
+
+test('RPC lỗi trong lúc hủy giữ last-known worker và trạng thái degraded', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-cancel-degraded');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:cancel-degraded';
+  await writeSessionIndex(fixture, rootSessionKey, rootSessionKey);
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const job = await store.createJob(jobInput('job-cancel-degraded', rootSessionKey));
+  await store.updateJob(job.id, { status: 'background' });
+  await store.upsertTask(job.id, {
+    taskId: 'task-last-known',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey: rootSessionKey,
+    status: 'running',
+    createdAt: Date.now(),
+  });
+  const supervisor = createSupervisor(fixture, store, { value: [] }, async () => 'unused');
+  supervisor.taskClient.list = async () => { throw new Error('rpc offline'); };
+  supervisor.taskClient.cancel = async () => ({ found: true, cancelled: false });
+
+  await supervisor.cancelJob(job.id);
+  const current = store.getJob(job.id);
+  assert.equal(current.status, 'stopping');
+  assert.equal(current.taskSyncState, 'degraded');
+  assert.equal(current.tasks['task-last-known'].status, 'running');
+  assert.equal((await supervisor.settle(job.id)).status, 'stopping');
+  await supervisor.closeContext(job.id);
+});
+
+test('task con xuất hiện trong cửa sổ xác nhận hủy được phát hiện trước khi stopped', async (t) => {
+  const fixture = await createFixture(t, 'bot-openclaw-cancel-discovery');
+  const rootSessionKey = 'agent:main:openai-user:discord:guild:channel:cancel-discovery';
+  const childSessionKey = 'agent:main:subagent:cancel-discovery';
+  await writeSessionIndex(fixture, rootSessionKey, childSessionKey);
+  const tasksRef = { value: [] };
+  const cancelled = [];
+  const store = new JobStore(fixture.storePath);
+  await store.load();
+  const supervisor = createSupervisor(fixture, store, tasksRef, async () => 'unused', {
+    cancelled,
+    cancelConfirmationGraceMs: 30,
+    cancelRetryMs: 0,
+  });
+  supervisor.taskClient.cancel = async (taskId) => {
+    cancelled.push(taskId);
+    return { found: true, cancelled: false };
+  };
+  const job = await supervisor.createJob(jobInput('job-cancel-discovery', rootSessionKey), { watch: false });
+  const context = await supervisor.watchJob(job.id);
+  context.foregroundDone = true;
+  await supervisor.cancelJob(job.id);
+  assert.equal(store.getJob(job.id).status, 'stopping');
+
+  tasksRef.value.push({
+    taskId: 'task-late-child',
+    requesterSessionKey: rootSessionKey,
+    ownerKey: rootSessionKey,
+    childSessionKey,
+    status: 'running',
+    createdAt: Date.now(),
+  });
+  await supervisor.syncTasks(job.id);
+  assert.deepEqual(cancelled, ['task-late-child']);
+  assert.equal(store.getJob(job.id).status, 'stopping');
+
+  tasksRef.value[0].status = 'cancelled';
+  await supervisor.syncTasks(job.id);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  const settledPromise = supervisor.waitForSettled(job.id);
+  await supervisor.syncTasks(job.id);
+  assert.equal((await settledPromise).status, 'stopped');
 });

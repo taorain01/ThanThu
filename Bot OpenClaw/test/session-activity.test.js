@@ -42,6 +42,69 @@ test('chuyển tool call và kết quả thành nhật ký an toàn', () => {
   assert.equal(resultEvents[0].text, '✓ `exec` hoàn tất');
 });
 
+test('đánh dấu screen.snapshot và lấy đường dẫn ảnh từ tool image', () => {
+  const events = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      stopReason: 'toolUse',
+      content: [
+        {
+          type: 'toolCall',
+          name: 'exec',
+          arguments: { command: 'openclaw.cmd nodes invoke --command screen.snapshot --json' },
+        },
+        {
+          type: 'toolCall',
+          name: 'image',
+          arguments: { prompt: 'Mô tả ảnh', image: 'C:\\Users\\songt\\.openclaw\\workspace\\windows-current.png' },
+        },
+        {
+          type: 'toolCall',
+          name: 'exec',
+          arguments: { command: 'dir' },
+        },
+      ],
+    },
+  });
+  const snapshot = events.find((e) => e.kind === 'tool_call' && e.screenSnapshot);
+  assert.ok(snapshot, 'exec screen.snapshot phải được đánh dấu');
+  const image = events.find((e) => e.kind === 'tool_call' && e.imageFile);
+  assert.equal(image.imageFile, 'C:\\Users\\songt\\.openclaw\\workspace\\windows-current.png');
+  // exec thường không có imageFile, image không có screenSnapshot.
+  const plain = events.find((e) => e.kind === 'tool_call' && e.text.includes('dir'));
+  assert.equal(plain.imageFile, null);
+  assert.equal(plain.screenSnapshot, false);
+});
+
+test('tool image nhận path từ nhiều field và không đánh dấu nhầm exec thường', () => {
+  const byPath = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      content: [{
+        type: 'toolCall',
+        name: 'image',
+        arguments: { file_path: 'C:\\tmp\\a.png' },
+      }],
+    },
+  });
+  assert.equal(byPath[0].imageFile, 'C:\\tmp\\a.png');
+  const execOnly = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      content: [{
+        type: 'toolCall',
+        name: 'exec',
+        arguments: { command: 'node build.js' },
+      }],
+    },
+  });
+  assert.equal(execOnly[0].screenSnapshot, false);
+  assert.equal(execOnly[0].imageFile, null);
+});
+
 test('ẩn token, đường dẫn và dữ liệu dài', () => {
   const safe = sanitizeInline(
     `Bearer abcdef C:\\Users\\songt\\secret\\file.txt ${'A'.repeat(220)}`,

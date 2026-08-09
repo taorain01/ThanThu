@@ -7,7 +7,12 @@
   "scripts": {
     "send:discord": "node scripts/send-discord-message.js",
     "start": "node src/index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "reviewer:dev": "concurrently -k \"vite --config reviewer/vite.config.ts\" \"wait-on http://127.0.0.1:5173 && electron reviewer/main.cjs --dev\"",
+    "reviewer:start": "electron reviewer/main.cjs",
+    "reviewer:build": "vite build --config reviewer/vite.config.ts",
+    "reviewer:test": "node --test reviewer/test/*.test.js",
+    "reviewer:dist": "npm run reviewer:build && electron-builder --config reviewer/electron-builder.yml"
   },
   "engines": {
     "node": ">=24"
@@ -17,5 +22,26 @@
     "discord.js": "14.25.1",
     "dotenv": "17.3.1",
     "undici": "6.21.3"
+  },
+  "devDependencies": {
+    "@codemirror/lang-markdown": "^6.3.3",
+    "@fontsource/bricolage-grotesque": "^5.2.5",
+    "@fontsource/instrument-serif": "^5.2.5",
+    "@tanstack/react-virtual": "^3.13.12",
+    "@types/diff": "^7.0.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@uiw/react-codemirror": "^4.23.10",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.2.0",
+    "diff": "^7.0.0",
+    "electron": "^36.4.0",
+    "electron-builder": "^26.0.12",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
   }
 }

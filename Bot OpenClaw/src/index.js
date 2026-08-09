@@ -3,6 +3,7 @@
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const dotenv = require('dotenv');
 const {
   ActionRowBuilder,
@@ -103,6 +104,7 @@ const {
   buildScreenshotGalleryPayload,
   shortJobId,
 } = require('./discord-job-ui');
+const { startReviewerBridge } = require('./reviewer-bridge');
 const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat');
 const { collectSystemMetrics } = require('./system-metrics');
 const {
@@ -175,6 +177,7 @@ const bufferedGatewayMessages = [];
 let acceptingGatewayMessages = false;
 let statusHeartbeat = null;
 let supervisor;
+let reviewerBridge = null;
 
 // Model cache — làm mới mỗi 5 phút
 let modelsCache = null;
@@ -1326,6 +1329,7 @@ supervisor = new JobSupervisor({
   cancelGraceMs: config.cancelWarningMs,
   logger,
   onJobChanged: async (job) => {
+    reviewerBridge?.publishJob(job);
     scheduleStatusUpdate(job);
     scheduleSessionActivityUpdates(job);
     if (TERMINAL_JOB_STATUSES.has(job.status)) {
@@ -2314,6 +2318,145 @@ async function processOpenClawMessage(message, state, jobId, signal) {
   return settled;
 }
 
+async function processReviewerCommand(command, state, jobId, signal) {
+  await supervisor.watchJob(jobId, { rootStartAtEnd: true });
+  await jobStore.updateJob(jobId, {
+    status: 'running',
+    startedAt: Date.now(),
+    requestFingerprint: fingerprintText(command.text),
+    requestSubmittedAt: Date.now(),
+  });
+  scheduleStatusUpdate(jobStore.getJob(jobId), { immediate: true });
+
+  const deadline = new RequestDeadline({
+    signal,
+    idleTimeoutMs: config.requestIdleTimeoutMs,
+    maxRuntimeMs: config.requestMaxRuntimeMs,
+  });
+  supervisor.setActivityTouch(jobId, () => deadline.touch());
+  let foregroundError = null;
+  try {
+    const responseText = await chatOpenClawWithRetry({
+      guildId: config.guildId,
+      channelId: command.channelId,
+      sessionGeneration: state.sessionGeneration,
+      modelProfile: state.modelProfile,
+      backendModel: state.customModel || config.openclawBackendModels[state.modelProfile],
+      text: command.text,
+      imageParts: [],
+      signal: deadline.signal,
+      onDelta: async ({ text }) => {
+        deadline.touch();
+        reviewerBridge?.publishJob({
+          ...jobStore.getJob(jobId),
+          streamPreview: sanitizeActivityText(text, 1200),
+        });
+      },
+    }, jobId, null);
+    if (!isNoResponsePlaceholder(responseText)) {
+      await sendOpenClawResponse(jobId, responseText);
+    }
+  } catch (error) {
+    foregroundError = error;
+    await jobStore.updateJob(jobId, {
+      status: 'failed',
+      terminalReason: publicErrorMessage(error),
+    }).catch(() => {});
+  } finally {
+    deadline.stop();
+    supervisor.setActivityTouch(jobId, null);
+    await supervisor.markForegroundDone(jobId, { error: foregroundError });
+  }
+
+  const settled = await supervisor.waitForSettled(jobId);
+  if (foregroundError && settled?.status === 'failed') {
+    throw foregroundError;
+  }
+  return settled;
+}
+
+async function submitReviewerCommand(command) {
+  const state = stateStore.getChannel(config.guildId, command.channelId);
+  if (!state?.enabled) {
+    throw new Error(`Channel ${command.channelId} chưa bật OpenClaw.`);
+  }
+  const sessionArgs = {
+    guildId: config.guildId,
+    channelId: command.channelId,
+    sessionGeneration: state.sessionGeneration,
+    modelProfile: state.modelProfile,
+  };
+  const jobId = `reviewer-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const job = await supervisor.createJob({
+    id: jobId,
+    guildId: config.guildId,
+    channelId: command.channelId,
+    userId: 'reviewer-desktop',
+    requestMessageId: jobId,
+    sessionGeneration: state.sessionGeneration,
+    backendModel: state.customModel || config.openclawBackendModels[state.modelProfile],
+    rootSessionKey: openclaw.sessionKey(sessionArgs),
+  }, { watch: false });
+  reviewerBridge?.publishJob(job);
+  void requestQueue.enqueue(
+    (signal) => processReviewerCommand(command, state, job.id, signal),
+    {
+      jobId: job.id,
+      channelId: command.channelId,
+      sessionKey: job.rootSessionKey,
+      source: 'reviewer-desktop',
+    },
+  ).catch(async (error) => {
+    await jobStore.updateJob(job.id, {
+      status: error instanceof QueueStoppedError ? 'stopped' : 'failed',
+      terminalReason: error.message || publicErrorMessage(error),
+    }).catch(() => {});
+    reviewerBridge?.publishJob(jobStore.getJob(job.id));
+  });
+  return jobStore.getJob(job.id);
+}
+
+async function listReviewerChannels() {
+  const guild = client.guilds.cache.get(config.guildId);
+  if (!guild) return [];
+  const channels = await guild.channels.fetch();
+  return [...channels.values()]
+    .filter((channel) => channel && [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
+    .map((channel) => ({
+      id: channel.id,
+      name: channel.name,
+      parentId: channel.parentId || null,
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name, 'vi'));
+}
+
+async function stopReviewerCommand(jobId) {
+  const job = jobStore.getJob(jobId);
+  if (!job) throw new Error(`Không tìm thấy job ${jobId}.`);
+  if (TERMINAL_JOB_STATUSES.has(job.status)) return job;
+  await stopJobs([job]);
+  return jobStore.getJob(jobId);
+}
+
+async function resumeReviewerCommand(jobId) {
+  const job = jobStore.getJob(jobId);
+  if (!job) throw new Error(`Không tìm thấy job ${jobId}.`);
+  if (!TERMINAL_JOB_STATUSES.has(job.status) || job.status === 'completed') {
+    throw new Error('Chỉ có thể khôi phục job đã dừng, thất bại hoặc hoàn tất có blocker.');
+  }
+  void requestQueue.enqueue(
+    (signal) => supervisor.recoverJob(job.id, signal, { force: true }),
+    {
+      jobId: job.id,
+      channelId: job.channelId,
+      sessionKey: job.rootSessionKey,
+      recovery: true,
+      source: 'reviewer-desktop',
+    },
+  );
+  return jobStore.getJob(jobId);
+}
+
 async function handleDiscordMessage(message, options = {}) {
   if (
     !message.guild
@@ -2900,6 +3043,9 @@ async function shutdown(signalName) {
   }
   client.destroy();
   await supervisor?.close();
+  if (reviewerBridge) {
+    await reviewerBridge.close().catch(() => {});
+  }
   await openclaw.close();
 }
 
@@ -2954,6 +3100,24 @@ async function main() {
   // (vd "HĂ¬nh áº¢nh" thay vì "Hình Ảnh") giữa lúc bot chạy — dọn dẹp sau.
   const mojibakeTimer = setInterval(() => void runMediaMojibakeFix(), 15 * 60 * 1000);
   mojibakeTimer.unref?.();
+  try {
+    reviewerBridge = await startReviewerBridge({
+      port: Number(process.env.OPENCLAW_REVIEWER_PORT || 18792),
+      tokenPath: path.join(BOT_ROOT, 'data', 'reviewer-token.txt'),
+      listChannels: listReviewerChannels,
+      listJobs: (limit) => jobStore.listJobs({ limit }),
+      submitCommand: submitReviewerCommand,
+      stopCommand: stopReviewerCommand,
+      resumeCommand: resumeReviewerCommand,
+      isReady: () => Boolean(client.readyAt),
+      logger,
+    });
+  } catch (error) {
+    logger.warn('Không khởi động được Reviewer bridge; bot Discord vẫn tiếp tục chạy.', {
+      name: error.name,
+      message: error.message,
+    });
+  }
   await client.login(config.discordToken);
 }
 

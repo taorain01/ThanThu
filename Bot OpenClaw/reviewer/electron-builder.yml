@@ -1,0 +1,21 @@
+appId: com.taorain.openclaw-gallery
+productName: OpenClaw Gallery Studio
+extraMetadata:
+  main: reviewer/main.cjs
+directories:
+  output: reviewer-release
+  buildResources: reviewer/resources
+files:
+  - reviewer/dist/**
+  - reviewer/main.cjs
+  - reviewer/preload.cjs
+  - src/reviewer-domain.js
+  - node_modules/dotenv/**
+  - package.json
+win:
+  target:
+    - nsis
+  artifactName: OpenClaw-Gallery-Studio-${version}-Setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

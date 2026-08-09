@@ -6,6 +6,7 @@ const {
   COLORS,
   EMBED_LIMITS,
   RESPONSE_DESCRIPTION_LIMIT,
+  buildJobDetailEmbed,
   buildJobStatusEmbed,
   buildOpenClawStatusEmbed,
   buildResponseEmbeds,
@@ -187,14 +188,12 @@ test('dựng embed hợp lệ cho mọi trạng thái job', () => {
     const data = embed.toJSON();
     assertEmbedLimits(embed);
     assert.equal(data.color, COLORS[status]);
-    assert.match(data.description, /job-123456789/);
-    assert.ok(data.fields.some((field) => field.name.includes('Thời gian')));
-    assert.ok(data.fields.some((field) => field.name.includes('File')));
-    assert.ok(data.fields.some((field) => field.name.includes('Worker')));
+    assert.match(data.description, /#23456789/);
+    assert.match(data.description, /23\.5%/);
+    assert.match(data.description, /2\/4/);
+    assert.match(data.description, /1 chạy · 0 lỗi/);
     assert.ok(data.fields.some((field) => field.name.includes('Task hiện tại')));
-    const contextField = data.fields.find((field) => field.name.includes('Context'));
-    assert.match(contextField.value, /46,907 \/ 200,000 token \(23\.5%\)/);
-    assert.match(contextField.value, /chính xác/);
+    assert.equal(data.fields.some((field) => field.name.includes('Context')), false);
     if (status === 'queued') {
       const queueField = data.fields.find((field) => field.name.includes('Hàng đợi'));
       assert.match(queueField.value, /2\/5/);
@@ -224,6 +223,37 @@ test('hiển thị preview streaming an toàn và ẩn preview khi job kết th�
 
   const completed = buildJobStatusEmbed(createJob('completed'), { streamPreview: preview }).toJSON();
   assert.equal(completed.fields.some((field) => field.name.includes('Phản hồi đang tạo')), false);
+});
+
+test('thread chi tiết giữ context đầy đủ, model và nhật ký dài hơn status', () => {
+  const job = createJob('running', {
+    events: Array.from({ length: 12 }, (_, index) => `Bước chi tiết ${index}`),
+    sessionActivities: {
+      'agent:main:subagent:worker-1': { events: [] },
+    },
+  });
+  const embed = buildJobDetailEmbed(job, {
+    counts: { delivered: 2, total: 4, ready: 1 },
+    contextUsage: {
+      usedTokens: 46907,
+      contextTokens: 200000,
+      source: 'transcript',
+    },
+    streamPreview: 'Đang viết bản trả lời chi tiết.',
+    model: 'capp-tuat/claude-opus-5',
+    now: Date.parse('2026-08-01T01:30:00.000Z'),
+  });
+  const data = embed.toJSON();
+  const contextField = data.fields.find((field) => field.name.includes('Context'));
+  const logField = data.fields.find((field) => field.name.includes('Nhật ký'));
+
+  assertEmbedLimits(embed);
+  assert.match(data.description, /job-123456789/);
+  assert.match(data.description, /capp-tuat\/claude-opus-5/);
+  assert.match(contextField.value, /46,907 \/ 200,000 token \(23\.5%\)/);
+  assert.match(logField.value, /Bước chi tiết 11/);
+  assert.equal(logField.value.includes('Bước chi tiết 0'), false);
+  assert.match(data.fields.find((field) => field.name.includes('Phản hồi')).value, /bản trả lời chi tiết/);
 });
 
 test('dựng embed riêng cho session phụ và chỉ giữ hoạt động mới nhất', () => {
@@ -280,14 +310,13 @@ test('gộp record cùng runId và hiển thị task hiện tại theo heartbeat
       updateDebounceMs: 1000,
   });
   const data = embed.toJSON();
-  const workerField = data.fields.find((field) => field.name.includes('Worker'));
   const taskField = data.fields.find((field) => field.name.includes('Task hiện tại'));
 
-  assert.equal(workerField.value, '1 đang chạy • 1 xong • 0 lỗi');
+  assert.match(data.description, /1 chạy · 0 lỗi/);
   assert.match(taskField.value, /Worker 2 · Tạo ảnh minh họa/);
   assert.match(taskField.value, /1 phút trước/);
   assert.match(taskField.value, /Đang kiểm tra bố cục cuối/);
-  assert.equal(data.footer.text, 'Realtime ~1s • dự phòng 60s • Dừng: > o stop');
+  assert.equal(data.footer.text, 'Job job-123456789 • Realtime ~1s • dự phòng 60s • Dừng: > o stop');
   assert.equal(data.timestamp, '2026-08-01T01:30:00.000Z');
 });
 

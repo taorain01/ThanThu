@@ -2,12 +2,26 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 $sourcePath = Join-Path $PSScriptRoot 'OpenClawBotControl.cs'
-$desktopPath = [Environment]::GetFolderPath('Desktop')
-$outputPath = Join-Path $desktopPath 'OpenClaw Discord Bot.exe'
+$projectPath = Split-Path $PSScriptRoot -Parent
+$outputDirectory = Join-Path $projectPath 'bin'
+$outputPath = Join-Path $outputDirectory 'OpenClaw Discord Bot.exe'
 $compilerPath = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
 if (-not (Test-Path -LiteralPath $compilerPath)) {
   throw "C# compiler not found: $compilerPath"
+}
+
+if (-not (Test-Path -LiteralPath $outputDirectory)) {
+  New-Item -ItemType Directory -Path $outputDirectory | Out-Null
+}
+
+# Rebuild only when the controller source changed, so an already-open controller
+# does not prevent subsequent shortcut launches.
+if ((Test-Path -LiteralPath $outputPath) -and
+    ((Get-Item -LiteralPath $outputPath).LastWriteTimeUtc -ge
+     (Get-Item -LiteralPath $sourcePath).LastWriteTimeUtc)) {
+  Write-Output "Application is current: $outputPath"
+  exit 0
 }
 
 if (Test-Path -LiteralPath $outputPath) {

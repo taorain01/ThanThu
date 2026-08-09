@@ -77,6 +77,34 @@ test('đánh dấu screen.snapshot và lấy đường dẫn ảnh từ tool ima
   assert.equal(plain.screenSnapshot, false);
 });
 
+test('nhận diện shot.js là lệnh chụp màn hình mới', () => {
+  const events = extractActivityEvents({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      stopReason: 'toolUse',
+      content: [
+        {
+          type: 'toolCall',
+          name: 'exec',
+          arguments: {
+            command: 'node C:/oc-tools/shot.js --out C:/Users/songt/.openclaw/workspace/screenshot.png',
+          },
+        },
+        {
+          type: 'toolCall',
+          name: 'image',
+          arguments: { image: 'C:\\Users\\songt\\.openclaw\\workspace\\screenshot.png' },
+        },
+      ],
+    },
+  });
+
+  assert.equal(events[0].screenSnapshot, true);
+  assert.match(events[0].text, /chụp màn hình Windows/);
+  assert.equal(events[1].imageFile, 'C:\\Users\\songt\\.openclaw\\workspace\\screenshot.png');
+});
+
 test('tool image nhận path từ nhiều field và không đánh dấu nhầm exec thường', () => {
   const byPath = extractActivityEvents({
     type: 'message',

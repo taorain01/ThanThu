@@ -45,6 +45,12 @@ function toolLabel(toolName) {
   return String(toolName || 'tool').replace(/[^A-Za-z0-9_.-]/g, '');
 }
 
+function isScreenshotCommand(value) {
+  const command = String(value || '');
+  return /screen\.snapshot/i.test(command)
+    || /(?:^|\s)(?:node(?:\.exe)?\s+)?["']?[^\s"']*shot\.js\b/i.test(command);
+}
+
 function summarizeToolCall(call) {
   const name = toolLabel(call?.name);
   const args = call?.arguments && typeof call.arguments === 'object' ? call.arguments : {};
@@ -54,7 +60,7 @@ function summarizeToolCall(call) {
     if (/nodes\s+status/i.test(command)) {
       return `▶ \`${name}\` — kiểm tra Windows Node`;
     }
-    if (/screen\.snapshot/i.test(command)) {
+    if (isScreenshotCommand(command)) {
       return `▶ \`${name}\` — chụp màn hình Windows`;
     }
     if (/base64|FromBase64String|WriteAllBytes/i.test(command)) {
@@ -121,7 +127,7 @@ function extractActivityEvents(record) {
         // Đánh dấu lệnh chụp màn hình để supervisor gửi ảnh xem trước cho user;
         // tool image kế tiếp mang đường dẫn ảnh thật (vd windows-current.png).
         const screenSnapshot = callName === 'exec'
-          && /screen\.snapshot/i.test(String(callArgs.command || ''));
+          && isScreenshotCommand(callArgs.command);
         let imageFile = '';
         if (callName === 'image') {
           imageFile = String(callArgs.image
@@ -347,6 +353,7 @@ module.exports = {
   extractActivityEvents,
   formatFinishedActivity,
   formatLiveActivity,
+  isScreenshotCommand,
   mediaFromAssistantText,
   sanitizeActivityText,
   sanitizeInline,

@@ -548,6 +548,11 @@ function workerCountsValue(summary) {
   return `${summary.counts.active} đang chạy • ${summary.counts.succeeded} xong • ${summary.counts.problem} lỗi`;
 }
 
+function compactJobId(value) {
+  const text = String(value || 'không-xác-định');
+  return text.length > 8 ? text.slice(-8) : text;
+}
+
 function tokenLabel(value) {
   return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('en-US');
 }
@@ -568,6 +573,20 @@ function contextUsageValue(usage) {
     ? 'Snapshot session mới nhất'
     : 'Usage chính xác của lần gọi model gần nhất';
   return `**${tokenLabel(usedTokens)} / ${tokenLabel(contextTokens)} token (${percentage}%)**\n${sourceLabel}`;
+}
+
+function contextUsageSummary(usage) {
+  const contextTokens = Number(usage?.contextTokens);
+  const usedTokens = Number(usage?.usedTokens);
+  if (
+    !Number.isFinite(contextTokens)
+    || contextTokens <= 0
+    || !Number.isFinite(usedTokens)
+    || usedTokens < 0
+  ) {
+    return 'chưa có';
+  }
+  return `${((usedTokens / contextTokens) * 100).toFixed(1).replace(/\.0$/, '')}%`;
 }
 
 function currentTaskValue(job, summary, now) {
@@ -614,10 +633,12 @@ function currentTaskValue(job, summary, now) {
   return truncate(lines.join('\n'), EMBED_LIMITS.fieldValue);
 }
 
-function recentActivityValue(events, terminal) {
+function recentActivityValue(events, terminal, options = {}) {
+  const limit = Math.max(1, Number(options.limit) || 8);
+  const eventLength = Math.max(80, Number(options.eventLength) || 220);
   const recent = (events || [])
-    .slice(-8)
-    .map((event) => truncate(sanitizeInline(event), 220));
+    .slice(-limit)
+    .map((event) => truncate(sanitizeInline(event), eventLength));
   while (recent.length) {
     const value = recent.map((event) => `• ${event}`).join('\n');
     if (value.length <= EMBED_LIMITS.fieldValue) {
@@ -745,39 +766,26 @@ function buildJobStatusEmbed(job, options = {}) {
   const prefix = truncate(options.prefix || '>', 12, '');
   const now = Number(options.now) || Date.now();
   const jobId = truncate(job.id || 'không-xác-định', 100);
-  const channelId = truncate(job.channelId || 'không-xác-định', 100);
   const workerSummary = summarizeWorkers(job);
+  const screenshotCount = Array.isArray(job.screenshots) ? job.screenshots.length : 0;
+  const summaryParts = [
+    `\`#${compactJobId(jobId)}\``,
+    `⏱️ **${elapsedLabel(job.createdAt, options.now)}**`,
+    `🧠 **${contextUsageSummary(options.contextUsage)}**`,
+    `📦 **${counts.delivered}/${counts.total}**`,
+    `🤖 **${workerSummary.counts.active} chạy · ${workerSummary.counts.problem} lỗi**`,
+  ];
+  if (screenshotCount) {
+    summaryParts.push(`📸 **${screenshotCount}**`);
+  }
   const embed = new EmbedBuilder()
     .setColor(COLORS[job.status] || COLORS.response)
     .setAuthor(identityOptions(options, 'OPENCLAW // JOB MONITOR'))
-    .setTitle(truncate(`${status.icon} ${status.label}`, EMBED_LIMITS.title))
-    .setDescription(`**Job** \`${jobId}\`\n**Kênh** <#${channelId}>`)
-    .addFields(
-      {
-        name: '⏱️ Thời gian',
-        value: elapsedLabel(job.createdAt, options.now),
-        inline: true,
-      },
-      {
-        name: '📦 File',
-        value: truncate(
-          `${counts.delivered}/${counts.total} đã gửi${counts.ready ? ` • ${counts.ready} chờ` : ''}`,
-          EMBED_LIMITS.fieldValue,
-        ),
-        inline: true,
-      },
-      {
-        name: '🤖 Worker',
-        value: workerCountsValue(workerSummary),
-        inline: true,
-      },
-    );
-
-  embed.addFields({
-    name: '🧠 Context session',
-    value: contextUsageValue(options.contextUsage),
-    inline: false,
-  });
+    .setTitle(truncate(
+      `${status.icon} ${status.label} · ${elapsedLabel(job.createdAt, options.now)}`,
+      EMBED_LIMITS.title,
+    ))
+    .setDescription(summaryParts.join(' • '));
 
   if (queuePosition) {
     embed.addFields({
@@ -803,7 +811,7 @@ function buildJobStatusEmbed(job, options = {}) {
 
   const streamPreview = terminal
     ? ''
-    : sanitizeActivityText(options.streamPreview, EMBED_LIMITS.fieldValue);
+    : sanitizeActivityText(options.streamPreview, 420);
   if (streamPreview) {
     embed.addFields({
       name: '✍️ Phản hồi đang tạo',
@@ -814,7 +822,7 @@ function buildJobStatusEmbed(job, options = {}) {
 
   embed.addFields({
     name: terminal ? '📋 Hoạt động gần nhất' : '📡 Luồng hoạt động',
-    value: recentActivityValue(job.events, terminal),
+    value: recentActivityValue(job.events, terminal, { limit: 3, eventLength: 180 }),
     inline: false,
   });
 
@@ -829,18 +837,111 @@ function buildJobStatusEmbed(job, options = {}) {
   embed
     .setFooter({
       text: truncate(
-        jobFooter(
+        `Job ${jobId} • ${jobFooter(
           job,
           counts,
           prefix,
           terminal,
           options.heartbeatMs,
           options.updateDebounceMs,
-        ),
+        )}`,
         EMBED_LIMITS.footer,
       ),
     })
     .setTimestamp(safeTimestamp(terminal ? job.updatedAt || options.timestamp : now));
+
+  if (validHttpUrl(options.botIconUrl)) {
+    embed.setThumbnail(options.botIconUrl);
+  }
+  return embed;
+}
+
+function buildJobDetailEmbed(job, options = {}) {
+  const status = STATUS_META[job.status] || { icon: '•', label: String(job.status || 'Không xác định') };
+  const terminal = TERMINAL_STATUSES.has(job.status);
+  const counts = {
+    delivered: Number(options.counts?.delivered) || 0,
+    total: Number(options.counts?.total) || 0,
+    ready: Number(options.counts?.ready) || 0,
+  };
+  const workerSummary = summarizeWorkers(job);
+  const sessionCount = Object.keys(job.sessionActivities || {}).length;
+  const overview = [
+    `⏱️ **${elapsedLabel(job.createdAt, options.now)}**`,
+    `📦 **${counts.delivered}/${counts.total} file đã gửi**${counts.ready ? ` · ${counts.ready} chờ` : ''}`,
+    `🤖 **${workerCountsValue(workerSummary)}**`,
+    `🧵 **${sessionCount} session phụ**`,
+  ].join('\n');
+  const model = String(options.model || '').trim();
+  const embed = new EmbedBuilder()
+    .setColor(COLORS[job.status] || COLORS.response)
+    .setAuthor(identityOptions(options, 'OPENCLAW // JOB DETAILS'))
+    .setTitle(truncate(`${status.icon} Chi tiết · ${status.label}`, EMBED_LIMITS.title))
+    .setDescription([
+      `**Job** \`${truncate(job.id || 'không-xác-định', 100)}\``,
+      `**Kênh gốc** <#${truncate(job.channelId || 'không-xác-định', 100)}>`,
+      model ? `**Model** ${truncate(model, 180)}` : '',
+    ].filter(Boolean).join('\n'))
+    .addFields(
+      {
+        name: '📊 Tổng quan',
+        value: truncate(overview, EMBED_LIMITS.fieldValue),
+        inline: true,
+      },
+      {
+        name: '🧠 Context session',
+        value: contextUsageValue(options.contextUsage),
+        inline: true,
+      },
+      {
+        name: '🛠️ Task hiện tại',
+        value: currentTaskValue(job, workerSummary, Number(options.now) || Date.now()),
+        inline: false,
+      },
+    );
+
+  const streamPreview = terminal
+    ? ''
+    : sanitizeActivityText(options.streamPreview, EMBED_LIMITS.fieldValue);
+  if (streamPreview) {
+    embed.addFields({
+      name: '✍️ Phản hồi đang tạo · bản chi tiết',
+      value: streamPreview,
+      inline: false,
+    });
+  }
+
+  embed.addFields({
+    name: terminal ? '📋 Nhật ký cuối' : '📡 Nhật ký chi tiết gần nhất',
+    value: recentActivityValue(job.events, terminal, { limit: 10, eventLength: 260 }),
+    inline: false,
+  });
+
+  if (job.taskSyncState === 'degraded') {
+    embed.addFields({
+      name: '⚠️ Đồng bộ worker',
+      value: 'Tạm thời không xác minh được task mới từ OpenClaw; bot giữ trạng thái cuối đã biết và sẽ tự thử lại.',
+      inline: false,
+    });
+  }
+  if (job.terminalReason) {
+    embed.addFields({
+      name: terminal && job.status === 'failed' ? '🚨 Chi tiết lỗi' : '🎯 Kết quả',
+      value: truncate(sanitizeInline(job.terminalReason), EMBED_LIMITS.fieldValue),
+      inline: false,
+    });
+  }
+
+  embed
+    .setFooter({
+      text: truncate(
+        terminal
+          ? 'Thread chi tiết đã chốt theo trạng thái cuối của job.'
+          : 'Thread chi tiết tự cập nhật; status gọn được giữ ở kênh chính.',
+        EMBED_LIMITS.footer,
+      ),
+    })
+    .setTimestamp(safeTimestamp(terminal ? job.updatedAt || options.timestamp : options.now));
 
   if (validHttpUrl(options.botIconUrl)) {
     embed.setThumbnail(options.botIconUrl);
@@ -853,6 +954,7 @@ module.exports = {
   EMBED_LIMITS,
   RESPONSE_DESCRIPTION_LIMIT,
   buildJobStatusEmbed,
+  buildJobDetailEmbed,
   buildOpenClawStatusEmbed,
   buildResponseEmbeds,
   buildSessionActivityEmbed,

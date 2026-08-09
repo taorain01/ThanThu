@@ -76,6 +76,7 @@ const {
 } = require('./response-delivery-gate');
 const { splitDiscordText } = require('./message-utils');
 const {
+  buildJobDetailEmbed,
   buildJobStatusEmbed,
   buildOpenClawStatusEmbed,
   buildResponseEmbeds,
@@ -95,7 +96,13 @@ const {
   artifactCaption,
   cleanupOutbox,
   extractMediaReferences,
+  stageMediaReference,
 } = require('./response-media');
+const {
+  buildJobActionRows,
+  buildScreenshotGalleryPayload,
+  shortJobId,
+} = require('./discord-job-ui');
 const { startStatusHeartbeat, statusUpdateDelay } = require('./status-heartbeat');
 const { collectSystemMetrics } = require('./system-metrics');
 const {
@@ -143,6 +150,11 @@ const sourceMessages = new Map();
 const statusUpdateTimers = new Map();
 const statusUpdatePromises = new Map();
 const statusUpdatedAt = new Map();
+const jobThreadPromises = new Map();
+const jobDetailUpdatePromises = new Map();
+const screenshotUpdatePromises = new Map();
+const threadCreationFailures = new Set();
+const finalizedScreenshotGalleries = new Set();
 const sessionActivityUpdateTimers = new Map();
 const sessionActivityUpdatePromises = new Map();
 const activityDeliveryChains = new Map();
@@ -652,6 +664,7 @@ function discordEmbedOptions(embed, options = {}) {
     ...(options.clearContent ? { content: null } : {}),
     embeds: [embed],
     files: options.files || [],
+    ...(options.components ? { components: options.components } : {}),
     allowedMentions: { parse: [], repliedUser: false },
   };
 }
@@ -675,6 +688,94 @@ async function sendChunks(message, text, options = {}) {
 
 async function resolveDiscordChannel(channelId) {
   return client.channels.cache.get(channelId) || client.channels.fetch(channelId);
+}
+
+function jobThreadName(job) {
+  return `openclaw-${shortJobId(job.id)}-chi-tiet`;
+}
+
+async function findExistingJobThread(job, statusMessage) {
+  if (job.detailThreadId) {
+    return resolveDiscordChannel(job.detailThreadId).catch(() => null);
+  }
+  if (statusMessage?.channel?.isThread?.()) {
+    return statusMessage.channel;
+  }
+  if (statusMessage?.hasThread) {
+    return statusMessage.thread
+      || resolveDiscordChannel(statusMessage.id).catch(() => null);
+  }
+  return null;
+}
+
+async function createJobDetailThread(job, statusMessage = null) {
+  const current = jobStore.getJob(job.id);
+  if (!current) {
+    return null;
+  }
+  let starter = sourceMessages.get(current.id) || null;
+  if (!starter && current.requestMessageId) {
+    const channel = await resolveDiscordChannel(current.channelId);
+    starter = await channel.messages.fetch(current.requestMessageId).catch(() => null);
+  }
+  let thread = await findExistingJobThread(current, starter);
+  if (!thread) {
+    thread = await findExistingJobThread(current, statusMessage);
+  }
+  if (!thread && threadCreationFailures.has(current.id)) {
+    return null;
+  }
+
+  if (!thread && !starter && current.statusMessageId) {
+    const channel = await resolveDiscordChannel(current.channelId);
+    starter = await channel.messages.fetch(current.statusMessageId).catch(() => null);
+    thread = await findExistingJobThread(current, starter);
+  }
+  if (!thread && starter?.startThread) {
+    try {
+      thread = await starter.startThread({
+        name: jobThreadName(current),
+        autoArchiveDuration: 1440,
+        reason: `Theo dõi chi tiết job OpenClaw ${current.id}`,
+      });
+    } catch (error) {
+      threadCreationFailures.add(current.id);
+      logger.warn('Không tạo được thread chi tiết cho job OpenClaw.', {
+        jobId: current.id,
+        name: error.name,
+        message: error.message,
+      });
+      return null;
+    }
+  }
+  if (!thread) {
+    return null;
+  }
+
+  if (thread.archived && !TERMINAL_JOB_STATUSES.has(current.status)) {
+    await thread.setArchived(false).catch(() => {});
+  }
+  if (current.detailThreadId !== thread.id) {
+    await jobStore.updateJob(current.id, { detailThreadId: thread.id });
+  }
+  threadCreationFailures.delete(current.id);
+  return thread;
+}
+
+async function ensureJobDetailThread(job, statusMessage = null) {
+  if (!job) {
+    return null;
+  }
+  if (jobThreadPromises.has(job.id)) {
+    return jobThreadPromises.get(job.id);
+  }
+  const operation = createJobDetailThread(job, statusMessage);
+  jobThreadPromises.set(job.id, operation);
+  try {
+    return await operation;
+  } finally {
+    jobThreadPromises.delete(job.id);
+  }
 }
 
 async function sendJobResponse(job, text) {
@@ -716,10 +817,6 @@ async function enqueueDiscordDelivery(jobId, deliver) {
   }
 }
 
-// Map ảnh xem trước screenshot của từng job: jobId → { messageId, channelId }.
-// Chỉ giữ 1 message/job; ảnh mới edit thay ảnh cũ (không spam).
-const screenshotMessages = new Map();
-
 async function sendActivityToDiscord(job, event) {
   if (isRootTranscriptFinal(event)) {
     return sendOpenClawResponse(
@@ -731,64 +828,181 @@ async function sendActivityToDiscord(job, event) {
   return [];
 }
 
-// Gửi ảnh OpenClaw đang phân tích (screenshot) lên Discord cho user xem: mỗi
-// job chỉ có 1 message, ảnh mới nhất edit thay thế ảnh cũ. Chỉ chấp nhận file
-// ảnh trong media roots (workspace của OpenClaw), đuôi png/jpg/jpeg/webp và
-// dung lượng dưới 10 MB.
-async function sendScreenshotToDiscord(job, filePath) {
+// Gallery ảnh xem trước được lưu trong job và cập nhật tại chỗ, nên bot restart
+// vẫn tiếp tục dùng đúng message cũ và giữ được bốn ảnh gần nhất.
+async function archiveScreenshotInDetailThread(job, screenshot) {
+  if (!screenshot || screenshot.threadMessageId) {
+    return;
+  }
+  const thread = await ensureJobDetailThread(job);
+  if (!thread?.send) {
+    return;
+  }
+  const capturedAt = Math.floor(Date.parse(screenshot.capturedAt || '') / 1000);
+  const extension = /^\.[a-z0-9]{2,5}$/i.test(screenshot.extension)
+    ? screenshot.extension.toLowerCase()
+    : '.png';
+  const attachment = new AttachmentBuilder(screenshot.stagedPath, {
+    name: `openclaw-history-${shortJobId(job.id)}-${screenshot.id.slice(0, 8)}${extension}`,
+  });
+  const timestamp = Number.isFinite(capturedAt) ? ` lúc <t:${capturedAt}:T>` : '';
+  const sent = await thread.send(discordMessageOptions(
+    `📸 **Ảnh OpenClaw đã xem${timestamp}** · Job \`#${shortJobId(job.id)}\``,
+    [attachment],
+  ));
+  await jobStore.updateJob(job.id, (storedJob) => {
+    const stored = storedJob.screenshots.find((item) => item.id === screenshot.id);
+    if (stored) {
+      stored.threadMessageId = sent.id;
+    }
+  });
+}
+
+async function deliverScreenshotGallery(job) {
+  const current = jobStore.getJob(job.id) || job;
+  const payload = buildScreenshotGalleryPayload(current);
+  const channel = await resolveDiscordChannel(current.channelId);
+  if (!payload || !channel) {
+    return null;
+  }
+  if (current.screenshotMessageId) {
+    const previous = await channel.messages.fetch(current.screenshotMessageId).catch(() => null);
+    if (previous) {
+      await previous.edit(payload);
+      return previous;
+    }
+  }
+  const sent = await channel.send(payload);
+  await jobStore.updateJob(current.id, { screenshotMessageId: sent.id });
+  return sent;
+}
+
+async function updateScreenshotGallery(job, filePath) {
   const file = String(filePath || '').trim().replace(/^["']|["']$/g, '');
   if (!file || !job?.channelId) {
     return;
   }
-  const resolved = path.resolve(file);
-  const allowed = OPENCLAW_MEDIA_ROOTS.some(
-    (root) => resolved === root || resolved.startsWith(root + path.sep),
-  );
-  if (!allowed) {
-    return;
-  }
-  const ext = path.extname(resolved).toLowerCase();
-  if (!['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
-    return;
-  }
-  let stats;
-  try {
-    stats = await fs.promises.stat(resolved);
-  } catch {
-    return;
-  }
-  if (!stats.isFile() || stats.size <= 0 || stats.size > 10 * 1024 * 1024) {
+  const staged = await stageMediaReference(file, {
+    openclawHome: OPENCLAW_HOME,
+    allowedRoots: OPENCLAW_MEDIA_ROOTS,
+    outboxRoot: OPENCLAW_OUTBOX_ROOT,
+    jobId: job.id,
+    maxBytes: 10 * 1024 * 1024,
+  });
+  if (!staged.artifact) {
     return;
   }
 
-  const channel = await resolveDiscordChannel(job.channelId);
-  if (!channel) {
-    return;
-  }
-  const content = '📸 **OpenClaw đang xem** — ảnh mới nhất (ảnh cũ đã thay thế)';
+  const previous = jobStore.getJob(job.id);
+  const alreadyStored = previous?.screenshots?.some((item) => item.id === staged.artifact.id);
+  let current = await jobStore.addScreenshot(job.id, {
+    ...staged.artifact,
+    capturedAt: new Date().toISOString(),
+  });
+
   try {
-    const existing = screenshotMessages.get(job.id);
-    if (existing) {
-      const previous = await channel.messages.fetch(existing.messageId).catch(() => null);
-      if (previous) {
-        await previous.edit({ content, files: [resolved] });
-        return;
-      }
-      screenshotMessages.delete(job.id);
+    if (!alreadyStored) {
+      const screenshot = current.screenshots.find((item) => item.id === staged.artifact.id);
+      await archiveScreenshotInDetailThread(current, screenshot);
+      current = jobStore.getJob(current.id) || current;
     }
-    const sent = await channel.send({ content, files: [resolved] });
-    screenshotMessages.set(job.id, { messageId: sent.id, channelId: job.channelId });
+    await deliverScreenshotGallery(current);
+    scheduleStatusUpdate(jobStore.getJob(current.id) || current);
   } catch (error) {
-    logger.warn('Không gửi được ảnh chụp màn hình xem trước.', {
-      jobId: job.id,
+    logger.warn('Không cập nhật được gallery ảnh chụp màn hình.', {
+      jobId: current.id,
       name: error.name,
       message: error.message,
     });
   }
 }
 
+async function enqueueScreenshotUpdate(jobId, update) {
+  const previous = screenshotUpdatePromises.get(jobId) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(update);
+  screenshotUpdatePromises.set(jobId, operation);
+  try {
+    return await operation;
+  } finally {
+    if (screenshotUpdatePromises.get(jobId) === operation) {
+      screenshotUpdatePromises.delete(jobId);
+    }
+  }
+}
+
+async function sendScreenshotToDiscord(job, filePath) {
+  return enqueueScreenshotUpdate(job.id, () => updateScreenshotGallery(job, filePath));
+}
+
+async function finalizeScreenshotGallery(job) {
+  if (
+    finalizedScreenshotGalleries.has(job.id)
+    || !job.screenshotMessageId
+    || !job.screenshots?.length
+  ) {
+    return;
+  }
+  await enqueueScreenshotUpdate(job.id, async () => {
+    await deliverScreenshotGallery(jobStore.getJob(job.id) || job);
+    finalizedScreenshotGalleries.add(job.id);
+  });
+}
+
 function sessionActivityUpdateKey(jobId, sessionKey) {
   return `${jobId}\u0000${sessionKey}`;
+}
+
+async function updateJobDetailMessage(job, options = {}) {
+  const current = jobStore.getJob(job.id);
+  if (!current) {
+    return null;
+  }
+  const thread = await ensureJobDetailThread(current, options.statusMessage);
+  if (!thread?.messages) {
+    return null;
+  }
+  const embed = buildJobDetailEmbed(current, {
+    counts: artifactCounts(current),
+    contextUsage: options.contextUsage,
+    streamPreview: options.streamPreview,
+    model: describeBackendModel(current.backendModel),
+    botName: 'OPENCLAW // JOB DETAILS',
+    botIconUrl: botIconUrl(),
+  });
+
+  if (current.detailMessageId) {
+    try {
+      return await thread.messages.edit(
+        current.detailMessageId,
+        discordEmbedOptions(embed, { clearContent: true }),
+      );
+    } catch (error) {
+      logger.warn('Không cập nhật được bảng chi tiết cũ; sẽ tạo bảng thay thế.', {
+        jobId: current.id,
+        name: error.name,
+      });
+    }
+  }
+
+  const sent = await thread.send(discordEmbedOptions(embed));
+  await jobStore.updateJob(current.id, { detailMessageId: sent.id });
+  return sent;
+}
+
+async function ensureJobDetailMessage(job, options = {}) {
+  if (!job) {
+    return null;
+  }
+  const previous = jobDetailUpdatePromises.get(job.id) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(() => updateJobDetailMessage(job, options));
+  jobDetailUpdatePromises.set(job.id, operation);
+  try {
+    return await operation;
+  } finally {
+    if (jobDetailUpdatePromises.get(job.id) === operation) {
+      jobDetailUpdatePromises.delete(job.id);
+    }
+  }
 }
 
 async function updateSessionActivityMessage(jobId, sessionKey) {
@@ -805,7 +1019,8 @@ async function updateSessionActivityMessage(jobId, sessionKey) {
     botName: 'OPENCLAW // SUB-SESSION',
     botIconUrl: botIconUrl(),
   });
-  const channel = await resolveDiscordChannel(current.channelId);
+  const channel = await ensureJobDetailThread(current)
+    || await resolveDiscordChannel(current.channelId);
 
   if (activity.messageId) {
     let lastError;
@@ -887,6 +1102,39 @@ function scheduleSessionActivityUpdates(job, options = {}) {
   }
 }
 
+async function finalizeStatusPresentation(job, statusMessage, embed, options = {}) {
+  let latest = jobStore.getJob(job.id) || job;
+  const previousThreadId = latest.detailThreadId;
+  const thread = await ensureJobDetailThread(latest, statusMessage).catch(() => null);
+  latest = jobStore.getJob(job.id) || latest;
+
+  if (thread && latest.detailThreadId !== previousThreadId) {
+    try {
+      statusMessage = await statusMessage.edit(discordEmbedOptions(embed, {
+        clearContent: true,
+        components: buildJobActionRows(latest),
+      }));
+    } catch (error) {
+      logger.warn('Không gắn được nút mở thread chi tiết vào status.', {
+        jobId: latest.id,
+        name: error.name,
+      });
+    }
+  }
+
+  await ensureJobDetailMessage(latest, {
+    statusMessage,
+    contextUsage: options.contextUsage,
+    streamPreview: options.streamPreview,
+  }).catch((error) => {
+    logger.warn('Không cập nhật được nội dung thread chi tiết.', {
+      jobId: latest.id,
+      name: error.name,
+    });
+  });
+  return statusMessage;
+}
+
 async function updateStatusMessage(job) {
   const current = jobStore.getJob(job.id);
   if (!current) {
@@ -918,6 +1166,9 @@ async function updateStatusMessage(job) {
     updateDebounceMs: streamPreview ? config.streamUpdateMs : config.statusUpdateDebounceMs,
     streamPreview,
   });
+  const statusOptions = {
+    components: buildJobActionRows(current),
+  };
   const channel = await resolveDiscordChannel(current.channelId);
   if (current.statusMessageId) {
     try {
@@ -942,12 +1193,12 @@ async function updateStatusMessage(job) {
         let replacement;
         if (source) {
           try {
-            replacement = await source.reply(discordEmbedOptions(embed));
+            replacement = await source.reply(discordEmbedOptions(embed, statusOptions));
           } catch {
-            replacement = await channel.send(discordEmbedOptions(embed));
+            replacement = await channel.send(discordEmbedOptions(embed, statusOptions));
           }
         } else {
-          replacement = await channel.send(discordEmbedOptions(embed));
+          replacement = await channel.send(discordEmbedOptions(embed, statusOptions));
         }
         await jobStore.updateJob(current.id, { statusMessageId: replacement.id });
         await channel.messages.delete(current.statusMessageId).catch((error) => {
@@ -957,14 +1208,20 @@ async function updateStatusMessage(job) {
           });
         });
         statusUpdatedAt.set(current.id, Date.now());
-        return replacement;
+        return finalizeStatusPresentation(current, replacement, embed, {
+          contextUsage,
+          streamPreview,
+        });
       }
       const statusMessage = await channel.messages.edit(
         current.statusMessageId,
-        discordEmbedOptions(embed, { clearContent: true }),
+        discordEmbedOptions(embed, { ...statusOptions, clearContent: true }),
       );
       statusUpdatedAt.set(current.id, Date.now());
-      return statusMessage;
+      return finalizeStatusPresentation(current, statusMessage, embed, {
+        contextUsage,
+        streamPreview,
+      });
     } catch (error) {
       logger.warn('Không cập nhật được status message cũ; sẽ tạo tin mới.', {
         jobId: current.id,
@@ -977,12 +1234,12 @@ async function updateStatusMessage(job) {
   let statusMessage;
   if (source) {
     try {
-      statusMessage = await source.reply(discordEmbedOptions(embed));
+      statusMessage = await source.reply(discordEmbedOptions(embed, statusOptions));
     } catch {
-      statusMessage = await channel.send(discordEmbedOptions(embed));
+      statusMessage = await channel.send(discordEmbedOptions(embed, statusOptions));
     }
   } else {
-    statusMessage = await channel.send(discordEmbedOptions(embed));
+    statusMessage = await channel.send(discordEmbedOptions(embed, statusOptions));
   }
   await jobStore.updateJob(current.id, { statusMessageId: statusMessage.id });
   statusUpdatedAt.set(current.id, Date.now());
@@ -994,7 +1251,10 @@ async function updateStatusMessage(job) {
       statusAckMs,
     });
   }
-  return statusMessage;
+  return finalizeStatusPresentation(current, statusMessage, embed, {
+    contextUsage,
+    streamPreview,
+  });
 }
 
 async function ensureStatusMessage(job) {
@@ -1068,6 +1328,14 @@ supervisor = new JobSupervisor({
   onJobChanged: async (job) => {
     scheduleStatusUpdate(job);
     scheduleSessionActivityUpdates(job);
+    if (TERMINAL_JOB_STATUSES.has(job.status)) {
+      await finalizeScreenshotGallery(job).catch((error) => {
+        logger.warn('Không chốt được gallery ảnh theo trạng thái cuối.', {
+          jobId: job.id,
+          name: error.name,
+        });
+      });
+    }
     // Job kết thúc mà vẫn còn phản hồi hoãn (agent không gửi response cuối sau
     // worker nền) → gửi nốt để user không mất thông tin cuối.
     if (TERMINAL_JOB_STATUSES.has(job.status) && deferredResponses.has(job.id)) {

@@ -86,6 +86,18 @@ function validateState(state) {
     if (job && job.sessionActivities === undefined) {
       job.sessionActivities = {};
     }
+    if (job && job.detailThreadId === undefined) {
+      job.detailThreadId = null;
+    }
+    if (job && job.detailMessageId === undefined) {
+      job.detailMessageId = null;
+    }
+    if (job && job.screenshotMessageId === undefined) {
+      job.screenshotMessageId = null;
+    }
+    if (job && job.screenshots === undefined) {
+      job.screenshots = [];
+    }
     if (
       !job
       || job.id !== jobId
@@ -97,6 +109,7 @@ function validateState(state) {
       || !job.sessionActivities
       || typeof job.sessionActivities !== 'object'
       || Array.isArray(job.sessionActivities)
+      || !Array.isArray(job.screenshots)
       || !job.tasks
       || typeof job.tasks !== 'object'
       || !job.artifacts
@@ -159,6 +172,9 @@ class JobStore {
         userId: String(input.userId),
         requestMessageId: String(input.requestMessageId || input.id),
         statusMessageId: input.statusMessageId || null,
+        detailThreadId: null,
+        detailMessageId: null,
+        screenshotMessageId: null,
         sessionGeneration: input.sessionGeneration,
         backendModel: input.backendModel || null,
         rootSessionKey: String(input.rootSessionKey),
@@ -186,6 +202,7 @@ class JobStore {
         sessionOffsets: {},
         sessionStartedAt: { [String(input.rootSessionKey)]: Date.parse(timestamp) },
         sessionActivities: {},
+        screenshots: [],
         tasks: {},
         artifacts: {},
         terminalReason: '',
@@ -282,6 +299,28 @@ class JobStore {
       if (startedAt !== null && job.sessionStartedAt[sessionKey] === undefined) {
         job.sessionStartedAt[sessionKey] = startedAt;
       }
+    });
+  }
+
+  async addScreenshot(jobId, screenshot, limit = 4) {
+    return this.updateJob(jobId, (job) => {
+      const id = String(screenshot?.id || '').trim();
+      if (!id) {
+        throw new JobStoreError(`Screenshot của job ${jobId} thiếu id.`);
+      }
+      const screenshots = Array.isArray(job.screenshots) ? job.screenshots : [];
+      const previous = screenshots.find((item) => item.id === id) || {};
+      const remaining = screenshots.filter((item) => item.id !== id);
+      remaining.push({
+        ...previous,
+        id,
+        stagedPath: String(screenshot.stagedPath || ''),
+        extension: String(screenshot.extension || ''),
+        size: Math.max(0, Number(screenshot.size) || 0),
+        capturedAt: screenshot.capturedAt || this.now().toISOString(),
+      });
+      job.screenshots = remaining.slice(-Math.max(1, Number(limit) || 4));
+      job.lastActivityAt = this.now().toISOString();
     });
   }
 

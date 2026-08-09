@@ -51,6 +51,30 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
     status: 'delivered',
     lastDiscordMessageId: '999999999999999999',
   });
+  for (let index = 1; index <= 5; index += 1) {
+    await store.addScreenshot(created.id, {
+      id: `screen-${index}`,
+      stagedPath: `C:\\outbox\\screen-${index}.png`,
+      extension: '.png',
+      size: index * 100,
+      capturedAt: `2026-08-01T00:00:0${index}.000Z`,
+    });
+  }
+  await store.updateJob(created.id, (storedJob) => {
+    storedJob.screenshots.at(-1).threadMessageId = '666666666666666666';
+  });
+  await store.addScreenshot(created.id, {
+    id: 'screen-5',
+    stagedPath: 'C:\\outbox\\screen-5.png',
+    extension: '.png',
+    size: 500,
+    capturedAt: '2026-08-01T00:00:06.000Z',
+  });
+  await store.updateJob(created.id, {
+    detailThreadId: '777777777777777777',
+    detailMessageId: '777777777777777778',
+    screenshotMessageId: '777777777777777779',
+  });
 
   const reloaded = new JobStore(filePath);
   await reloaded.load();
@@ -73,6 +97,16 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
   assert.equal(job.sessionActivities[childSessionKey].events[0].kind, 'tool_call');
   assert.equal(job.artifacts['hash-1'].status, 'delivered');
   assert.equal(job.artifacts['hash-1'].lastDiscordMessageId, '999999999999999999');
+  assert.equal(job.detailThreadId, '777777777777777777');
+  assert.equal(job.detailMessageId, '777777777777777778');
+  assert.equal(job.screenshotMessageId, '777777777777777779');
+  assert.deepEqual(job.screenshots.map((item) => item.id), [
+    'screen-2',
+    'screen-3',
+    'screen-4',
+    'screen-5',
+  ]);
+  assert.equal(job.screenshots.at(-1).threadMessageId, '666666666666666666');
   assert.equal((await fs.readFile(filePath, 'utf8')).endsWith('\n'), true);
 });
 
@@ -96,6 +130,10 @@ test('job cũ thiếu trường mới được nâng cấp bằng giá trị m�
   delete state.jobs[job.id].firstDeltaAt;
   delete state.jobs[job.id].requestSubmittedAt;
   delete state.jobs[job.id].sessionActivities;
+  delete state.jobs[job.id].detailThreadId;
+  delete state.jobs[job.id].detailMessageId;
+  delete state.jobs[job.id].screenshotMessageId;
+  delete state.jobs[job.id].screenshots;
   await fs.writeFile(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 
   const reloaded = new JobStore(filePath);
@@ -111,6 +149,10 @@ test('job cũ thiếu trường mới được nâng cấp bằng giá trị m�
   assert.equal(reloaded.getJob(job.id).firstDeltaAt, null);
   assert.equal(reloaded.getJob(job.id).requestSubmittedAt, null);
   assert.deepEqual(reloaded.getJob(job.id).sessionActivities, {});
+  assert.equal(reloaded.getJob(job.id).detailThreadId, null);
+  assert.equal(reloaded.getJob(job.id).detailMessageId, null);
+  assert.equal(reloaded.getJob(job.id).screenshotMessageId, null);
+  assert.deepEqual(reloaded.getJob(job.id).screenshots, []);
 });
 
 test('nâng job active đã yêu cầu dừng thành stopping khi load', async (t) => {

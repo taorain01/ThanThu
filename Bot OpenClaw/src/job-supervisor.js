@@ -303,9 +303,8 @@ class JobSupervisor {
         activity.mediaLabels?.[index] || activity.mediaLabel,
       );
     }
-    // Xem trước ảnh chụp màn hình: exec screen.snapshot "nạp đạn" cho job; tool
-    // image kế tiếp mang đường dẫn ảnh thật → gửi 1 ảnh mới nhất lên Discord
-    // (message cũ bị thay thế, không spam).
+    // Xem trước ảnh chụp màn hình: exec screen.snapshot/shot.js "nạp đạn" cho
+    // job; tool image kế tiếp mang đường dẫn ảnh thật để cập nhật gallery.
     if (activity.screenSnapshot) {
       context.screenshotArmed = true;
     }

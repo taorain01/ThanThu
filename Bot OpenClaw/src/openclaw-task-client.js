@@ -39,10 +39,13 @@ class OpenClawTaskClient {
     this.fetchImpl = options.fetchImpl || globalThis.fetch;
     this.nodePath = options.nodePath || process.execPath;
     this.openclawModulePath = options.openclawModulePath || defaultOpenClawModulePath();
-    this.timeoutMs = options.timeoutMs || 15000;
+    this.timeoutMs = options.timeoutMs || 25000;
     this.execFileImpl = options.execFileImpl || execFileAsync;
     this.listCacheMs = Math.max(0, Number(options.listCacheMs) || 0);
-    this.cliFallbackMs = Math.max(1000, Number(options.cliFallbackMs) || 30000);
+    // CLI liệt kê TOÀN BỘ ledger task (quan sát 12-18 giây với ~400 task) nên
+    // chỉ được dùng làm fallback thưa; giữa hai lần fallback bot dùng snapshot
+    // cuối và chờ RPC hồi phục thay vì spawn CLI liên tục.
+    this.cliFallbackMs = Math.max(1000, Number(options.cliFallbackMs) || 120000);
     this.now = options.now || Date.now;
     this.listSnapshot = null;
     this.listSnapshotAt = 0;

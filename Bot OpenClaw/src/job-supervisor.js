@@ -268,7 +268,8 @@ class JobSupervisor {
     }
     context?.activityTouch?.();
     if (
-      activity.isRoot
+      context
+      && activity.isRoot
       && activity.origin === 'transcript'
       && activity.kind === 'assistant'
       && activity.final === true
@@ -366,6 +367,13 @@ class JobSupervisor {
     });
     if (!staged.artifact) {
       this.logger?.warn('Bỏ qua MEDIA không hợp lệ hoặc ngoài allowlist.', { jobId });
+      // Không loại ảnh trong im lặng: user cần biết vì sao channel thiếu ảnh.
+      const fileName = path.basename(String(reference || '').trim()) || 'không rõ tên';
+      await this.handleEvent(jobId, {
+        kind: 'system',
+        origin: 'media',
+        text: `⚠️ Bỏ qua ảnh \`${sanitizeInline(fileName)}\`: ngoài allowlist, quá 8 MB hoặc file không hợp lệ.`,
+      }).catch(() => {});
       return null;
     }
     const current = this.store.getJob(jobId);
@@ -438,7 +446,7 @@ class JobSupervisor {
         current.status = 'sending';
         current.attempts = (current.attempts || 0) + 1;
         current.lastError = '';
-      });
+      }, { flush: true });
       try {
         await this.ensureArtifactStaged(jobId, artifactId);
         const messageId = await this.sendArtifact(this.store.getJob(jobId), {
@@ -454,7 +462,7 @@ class JobSupervisor {
           ])];
           current.deliveredAt = new Date().toISOString();
           current.lastError = '';
-        });
+        }, { flush: true });
         await this.notifyJobChanged(jobId);
         return this.store.getJob(jobId).artifacts[artifactId];
       } catch (error) {
@@ -472,6 +480,15 @@ class JobSupervisor {
           await delay(this.retryDelaysMs[index]);
         }
       }
+    }
+    // Hết lượt retry: báo rõ trong hoạt động job để ảnh không biến mất im lặng.
+    const failedArtifact = this.store.getJob(jobId)?.artifacts?.[artifactId];
+    if (failedArtifact) {
+      await this.handleEvent(jobId, {
+        kind: 'system',
+        origin: 'media',
+        text: `✗ Không gửi được ảnh ${failedArtifact.order || ''} sau ${attempts} lần thử; dùng lệnh resend để gửi lại.`,
+      }).catch(() => {});
     }
     await this.notifyJobChanged(jobId);
     throw lastError;
@@ -803,7 +820,7 @@ class JobSupervisor {
         stopRequested: true,
         cancelRequestedAt: requestedAt,
         cancelConfirmedAt: null,
-      });
+      }, { flush: true });
     }
     this.scheduleCancelWarning(jobId, context);
     return changed;
@@ -911,7 +928,7 @@ class JobSupervisor {
           ...(shouldStop && !job.cancelConfirmedAt
             ? { cancelConfirmedAt: new Date().toISOString() }
             : {}),
-        });
+        }, { flush: true });
         const terminalEvents = {
           completed: '✅ Job đã hoàn tất toàn bộ công việc.',
           completed_with_blocker: `⚠️ Job hoàn tất nhưng còn blocker: ${terminalReason}`,
@@ -1017,7 +1034,7 @@ class JobSupervisor {
         cancelRequestedAt: null,
         cancelConfirmedAt: null,
         cancelWarningAt: null,
-      });
+      }, { flush: true });
       job = this.store.getJob(jobId);
     }
     const context = await this.watchJob(jobId, { recovered: true });
@@ -1053,7 +1070,7 @@ class JobSupervisor {
       await this.store.updateJob(jobId, {
         status: 'completed_with_blocker',
         terminalReason: 'Không còn durable task đang chạy và job đã dùng hết một lần tự khôi phục.',
-      });
+      }, { flush: true });
       await this.closeContext(jobId);
       context.settleResolve(this.store.getJob(jobId));
       await this.notifyJobChanged(jobId);
@@ -1066,7 +1083,7 @@ class JobSupervisor {
       mutable.recoveryCount += 1;
       mutable.taskDiscoveryAfter = recoveryStartedAt;
       mutable.tasks = {};
-    });
+    }, { flush: true });
     await this.notifyJobChanged(jobId);
     const deadline = new RequestDeadline({
       signal,

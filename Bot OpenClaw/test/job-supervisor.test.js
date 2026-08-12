@@ -239,6 +239,8 @@ test('restart dùng offset bền vững, không gửi trùng và tiếp tục gi
     outboxRoot: path.join(fixture.directory, 'outbox'),
   });
   await firstStore.upsertArtifact(job.id, { ...pending.artifact, order: 3, status: 'ready' });
+  // Write-behind gộp các lần ghi; flush mô phỏng shutdown sạch trước restart.
+  await firstStore.flush();
 
   await fs.appendFile(transcripts.childTranscript, fixture.images.slice(2, 4).map((imagePath, index) => (
     transcriptMessage({

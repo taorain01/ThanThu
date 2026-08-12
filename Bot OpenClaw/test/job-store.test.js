@@ -75,6 +75,8 @@ test('lưu nguyên tử job, offset và delivery ledger qua restart', async (t) 
     detailMessageId: '777777777777777778',
     screenshotMessageId: '777777777777777779',
   });
+  // Write-behind gộp các lần ghi; flush mô phỏng shutdown sạch trước restart.
+  await store.flush();
 
   const reloaded = new JobStore(filePath);
   await reloaded.load();
@@ -162,7 +164,8 @@ test('nâng job active đã yêu cầu dừng thành stopping khi load', async (
   const store = new JobStore(filePath);
   await store.load();
   const job = await store.createJob(jobInput('job-stopping'));
-  await store.updateJob(job.id, { status: 'background', stopRequested: true });
+  // Yêu cầu dừng là transition quan trọng — production luôn ghi với flush.
+  await store.updateJob(job.id, { status: 'background', stopRequested: true }, { flush: true });
 
   const reloaded = new JobStore(filePath);
   await reloaded.load();
@@ -180,16 +183,31 @@ test('không ghi đè jobs.json bị hỏng', async (t) => {
   assert.equal(await fs.readFile(filePath, 'utf8'), '{bad json');
 });
 
-test('khôi phục state trong bộ nhớ nếu ghi nguyên tử thất bại', async (t) => {
+test('ghi thất bại giữ state trong bộ nhớ và tự lưu lại được sau đó', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bot-openclaw-jobs-rollback-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const store = new JobStore(path.join(directory, 'jobs.json'));
+  const filePath = path.join(directory, 'jobs.json');
+  const store = new JobStore(filePath);
   await store.load();
   const job = await store.createJob(jobInput('job-rollback'));
+  const originalSaveNow = store.saveNow.bind(store);
   store.saveNow = async () => {
     throw new JobStoreError('disk full');
   };
 
-  await assert.rejects(() => store.updateJob(job.id, { status: 'running' }), /disk full/);
-  assert.equal(store.getJob(job.id).status, 'queued');
+  // Transition quan trọng (flush) phải báo lỗi cho caller; state trong bộ nhớ
+  // vẫn giữ thay đổi và được đánh dấu dirty để lưu lại sau.
+  await assert.rejects(
+    () => store.updateJob(job.id, { status: 'running' }, { flush: true }),
+    /disk full/,
+  );
+  assert.equal(store.getJob(job.id).status, 'running');
+  assert.equal(store.dirty, true);
+
+  // Đĩa hồi phục → flush kế tiếp ghi được state mới nhất.
+  store.saveNow = originalSaveNow;
+  await store.flush();
+  const reloaded = new JobStore(filePath);
+  await reloaded.load();
+  assert.equal(reloaded.getJob(job.id).status, 'running');
 });

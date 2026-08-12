@@ -157,8 +157,10 @@ function loadConfig(env = process.env) {
       500,
       60000,
     ),
+    // Admin HTTP RPC quan sát p50 ~3,1s / p95 ~3,9s; timeout 5s cũ làm RPC
+    // trượt thường xuyên và kéo theo fallback CLI 12-18s. 12s cho đủ headroom.
     taskRpcTimeoutMs: parseInteger(
-      env.OPENCLAW_TASK_RPC_TIMEOUT_MS || '5000',
+      env.OPENCLAW_TASK_RPC_TIMEOUT_MS || '12000',
       'OPENCLAW_TASK_RPC_TIMEOUT_MS',
       1000,
       60000,

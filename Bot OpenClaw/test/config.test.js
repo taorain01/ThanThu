@@ -31,7 +31,7 @@ test('đọc cấu hình hợp lệ và tạo allowlist', () => {
   assert.equal(config.requestMaxRuntimeMs, 43200000);
   assert.equal(config.maxPending, 5);
   assert.equal(config.maxConcurrentSessions, 2);
-  assert.equal(config.taskRpcTimeoutMs, 5000);
+  assert.equal(config.taskRpcTimeoutMs, 12000);
   assert.equal(config.cancelWarningMs, 120000);
   assert.equal(config.statusUpdateDebounceMs, 1000);
   assert.equal(config.streamUpdateMs, 2000);

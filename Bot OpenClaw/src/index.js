@@ -132,7 +132,11 @@ const OPENCLAW_MEDIA_ROOTS = [...new Set([
 
 const logger = createLogger(path.join(BOT_ROOT, 'logs', 'bot.log'));
 const stateStore = new StateStore(path.join(BOT_ROOT, 'data', 'state.json'));
-const jobStore = new JobStore(path.join(BOT_ROOT, 'data', 'jobs.json'));
+const jobStore = new JobStore(path.join(BOT_ROOT, 'data', 'jobs.json'), {
+  onSaveError: (error) => logger.error('Không ghi được data/jobs.json; sẽ tự thử lại.', {
+    name: error.name,
+  }),
+});
 const messageCursorStore = new MessageCursorStore(
   path.join(BOT_ROOT, 'data', 'message-cursors.json'),
 );
@@ -162,11 +166,61 @@ const sessionActivityUpdatePromises = new Map();
 const activityDeliveryChains = new Map();
 const responseDeliveryPromises = new Map();
 // Phản hồi transcript-final đến TRONG khi worker nền vẫn chạy: chưa phải phản
-// hồi cuối, hoãn gửi (jobId → responseText). Gửi khi hết task active hoặc khi
-// job kết thúc — tránh gửi lời tự thuật giữa chừng và không đánh dấu
-// responseSent sớm để chặn response thật của agent.
+// hồi cuối, hoãn gửi (jobId → [responseText, ...] theo thứ tự đến). Giữ HÀNG ĐỢI
+// thay vì một giá trị để nhiều phản hồi liên tiếp không ghi đè mất nhau; gửi
+// lần lượt khi hết task active hoặc khi job kết thúc.
 const deferredResponses = new Map();
+
+function pushDeferredResponse(jobId, responseText) {
+  const queue = deferredResponses.get(jobId) || [];
+  if (queue.at(-1) !== responseText) {
+    queue.push(responseText);
+  }
+  deferredResponses.set(jobId, queue);
+}
+
+async function flushDeferredResponses(jobId, options = {}) {
+  const queue = deferredResponses.get(jobId);
+  if (!queue?.length) {
+    return false;
+  }
+  deferredResponses.delete(jobId);
+  let delivered = false;
+  for (const responseText of queue) {
+    const sent = await sendOpenClawResponse(jobId, responseText, options).catch((error) => {
+      logger.warn('Không gửi được phản hồi đã hoãn.', {
+        jobId,
+        name: error.name,
+      });
+      return false;
+    });
+    delivered = delivered || sent === true;
+  }
+  return delivered;
+}
 const streamPreviews = new Map();
+// Cache ngắn hạn cho usage context: updateStatusMessage chạy mỗi 1–2s và mỗi
+// lần lại đọc + parse sessions.json (có thể lớn) — cache 5s cắt phần lớn I/O.
+const sessionContextCache = new Map();
+const SESSION_CONTEXT_CACHE_MS = 5000;
+
+async function readSessionContextUsageCached(sessionKey) {
+  const now = Date.now();
+  const cached = sessionContextCache.get(sessionKey);
+  if (cached && now - cached.at < SESSION_CONTEXT_CACHE_MS) {
+    return cached.value;
+  }
+  const value = await readSessionContextUsage(OPENCLAW_SESSIONS_DIR, sessionKey);
+  sessionContextCache.set(sessionKey, { at: now, value });
+  if (sessionContextCache.size > 100) {
+    for (const [key, entry] of sessionContextCache) {
+      if (now - entry.at >= SESSION_CONTEXT_CACHE_MS) {
+        sessionContextCache.delete(key);
+      }
+    }
+  }
+  return value;
+}
 const messageDispatches = new Map();
 const handledMessageIds = new Set();
 // Điều hướng của từng bảng chọn model (key = messageId): cấp đang xem (1: nhóm,
@@ -1151,10 +1205,7 @@ async function updateStatusMessage(job) {
   const sessionPending = queue.pendingMetadata
     .filter((item) => (item.sessionKey || item.channelId) === sessionKey);
   const sessionQueueIndex = sessionPending.findIndex((item) => item.jobId === current.id);
-  const contextUsage = await readSessionContextUsage(
-    OPENCLAW_SESSIONS_DIR,
-    current.rootSessionKey,
-  );
+  const contextUsage = await readSessionContextUsageCached(current.rootSessionKey);
   const embed = buildJobStatusEmbed(current, {
     counts: artifactCounts(current),
     contextUsage,
@@ -1340,17 +1391,16 @@ supervisor = new JobSupervisor({
         });
       });
     }
-    // Job kết thúc mà vẫn còn phản hồi hoãn (agent không gửi response cuối sau
-    // worker nền) → gửi nốt để user không mất thông tin cuối.
-    if (TERMINAL_JOB_STATUSES.has(job.status) && deferredResponses.has(job.id)) {
-      const responseText = deferredResponses.get(job.id);
-      deferredResponses.delete(job.id);
-      await sendOpenClawResponse(job.id, responseText, { force: true }).catch((error) => {
-        logger.warn('Không gửi được phản hồi đã hoãn khi job kết thúc.', {
-          jobId: job.id,
-          name: error.name,
-        });
-      });
+    // Phản hồi hoãn được gửi nốt theo thứ tự: ngay khi worker nền đã xong
+    // (không đợi job settle — tránh giữ câu trả lời sẵn sàng thêm hàng phút),
+    // hoặc chậm nhất là khi job kết thúc.
+    if (TERMINAL_JOB_STATUSES.has(job.status)) {
+      await flushDeferredResponses(job.id, { force: true });
+    } else if (
+      deferredResponses.has(job.id)
+      && !Object.values(job.tasks || {}).some((task) => ACTIVE_TASK_STATUSES.has(task.status))
+    ) {
+      await flushDeferredResponses(job.id, { final: true, deferWhileTasksActive: true });
     }
   },
   sendActivity: sendActivityToDiscord,
@@ -1390,21 +1440,38 @@ async function runOpenClawResponseDelivery(jobId, responseText) {
     }
   }
   const allMediaRegistered = artifacts.length === parsed.items.length;
-  const visibleText = (allMediaRegistered ? parsed.standaloneText : parsed.text)
+  const rejectedMediaCount = parsed.items.length - artifacts.length;
+  let visibleText = (allMediaRegistered ? parsed.standaloneText : parsed.text)
     || (!artifacts.length ? responseText || 'OpenClaw không trả về nội dung.' : '');
+  if (rejectedMediaCount > 0) {
+    // Ảnh bị loại không được biến mất im lặng: báo ngay trong phản hồi chính.
+    visibleText = [
+      visibleText,
+      `⚠️ ${rejectedMediaCount} ảnh không gửi được (ngoài allowlist, quá 8 MB hoặc file không hợp lệ).`,
+    ].filter(Boolean).join('\n\n');
+  }
   await flushStatusBeforeResponse(jobId);
   if (visibleText) {
     await sendJobResponse(jobStore.getJob(jobId), visibleText);
   }
-  for (const artifact of artifacts) {
-    await supervisor.deliverArtifact(jobId, artifact.id);
+  // Giao ảnh tuần tự để giữ thứ tự, nhưng chỉ chờ tối đa 20s: nếu Discord lỗi
+  // và supervisor đang retry (tối đa ~2,6 phút) thì để retry chạy nền thay vì
+  // chặn đánh dấu responseSent và mọi phản hồi phía sau.
+  if (artifacts.length) {
+    const deliveryChain = (async () => {
+      for (const artifact of artifacts) {
+        await supervisor.deliverArtifact(jobId, artifact.id);
+      }
+    })();
+    deliveryChain.catch(() => {});
+    await Promise.race([deliveryChain, retryDelay(20000)]);
   }
   const responseSentAt = new Date();
   await jobStore.updateJob(jobId, {
     responseSent: true,
     responseSentAt: responseSentAt.toISOString(),
     responseText: normalizeResponseDedupKey(visibleText || responseText || ''),
-  });
+  }, { flush: true });
   const completedJob = jobStore.getJob(jobId);
   const createdAt = Date.parse(completedJob.createdAt);
   const startedAt = completedJob.startedAt == null ? Number.NaN : Number(completedJob.startedAt);
@@ -1463,11 +1530,14 @@ async function sendOpenClawResponse(jobId, responseText, options = {}) {
     && !TERMINAL_JOB_STATUSES.has(current.status)
     && Object.values(current.tasks || {}).some((task) => ACTIVE_TASK_STATUSES.has(task.status))
   ) {
-    deferredResponses.set(jobId, responseText);
+    pushDeferredResponse(jobId, responseText);
     return false;
   }
-  if (responseDeliveryPromises.has(jobId)) {
-    return responseDeliveryPromises.get(jobId);
+  // Chỉ tái sử dụng delivery đang chạy khi NỘI DUNG trùng nhau; phản hồi khác
+  // nội dung phải được xếp vào chuỗi gửi thay vì bị bỏ rơi (mất tin nhắn).
+  const inflight = responseDeliveryPromises.get(jobId);
+  if (inflight && inflight.key === dedupeKey) {
+    return inflight.promise;
   }
   const operation = enqueueDiscordDelivery(jobId, async () => {
     const latest = jobStore.getJob(jobId);
@@ -1480,17 +1550,14 @@ async function sendOpenClawResponse(jobId, responseText, options = {}) {
         return false;
       }
     }
-    const delivered = await runOpenClawResponseDelivery(jobId, responseText);
-    if (delivered) {
-      deferredResponses.delete(jobId);
-    }
-    return delivered;
+    return runOpenClawResponseDelivery(jobId, responseText);
   });
-  responseDeliveryPromises.set(jobId, operation);
+  const entry = { key: dedupeKey, promise: operation };
+  responseDeliveryPromises.set(jobId, entry);
   try {
     return await operation;
   } finally {
-    if (responseDeliveryPromises.get(jobId) === operation) {
+    if (responseDeliveryPromises.get(jobId) === entry) {
       responseDeliveryPromises.delete(jobId);
     }
   }
@@ -3047,6 +3114,10 @@ async function shutdown(signalName) {
     await reviewerBridge.close().catch(() => {});
   }
   await openclaw.close();
+  // Write-behind có thể còn thay đổi chưa ghi — flush trước khi thoát.
+  await jobStore.flush().catch((error) => {
+    logger.error('Không ghi được jobs.json khi dừng bot.', { name: error.name });
+  });
 }
 
 process.once('SIGINT', () => void shutdown('SIGINT'));
@@ -3091,11 +3162,25 @@ async function runMediaMojibakeFix() {
 
 async function main() {
   await Promise.all([stateStore.load(), jobStore.load(), messageCursorStore.load()]);
-  await cleanupOutbox(
+  // jobs.json càng to thì MỖI lần ghi càng chậm — dọn job kết thúc quá 7 ngày
+  // ngay khi khởi động và định kỳ mỗi 6 giờ.
+  const pruneJobs = () => jobStore.pruneTerminalJobs()
+    .then((removed) => {
+      if (removed > 0) {
+        logger.info('Đã dọn job cũ khỏi data/jobs.json.', { removed });
+      }
+    })
+    .catch((error) => logger.warn('Không dọn được job cũ.', { name: error.name }));
+  void pruneJobs();
+  const pruneTimer = setInterval(() => void pruneJobs(), 6 * 60 * 60 * 1000);
+  pruneTimer.unref?.();
+  // Dọn dẹp (outbox cũ, thư mục mojibake) chạy nền: quét đệ quy ổ đĩa có thể
+  // mất nhiều giây và không được phép trì hoãn việc login Discord.
+  void cleanupOutbox(
     OPENCLAW_OUTBOX_ROOT,
     config.mediaOutboxRetentionHours * 60 * 60 * 1000,
   ).catch((error) => logger.warn('Không dọn được media outbox cũ.', { name: error.name }));
-  await runMediaMojibakeFix();
+  void runMediaMojibakeFix();
   // Tự quét định kỳ: skill tạo ảnh có thể ghi nhầm vào thư mục tên lỗi ký tự
   // (vd "HĂ¬nh áº¢nh" thay vì "Hình Ảnh") giữa lúc bot chạy — dọn dẹp sau.
   const mojibakeTimer = setInterval(() => void runMediaMojibakeFix(), 15 * 60 * 1000);

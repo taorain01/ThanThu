@@ -128,6 +128,14 @@ class JobStore {
     this.now = options.now || (() => new Date());
     this.state = createEmptyState();
     this.writeChain = Promise.resolve();
+    // Write-behind: mutation cập nhật bộ nhớ ngay, ghi đĩa được gộp trong một
+    // cửa sổ ngắn để tránh serialize + ghi lại toàn bộ file sau MỖI offset/event.
+    // Transition quan trọng truyền { flush: true } để vẫn bền vững trước crash.
+    this.writeBehindMs = Math.max(0, Number(options.writeBehindMs ?? 250));
+    this.saveRetryMs = Math.max(1000, Number(options.saveRetryMs ?? 5000));
+    this.onSaveError = options.onSaveError || null;
+    this.dirty = false;
+    this.saveTimer = null;
   }
 
   async load() {
@@ -143,6 +151,7 @@ class JobStore {
       }
       throw new JobStoreError('Không thể đọc data/jobs.json; file được giữ nguyên để kiểm tra.', error);
     }
+    this.dirty = false;
     return clone(this.state);
   }
 
@@ -209,10 +218,10 @@ class JobStore {
       };
       this.state.jobs[job.id] = job;
       return job;
-    });
+    }, { flush: true });
   }
 
-  async updateJob(jobId, updater) {
+  async updateJob(jobId, updater, options = {}) {
     return this.mutate(() => {
       const job = this.state.jobs[jobId];
       if (!job) {
@@ -225,13 +234,13 @@ class JobStore {
       }
       job.updatedAt = this.now().toISOString();
       return job;
-    });
+    }, options);
   }
 
   async addEvent(jobId, text) {
     const cleanText = String(text || '').trim();
     if (!cleanText) {
-      return this.getJob(jobId);
+      return undefined;
     }
     return this.updateJob(jobId, (job) => {
       job.lastEvent = cleanText;
@@ -240,14 +249,14 @@ class JobStore {
       if (job.events.length > 50) {
         job.events.splice(0, job.events.length - 50);
       }
-    });
+    }, { returnResult: false });
   }
 
   async addSessionEvent(jobId, sessionKey, event) {
     const key = String(sessionKey || '').trim();
     const cleanText = String(event?.text || '').trim();
     if (!key || !cleanText) {
-      return this.getJob(jobId);
+      return undefined;
     }
     return this.updateJob(jobId, (job) => {
       const timestamp = this.now().toISOString();
@@ -273,13 +282,13 @@ class JobStore {
       job.sessionActivities[key] = activity;
       job.lastEvent = cleanText;
       job.lastActivityAt = timestamp;
-    });
+    }, { returnResult: false });
   }
 
   async setSessionActivityMessageId(jobId, sessionKey, messageId) {
     const key = String(sessionKey || '').trim();
     if (!key) {
-      return this.getJob(jobId);
+      return undefined;
     }
     return this.updateJob(jobId, (job) => {
       const timestamp = this.now().toISOString();
@@ -290,7 +299,7 @@ class JobStore {
       };
       activity.messageId = messageId ? String(messageId) : null;
       job.sessionActivities[key] = activity;
-    });
+    }, { returnResult: false });
   }
 
   async setSessionOffset(jobId, sessionKey, offset, startedAt = null) {
@@ -299,7 +308,7 @@ class JobStore {
       if (startedAt !== null && job.sessionStartedAt[sessionKey] === undefined) {
         job.sessionStartedAt[sessionKey] = startedAt;
       }
-    });
+    }, { returnResult: false });
   }
 
   async addScreenshot(jobId, screenshot, limit = 4) {
@@ -334,7 +343,7 @@ class JobStore {
         job.sessionStartedAt[task.childSessionKey] = task.createdAt || Date.parse(job.createdAt);
       }
       job.lastActivityAt = this.now().toISOString();
-    });
+    }, { returnResult: false });
   }
 
   async upsertArtifact(jobId, artifact) {
@@ -350,10 +359,10 @@ class JobStore {
         updatedAt: this.now().toISOString(),
       };
       job.lastActivityAt = this.now().toISOString();
-    });
+    }, { returnResult: false });
   }
 
-  async updateArtifact(jobId, artifactId, updater) {
+  async updateArtifact(jobId, artifactId, updater, options = {}) {
     return this.updateJob(jobId, (job) => {
       const artifact = job.artifacts[artifactId];
       if (!artifact) {
@@ -365,24 +374,86 @@ class JobStore {
         Object.assign(artifact, updater);
       }
       artifact.updatedAt = this.now().toISOString();
-    });
+    }, { ...options, returnResult: false });
   }
 
-  async mutate(mutator) {
-    let result;
+  // Mutator phải validate xong mới được sửa state (mọi mutator nội bộ đều throw
+  // trước khi đụng vào job), nên không cần snapshot rollback cho từng mutation.
+  async mutate(mutator, options = {}) {
+    const result = mutator();
+    this.dirty = true;
+    if (options.flush) {
+      await this.flush();
+    } else {
+      this.scheduleSave();
+    }
+    return options.returnResult === false ? undefined : clone(result);
+  }
+
+  scheduleSave(delayMs = this.writeBehindMs) {
+    if (this.saveTimer || !this.dirty) {
+      return;
+    }
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.flush().catch((error) => {
+        this.onSaveError?.(error);
+        this.scheduleSave(this.saveRetryMs);
+      });
+    }, delayMs);
+    this.saveTimer.unref?.();
+  }
+
+  // Ghi mọi thay đổi đang chờ xuống đĩa ngay; các lời gọi song song được xếp
+  // chuỗi và lần ghi sau bỏ qua nếu không còn thay đổi mới.
+  flush() {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
     const operation = this.writeChain.catch(() => {}).then(async () => {
-      const previousState = clone(this.state);
+      if (!this.dirty) {
+        return;
+      }
+      this.dirty = false;
       try {
-        result = mutator();
         await this.saveNow();
       } catch (error) {
-        this.state = previousState;
+        this.dirty = true;
         throw error;
       }
     });
     this.writeChain = operation;
-    await operation;
-    return clone(result);
+    return operation;
+  }
+
+  // Xóa job đã kết thúc quá cũ để jobs.json không phình vô hạn: file càng lớn
+  // thì mỗi lần ghi càng chậm (write amplification). Giữ lại tối thiểu
+  // keepAtLeast job terminal mới nhất cho lệnh `. openclaw jobs` và resend.
+  async pruneTerminalJobs(options = {}) {
+    const maxAgeMs = options.maxAgeMs === undefined
+      ? 7 * 24 * 60 * 60 * 1000
+      : Math.max(0, Number(options.maxAgeMs) || 0);
+    const keepAtLeast = options.keepAtLeast === undefined
+      ? 20
+      : Math.max(0, Number(options.keepAtLeast) || 0);
+    const now = this.now().getTime();
+    const terminalJobs = Object.values(this.state.jobs)
+      .filter((job) => !ACTIVE_JOB_STATUSES.has(job.status))
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    let removed = 0;
+    for (const job of terminalJobs.slice(keepAtLeast)) {
+      const updatedAt = Date.parse(job.updatedAt);
+      if (Number.isFinite(updatedAt) && now - updatedAt >= maxAgeMs) {
+        delete this.state.jobs[job.id];
+        removed += 1;
+      }
+    }
+    if (removed > 0) {
+      this.dirty = true;
+      await this.flush();
+    }
+    return removed;
   }
 
   async saveNow() {

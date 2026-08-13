@@ -41,6 +41,8 @@ anh/
 WebBangChien/anh/*
 !WebBangChien/anh/map.png
 !WebBangChien/anh/LangGia2.png
+!WebBangChien/anh/icon-192.png
+!WebBangChien/anh/icon-512.png
 !WebBangChien/anh/iconvukhi/
 !WebBangChien/anh/bg_lobby_beasts.png
 !WebBangChien/anh/bg_derby_racetrack_old.png

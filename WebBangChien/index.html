@@ -9,9 +9,9 @@
 <meta name="theme-color" content="#0a1a0f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="./anh/langgia_icon.png">
-<link rel="icon" type="image/png" href="./anh/langgia_icon.png">
-<link rel="shortcut icon" href="./anh/langgia_icon.png">
+<link rel="apple-touch-icon" href="./anh/icon-192.png">
+<link rel="icon" type="image/png" href="./anh/icon-192.png">
+<link rel="shortcut icon" href="./anh/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="./cpopup.css">
@@ -12772,6 +12772,85 @@ document.addEventListener('keydown', (e) => {
     }
   });
   initTheme();
+})();
+</script>
+<script>
+(function(){
+  'use strict';
+
+  // ── PWA: đăng ký service worker (điều kiện để cài đặt được app) ──
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('/sw.js').catch(function(err){
+        console.warn('[PWA] Đăng ký service worker thất bại:', err);
+      });
+    });
+  }
+
+  // Đang chạy bên trong app đã cài thì không hiện nút cài đặt
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (standalone) return;
+
+  var KEY = 'lg-pwa-install-dismissed';
+  var deferredPrompt = null;
+  var btn = null;
+
+  function hideButton(){ if (btn) { btn.remove(); btn = null; } }
+
+  function showButton(label, onMainClick){
+    if (btn || localStorage.getItem(KEY) === '1') return;
+    btn = document.createElement('div');
+    btn.id = 'lg-pwa-install';
+    btn.style.cssText = 'position:fixed;right:14px;bottom:calc(var(--mobile-nav-height,72px) + 18px);z-index:99999;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1206;font:600 14px/1 Inter,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer;user-select:none;-webkit-user-select:none;';
+    var text = document.createElement('span');
+    text.textContent = label;
+    var close = document.createElement('span');
+    close.textContent = '✕';
+    close.style.cssText = 'padding:4px 6px;margin:-4px -6px -4px 0;font-size:12px;opacity:.75;';
+    close.addEventListener('click', function(e){
+      e.stopPropagation();
+      localStorage.setItem(KEY, '1');
+      hideButton();
+    });
+    btn.appendChild(text);
+    btn.appendChild(close);
+    btn.addEventListener('click', onMainClick);
+    document.body.appendChild(btn);
+  }
+
+  // Android/Chrome: sự kiện beforeinstallprompt chỉ bắn khi đủ điều kiện cài đặt
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    showButton('📲 Cài đặt ứng dụng', function(){
+      if (!deferredPrompt) return;
+      var p = deferredPrompt;
+      deferredPrompt = null;
+      p.prompt();
+      p.userChoice.then(hideButton, hideButton);
+    });
+  });
+
+  window.addEventListener('appinstalled', function(){
+    localStorage.setItem(KEY, '1');
+    hideButton();
+  });
+
+  // iOS Safari: không có beforeinstallprompt, hiển thị hướng dẫn thủ công
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIOS) {
+    showButton('📲 Cài app lên màn hình chính', function(){
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:24px;';
+      var box = document.createElement('div');
+      box.style.cssText = 'max-width:340px;background:#0f2417;color:#e2e8f0;border:1px solid rgba(200,162,44,.35);border-radius:16px;padding:20px;font:400 14px/1.6 Inter,sans-serif;';
+      box.innerHTML = '<b style="color:#fbbf24">Cài đặt trên iPhone/iPad</b><br><br>1. Mở trang này bằng <b>Safari</b>.<br>2. Bấm nút <b>Chia sẻ</b> (ô vuông có mũi tên hướng lên) ở thanh dưới.<br>3. Chọn <b>“Thêm vào MH chính”</b> (Add to Home Screen).<br><br><button style="width:100%;padding:10px;border:0;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1206;font-weight:700;cursor:pointer">Đã hiểu</button>';
+      box.querySelector('button').addEventListener('click', function(){ overlay.remove(); });
+      overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.remove(); });
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    });
+  }
 })();
 </script>
 </div>

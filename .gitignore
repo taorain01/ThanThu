@@ -25,6 +25,7 @@ logs/
 
 # === Thư mục không cần thiết ===
 rac/
+/.rac/
 backup bot/
 backup data/
 backup*/

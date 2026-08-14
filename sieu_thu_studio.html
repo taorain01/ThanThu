@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beast Animation Studio - Thiết Kế Hoạt Ảnh Từng Khung Hình (Frame-by-Frame & Sprite Sheet)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #06080f;
+      --panel-bg: rgba(14, 18, 33, 0.92);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --accent-color: #ff5e36;
+      --accent-glow: rgba(255, 94, 54, 0.6);
+      --accent-gold: #ffd166;
+      --accent-cyan: #00d2d3;
+      --text-main: #f3f4f6;
+      --text-sub: #9ca3af;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Nunito', 'Outfit', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(255, 94, 54, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(0, 210, 211, 0.12) 0%, transparent 40%);
+    }
+
+    /* TOP HEADER */
+    header {
+      height: 52px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(8, 11, 20, 0.95);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--panel-border);
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #ff5e36, #ff9f43);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff, #ffd166);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-action.btn-accent {
+      background: linear-gradient(135deg, #ff5e36, #ff9f43);
+      border: none;
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(255, 94, 54, 0.4);
+    }
+
+    /* WORKSPACE */
+    .studio-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr 310px;
+      grid-template-rows: 1fr 145px;
+      gap: 10px;
+      padding: 10px 14px;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+    }
+
+    /* PANELS */
+    .studio-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .panel-header {
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+    }
+
+    /* ACTION SELECTOR */
+    .action-chips-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .action-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 700;
+      transition: all 0.2s;
+    }
+
+    .action-chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .action-chip.active {
+      background: linear-gradient(135deg, rgba(255, 94, 54, 0.2), rgba(255, 255, 255, 0.04));
+      border-color: var(--accent-color);
+      color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    .badge-count {
+      font-size: 10.5px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--accent-gold);
+    }
+
+    /* CENTER VIEWPORT (CANVAS STAGE) */
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 50% 35%, #151a2e 0%, #070912 80%);
+      border-radius: 18px;
+      border: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
+    }
+
+    #stageCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ONION SKINNING TOGGLE & HUD */
+    .viewport-hud {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .hud-chip {
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      padding: 5px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      color: #fff;
+      pointer-events: auto;
+    }
+
+    /* BOTTOM TIMELINE (FRAME STRIP) */
+    .timeline-panel {
+      grid-column: 1 / span 3;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .timeline-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timeline-playback {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-play {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      border: none;
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    .fps-picker {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .fps-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: var(--text-sub);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .fps-btn.active {
+      background: var(--accent-color);
+      color: #fff;
+      border-color: var(--accent-color);
+    }
+
+    /* FRAME STRIP THUMBNAILS */
+    .frame-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 0 8px 0;
+    }
+
+    .frame-card {
+      width: 78px;
+      height: 78px;
+      border-radius: 12px;
+      background: #111422;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .frame-card img {
+      width: 85%;
+      height: 85%;
+      object-fit: contain;
+    }
+
+    .frame-card:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .frame-card.active {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 15px var(--accent-glow);
+      background: rgba(255, 94, 54, 0.1);
+    }
+
+    .frame-num-badge {
+      position: absolute;
+      top: 3px;
+      left: 4px;
+      font-size: 9.5px;
+      font-weight: 800;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: #ffd166;
+    }
+
+    .btn-add-frame {
+      width: 78px;
+      height: 78px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      color: var(--text-sub);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .btn-add-frame:hover {
+      border-color: var(--accent-color);
+      color: #fff;
+      background: rgba(255, 94, 54, 0.08);
+    }
+
+    /* RIGHT PANEL: PROPERTIES & SPRITESHEET EXPORTER */
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .prop-row strong {
+      color: #fff;
+    }
+
+    .spritesheet-preview-box {
+      width: 100%;
+      height: 140px;
+      border-radius: 12px;
+      background: #0f1220;
+      border: 1px solid var(--panel-border);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 4px;
+    }
+
+    .spritesheet-preview-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-badge">🎞️</div>
+      <div class="brand-title">BEAST ANIMATION STUDIO - FRAME-BY-FRAME & SPRITE SHEET</div>
+    </div>
+    <div class="header-actions">
+      <a href="anh/sieu_thu/fire_dragon_spritesheet.png" download="fire_dragon_spritesheet.png" class="btn-action btn-accent" style="text-decoration: none;">
+        <span>📥</span> Tải Sprite Sheet PNG (Game Ready)
+      </a>
+      <a href="sieu_thu_animation.html" class="btn-action" style="text-decoration: none;">
+        <span>🏟️</span> Quay lại Đấu Trường
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="studio-workspace">
+    
+    <!-- LEFT: CHỌN HÀNH ĐỘNG / ANIMATION SEQUENCE -->
+    <aside class="studio-panel">
+      <div class="panel-header">
+        <span>🎬 1. Các Chuỗi Hoạt Ảnh</span>
+      </div>
+
+      <div class="action-chips-list">
+        <div class="action-chip active" id="chipIdle" onclick="selectSequence('idle')">
+          <span>🧘 1. Thở & Đứng (Idle)</span>
+          <span class="badge-count">4 Khung Hình</span>
+        </div>
+        <div class="action-chip" id="chipAttack" onclick="selectSequence('attack')">
+          <span>⚔️ 2. Cào Vuốt & Phun Lửa (Attack)</span>
+          <span class="badge-count">5 Khung Hình</span>
+        </div>
+        <div class="action-chip" id="chipFly" onclick="selectSequence('fly')">
+          <span>🪽 3. Vỗ Cánh Bay (Fly)</span>
+          <span class="badge-count">4 Khung Hình</span>
+        </div>
+      </div>
+
+      <div class="panel-header" style="margin-top: 8px;">
+        <span>🧅 Công Cụ Họa Sĩ Hoạt Hình</span>
+      </div>
+      <div class="action-chips-list">
+        <div class="action-chip" id="chipOnion" onclick="toggleOnionSkin()">
+          <span>🧅 Onion Skinning (Bóng mờ)</span>
+          <span id="onionStatus" style="color:#ffd166; font-size:11px;">BẬT</span>
+        </div>
+        <div class="action-chip" id="chipGrid" onclick="toggleGrid()">
+          <span>📐 Lưới Tỷ Lệ Pixel & Khớp</span>
+          <span id="gridStatus" style="color:#4ade80; font-size:11px;">BẬT</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER: STAGE PREVIEW CANVAS -->
+    <main class="viewport-container" id="viewportContainer">
+      <div class="viewport-hud">
+        <div class="hud-chip">
+          🐾 <strong>Hỏa Long Mini</strong> • Chuỗi: <span id="hudSeqName" style="color:#ff5e36;">Idle (4 Frames)</span>
+        </div>
+        <div class="hud-chip">
+          ⏱️ Khung hình hiện tại: <strong id="hudFrameIndex" style="color:#ffd166;">1 / 4</strong>
+        </div>
+      </div>
+      <canvas id="stageCanvas"></canvas>
+    </main>
+
+    <!-- RIGHT: THUỘC TÍNH & XUẤT SPRITESHEET -->
+    <aside class="studio-panel">
+      <div class="panel-header">
+        <span>📊 Thông Số Khung Hình</span>
+      </div>
+      <div class="prop-row">
+        <span>Hành động:</span>
+        <strong id="statActionName">Đứng Thở (Idle)</strong>
+      </div>
+      <div class="prop-row">
+        <span>Số lượng Frame:</span>
+        <strong id="statFrameCount">4 Frames</strong>
+      </div>
+      <div class="prop-row">
+        <span>Kích thước mỗi Frame:</span>
+        <strong>400 x 400 px</strong>
+      </div>
+      <div class="prop-row">
+        <span>Tốc độ Playback:</span>
+        <strong id="statFpsVal" style="color:#00d2d3;">6 FPS</strong>
+      </div>
+
+      <div class="panel-header" style="margin-top: 8px;">
+        <span>🖼️ Sprite Sheet Texture Atlas</span>
+      </div>
+      <div class="spritesheet-preview-box">
+        <img src="anh/sieu_thu/fire_dragon_spritesheet.png" alt="SpriteSheet">
+      </div>
+      <p style="font-size:11px; color:var(--text-sub); line-height:1.4;">
+        Đã xuất sẵn lưới 4x3 gồm 12 khung hình liên hoàn, tương thích 100% với <strong>Unity Sprite Editor</strong>, <strong>Godot AnimatedSprite2D</strong> và <strong>Cocos Creator</strong>.
+      </p>
+    </aside>
+
+    <!-- BOTTOM: TIMELINE & FRAME STRIP -->
+    <footer class="timeline-panel">
+      <div class="timeline-controls">
+        <div class="timeline-playback">
+          <button class="btn-play" id="btnPlayPause" onclick="togglePlay()">
+            <span id="playIcon">⏸️</span>
+          </button>
+          <span style="font-size: 12.5px; font-weight: 800;">Phát Chuỗi Hoạt Ảnh</span>
+        </div>
+
+        <div class="fps-picker">
+          <span>Tốc độ khung hình (FPS):</span>
+          <button class="fps-btn" onclick="setFPS(3, this)">3 FPS</button>
+          <button class="fps-btn active" onclick="setFPS(6, this)">6 FPS</button>
+          <button class="fps-btn" onclick="setFPS(10, this)">10 FPS</button>
+          <button class="fps-btn" onclick="setFPS(15, this)">15 FPS</button>
+        </div>
+      </div>
+
+      <!-- DẢI KHUNG HÌNH (FRAME STRIP) -->
+      <div class="frame-strip" id="frameStripContainer">
+        <!-- Render frame cards -->
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    /* ==========================================================
+       1. DATA CÁC CHUỖI FRAME RIÊNG BIỆT CHO HỎA LONG
+    ========================================================== */
+    const SEQUENCES_DATA = {
+      idle: {
+        name: 'Đứng Thở (Idle)',
+        fps: 6,
+        frames: [
+          'anh/sieu_thu/frames/fire_dragon_idle_f1.png',
+          'anh/sieu_thu/frames/fire_dragon_idle_f2.png',
+          'anh/sieu_thu/frames/fire_dragon_idle_f3.png',
+          'anh/sieu_thu/frames/fire_dragon_idle_f4.png'
+        ],
+        desc: 'F1: Chuẩn bị • F2: Hít thở ngực phồng • F3: Mắt chớp nhẹ cánh mở • F4: Thở ra hạ cánh'
+      },
+      attack: {
+        name: 'Cào Vuốt & Phun Lửa (Attack)',
+        fps: 8,
+        frames: [
+          'anh/sieu_thu/frames/fire_dragon_attack_f1.png',
+          'anh/sieu_thu/frames/fire_dragon_attack_f2.png',
+          'anh/sieu_thu/frames/fire_dragon_attack_f3.png',
+          'anh/sieu_thu/frames/fire_dragon_attack_f4.png',
+          'anh/sieu_thu/frames/fire_dragon_attack_f5.png'
+        ],
+        desc: 'F1: Lùi lấy đà • F2: Lao tới giương vuốt • F3: Cào chém lửa tóe • F4: Phun cầu lửa bùng nổ • F5: Thu thế'
+      },
+      fly: {
+        name: 'Vỗ Cánh Bay (Fly)',
+        fps: 6,
+        frames: [
+          'anh/sieu_thu/frames/fire_dragon_fly_f1.png',
+          'anh/sieu_thu/frames/fire_dragon_fly_f2.png',
+          'anh/sieu_thu/frames/fire_dragon_fly_f3.png',
+          'anh/sieu_thu/frames/fire_dragon_fly_f4.png'
+        ],
+        desc: 'F1: Cánh cụp • F2: Cánh ngang • F3: Dang rộng hết cỡ nâng người • F4: Đập mạnh xuống đẩy thân lên cao'
+      }
+    };
+
+    let currentSeqKey = 'idle';
+    let currentFrameIdx = 0;
+    let isPlaying = true;
+    let currentFps = 6;
+    let playInterval = null;
+
+    let showOnionSkin = true;
+    let showGrid = true;
+
+    // Cache preloaded images
+    const loadedImagesCache = {};
+
+    function preloadAllFrames() {
+      Object.keys(SEQUENCES_DATA).forEach(k => {
+        SEQUENCES_DATA[k].frames.forEach(src => {
+          if (!loadedImagesCache[src]) {
+            const img = new Image();
+            img.src = src;
+            loadedImagesCache[src] = img;
+          }
+        });
+      });
+    }
+    preloadAllFrames();
+
+    /* ==========================================================
+       2. CANVAS STAGE RENDERING
+    ========================================================== */
+    const stageCanvas = document.getElementById('stageCanvas');
+    const ctx = stageCanvas.getContext('2d');
+
+    function resizeStage() {
+      const container = document.getElementById('viewportContainer');
+      stageCanvas.width = container.offsetWidth;
+      stageCanvas.height = container.offsetHeight;
+      drawCurrentFrame();
+    }
+    window.addEventListener('resize', resizeStage);
+
+    function drawCurrentFrame() {
+      ctx.clearRect(0, 0, stageCanvas.width, stageCanvas.height);
+
+      const seq = SEQUENCES_DATA[currentSeqKey];
+      const frameSrc = seq.frames[currentFrameIdx];
+      const img = loadedImagesCache[frameSrc];
+
+      const size = Math.min(stageCanvas.width, stageCanvas.height) * 0.75;
+      const x = (stageCanvas.width - size) / 2;
+      const y = (stageCanvas.height - size) / 2 + 10;
+
+      // 1. Vẽ Lưới (Grid)
+      if (showGrid) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        const step = 40;
+        for (let gx = 0; gx < stageCanvas.width; gx += step) {
+          ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, stageCanvas.height); ctx.stroke();
+        }
+        for (let gy = 0; gy < stageCanvas.height; gy += step) {
+          ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(stageCanvas.width, gy); ctx.stroke();
+        }
+        // Trục giữa
+        ctx.strokeStyle = 'rgba(255, 94, 54, 0.2)';
+        ctx.beginPath(); ctx.moveTo(stageCanvas.width/2, 0); ctx.lineTo(stageCanvas.width/2, stageCanvas.height); ctx.stroke();
+        ctx.restore();
+      }
+
+      // 2. Sàn Đấu 3D
+      ctx.save();
+      ctx.translate(stageCanvas.width / 2, y + size - 15);
+      ctx.scale(1, 0.3);
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 94, 54, 0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      // 3. Onion Skinning (Bóng mờ khung hình trước đó)
+      if (showOnionSkin && seq.frames.length > 1) {
+        const prevIdx = (currentFrameIdx - 1 + seq.frames.length) % seq.frames.length;
+        const prevImg = loadedImagesCache[seq.frames[prevIdx]];
+        if (prevImg && prevImg.complete) {
+          ctx.save();
+          ctx.globalAlpha = 0.25;
+          ctx.filter = 'hue-rotate(180deg)'; // Nhuộm xanh bóng ma
+          ctx.drawImage(prevImg, x, y, size, size);
+          ctx.restore();
+        }
+      }
+
+      // 4. Khung Hình Chính Hiện Tại (Current Frame)
+      if (img && img.complete) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(255, 94, 54, 0.4)';
+        ctx.shadowBlur = 20;
+        ctx.drawImage(img, x, y, size, size);
+        ctx.restore();
+      }
+
+      // Cập nhật HUD
+      document.getElementById('hudFrameIndex').textContent = `${currentFrameIdx + 1} / ${seq.frames.length}`;
+    }
+
+    /* ==========================================================
+       3. TIMELINE CONTROLS & PLAYBACK ENGINE
+    ========================================================== */
+    function startPlayback() {
+      if (playInterval) clearInterval(playInterval);
+      playInterval = setInterval(() => {
+        const seq = SEQUENCES_DATA[currentSeqKey];
+        currentFrameIdx = (currentFrameIdx + 1) % seq.frames.length;
+        updateActiveFrameCard();
+        drawCurrentFrame();
+      }, 1000 / currentFps);
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      document.getElementById('playIcon').textContent = isPlaying ? '⏸️' : '▶️';
+      if (isPlaying) {
+        startPlayback();
+      } else {
+        if (playInterval) clearInterval(playInterval);
+      }
+    }
+
+    function setFPS(fps, btn) {
+      currentFps = fps;
+      document.querySelectorAll('.fps-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('statFpsVal').textContent = `${fps} FPS`;
+      if (isPlaying) startPlayback();
+    }
+
+    function selectSequence(key) {
+      currentSeqKey = key;
+      currentFrameIdx = 0;
+
+      document.querySelectorAll('.action-chip').forEach(c => c.classList.remove('active'));
+      const activeChip = document.getElementById('chip' + key.charAt(0).toUpperCase() + key.slice(1));
+      if (activeChip) activeChip.classList.add('active');
+
+      const seq = SEQUENCES_DATA[key];
+      document.getElementById('hudSeqName').textContent = `${seq.name} (${seq.frames.length} Frames)`;
+      document.getElementById('statActionName').textContent = seq.name;
+      document.getElementById('statFrameCount').textContent = `${seq.frames.length} Frames`;
+
+      setFPS(seq.fps, document.querySelectorAll('.fps-btn')[1]);
+      renderFrameStrip();
+      drawCurrentFrame();
+    }
+
+    function selectFrame(idx) {
+      currentFrameIdx = idx;
+      updateActiveFrameCard();
+      drawCurrentFrame();
+    }
+
+    function renderFrameStrip() {
+      const container = document.getElementById('frameStripContainer');
+      container.innerHTML = '';
+      const seq = SEQUENCES_DATA[currentSeqKey];
+
+      seq.frames.forEach((src, idx) => {
+        const card = document.createElement('div');
+        card.className = 'frame-card' + (idx === currentFrameIdx ? ' active' : '');
+        card.innerHTML = `
+          <span class="frame-num-badge">F${idx + 1}</span>
+          <img src="${src}" alt="Frame ${idx + 1}">
+        `;
+        card.onclick = () => {
+          selectFrame(idx);
+          if (isPlaying) togglePlay(); // Pause to inspect frame
+        };
+        container.appendChild(card);
+      });
+    }
+
+    function updateActiveFrameCard() {
+      document.querySelectorAll('.frame-card').forEach((card, idx) => {
+        card.classList.toggle('active', idx === currentFrameIdx);
+      });
+    }
+
+    function toggleOnionSkin() {
+      showOnionSkin = !showOnionSkin;
+      document.getElementById('onionStatus').textContent = showOnionSkin ? 'BẬT' : 'TẮT';
+      document.getElementById('onionStatus').style.color = showOnionSkin ? '#ffd166' : '#9ca3af';
+      drawCurrentFrame();
+    }
+
+    function toggleGrid() {
+      showGrid = !showGrid;
+      document.getElementById('gridStatus').textContent = showGrid ? 'BẬT' : 'TẮT';
+      document.getElementById('gridStatus').style.color = showGrid ? '#4ade80' : '#9ca3af';
+      drawCurrentFrame();
+    }
+
+    // INITIALIZE
+    window.onload = () => {
+      resizeStage();
+      selectSequence('idle');
+      startPlayback();
+    };
+  </script>
+</body>
+</html>

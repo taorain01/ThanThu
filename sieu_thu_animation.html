@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đấu Trường Siêu Thú Chibi - Trình Diễn Chuyển Động (Game Animation Showcase)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0b0e17;
+      --panel-bg: rgba(20, 25, 43, 0.88);
+      --panel-border: rgba(255, 255, 255, 0.12);
+      --accent-gold: #ffd166;
+      --text-main: #f3f4f6;
+      --text-sub: #9ca3af;
+      --theme-color: #ff5e36;
+      --theme-glow: rgba(255, 94, 54, 0.55);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Nunito', 'Outfit', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(255, 94, 54, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 90% 85%, rgba(0, 210, 211, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(165, 94, 234, 0.1) 0%, transparent 60%);
+    }
+
+    /* HEADER */
+    header {
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(11, 14, 23, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--panel-border);
+      z-index: 50;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #ff5e36, #ff9f43);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 15px rgba(255, 94, 54, 0.4);
+      animation: pulseBadge 3s infinite alternate;
+    }
+
+    @keyframes pulseBadge {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.06); }
+    }
+
+    .logo-text h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff, #ffd166);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.5px;
+    }
+
+    .logo-text p {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-header {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-header:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    /* MAIN CONTAINER */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 320px 1fr 350px;
+      gap: 20px;
+      padding: 20px 28px;
+      max-width: 1650px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+    }
+
+    /* GLASS CARDS */
+    .glass-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .panel-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    /* BEAST SELECTOR LIST */
+    .beast-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      max-height: 520px;
+      padding-right: 4px;
+    }
+
+    .beast-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+
+    .beast-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateX(5px);
+    }
+
+    .beast-item.active {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
+      border-color: var(--item-color, #ff5e36);
+      box-shadow: 0 4px 20px var(--item-glow, rgba(255, 94, 54, 0.35));
+    }
+
+    .beast-thumb {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      background: #151828;
+      overflow: hidden;
+      position: relative;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .beast-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .beast-info h4 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+
+    .beast-element-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--tag-bg, rgba(255, 94, 54, 0.2));
+      color: var(--tag-color, #ff793f);
+    }
+
+    /* CENTER STAGE (ARENA) */
+    .arena-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 540px;
+      background: radial-gradient(circle at center, #1c223c 0%, #0d101c 75%);
+      border-radius: 28px;
+      border: 1px solid var(--panel-border);
+      overflow: hidden;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.7);
+    }
+
+    /* CANVAS PARTICLES */
+    #particle-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ARENA GRID & PEDESTAL */
+    .arena-grid {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 240px;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      transform: perspective(450px) rotateX(65deg);
+      transform-origin: bottom center;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .pedestal-ring {
+      position: absolute;
+      bottom: 85px;
+      width: 340px;
+      height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, var(--theme-glow) 0%, transparent 70%);
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+      transform: scaleY(0.4);
+      animation: rotatePedestal 25s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+      transition: background 0.4s ease;
+    }
+
+    @keyframes rotatePedestal {
+      0% { transform: scaleY(0.4) rotate(0deg); }
+      100% { transform: scaleY(0.4) rotate(360deg); }
+    }
+
+    /* BEAST STAGE DISPLAY */
+    .beast-stage-wrapper {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      margin-bottom: 25px;
+    }
+
+    .beast-shadow {
+      width: 200px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.55);
+      filter: blur(8px);
+      margin-top: -12px;
+      transition: all 0.3s ease;
+    }
+
+    .beast-sprite-container {
+      width: 320px;
+      height: 320px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* CARD STICKER FRAME CHO CHIBI NỔI BẬT */
+    .beast-sticker-frame {
+      width: 290px;
+      height: 290px;
+      border-radius: 28px;
+      background: #ffffff;
+      padding: 10px;
+      box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.6),
+        0 0 35px var(--theme-glow),
+        inset 0 0 0 3px rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .beast-sticker-frame::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, transparent 60%);
+      opacity: 0.15;
+      pointer-events: none;
+    }
+
+    .beast-sprite-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 20px;
+      display: block;
+      pointer-events: none;
+    }
+
+    /* SPEECH BUBBLE */
+    .speech-bubble {
+      position: absolute;
+      top: -50px;
+      background: #ffffff;
+      color: #0b0e17;
+      padding: 8px 18px;
+      border-radius: 22px;
+      font-size: 14px;
+      font-weight: 800;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transform: translateY(12px) scale(0.8);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+      z-index: 25;
+      white-space: nowrap;
+    }
+
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px 6px 0;
+      border-style: solid;
+      border-color: #ffffff transparent;
+      display: block;
+      width: 0;
+    }
+
+    .speech-bubble.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* ==========================================================
+       ANIMATION CSS KEYFRAMES CHO SIÊU THÚ
+    ========================================================== */
+
+    /* 1. IDLE (Thở & Bồng bềnh) */
+    .anim-idle .beast-sprite-container {
+      animation: animIdleFloat 2.4s ease-in-out infinite alternate;
+    }
+    .anim-idle .beast-shadow {
+      animation: animShadowFloat 2.4s ease-in-out infinite alternate;
+    }
+
+    @keyframes animIdleFloat {
+      0% {
+        transform: translateY(0px) scale(1, 1) rotate(0deg);
+      }
+      50% {
+        transform: translateY(-12px) scale(0.98, 1.03) rotate(1.5deg);
+      }
+      100% {
+        transform: translateY(-22px) scale(1.03, 0.97) rotate(-1.5deg);
+      }
+    }
+
+    @keyframes animShadowFloat {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(0.72); opacity: 0.3; }
+    }
+
+    /* 2. ATTACK (Lao lên tấn công dữ dội) */
+    .anim-attack .beast-sprite-container {
+      animation: animAttackDash 0.75s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+    .anim-attack .beast-sticker-frame {
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 50px var(--theme-color);
+    }
+
+    @keyframes animAttackDash {
+      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+      20% { transform: translate(-45px, 12px) scale(0.88, 1.12) rotate(-14deg); }
+      45% { transform: translate(95px, -18px) scale(1.25, 0.85) rotate(18deg); }
+      70% { transform: translate(50px, -6px) scale(1.06, 0.95) rotate(6deg); }
+      100% { transform: translate(0, 0) scale(1) rotate(0deg); }
+    }
+
+    /* 3. ULTIMATE (Tuyệt kỹ tối thượng nộ khí) */
+    .anim-ultimate .beast-sprite-container {
+      animation: animUltimateBurst 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @keyframes animUltimateBurst {
+      0% { transform: translateY(0) scale(1); filter: brightness(1); }
+      15% { transform: translateY(18px) scale(1.2, 0.8); filter: brightness(1.2); }
+      35% { transform: translateY(-85px) scale(1.3, 1.3) rotate(8deg); filter: brightness(1.6) drop-shadow(0 0 35px #fff); }
+      55% { transform: translateY(-90px) scale(1.35, 1.35) rotate(-8deg); filter: brightness(1.9) drop-shadow(0 0 60px var(--theme-color)); }
+      75% { transform: translateY(-80px) scale(1.3, 1.3) rotate(4deg); }
+      90% { transform: translateY(12px) scale(1.15, 0.85); }
+      100% { transform: translateY(0) scale(1); filter: brightness(1); }
+    }
+
+    /* 4. HAPPY / CHEER (Nũng nịu nhảy tưng tưng) */
+    .anim-cheer .beast-sprite-container {
+      animation: animCheerJump 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes animCheerJump {
+      0% { transform: translateY(0) scale(1); }
+      25% { transform: translateY(-55px) scale(1.12, 1.12) rotate(12deg); }
+      50% { transform: translateY(0) scale(1.18, 0.82); }
+      75% { transform: translateY(-30px) scale(1.08, 1.08) rotate(-10deg); }
+      100% { transform: translateY(0) scale(1) rotate(0deg); }
+    }
+
+    /* 5. HIT (Bị trúng đòn rung lắc chớp đỏ) */
+    .anim-hit .beast-sprite-container {
+      animation: animHitShake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+    }
+
+    @keyframes animHitShake {
+      0% { transform: translate(0, 0); filter: brightness(1); }
+      15% { transform: translate(-35px, 0) rotate(-12deg); filter: brightness(2.5) drop-shadow(0 0 25px #ff0000); }
+      30% { transform: translate(30px, 0) rotate(10deg); filter: brightness(2); }
+      45% { transform: translate(-18px, 0) rotate(-6deg); }
+      65% { transform: translate(12px, 0) rotate(4deg); }
+      100% { transform: translate(0, 0); filter: brightness(1); }
+    }
+
+    /* 6. RUN (Chạy bộ nhún nhảy liên tục) */
+    .anim-run .beast-sprite-container {
+      animation: animRunCycle 0.55s infinite linear;
+    }
+
+    @keyframes animRunCycle {
+      0% { transform: translateY(0) scale(1, 1) rotate(0deg); }
+      25% { transform: translateY(-24px) scale(0.94, 1.1) rotate(6deg); }
+      50% { transform: translateY(0) scale(1.1, 0.9) rotate(0deg); }
+      75% { transform: translateY(-24px) scale(0.94, 1.1) rotate(-6deg); }
+      100% { transform: translateY(0) scale(1, 1) rotate(0deg); }
+    }
+
+    /* ARENA HUD */
+    .arena-hud {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+
+    .beast-badge-info {
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(10px);
+      padding: 8px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .beast-badge-info h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .beast-badge-info p {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    /* ACTION CONTROLS PANEL */
+    .action-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .btn-action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-anim {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .btn-anim .icon {
+      font-size: 22px;
+    }
+
+    .btn-anim:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-anim:active {
+      transform: translateY(0) scale(0.96);
+    }
+
+    .btn-anim.btn-ultimate {
+      grid-column: span 2;
+      background: linear-gradient(135deg, #ff5e36, #ff9f43);
+      border: none;
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(255, 94, 54, 0.4);
+      padding: 14px;
+      font-size: 14px;
+    }
+
+    .btn-anim.btn-ultimate:hover {
+      box-shadow: 0 6px 28px rgba(255, 94, 54, 0.65);
+      transform: translateY(-2px) scale(1.02);
+    }
+
+    /* SPEED CONTROLS */
+    .option-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    .option-row strong {
+      color: #fff;
+    }
+
+    .speed-btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .speed-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: var(--text-sub);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .speed-btn.active, .speed-btn:hover {
+      background: var(--theme-color);
+      color: #fff;
+      border-color: var(--theme-color);
+    }
+
+    .interaction-hint {
+      margin-top: auto;
+      background: rgba(255, 209, 102, 0.1);
+      border: 1px dashed rgba(255, 209, 102, 0.35);
+      border-radius: 16px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: #ffd166;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      line-height: 1.4;
+    }
+
+    /* SCREEN FLASH OVERLAY */
+    .flash-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 30;
+      transition: opacity 0.15s;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-area">
+      <div class="logo-badge">🐾</div>
+      <div class="logo-text">
+        <h1>SIÊU THÚ CHIBI - GAME ANIMATION SHOWCASE</h1>
+        <p>Hệ thống mô phỏng chuyển động 2D & Tương tác thời gian thực</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-header" id="btnSoundToggle">
+        <span id="soundIcon">🔊</span> Âm Thanh: <span id="soundStatus" style="color: #4ade80;">BẬT</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT: DANH SÁCH 5 SIÊU THÚ -->
+    <section class="glass-card">
+      <div class="panel-title">
+        <span>📖</span> Danh Sách Siêu Thú (5 Mẫu)
+      </div>
+
+      <div class="beast-list" id="beastListContainer">
+        <!-- Javascript renders items -->
+      </div>
+
+      <div class="interaction-hint">
+        <span>💡</span> <strong>Mẹo nhanh:</strong> Bấm phím <strong>1 - 5</strong> trên bàn phím để chuyển đổi siêu thú tức thì!
+      </div>
+    </section>
+
+    <!-- CENTER: ĐẤU TRƯỜNG & CHUYỂN ĐỘNG -->
+    <section class="arena-container" id="arenaBox">
+      <div class="flash-overlay" id="flashOverlay"></div>
+      <canvas id="particle-canvas"></canvas>
+      <div class="arena-grid"></div>
+      <div class="pedestal-ring" id="pedestalRing"></div>
+
+      <!-- HUD TRÊN ĐẤU TRƯỜNG -->
+      <div class="arena-hud">
+        <div class="beast-badge-info">
+          <h2 id="hudBeastName">Hỏa Long Mini</h2>
+          <p id="hudBeastTitle">Rồng Lửa Cổ Đại • Hệ Hỏa</p>
+        </div>
+        <div class="beast-element-tag" id="hudAnimState" style="padding: 6px 14px; font-size: 13px;">
+          ✨ Trạng Thái: Đang Nghỉ (Idle)
+        </div>
+      </div>
+
+      <!-- SIÊU THÚ STAGE -->
+      <div class="beast-stage-wrapper anim-idle" id="beastStageWrapper">
+        <div class="speech-bubble" id="speechBubble">Roooar! 🔥</div>
+        <div class="beast-sprite-container" id="beastSpriteContainer">
+          <div class="beast-sticker-frame" id="beastStickerFrame">
+            <img class="beast-sprite-img" id="beastMainImg" src="anh/sieu_thu/fire_dragon.jpg" alt="Siêu Thú">
+          </div>
+        </div>
+        <div class="beast-shadow" id="beastShadow"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: BẢNG ĐIỀU KHIỂN HOẠT ẢNH -->
+    <section class="glass-card">
+      <div class="panel-title">
+        <span>🎮</span> Điều Khiển Hoạt Ảnh
+      </div>
+
+      <div class="action-controls">
+        <div class="btn-action-grid">
+          <button class="btn-anim" onclick="triggerAnimation('idle')">
+            <span class="icon">🧘</span>
+            <span>Thở & Lơ Lửng (Idle)</span>
+          </button>
+          <button class="btn-anim" onclick="triggerAnimation('attack')">
+            <span class="icon">⚔️</span>
+            <span>Tấn Công (Attack)</span>
+          </button>
+          <button class="btn-anim" onclick="triggerAnimation('cheer')">
+            <span class="icon">💖</span>
+            <span>Nũng Nịu (Happy)</span>
+          </button>
+          <button class="btn-anim" onclick="triggerAnimation('hit')">
+            <span class="icon">💥</span>
+            <span>Bị Đánh (Hurt)</span>
+          </button>
+          <button class="btn-anim" onclick="triggerAnimation('run')">
+            <span class="icon">🏃</span>
+            <span>Chạy Bộ (Run)</span>
+          </button>
+          <button class="btn-anim btn-ultimate" onclick="triggerAnimation('ultimate')">
+            <span class="icon">⚡🔥</span>
+            <span>TUYỆT KỸ TỐI THƯỢNG (ULTIMATE)</span>
+          </button>
+        </div>
+
+        <div class="option-row" style="margin-top: 6px;">
+          <span>Tốc độ chuyển động:</span>
+          <div class="speed-btn-group">
+            <button class="speed-btn" onclick="setSpeed(0.6, this)">0.6x</button>
+            <button class="speed-btn active" onclick="setSpeed(1.0, this)">1.0x</button>
+            <button class="speed-btn" onclick="setSpeed(1.5, this)">1.5x</button>
+            <button class="speed-btn" onclick="setSpeed(2.0, this)">2.0x</button>
+          </div>
+        </div>
+
+        <div class="option-row">
+          <span>Chỉ số Chiến Lực (CP):</span>
+          <strong id="statCP" style="color: #ffd166;">9,280 CP</strong>
+        </div>
+        <div class="option-row">
+          <span>Hệ Nguyên Tố:</span>
+          <strong id="statElement">Hỏa (Fire)</strong>
+        </div>
+        <div class="option-row">
+          <span>Kỹ năng đặc trưng:</span>
+          <strong id="statSkill" style="color: #60a5fa;">Hỏa Diệm Bộc Phá 🔥</strong>
+        </div>
+      </div>
+
+      <div class="interaction-hint">
+        <span>🐾</span> <strong>Thử chạm:</strong> Click trực tiếp vào thú cưng để vuốt ve và kích hoạt phản ứng đáng yêu!
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* ==========================================================
+       1. DATA 5 SIÊU THÚ CHIBI
+    ========================================================== */
+    const BEASTS_DATA = [
+      {
+        id: 'fire_dragon',
+        name: 'Hỏa Long Mini',
+        title: 'Rồng Lửa Cổ Đại • Hệ Hỏa',
+        element: 'Hỏa (Fire)',
+        skill: 'Hỏa Diệm Bộc Phá 🔥',
+        cp: '9,280 CP',
+        imageSrc: 'anh/sieu_thu/fire_dragon.jpg',
+        color: '#ff5e36',
+        glow: 'rgba(255, 94, 54, 0.65)',
+        dialogues: ['Grrr... Nóng bỏng tay!', 'Roooaaar! 🔥', 'Ta là Hỏa Long đây!'],
+        particleColor: ['#ff4757', '#ffa502', '#ff6b81', '#ffffff']
+      },
+      {
+        id: 'water_beast',
+        name: 'Thủy Long Quy',
+        title: 'Linh Quy Biển Sâu • Hệ Thủy',
+        element: 'Thủy (Water)',
+        skill: 'Khiên Thủy Tinh & Sóng Ngầm 💧',
+        cp: '8,750 CP',
+        imageSrc: 'anh/sieu_thu/water_beast.jpg',
+        color: '#00d2d3',
+        glow: 'rgba(0, 210, 211, 0.65)',
+        dialogues: ['Bọt nước mát lành!', 'Bùm bùm xòe nước!', 'Khiên nước bảo vệ bạn!'],
+        particleColor: ['#00d2d3', '#54a0ff', '#48dbfb', '#ffffff']
+      },
+      {
+        id: 'thunder_fox',
+        name: 'Lôi Hồ Tia Chớp',
+        title: 'Cáo Điện Linh Tốc • Hệ Lôi',
+        element: 'Lôi (Thunder)',
+        skill: 'Thiểm Điện Thập Bát Chưởng ⚡',
+        cp: '9,120 CP',
+        imageSrc: 'anh/sieu_thu/thunder_fox.jpg',
+        color: '#feca57',
+        glow: 'rgba(254, 202, 87, 0.65)',
+        dialogues: ['Xẹt xẹt... nhanh như chớp!', 'Bắt kịp ta không nào?', 'Điện áp 1 Triệu Volt!'],
+        particleColor: ['#feca57', '#ff9f43', '#00d2d3', '#ffffff']
+      },
+      {
+        id: 'plant_golem',
+        name: 'Mộc Linh Thần Thú',
+        title: 'Hộ Vệ Rừng Thiêng • Hệ Mộc',
+        element: 'Mộc (Plant/Nature)',
+        skill: 'Bão Tố Hoa Cỏ & Trị Liệu 🌿',
+        cp: '8,450 CP',
+        imageSrc: 'anh/sieu_thu/plant_golem.jpg',
+        color: '#1dd1a1',
+        glow: 'rgba(29, 209, 161, 0.65)',
+        dialogues: ['Rừng xanh che chở!', 'Hoa thơm quả ngọt cho bạn!', 'Xanh tươi muôn đời!'],
+        particleColor: ['#1dd1a1', '#10ac84', '#ff9ff3', '#ffffff']
+      },
+      {
+        id: 'shadow_dragon',
+        name: 'Dạ Ảnh Long',
+        title: 'Rồng Hư Không Huyền Bí • Hệ Ám',
+        element: 'Ám (Dark/Void)',
+        skill: 'Hắc Ám Thôn Phệ & Tinh Tú 🔮',
+        cp: '9,650 CP',
+        imageSrc: 'anh/sieu_thu/shadow_dragon.jpg',
+        color: '#a55eea',
+        glow: 'rgba(165, 94, 234, 0.65)',
+        dialogues: ['Bóng đêm thức giấc...', 'Ngươi không thấy ta đâu!', 'Hư không vô tận!'],
+        particleColor: ['#a55eea', '#8854d0', '#ff3838', '#ffffff']
+      }
+    ];
+
+    let currentBeastIndex = 0;
+    let currentAnimation = 'idle';
+    let animTimeout = null;
+    let soundEnabled = true;
+    let animSpeedMultiplier = 1.0;
+
+    /* ==========================================================
+       2. WEB AUDIO API - TỔNG HỢP ÂM THANH GAME CHIBI CỰC CUTE
+    ========================================================== */
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new AudioCtx();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'chirp') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(450, now);
+          osc.frequency.exponentialRampToValueAtTime(900, now + 0.12);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'attack') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(70, now + 0.25);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+          osc.start(now);
+          osc.stop(now + 0.28);
+        } else if (type === 'ultimate') {
+          [350, 523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(freq, now + i * 0.08);
+            g.gain.setValueAtTime(0.08, now + i * 0.08);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(now + i * 0.08);
+            o.stop(now + 1.0);
+          });
+        } else if (type === 'hit') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        } else if (type === 'cheer') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.setValueAtTime(800, now + 0.1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+      } catch (e) {
+        console.log('Audio note:', e);
+      }
+    }
+
+    const btnSoundToggle = document.getElementById('btnSoundToggle');
+    const soundStatus = document.getElementById('soundStatus');
+    const soundIcon = document.getElementById('soundIcon');
+
+    btnSoundToggle.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundStatus.textContent = soundEnabled ? 'BẬT' : 'TẮT';
+      soundStatus.style.color = soundEnabled ? '#4ade80' : '#f87171';
+      soundIcon.textContent = soundEnabled ? '🔊' : '🔇';
+      if (soundEnabled) playSound('chirp');
+    });
+
+    /* ==========================================================
+       3. HIỂN THỊ SIÊU THÚ & CẬP NHẬT GIAO DIỆN
+    ========================================================== */
+    const beastMainImg = document.getElementById('beastMainImg');
+
+    function renderCurrentBeast() {
+      const beast = BEASTS_DATA[currentBeastIndex];
+
+      // Update Root CSS vars
+      document.documentElement.style.setProperty('--theme-color', beast.color);
+      document.documentElement.style.setProperty('--theme-glow', beast.glow);
+
+      // Update HUD
+      document.getElementById('hudBeastName').textContent = beast.name;
+      document.getElementById('hudBeastTitle').textContent = beast.title;
+      document.getElementById('statCP').textContent = beast.cp;
+      document.getElementById('statElement').textContent = beast.element;
+      document.getElementById('statSkill').textContent = beast.skill;
+
+      // Update Image
+      beastMainImg.src = beast.imageSrc;
+
+      // Update Active in List
+      document.querySelectorAll('.beast-item').forEach((item, idx) => {
+        item.classList.toggle('active', idx === currentBeastIndex);
+      });
+    }
+
+    /* ==========================================================
+       4. HỆ THỐNG HIỆU ỨNG HẠT NGUYÊN TỐ (CANVAS PARTICLES)
+    ========================================================== */
+    const pCanvas = document.getElementById('particle-canvas');
+    const pCtx = pCanvas.getContext('2d');
+    let particles = [];
+
+    function resizeParticleCanvas() {
+      pCanvas.width = pCanvas.offsetWidth;
+      pCanvas.height = pCanvas.offsetHeight;
+    }
+    window.addEventListener('resize', resizeParticleCanvas);
+    resizeParticleCanvas();
+
+    class Particle {
+      constructor(x, y, type, colors) {
+        this.x = x || (pCanvas.width / 2 + (Math.random() - 0.5) * 160);
+        this.y = y || (pCanvas.height * 0.65 + (Math.random() - 0.5) * 80);
+        this.type = type || 'idle';
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+        this.size = Math.random() * 6 + 3;
+        this.speedX = (Math.random() - 0.5) * 2;
+        this.speedY = -(Math.random() * 2 + 1);
+        this.opacity = 1;
+        this.decay = Math.random() * 0.02 + 0.01;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.1;
+
+        if (this.type === 'ultimate') {
+          this.size = Math.random() * 12 + 6;
+          this.speedX = (Math.random() - 0.5) * 15;
+          this.speedY = (Math.random() - 0.5) * 15;
+          this.decay = Math.random() * 0.015 + 0.008;
+        } else if (this.type === 'attack') {
+          this.speedX = Math.random() * 9 + 3;
+          this.speedY = (Math.random() - 0.5) * 6;
+        }
+      }
+
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.opacity -= this.decay;
+        this.rotation += this.rotSpeed;
+      }
+
+      draw() {
+        pCtx.save();
+        pCtx.globalAlpha = Math.max(0, this.opacity);
+        pCtx.translate(this.x, this.y);
+        pCtx.rotate(this.rotation);
+        pCtx.fillStyle = this.color;
+        pCtx.shadowBlur = 12;
+        pCtx.shadowColor = this.color;
+
+        pCtx.beginPath();
+        pCtx.arc(0, 0, this.size, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.restore();
+      }
+    }
+
+    function spawnParticles(count, type) {
+      const colors = BEASTS_DATA[currentBeastIndex].particleColor;
+      for (let i = 0; i < count; i++) {
+        particles.push(new Particle(null, null, type, colors));
+      }
+    }
+
+    function animateParticles() {
+      pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+
+      if (Math.random() < 0.4) {
+        spawnParticles(1, 'idle');
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].opacity <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    /* ==========================================================
+       5. QUẢN LÝ ANIMATION & DIALOGUE
+    ========================================================== */
+    const stageWrapper = document.getElementById('beastStageWrapper');
+    const hudAnimState = document.getElementById('hudAnimState');
+    const speechBubble = document.getElementById('speechBubble');
+    const flashOverlay = document.getElementById('flashOverlay');
+
+    const ANIM_LABELS = {
+      idle: '✨ Đang Nghỉ (Idle)',
+      attack: '⚔️ Đang Tấn Công (Attack)',
+      ultimate: '⚡ TUNG TUYỆT KỸ (ULTIMATE)',
+      cheer: '💖 Đang Nũng Nịu (Happy)',
+      hit: '💥 Bị Trúng Đòn (Hurt)',
+      run: '🏃 Đang Chạy Nhanh (Run)'
+    };
+
+    function showDialogue(customText = null) {
+      const beast = BEASTS_DATA[currentBeastIndex];
+      const text = customText || beast.dialogues[Math.floor(Math.random() * beast.dialogues.length)];
+      speechBubble.textContent = text;
+      speechBubble.classList.add('show');
+      setTimeout(() => {
+        speechBubble.classList.remove('show');
+      }, 2200);
+    }
+
+    function triggerAnimation(animName) {
+      if (animTimeout) clearTimeout(animTimeout);
+
+      stageWrapper.className = 'beast-stage-wrapper';
+      void stageWrapper.offsetWidth; // trigger reflow
+      stageWrapper.classList.add('anim-' + animName);
+
+      currentAnimation = animName;
+      hudAnimState.textContent = ANIM_LABELS[animName] || animName;
+
+      if (animName === 'attack') {
+        playSound('attack');
+        spawnParticles(25, 'attack');
+        showDialogue('Tấn công nè! 💥');
+        animTimeout = setTimeout(() => triggerAnimation('idle'), 750 / animSpeedMultiplier);
+      } else if (animName === 'ultimate') {
+        playSound('ultimate');
+        spawnParticles(80, 'ultimate');
+        flashOverlay.style.opacity = '0.7';
+        setTimeout(() => { flashOverlay.style.opacity = '0'; }, 200);
+        showDialogue('BỘC PHÁ NGUYÊN TỐ TỐI THƯỢNG! 💥🔥⚡');
+        animTimeout = setTimeout(() => triggerAnimation('idle'), 1600 / animSpeedMultiplier);
+      } else if (animName === 'cheer') {
+        playSound('cheer');
+        spawnParticles(30, 'idle');
+        showDialogue('Hi hi vui quá đi! 💕');
+        animTimeout = setTimeout(() => triggerAnimation('idle'), 900 / animSpeedMultiplier);
+      } else if (animName === 'hit') {
+        playSound('hit');
+        showDialogue('Ui da đau quá! 😵');
+        animTimeout = setTimeout(() => triggerAnimation('idle'), 600 / animSpeedMultiplier);
+      } else if (animName === 'run') {
+        playSound('chirp');
+        showDialogue('Chạy thôi nào!');
+      } else {
+        hudAnimState.textContent = ANIM_LABELS.idle;
+      }
+    }
+
+    // Click vào thú để vuốt ve (Petting)
+    stageWrapper.addEventListener('click', () => {
+      playSound('chirp');
+      triggerAnimation('cheer');
+    });
+
+    function setSpeed(speed, btn) {
+      animSpeedMultiplier = speed;
+      document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('beastSpriteContainer').style.animationDuration = (2.4 / speed) + 's';
+    }
+
+    /* ==========================================================
+       6. KHỞI TẠO DANH SÁCH & PHÍM TẮT
+    ========================================================== */
+    function initBeastList() {
+      const container = document.getElementById('beastListContainer');
+      container.innerHTML = '';
+
+      BEASTS_DATA.forEach((beast, idx) => {
+        const item = document.createElement('div');
+        item.className = 'beast-item' + (idx === 0 ? ' active' : '');
+        item.style.setProperty('--item-color', beast.color);
+        item.style.setProperty('--item-glow', beast.glow);
+        item.style.setProperty('--tag-bg', beast.color + '22');
+        item.style.setProperty('--tag-color', beast.color);
+
+        item.innerHTML = `
+          <div class="beast-thumb">
+            <img src="${beast.imageSrc}" alt="${beast.name}">
+          </div>
+          <div class="beast-info">
+            <h4>${beast.name}</h4>
+            <span class="beast-element-tag">${beast.element}</span>
+          </div>
+        `;
+
+        item.addEventListener('click', () => {
+          selectBeast(idx);
+        });
+
+        container.appendChild(item);
+      });
+    }
+
+    function selectBeast(index) {
+      currentBeastIndex = index;
+      renderCurrentBeast();
+      triggerAnimation('idle');
+      playSound('chirp');
+      showDialogue();
+    }
+
+    // Keyboard Shortcuts (1-5 for beasts, Q/W/E/R for actions)
+    window.addEventListener('keydown', (e) => {
+      const key = e.key;
+      if (key >= '1' && key <= '5') {
+        selectBeast(parseInt(key) - 1);
+      } else if (key.toLowerCase() === 'q') {
+        triggerAnimation('idle');
+      } else if (key.toLowerCase() === 'w') {
+        triggerAnimation('attack');
+      } else if (key.toLowerCase() === 'e') {
+        triggerAnimation('ultimate');
+      } else if (key.toLowerCase() === 'r') {
+        triggerAnimation('cheer');
+      }
+    });
+
+    // Start
+    initBeastList();
+    renderCurrentBeast();
+  </script>
+</body>
+</html>

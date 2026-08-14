@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Siêu Thú Vector 2D - Tự Vẽ Từng Bộ Phận & Tự Do Design</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090f;
+      --panel-bg: rgba(14, 18, 33, 0.94);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --accent-color: #ff5e36;
+      --accent-glow: rgba(255, 94, 54, 0.6);
+      --accent-gold: #ffd166;
+      --accent-cyan: #00d2d3;
+      --text-main: #f3f4f6;
+      --text-sub: #9ca3af;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Nunito', 'Outfit', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(255, 94, 54, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 85%, rgba(0, 210, 211, 0.12) 0%, transparent 40%);
+    }
+
+    /* TOP HEADER */
+    header {
+      height: 52px;
+      padding: 0 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(8, 11, 20, 0.96);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--panel-border);
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ff5e36, #ff9f43);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 2px 10px rgba(255, 94, 54, 0.4);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff, #ffd166);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-top {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+
+    .btn-top:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-top.btn-accent {
+      background: linear-gradient(135deg, #ff5e36, #ff9f43);
+      border: none;
+      color: #fff;
+    }
+
+    /* WORKSPACE */
+    .studio-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 290px 1fr 320px;
+      grid-template-rows: 1fr 140px;
+      gap: 10px;
+      padding: 10px 14px;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+    }
+
+    /* PANELS */
+    .studio-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .panel-header {
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+    }
+
+    /* BEAST TABS */
+    .beast-tab-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .beast-tab-btn {
+      aspect-ratio: 1/1;
+      border-radius: 10px;
+      background: #111422;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+
+    .beast-tab-btn span {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    .beast-tab-btn.active, .beast-tab-btn:hover {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 10px var(--accent-glow);
+      background: rgba(255, 94, 54, 0.15);
+    }
+
+    .beast-tab-btn.active span {
+      color: #fff;
+    }
+
+    /* PARTS TREE */
+    .parts-tree {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .part-node {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .part-node:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .part-node.active {
+      border-color: var(--accent-color);
+      background: linear-gradient(135deg, rgba(255, 94, 54, 0.2), rgba(255, 255, 255, 0.03));
+      color: #fff;
+    }
+
+    .part-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* VIEWPORT */
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 50% 35%, #151a2e 0%, #070912 80%);
+      border-radius: 18px;
+      border: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
+    }
+
+    #viewportCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #viewportCanvas:active {
+      cursor: grabbing;
+    }
+
+    .viewport-hud {
+      position: absolute;
+      top: 12px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .hud-badge {
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      padding: 5px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      color: #fff;
+      pointer-events: auto;
+    }
+
+    /* RIGHT PANEL: CONTROLS */
+    .prop-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .prop-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--text-sub);
+    }
+
+    .prop-slider {
+      width: 130px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .color-picker-input {
+      border: none;
+      width: 28px;
+      height: 24px;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* BOTTOM TIMELINE */
+    .timeline-panel {
+      grid-column: 1 / span 3;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 8px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .timeline-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timeline-playback {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-play {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    .frame-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 0 6px 0;
+    }
+
+    .frame-box {
+      width: 70px;
+      height: 70px;
+      border-radius: 10px;
+      background: #111422;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .frame-box:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .frame-box.active {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 12px var(--accent-glow);
+      background: rgba(255, 94, 54, 0.1);
+    }
+
+    .frame-num {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      font-size: 9px;
+      font-weight: 800;
+      color: #ffd166;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-badge">🐲</div>
+      <div class="brand-title">SIÊU THÚ VECTOR - TỰ VẼ TỪNG BỘ PHẬN & MODULAR RIGGING</div>
+    </div>
+    <div class="header-actions">
+      <a href="sieu_thu_studio.html" class="btn-top"><span>🎞️</span> Sprite Studio (Digital Art)</a>
+      <a href="sieu_thu_animation.html" class="btn-top btn-accent"><span>🏟️</span> Đấu Trường</a>
+    </div>
+  </header>
+
+  <!-- WORKSPACE -->
+  <div class="studio-workspace">
+    
+    <!-- LEFT: CHỌN MẪU & BỘ PHẬN -->
+    <aside class="studio-panel">
+      <div class="panel-header">
+        <span>🐾 1. Chọn Mẫu Siêu Thú</span>
+      </div>
+      <div class="beast-tab-grid">
+        <div class="beast-tab-btn active" onclick="loadVectorBeast('fire_dragon')">
+          🔥 <span>Hỏa Long</span>
+        </div>
+        <div class="beast-tab-btn" onclick="loadVectorBeast('water_turtle')">
+          💧 <span>Thủy Quy</span>
+        </div>
+        <div class="beast-tab-btn" onclick="loadVectorBeast('thunder_fox')">
+          ⚡ <span>Lôi Hồ</span>
+        </div>
+        <div class="beast-tab-btn" onclick="loadVectorBeast('plant_golem')">
+          🌿 <span>Mộc Thú</span>
+        </div>
+        <div class="beast-tab-btn" onclick="loadVectorBeast('shadow_dragon')">
+          🔮 <span>Dạ Ảnh</span>
+        </div>
+      </div>
+
+      <div class="panel-header" style="margin-top: 6px;">
+        <span>🧩 2. Các Bộ Phận Vẽ Bằng Vector</span>
+      </div>
+      <div class="parts-tree" id="partsTreeContainer">
+        <!-- Render Vector Parts -->
+      </div>
+
+      <div style="display:flex; gap: 6px; margin-top: auto;">
+        <button class="btn-top" style="flex:1; justify-content:center;" onclick="resetPose()"><span>🔄</span> Dáng Chuẩn</button>
+        <button class="btn-top" style="flex:1; justify-content:center; border-color:var(--accent-color); color:var(--accent-color);" onclick="autoGenerateFrames()"><span>✨</span> Auto 4 Frame</button>
+      </div>
+    </aside>
+
+    <!-- CENTER: VIEWPORT CANVAS -->
+    <main class="viewport-container" id="viewportContainer">
+      <div class="viewport-hud">
+        <div class="hud-badge">
+          🐉 Siêu Thú: <strong id="hudBeastName" style="color:#ff5e36;">Hỏa Long (Vẽ Bằng Code Vector)</strong>
+        </div>
+        <div class="hud-badge">
+          🎯 Bộ phận: <strong id="hudSelectedPart" style="color:#ffd166;">Cánh Tay Trái</strong>
+        </div>
+      </div>
+      <canvas id="viewportCanvas"></canvas>
+    </main>
+
+    <!-- RIGHT: CONTROLS & COLORS -->
+    <aside class="studio-panel">
+      <div class="panel-header">
+        <span>🎛️ Thuộc Tính Khớp Xoay (FK)</span>
+      </div>
+
+      <div class="prop-group">
+        <div class="prop-title">
+          <span>🔄</span> Xoay & Dịch Chuyển Bộ Phận
+        </div>
+        <div class="prop-row">
+          <span>Góc xoay (Rotation):</span>
+          <input type="range" class="prop-slider" id="sldRot" min="-180" max="180" value="0" oninput="updateCurrentPartTransform()">
+          <span id="txtRotVal">0°</span>
+        </div>
+        <div class="prop-row">
+          <span>Dịch X (Offset X):</span>
+          <input type="range" class="prop-slider" id="sldPosX" min="-60" max="60" value="0" oninput="updateCurrentPartTransform()">
+          <span id="txtPosXVal">0px</span>
+        </div>
+        <div class="prop-row">
+          <span>Dịch Y (Offset Y):</span>
+          <input type="range" class="prop-slider" id="sldPosY" min="-60" max="60" value="0" oninput="updateCurrentPartTransform()">
+          <span id="txtPosYVal">0px</span>
+        </div>
+      </div>
+
+      <div class="prop-group">
+        <div class="prop-title">
+          <span>🎨</span> Đổi Màu Sắc (Custom Skin)
+        </div>
+        <div class="prop-row">
+          <span>Màu Thân Chính:</span>
+          <input type="color" class="color-picker-input" id="colPrimary" value="#ff4757" onchange="updatePartColor('primary', this.value)">
+        </div>
+        <div class="prop-row">
+          <span>Màu Bụng / Phụ:</span>
+          <input type="color" class="color-picker-input" id="colSecondary" value="#ffd32a" onchange="updatePartColor('secondary', this.value)">
+        </div>
+        <div class="prop-row">
+          <span>Màu Mắt / Sừng:</span>
+          <input type="color" class="color-picker-input" id="colAccent" value="#ffa502" onchange="updatePartColor('accent', this.value)">
+        </div>
+      </div>
+
+      <div class="prop-group">
+        <div class="prop-title">
+          <span>🔥</span> Hiệu Ứng Lửa Đuôi
+        </div>
+        <div class="prop-row">
+          <span>Lửa bốc cháy:</span>
+          <button class="btn-top" id="btnToggleFx" onclick="toggleElementalFx()" style="padding:4px 10px; font-size:11px;">
+            <span>🔥</span> BẬT
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOTTOM TIMELINE -->
+    <footer class="timeline-panel">
+      <div class="timeline-bar">
+        <div class="timeline-playback">
+          <button class="btn-play" id="btnPlayPause" onclick="togglePlayback()">
+            <span id="playIcon">▶️</span>
+          </button>
+          <span style="font-size: 12.5px; font-weight: 800;">Phát Chuỗi Hoạt Ảnh</span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap: 8px; font-size:12px; color:var(--text-sub);">
+          <span>Tốc độ:</span>
+          <select id="selFps" onchange="changeFps(this.value)" style="background:#111422; color:#fff; border:1px solid var(--panel-border); border-radius:6px; padding:2px 6px; font-weight:700;">
+            <option value="4">4 FPS</option>
+            <option value="8" selected>8 FPS</option>
+            <option value="12">12 FPS</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="frame-strip" id="frameStrip">
+        <!-- Render frame boxes -->
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const VECTOR_BEASTS = {
+      fire_dragon: {
+        name: 'Hỏa Long Chibi',
+        colors: { primary: '#ff4757', secondary: '#ffd32a', accent: '#ffa502', outline: '#2f3542' },
+        parts: [
+          { id: 'tail', name: 'Đuôi Rồng', pivot: {x: 400, y: 550}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 1, type: 'tail' },
+          { id: 'tail_flame', name: 'Ngọn Lửa Đuôi', pivot: {x: 520, y: 500}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'flame' },
+          { id: 'wing_l', name: 'Cánh Trái', pivot: {x: 330, y: 420}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'wing_l' },
+          { id: 'wing_r', name: 'Cánh Phải', pivot: {x: 470, y: 420}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'wing_r' },
+          { id: 'leg_l', name: 'Chân Trái', pivot: {x: 360, y: 560}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'leg' },
+          { id: 'leg_r', name: 'Chân Phải', pivot: {x: 440, y: 560}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'leg' },
+          { id: 'body', name: 'Thân & Yếm Bụng', pivot: {x: 400, y: 500}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 5, type: 'body' },
+          { id: 'arm_l', name: 'Cánh Tay Trái', pivot: {x: 350, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 6, type: 'arm_l' },
+          { id: 'arm_r', name: 'Cánh Tay Phải', pivot: {x: 450, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 6, type: 'arm_r' },
+          { id: 'head', name: 'Đầu & Sừng & Mắt', pivot: {x: 400, y: 380}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 7, type: 'head' }
+        ]
+      },
+      water_turtle: {
+        name: 'Thủy Quy Chibi',
+        colors: { primary: '#00d2d3', secondary: '#54a0ff', accent: '#ffffff', outline: '#222f3e' },
+        parts: [
+          { id: 'tail', name: 'Đuôi Thủy Sinh', pivot: {x: 400, y: 540}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 1, type: 'tail' },
+          { id: 'shell', name: 'Mai Pha Lê', pivot: {x: 400, y: 480}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'shell' },
+          { id: 'fin_l', name: 'Vây Bơi Trái', pivot: {x: 330, y: 490}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'arm_l' },
+          { id: 'fin_r', name: 'Vây Bơi Phải', pivot: {x: 470, y: 490}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'arm_r' },
+          { id: 'body', name: 'Thân Rùa', pivot: {x: 400, y: 500}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'body' },
+          { id: 'head', name: 'Đầu Rùa Rồng', pivot: {x: 400, y: 380}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 5, type: 'head' }
+        ]
+      },
+      thunder_fox: {
+        name: 'Lôi Hồ Tia Chớp',
+        colors: { primary: '#feca57', secondary: '#ffffff', accent: '#00d2d3', outline: '#2f3542' },
+        parts: [
+          { id: 'tail', name: 'Đuôi Sét Zigzag', pivot: {x: 370, y: 520}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 1, type: 'tail_lightning' },
+          { id: 'leg_l', name: 'Chân Trái', pivot: {x: 370, y: 550}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'leg' },
+          { id: 'leg_r', name: 'Chân Phải', pivot: {x: 430, y: 550}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'leg' },
+          { id: 'body', name: 'Thân Cáo', pivot: {x: 400, y: 490}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'body' },
+          { id: 'arm_l', name: 'Tay Cáo Trái', pivot: {x: 360, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'arm_l' },
+          { id: 'arm_r', name: 'Tay Cáo Phải', pivot: {x: 440, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'arm_r' },
+          { id: 'head', name: 'Đầu & Tai Cáo', pivot: {x: 400, y: 370}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 5, type: 'head_fox' }
+        ]
+      },
+      plant_golem: {
+        name: 'Mộc Linh Thú',
+        colors: { primary: '#1dd1a1', secondary: '#10ac84', accent: '#ff9ff3', outline: '#222f3e' },
+        parts: [
+          { id: 'tail', name: 'Đuôi Lá', pivot: {x: 400, y: 540}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 1, type: 'tail' },
+          { id: 'body', name: 'Thân Mầm Non', pivot: {x: 400, y: 500}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'body' },
+          { id: 'arm_l', name: 'Tay Lá Trái', pivot: {x: 350, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'arm_l' },
+          { id: 'arm_r', name: 'Tay Lá Phải', pivot: {x: 450, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'arm_r' },
+          { id: 'head', name: 'Đầu & Hoa Sen Đá', pivot: {x: 400, y: 380}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'head' }
+        ]
+      },
+      shadow_dragon: {
+        name: 'Dạ Ảnh Long',
+        colors: { primary: '#a55eea', secondary: '#8854d0', accent: '#ff3838', outline: '#1e272e' },
+        parts: [
+          { id: 'tail', name: 'Đuôi Bóng Tối', pivot: {x: 400, y: 540}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 1, type: 'tail' },
+          { id: 'wing_l', name: 'Cánh Dơi Trái', pivot: {x: 330, y: 420}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'wing_l' },
+          { id: 'wing_r', name: 'Cánh Dơi Phải', pivot: {x: 470, y: 420}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 2, type: 'wing_r' },
+          { id: 'body', name: 'Thân Hư Không', pivot: {x: 400, y: 500}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 3, type: 'body' },
+          { id: 'arm_l', name: 'Tay Móng Trái', pivot: {x: 350, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'arm_l' },
+          { id: 'arm_r', name: 'Tay Móng Phải', pivot: {x: 450, y: 470}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 4, type: 'arm_r' },
+          { id: 'head', name: 'Đầu & Sừng Phát Sáng', pivot: {x: 400, y: 380}, rot: 0, offX: 0, offY: 0, scale: 1, zIndex: 5, type: 'head' }
+        ]
+      }
+    };
+
+    let currentBeastKey = 'fire_dragon';
+    let currentBeast = JSON.parse(JSON.stringify(VECTOR_BEASTS.fire_dragon));
+    let selectedPartIdx = 7;
+
+    let animationFrames = [];
+    let currentFrameIdx = 0;
+    let isPlaying = false;
+    let playbackFps = 8;
+    let playbackTimer = null;
+    let elementalFxEnabled = true;
+
+    const canvas = document.getElementById('viewportCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const container = document.getElementById('viewportContainer');
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+      drawScene();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function drawVectorPart(ctx, part, colors) {
+      const { primary, secondary, accent, outline } = colors;
+
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = outline;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      if (part.type === 'head') {
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.moveTo(-45, -50); ctx.quadraticCurveTo(-65, -95, -35, -100); ctx.quadraticCurveTo(-30, -70, -25, -45);
+        ctx.fill(); ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(45, -50); ctx.quadraticCurveTo(65, -95, 35, -100); ctx.quadraticCurveTo(30, -70, 25, -45);
+        ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.ellipse(0, -10, 68, 60, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.ellipse(-26, -15, 18, 22, -0.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#222f3e';
+        ctx.beginPath(); ctx.ellipse(-24, -14, 12, 16, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(-20, -20, 5, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.ellipse(26, -15, 18, 22, 0.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#222f3e';
+        ctx.beginPath(); ctx.ellipse(24, -14, 12, 16, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(28, -20, 5, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 107, 129, 0.5)';
+        ctx.beginPath(); ctx.ellipse(-42, 6, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(42, 6, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.beginPath(); ctx.arc(0, 10, 12, 0.2, Math.PI - 0.2); ctx.stroke();
+
+      } else if (part.type === 'head_fox') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(-35, -30); ctx.lineTo(-65, -95); ctx.lineTo(-10, -50); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(35, -30); ctx.lineTo(65, -95); ctx.lineTo(10, -50); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.ellipse(0, -10, 65, 55, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = secondary;
+        ctx.beginPath(); ctx.moveTo(-45, 10); ctx.quadraticCurveTo(0, 35, 45, 10); ctx.quadraticCurveTo(0, -5, -45, 10); ctx.fill();
+
+        ctx.fillStyle = '#222';
+        ctx.beginPath(); ctx.arc(-22, -12, 9, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(22, -12, 9, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(-19, -15, 3.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(25, -15, 3.5, 0, Math.PI*2); ctx.fill();
+
+      } else if (part.type === 'body') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.ellipse(0, 0, 55, 62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = secondary;
+        ctx.beginPath(); ctx.ellipse(0, 10, 36, 44, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-20, 0); ctx.quadraticCurveTo(0, 5, 20, 0);
+        ctx.moveTo(-24, 15); ctx.quadraticCurveTo(0, 20, 24, 15);
+        ctx.moveTo(-18, 30); ctx.quadraticCurveTo(0, 35, 18, 30);
+        ctx.stroke();
+
+      } else if (part.type === 'arm_l') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-45, 10, -35, 45); ctx.quadraticCurveTo(-15, 45, 10, 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(-35, 40, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(-25, 46, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+      } else if (part.type === 'arm_r') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(45, 10, 35, 45); ctx.quadraticCurveTo(15, 45, -10, 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(35, 40, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(25, 46, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+      } else if (part.type === 'wing_l') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-80, -45, -110, -20); ctx.quadraticCurveTo(-90, 25, -60, 35); ctx.quadraticCurveTo(-30, 25, 0, 0); ctx.fill(); ctx.stroke();
+
+      } else if (part.type === 'wing_r') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(80, -45, 110, -20); ctx.quadraticCurveTo(90, 25, 60, 35); ctx.quadraticCurveTo(30, 25, 0, 0); ctx.fill(); ctx.stroke();
+
+      } else if (part.type === 'tail') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(60, 20, 110, -25); ctx.quadraticCurveTo(95, 35, 30, 45); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      } else if (part.type === 'tail_lightning') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-40, -30); ctx.lineTo(-20, -35); ctx.lineTo(-65, -85); ctx.lineTo(-10, -50); ctx.lineTo(-25, -45); ctx.lineTo(10, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      } else if (part.type === 'flame') {
+        ctx.fillStyle = '#ff4757';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(25, -35, 10, -60); ctx.quadraticCurveTo(-15, -35, 0, 0); ctx.fill();
+        ctx.fillStyle = '#ffa502';
+        ctx.beginPath(); ctx.moveTo(0, -5); ctx.quadraticCurveTo(15, -28, 5, -45); ctx.quadraticCurveTo(-10, -28, 0, -5); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(0, -15, 6, 0, Math.PI*2); ctx.fill();
+
+      } else if (part.type === 'leg') {
+        ctx.fillStyle = primary;
+        ctx.beginPath(); ctx.ellipse(0, 0, 18, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function drawScene() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2 + 30;
+
+      // Sàn Đấu 3D
+      ctx.save();
+      ctx.translate(centerX, centerY + 180);
+      ctx.scale(1, 0.3);
+      ctx.beginPath();
+      ctx.arc(0, 0, 240, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 94, 54, 0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      const parts = [...currentBeast.parts].sort((a, b) => a.zIndex - b.zIndex);
+
+      parts.forEach(part => {
+        ctx.save();
+
+        const pivotX = centerX + (part.pivot.x - 400) + part.offX;
+        const pivotY = centerY + (part.pivot.y - 450) + part.offY;
+
+        ctx.translate(pivotX, pivotY);
+        ctx.rotate((part.rot * Math.PI) / 180);
+        ctx.scale(part.scale, part.scale);
+
+        drawVectorPart(ctx, part, currentBeast.colors);
+
+        if (part.id === currentBeast.parts[selectedPartIdx].id && !isPlaying) {
+          ctx.save();
+          ctx.strokeStyle = '#00d2d3';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = '#ff5e36';
+          ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      });
+
+      if (elementalFxEnabled && currentBeastKey === 'fire_dragon') {
+        const flamePart = currentBeast.parts.find(p => p.type === 'flame');
+        if (flamePart) {
+          const fxX = centerX + (flamePart.pivot.x - 400) + flamePart.offX;
+          const fxY = centerY + (flamePart.pivot.y - 450) + flamePart.offY - 30;
+          for (let i = 0; i < 3; i++) {
+            let rad = Math.random() * 12 + 6;
+            let fy = fxY - Math.random() * 20;
+            let fx = fxX + (Math.random() - 0.5) * 14;
+            let g = ctx.createRadialGradient(fx, fy, 0, fx, fy, rad);
+            g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, '#ffa502'); g.addColorStop(0.9, '#ff4757'); g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(fx, fy, rad, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+      }
+    }
+
+    function loadVectorBeast(key) {
+      currentBeastKey = key;
+      currentBeast = JSON.parse(JSON.stringify(VECTOR_BEASTS[key]));
+      selectedPartIdx = 0;
+
+      document.querySelectorAll('.beast-tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', Object.keys(VECTOR_BEASTS)[i] === key);
+      });
+
+      document.getElementById('hudBeastName').textContent = `${currentBeast.name} (Vẽ Bằng Code Vector)`;
+      document.getElementById('colPrimary').value = currentBeast.colors.primary;
+      document.getElementById('colSecondary').value = currentBeast.colors.secondary;
+      document.getElementById('colAccent').value = currentBeast.colors.accent;
+
+      initPartsTree();
+      autoGenerateFrames();
+      syncInspector();
+      drawScene();
+    }
+
+    function initPartsTree() {
+      const container = document.getElementById('partsTreeContainer');
+      container.innerHTML = '';
+
+      currentBeast.parts.forEach((part, idx) => {
+        const node = document.createElement('div');
+        node.className = 'part-node' + (idx === selectedPartIdx ? ' active' : '');
+        node.innerHTML = `
+          <div class="part-meta">
+            <span style="font-size:14px;">🔹</span>
+            <strong>${part.name}</strong>
+          </div>
+          <span style="font-size:11px; color:var(--text-sub);">${part.rot}°</span>
+        `;
+        node.onclick = () => {
+          selectedPartIdx = idx;
+          initPartsTree();
+          syncInspector();
+          drawScene();
+        };
+        container.appendChild(node);
+      });
+    }
+
+    function syncInspector() {
+      const part = currentBeast.parts[selectedPartIdx];
+      if (!part) return;
+
+      document.getElementById('hudSelectedPart').textContent = part.name;
+      document.getElementById('sldRot').value = part.rot;
+      document.getElementById('txtRotVal').textContent = `${part.rot}°`;
+      document.getElementById('sldPosX').value = part.offX;
+      document.getElementById('txtPosXVal').textContent = `${part.offX}px`;
+      document.getElementById('sldPosY').value = part.offY;
+      document.getElementById('txtPosYVal').textContent = `${part.offY}px`;
+    }
+
+    function updateCurrentPartTransform() {
+      const part = currentBeast.parts[selectedPartIdx];
+      if (!part) return;
+
+      part.rot = parseInt(document.getElementById('sldRot').value);
+      document.getElementById('txtRotVal').textContent = `${part.rot}°`;
+      part.offX = parseInt(document.getElementById('sldPosX').value);
+      document.getElementById('txtPosXVal').textContent = `${part.offX}px`;
+      part.offY = parseInt(document.getElementById('sldPosY').value);
+      document.getElementById('txtPosYVal').textContent = `${part.offY}px`;
+
+      saveCurrentPoseToFrame();
+      initPartsTree();
+      drawScene();
+    }
+
+    function updatePartColor(type, val) {
+      currentBeast.colors[type] = val;
+      drawScene();
+    }
+
+    function resetPose() {
+      currentBeast.parts.forEach(p => { p.rot = 0; p.offX = 0; p.offY = 0; });
+      syncInspector();
+      saveCurrentPoseToFrame();
+      drawScene();
+    }
+
+    function toggleElementalFx() {
+      elementalFxEnabled = !elementalFxEnabled;
+      document.getElementById('btnToggleFx').innerHTML = elementalFxEnabled ? '<span>🔥</span> BẬT' : '<span>❌</span> TẮT';
+      drawScene();
+    }
+
+    function autoGenerateFrames() {
+      animationFrames = [];
+
+      let f1 = JSON.parse(JSON.stringify(currentBeast.parts));
+      animationFrames.push(f1);
+
+      let f2 = JSON.parse(JSON.stringify(currentBeast.parts));
+      f2.forEach(p => {
+        if (p.type === 'arm_l') p.rot = -30;
+        if (p.type === 'arm_r') p.rot = 30;
+        if (p.type === 'wing_l') p.rot = -25;
+        if (p.type === 'wing_r') p.rot = 25;
+        if (p.type === 'tail' || p.type === 'tail_lightning') p.rot = -15;
+      });
+      animationFrames.push(f2);
+
+      let f3 = JSON.parse(JSON.stringify(currentBeast.parts));
+      f3.forEach(p => {
+        if (p.type === 'arm_l') { p.rot = 45; p.offX = 15; }
+        if (p.type === 'arm_r') { p.rot = -45; p.offX = -15; }
+        if (p.type === 'wing_l') p.rot = 35;
+        if (p.type === 'wing_r') p.rot = -35;
+        if (p.type === 'tail' || p.type === 'tail_lightning') p.rot = 20;
+      });
+      animationFrames.push(f3);
+
+      let f4 = JSON.parse(JSON.stringify(currentBeast.parts));
+      f4.forEach(p => {
+        if (p.type === 'arm_l') p.rot = 10;
+        if (p.type === 'arm_r') p.rot = -10;
+      });
+      animationFrames.push(f4);
+
+      currentFrameIdx = 0;
+      applyFramePose(0);
+      renderTimelineStrip();
+    }
+
+    function renderTimelineStrip() {
+      const strip = document.getElementById('frameStrip');
+      strip.innerHTML = '';
+
+      animationFrames.forEach((frame, idx) => {
+        const box = document.createElement('div');
+        box.className = 'frame-box' + (idx === currentFrameIdx ? ' active' : '');
+        box.innerHTML = `
+          <span class="frame-num">F${idx + 1}</span>
+          <span style="font-size:22px;">🐾</span>
+        `;
+        box.onclick = () => {
+          currentFrameIdx = idx;
+          applyFramePose(idx);
+          renderTimelineStrip();
+        };
+        strip.appendChild(box);
+      });
+    }
+
+    function applyFramePose(idx) {
+      if (!animationFrames[idx]) return;
+      currentBeast.parts = JSON.parse(JSON.stringify(animationFrames[idx]));
+      syncInspector();
+      drawScene();
+    }
+
+    function saveCurrentPoseToFrame() {
+      if (animationFrames[currentFrameIdx]) {
+        animationFrames[currentFrameIdx] = JSON.parse(JSON.stringify(currentBeast.parts));
+      }
+    }
+
+    function togglePlayback() {
+      isPlaying = !isPlaying;
+      document.getElementById('playIcon').textContent = isPlaying ? '⏸️' : '▶️';
+
+      if (isPlaying) {
+        if (playbackTimer) clearInterval(playbackTimer);
+        playbackTimer = setInterval(() => {
+          currentFrameIdx = (currentFrameIdx + 1) % animationFrames.length;
+          applyFramePose(currentFrameIdx);
+          document.querySelectorAll('.frame-box').forEach((b, i) => b.classList.toggle('active', i === currentFrameIdx));
+        }, 1000 / playbackFps);
+      } else {
+        if (playbackTimer) clearInterval(playbackTimer);
+      }
+    }
+
+    function changeFps(fps) {
+      playbackFps = parseInt(fps);
+      if (isPlaying) togglePlayback(), togglePlayback();
+    }
+
+    function animateLoop() {
+      if (elementalFxEnabled) drawScene();
+      requestAnimationFrame(animateLoop);
+    }
+
+    window.onload = () => {
+      resizeCanvas();
+      loadVectorBeast('fire_dragon');
+      animateLoop();
+    };
+  </script>
+</body>
+</html>

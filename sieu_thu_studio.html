@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Beast Sprite Studio - Trình Diễn Hoạt Ảnh 5 Siêu Thú Khung Hình Thực Tế</title>
+  <title>Beast Puppet Studio - Thiết Kế & Điều Khiển Từng Bộ Phận Siêu Thú</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #06080e;
+      --bg-dark: #07090f;
       --panel-bg: rgba(14, 18, 33, 0.92);
       --panel-border: rgba(255, 255, 255, 0.1);
       --accent-color: #ff5e36;
@@ -40,7 +40,7 @@
         radial-gradient(circle at 90% 85%, rgba(0, 210, 211, 0.12) 0%, transparent 40%);
     }
 
-    /* TOP HEADER */
+    /* TOP NAVBAR */
     header {
       height: 52px;
       padding: 0 20px;
@@ -109,7 +109,6 @@
       background: linear-gradient(135deg, #ff5e36, #ff9f43);
       border: none;
       color: #fff;
-      box-shadow: 0 2px 12px rgba(255, 94, 54, 0.4);
     }
 
     /* WORKSPACE */
@@ -152,17 +151,19 @@
       padding-bottom: 6px;
     }
 
-    /* BEAST SELECTOR */
-    .beast-list {
+    /* PARTS SELECTOR LIST */
+    .parts-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
+      max-height: 280px;
+      overflow-y: auto;
     }
 
-    .beast-item {
+    .part-item {
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: space-between;
       padding: 8px 10px;
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.03);
@@ -171,32 +172,29 @@
       transition: all 0.2s;
     }
 
-    .beast-item:hover {
+    .part-item:hover {
       background: rgba(255, 255, 255, 0.08);
       transform: translateX(3px);
     }
 
-    .beast-item.active {
-      border-color: var(--item-color, #ff5e36);
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
-      box-shadow: 0 2px 14px var(--item-glow, rgba(255, 94, 54, 0.3));
+    .part-item.active {
+      border-color: var(--accent-color);
+      background: linear-gradient(135deg, rgba(255, 94, 54, 0.2), rgba(255, 255, 255, 0.03));
+      box-shadow: 0 2px 12px var(--accent-glow);
+      color: #fff;
     }
 
-    .beast-thumb {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      background: #111422;
+    .part-tag {
       display: flex;
       align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      gap: 8px;
     }
 
-    .beast-thumb img {
-      width: 90%;
-      height: 90%;
-      object-fit: contain;
+    .part-color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-color);
     }
 
     /* CENTER VIEWPORT */
@@ -212,10 +210,15 @@
       box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
     }
 
-    #stageCanvas {
+    #puppetCanvas {
       width: 100%;
       height: 100%;
       display: block;
+      cursor: grab;
+    }
+
+    #puppetCanvas:active {
+      cursor: grabbing;
     }
 
     .viewport-hud {
@@ -239,6 +242,65 @@
       font-size: 12px;
       color: #fff;
       pointer-events: auto;
+    }
+
+    /* RIGHT PANEL: INSPECTOR & CONTROLS */
+    .prop-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .prop-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--text-sub);
+    }
+
+    .prop-slider {
+      width: 130px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-preset {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      padding: 8px 6px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .btn-preset:hover {
+      background: var(--accent-color);
+      color: #fff;
+      transform: translateY(-1px);
     }
 
     /* BOTTOM TIMELINE */
@@ -285,15 +347,15 @@
     .frame-strip {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       overflow-x: auto;
       padding: 2px 0 6px 0;
     }
 
-    .frame-card {
-      width: 76px;
-      height: 76px;
-      border-radius: 12px;
+    .frame-box {
+      width: 68px;
+      height: 68px;
+      border-radius: 10px;
       background: #111422;
       border: 2px solid rgba(255, 255, 255, 0.1);
       cursor: pointer;
@@ -305,67 +367,51 @@
       transition: all 0.2s;
     }
 
-    .frame-card img {
-      width: 85%;
-      height: 85%;
-      object-fit: contain;
-    }
-
-    .frame-card:hover {
+    .frame-box:hover {
       border-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-2px);
     }
 
-    .frame-card.active {
+    .frame-box.active {
       border-color: var(--accent-color);
-      box-shadow: 0 0 15px var(--accent-glow);
+      box-shadow: 0 0 12px var(--accent-glow);
       background: rgba(255, 94, 54, 0.12);
     }
 
-    .frame-num-badge {
+    .frame-num {
       position: absolute;
-      top: 3px;
+      top: 2px;
       left: 4px;
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 800;
-      background: rgba(0, 0, 0, 0.7);
+      color: #ffd166;
+      background: rgba(0, 0, 0, 0.6);
       padding: 1px 4px;
       border-radius: 4px;
-      color: #ffd166;
     }
 
-    /* RIGHT PANEL */
-    .prop-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      font-size: 12px;
+    .btn-add-frame {
+      width: 68px;
+      height: 68px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px dashed rgba(255, 255, 255, 0.2);
       color: var(--text-sub);
-    }
-
-    .prop-row strong {
-      color: #fff;
-    }
-
-    .spritesheet-preview {
-      width: 100%;
-      height: 140px;
-      border-radius: 12px;
-      background: #0d101c;
-      border: 1px solid var(--panel-border);
-      overflow: hidden;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin-top: 4px;
+      gap: 2px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: all 0.2s;
     }
 
-    .spritesheet-preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
+    .btn-add-frame:hover {
+      border-color: var(--accent-color);
+      color: #fff;
+      background: rgba(255, 94, 54, 0.08);
     }
   </style>
 </head>
@@ -374,15 +420,13 @@
   <!-- HEADER -->
   <header>
     <div class="brand">
-      <div class="brand-badge">🎞️</div>
-      <div class="brand-title">BEAST SPRITE STUDIO - FRAME-BY-FRAME & SPRITE SHEET</div>
+      <div class="brand-badge">🐾</div>
+      <div class="brand-title">BEAST MODULAR PUPPET STUDIO 2D</div>
     </div>
     <div class="header-actions">
-      <a id="btnDownloadSheet" href="anh/sieu_thu/fire_dragon_spritesheet.png" download class="btn-top btn-accent" style="text-decoration: none;">
-        <span>📥</span> Tải Sprite Sheet PNG Này
-      </a>
-      <a href="sieu_thu_animation.html" class="btn-top" style="text-decoration: none;">
-        <span>🏟️</span> Đấu Trường
+      <button class="btn-top" onclick="savePoseToCurrentFrame()"><span>💾</span> Lưu Dáng Vào Frame</button>
+      <a href="sieu_thu_animation.html" class="btn-top btn-accent" style="text-decoration: none;">
+        <span>🏟️</span> Sang Đấu Trường
       </a>
     </div>
   </header>
@@ -390,348 +434,484 @@
   <!-- WORKSPACE -->
   <div class="studio-workspace">
     
-    <!-- LEFT: CHỌN 5 SIÊU THÚ -->
+    <!-- LEFT PANEL: TỪNG BỘ PHẬN TÁCH RỜI -->
     <aside class="studio-panel">
       <div class="panel-header">
-        <span>🐾 1. Danh Sách 5 Siêu Thú</span>
+        <span>🧩 1. Danh Sách Bộ Phận Tách Rời</span>
       </div>
 
-      <div class="beast-list" id="beastListContainer">
-        <!-- Render 5 Beasts -->
+      <div class="parts-list" id="partsListContainer">
+        <!-- Render Modular Parts -->
+      </div>
+
+      <div class="prop-group" style="margin-top: auto;">
+        <div class="prop-title">
+          <span>💡</span> Hướng Dẫn Tương Tác
+        </div>
+        <p style="font-size: 11.5px; color: var(--text-sub); line-height: 1.4;">
+          Bạn có thể <strong>click chuột trực tiếp vào cánh tay, cánh, đuôi hoặc đầu</strong> trên sàn đấu rồi kéo chuột để xoay chuyển động theo ý muốn!
+        </p>
       </div>
     </aside>
 
-    <!-- CENTER: PREVIEW STAGE -->
+    <!-- CENTER VIEWPORT: PUPPET STAGE CANVAS -->
     <main class="viewport-container" id="viewportContainer">
       <div class="viewport-hud">
         <div class="hud-chip">
-          🐉 Siêu Thú: <strong id="hudBeastName" style="color:#ff5e36;">Hỏa Long Mini</strong>
+          🐉 Siêu Thú: <strong style="color:#ff5e36;">Hỏa Long (Modular Parts)</strong>
         </div>
         <div class="hud-chip">
-          ⏱️ Khung hình: <strong id="hudFrameIndex" style="color:#ffd166;">1 / 4</strong>
+          🎯 Bộ phận đang chọn: <strong id="hudSelectedPart" style="color:#ffd166;">Cánh Tay Phải</strong>
         </div>
       </div>
-      <canvas id="stageCanvas"></canvas>
+      <canvas id="puppetCanvas"></canvas>
     </main>
 
-    <!-- RIGHT: THUỘC TÍNH & SPRITESHEET ATLAS -->
+    <!-- RIGHT PANEL: INSPECTOR & PRESET POSES -->
     <aside class="studio-panel">
       <div class="panel-header">
-        <span>📊 Thông Số Khung Hình</span>
-      </div>
-      <div class="prop-row">
-        <span>Tên nhân vật:</span>
-        <strong id="statName">Hỏa Long Mini</strong>
-      </div>
-      <div class="prop-row">
-        <span>Hệ nguyên tố:</span>
-        <strong id="statElement" style="color:#ff5e36;">Hỏa (Fire)</strong>
-      </div>
-      <div class="prop-row">
-        <span>Số Khung Hình Động:</span>
-        <strong>4 Frames (Hành động liên hoàn)</strong>
-      </div>
-      <div class="prop-row">
-        <span>Hành động diễn xuất:</span>
-        <strong id="statAction" style="color:#00d2d3; font-size:11px;">Thở ➔ Hít sâu ➔ Phun lửa ➔ Nhảy mừng</strong>
+        <span>🎛️ 2. Điều Khiển Khớp Xoay</span>
       </div>
 
-      <div class="panel-header" style="margin-top: 8px;">
-        <span>🖼️ Sprite Sheet Texture Atlas</span>
+      <!-- TRANSFORM CONTROLS -->
+      <div class="prop-group">
+        <div class="prop-title">
+          <span>🔄</span> Góc Xoay Khớp (Rotation)
+        </div>
+        <div class="prop-row">
+          <span>Góc xoay:</span>
+          <input type="range" class="prop-slider" id="sldRot" min="-180" max="180" value="0" oninput="updatePartTransform()">
+          <span id="txtRotVal">0°</span>
+        </div>
+        <div class="prop-row">
+          <span>Dịch X:</span>
+          <input type="range" class="prop-slider" id="sldOffX" min="-50" max="50" value="0" oninput="updatePartTransform()">
+          <span id="txtOffXVal">0px</span>
+        </div>
+        <div class="prop-row">
+          <span>Dịch Y:</span>
+          <input type="range" class="prop-slider" id="sldOffY" min="-50" max="50" value="0" oninput="updatePartTransform()">
+          <span id="txtOffYVal">0px</span>
+        </div>
       </div>
-      <div class="spritesheet-preview">
-        <img id="imgSpritesheetPreview" src="anh/sieu_thu/fire_dragon_spritesheet.png" alt="SpriteSheet">
+
+      <!-- PRESET POSES -->
+      <div class="prop-group">
+        <div class="prop-title">
+          <span>⚡</span> Dáng Mẫu Nhanh (Pose Presets)
+        </div>
+        <div class="preset-grid">
+          <button class="btn-preset" onclick="applyPresetPose('wave')">👋 Vẫy Tay Chào</button>
+          <button class="btn-preset" onclick="applyPresetPose('fly')">🪽 Giương Cánh Bay</button>
+          <button class="btn-preset" onclick="applyPresetPose('attack')">⚔️ Cào Vuốt Tấn Công</button>
+          <button class="btn-preset" onclick="applyPresetPose('idle')">🧘 Đứng Thở Chuẩn</button>
+        </div>
       </div>
-      <p style="font-size:11px; color:var(--text-sub); line-height:1.4;">
-        Ảnh PNG trong suốt 100%, chuẩn kích thước game 2D, kéo thả trực tiếp vào <strong>Unity</strong>, <strong>Godot</strong>, <strong>Cocos Creator</strong>.
-      </p>
+
+      <!-- AUTO MOTION ENGINE -->
+      <div class="prop-group">
+        <div class="prop-title">
+          <span>🎬</span> Tự Động Diễn Hoạt (Motion Engine)
+        </div>
+        <div class="prop-row">
+          <span>Chế độ:</span>
+          <select id="selAutoMotion" onchange="setAutoMotion(this.value)" style="background:#111422; color:#fff; border:1px solid var(--panel-border); border-radius:6px; padding:3px 8px; font-weight:700;">
+            <option value="none">Tắt (Dáng Tĩnh / Manual)</option>
+            <option value="breathe" selected>🧘 Hô Hấp Phập Phồng</option>
+            <option value="flap">🪽 Vỗ Cánh Phấp Phới</option>
+            <option value="wave">👋 Vẫy Tay Liên Hồi</option>
+          </select>
+        </div>
+      </div>
     </aside>
 
-    <!-- BOTTOM: TIMELINE KHUNG HÌNH (FRAME STRIP) -->
+    <!-- BOTTOM TIMELINE: FRAME-BY-FRAME SEQUENCER -->
     <footer class="timeline-panel">
       <div class="timeline-bar">
         <div class="timeline-playback">
-          <button class="btn-play" id="btnPlayPause" onclick="togglePlay()">
-            <span id="playIcon">⏸️</span>
+          <button class="btn-play" id="btnPlayPause" onclick="togglePlayback()">
+            <span id="playIcon">▶️</span>
           </button>
-          <span style="font-size: 12.5px; font-weight: 800;">Phát Hoạt Ảnh Khung Hình</span>
+          <span style="font-size: 12.5px; font-weight: 800;">Phát Chuỗi Khung Hình Do Bạn Tạo</span>
         </div>
 
         <div style="display:flex; align-items:center; gap: 8px; font-size:12px; color:var(--text-sub);">
           <span>Tốc độ:</span>
           <select id="selFps" onchange="setFPS(this.value)" style="background:#111422; color:#fff; border:1px solid var(--panel-border); border-radius:6px; padding:2px 6px; font-weight:700;">
-            <option value="2">2 FPS (Chậm từng động tác)</option>
-            <option value="4" selected>4 FPS (Chuẩn Frame)</option>
-            <option value="6">6 FPS (Nhanh)</option>
-            <option value="8">8 FPS (Siêu tốc)</option>
+            <option value="2">2 FPS</option>
+            <option value="4" selected>4 FPS</option>
+            <option value="8">8 FPS</option>
+            <option value="12">12 FPS</option>
           </select>
         </div>
       </div>
 
-      <!-- DẢI KHUNG HÌNH -->
+      <!-- DẢI KHUNG HÌNH (FRAME STRIP) -->
       <div class="frame-strip" id="frameStripContainer">
-        <!-- Render frame cards -->
+        <!-- Render Frame Cards -->
       </div>
     </footer>
   </div>
 
   <script>
     /* ==========================================================
-       1. DATA 5 SIÊU THÚ VỚI CÁC KHUNG HÌNH THẬT SỰ
+       1. CẤU TRÚC BỘ PHẬN ĐỘC LẬP (MODULAR PARTS SKELETON)
     ========================================================== */
-    const BEASTS_DB = [
-      {
-        id: 'fire_dragon',
-        name: 'Hỏa Long Mini',
-        element: 'Hỏa (Fire)',
-        color: '#ff5e36',
-        glow: 'rgba(255, 94, 54, 0.5)',
-        sheetSrc: 'anh/sieu_thu/fire_dragon_spritesheet.png',
-        frames: [
-          'anh/sieu_thu/fire_dragon_f1.png',
-          'anh/sieu_thu/fire_dragon_f2.png',
-          'anh/sieu_thu/fire_dragon_f3.png',
-          'anh/sieu_thu/fire_dragon_f4.png'
-        ],
-        actionDesc: 'F1: Đứng thở • F2: Hít sâu ngực phồng • F3: Há miệng phun lửa rực cháy • F4: Nhảy cẫng mừng rỡ sao sáng'
-      },
-      {
-        id: 'thunder_fox',
-        name: 'Lôi Hồ Tia Chớp',
-        element: 'Lôi (Thunder)',
-        color: '#feca57',
-        glow: 'rgba(254, 202, 87, 0.5)',
-        sheetSrc: 'anh/sieu_thu/thunder_fox_spritesheet.png',
-        frames: [
-          'anh/sieu_thu/thunder_fox_f1.png',
-          'anh/sieu_thu/thunder_fox_f2.png',
-          'anh/sieu_thu/thunder_fox_f3.png',
-          'anh/sieu_thu/thunder_fox_f4.png'
-        ],
-        actionDesc: 'F1: Đứng tích điện • F2: Lao nhanh vút tới • F3: Giậm chân phóng bão sét neon • F4: Nhảy tưng mừng rỡ'
-      },
-      {
-        id: 'water_turtle',
-        name: 'Thủy Quy Pha Lê',
-        element: 'Thủy (Water)',
-        color: '#00d2d3',
-        glow: 'rgba(0, 210, 211, 0.5)',
-        sheetSrc: 'anh/sieu_thu/water_turtle_spritesheet.png',
-        frames: [
-          'anh/sieu_thu/water_turtle_f1.png',
-          'anh/sieu_thu/water_turtle_f2.png',
-          'anh/sieu_thu/water_turtle_f3.png',
-          'anh/sieu_thu/water_turtle_f4.png'
-        ],
-        actionDesc: 'F1: Đứng nổi bọt • F2: Thu mình giọt nước tạo khiên • F3: Phun cột sóng thần đại dương • F4: Bật nhảy tóe nước'
-      },
-      {
-        id: 'plant_golem',
-        name: 'Mộc Linh Thần Thú',
-        element: 'Mộc (Plant/Nature)',
-        color: '#1dd1a1',
-        glow: 'rgba(29, 209, 161, 0.5)',
-        sheetSrc: 'anh/sieu_thu/plant_golem_spritesheet.png',
-        frames: [
-          'anh/sieu_thu/plant_golem_f1.png',
-          'anh/sieu_thu/plant_golem_f2.png',
-          'anh/sieu_thu/plant_golem_f3.png',
-          'anh/sieu_thu/plant_golem_f4.png'
-        ],
-        actionDesc: 'F1: Nụ hoa trên đầu • F2: Hoa sen đá nở bung phát sáng • F3: Triệu hồi lốc xoáy lá xanh • F4: Nhảy ôm đóa hoa'
-      },
-      {
-        id: 'shadow_dragon',
-        name: 'Dạ Ảnh Long',
-        element: 'Ám (Dark/Void)',
-        color: '#a55eea',
-        glow: 'rgba(165, 94, 234, 0.5)',
-        sheetSrc: 'anh/sieu_thu/shadow_dragon_spritesheet.png',
-        frames: [
-          'anh/sieu_thu/shadow_dragon_f1.png',
-          'anh/sieu_thu/shadow_dragon_f2.png',
-          'anh/sieu_thu/shadow_dragon_f3.png',
-          'anh/sieu_thu/shadow_dragon_f4.png'
-        ],
-        actionDesc: 'F1: Sừng tím dạ quang • F2: Dang cánh dơi bay lên • F3: Phun hố đen bóng đêm hư không • F4: Dang cánh bay siêu ngầu'
-      }
+    const MODULAR_PARTS = [
+      { id: 'tail', name: 'Đuôi & Lửa Đuôi', src: 'anh/sieu_thu/modular_parts/fire_dragon_tail.png', pivot: {x: 0.8, y: 0.3}, basePos: {x: -60, y: 35}, rot: 0, offX: 0, offY: 0, zIndex: 1 },
+      { id: 'wing_l', name: 'Cánh Trái', src: 'anh/sieu_thu/modular_parts/fire_dragon_wing_l.png', pivot: {x: 0.85, y: 0.75}, basePos: {x: -75, y: -25}, rot: 0, offX: 0, offY: 0, zIndex: 2 },
+      { id: 'wing_r', name: 'Cánh Phải', src: 'anh/sieu_thu/modular_parts/fire_dragon_wing_r.png', pivot: {x: 0.15, y: 0.75}, basePos: {x: 75, y: -25}, rot: 0, offX: 0, offY: 0, zIndex: 2 },
+      { id: 'body', name: 'Thân Mình & Bụng', src: 'anh/sieu_thu/modular_parts/fire_dragon_body.png', pivot: {x: 0.5, y: 0.85}, basePos: {x: 0, y: 40}, rot: 0, offX: 0, offY: 0, zIndex: 3 },
+      { id: 'arm_l', name: 'Cánh Tay Trái', src: 'anh/sieu_thu/modular_parts/fire_dragon_arm_l.png', pivot: {x: 0.7, y: 0.2}, basePos: {x: -42, y: 15}, rot: 0, offX: 0, offY: 0, zIndex: 4 },
+      { id: 'arm_r', name: 'Cánh Tay Phải', src: 'anh/sieu_thu/modular_parts/fire_dragon_arm_r.png', pivot: {x: 0.3, y: 0.2}, basePos: {x: 42, y: 15}, rot: 0, offX: 0, offY: 0, zIndex: 4 },
+      { id: 'head', name: 'Đầu & Mắt Sừng', src: 'anh/sieu_thu/modular_parts/fire_dragon_head.png', pivot: {x: 0.5, y: 0.85}, basePos: {x: 0, y: -45}, rot: 0, offX: 0, offY: 0, zIndex: 5 }
     ];
 
-    let currentBeastIdx = 0;
+    let selectedPartIdx = 5; // Mặc định chọn Cánh Tay Phải (arm_r)
+    const loadedPartImages = {};
+
+    // TIMELINE FRAMES
+    let savedFrames = [];
     let currentFrameIdx = 0;
-    let isPlaying = true;
-    let currentFps = 4;
-    let playInterval = null;
+    let isPlaying = false;
+    let playbackFps = 4;
+    let playbackTimer = null;
+    let autoMotion = 'breathe';
+    let globalTimer = 0;
 
-    const canvas = document.getElementById('stageCanvas');
+    const canvas = document.getElementById('puppetCanvas');
     const ctx = canvas.getContext('2d');
-    const loadedImages = {};
 
-    function preloadImages() {
-      BEASTS_DB.forEach(b => {
-        b.frames.forEach(src => {
-          if (!loadedImages[src]) {
-            const img = new Image();
-            img.src = src;
-            loadedImages[src] = img;
-          }
-        });
+    function preloadPartImages() {
+      MODULAR_PARTS.forEach(p => {
+        const img = new Image();
+        img.src = p.src;
+        loadedPartImages[p.id] = img;
       });
     }
-    preloadImages();
+    preloadPartImages();
 
-    function resizeStage() {
+    function resizeCanvas() {
       const container = document.getElementById('viewportContainer');
       canvas.width = container.offsetWidth;
       canvas.height = container.offsetHeight;
-      drawCurrentFrame();
+      drawScene();
     }
-    window.addEventListener('resize', resizeStage);
+    window.addEventListener('resize', resizeCanvas);
 
-    function drawCurrentFrame() {
+    /* ==========================================================
+       2. RENDER SÂN ĐẤU & CÁC BỘ PHẬN GHÉP (PUPPET COMPOSER)
+    ========================================================== */
+    function drawScene() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const beast = BEASTS_DB[currentBeastIdx];
-      const frameSrc = beast.frames[currentFrameIdx];
-      const img = loadedImages[frameSrc];
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2 + 30;
 
-      const size = Math.min(canvas.width, canvas.height) * 0.72;
-      const x = (canvas.width - size) / 2;
-      const y = (canvas.height - size) / 2 + 10;
-
-      // 1. Sàn đấu 3D
+      // 1. Sàn Đấu 3D
       ctx.save();
-      ctx.translate(canvas.width / 2, y + size - 20);
+      ctx.translate(cx, cy + 130);
       ctx.scale(1, 0.3);
       ctx.beginPath();
-      ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
-      ctx.fillStyle = beast.glow;
+      ctx.arc(0, 0, 210, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 94, 54, 0.15)';
       ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
 
-      // 2. Vẽ Frame ảnh thực tế (100% trong suốt)
-      if (img && img.complete) {
-        ctx.save();
-        ctx.shadowColor = beast.glow;
-        ctx.shadowBlur = 25;
-        ctx.drawImage(img, x, y, size, size);
-        ctx.restore();
-      }
+      // 2. Render từng bộ phận theo Z-Index
+      const sortedParts = [...MODULAR_PARTS].sort((a, b) => a.zIndex - b.zIndex);
 
-      document.getElementById('hudFrameIndex').textContent = `${currentFrameIdx + 1} / ${beast.frames.length}`;
+      sortedParts.forEach(part => {
+        const img = loadedPartImages[part.id];
+        if (!img || !img.complete) return;
+
+        ctx.save();
+
+        // Tính góc xoay tự động (nếu có auto motion)
+        let dynamicRot = part.rot;
+        let dynamicOffY = part.offY;
+
+        if (autoMotion === 'breathe') {
+          if (part.id === 'head') dynamicRot += Math.sin(globalTimer * 3) * 3;
+          if (part.id === 'wing_l') dynamicRot += Math.sin(globalTimer * 3) * 8;
+          if (part.id === 'wing_r') dynamicRot -= Math.sin(globalTimer * 3) * 8;
+          if (part.id === 'tail') dynamicRot += Math.sin(globalTimer * 2.5) * 6;
+          if (part.id === 'body') dynamicOffY += Math.sin(globalTimer * 3) * 2;
+        } else if (autoMotion === 'flap') {
+          if (part.id === 'wing_l') dynamicRot += Math.sin(globalTimer * 6) * 25;
+          if (part.id === 'wing_r') dynamicRot -= Math.sin(globalTimer * 6) * 25;
+          if (part.id === 'head') dynamicOffY += Math.sin(globalTimer * 6) * 4;
+        } else if (autoMotion === 'wave') {
+          if (part.id === 'arm_r') dynamicRot += Math.sin(globalTimer * 8) * 35 - 30;
+        }
+
+        const posX = cx + part.basePos.x + part.offX;
+        const posY = cy + part.basePos.y + dynamicOffY;
+
+        ctx.translate(posX, posY);
+        ctx.rotate((dynamicRot * Math.PI) / 180);
+
+        const w = img.naturalWidth * 1.35;
+        const h = img.naturalHeight * 1.35;
+
+        // Vẽ ảnh bộ phận với tâm khớp (Pivot)
+        ctx.drawImage(img, -part.pivot.x * w, -part.pivot.y * h, w, h);
+
+        // Nếu là bộ phận đang chọn: Vẽ vòng tròn tâm khớp
+        if (part.id === MODULAR_PARTS[selectedPartIdx].id && !isPlaying) {
+          ctx.save();
+          ctx.strokeStyle = '#00d2d3';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.arc(0, 0, 24, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = '#ff5e36';
+          ctx.beginPath();
+          ctx.arc(0, 0, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      });
     }
 
     /* ==========================================================
-       2. TIMELINE & PLAYBACK ENGINE
+       3. TƯƠNG TÁC KÉO CHUỘT TRỰC TIẾP LÊN BỘ PHẬN
     ========================================================== */
-    function startPlayback() {
-      if (playInterval) clearInterval(playInterval);
-      playInterval = setInterval(() => {
-        const beast = BEASTS_DB[currentBeastIdx];
-        currentFrameIdx = (currentFrameIdx + 1) % beast.frames.length;
-        updateActiveFrameCard();
-        drawCurrentFrame();
-      }, 1000 / currentFps);
-    }
+    let isDragging = false;
 
-    function togglePlay() {
-      isPlaying = !isPlaying;
-      document.getElementById('playIcon').textContent = isPlaying ? '⏸️' : '▶️';
-      if (isPlaying) {
-        startPlayback();
-      } else {
-        if (playInterval) clearInterval(playInterval);
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      handleCanvasDrag(e);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        handleCanvasDrag(e);
       }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    function handleCanvasDrag(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      const part = MODULAR_PARTS[selectedPartIdx];
+      const cx = canvas.width / 2 + part.basePos.x + part.offX;
+      const cy = canvas.height / 2 + 30 + part.basePos.y + part.offY;
+
+      // Tính góc giữa tâm khớp và vị trí chuột
+      const angleRad = Math.atan2(clickY - cy, clickX - cx);
+      let angleDeg = Math.round((angleRad * 180) / Math.PI);
+
+      part.rot = angleDeg;
+      document.getElementById('sldRot').value = angleDeg;
+      document.getElementById('txtRotVal').textContent = `${angleDeg}°`;
+
+      autoMotion = 'none';
+      document.getElementById('selAutoMotion').value = 'none';
+
+      drawScene();
     }
 
-    function setFPS(fps) {
-      currentFps = parseInt(fps);
-      if (isPlaying) startPlayback();
-    }
-
-    function selectBeast(idx) {
-      currentBeastIdx = idx;
-      currentFrameIdx = 0;
-      const beast = BEASTS_DB[idx];
-
-      document.documentElement.style.setProperty('--accent-color', beast.color);
-      document.documentElement.style.setProperty('--accent-glow', beast.glow);
-
-      document.getElementById('hudBeastName').textContent = beast.name;
-      document.getElementById('statName').textContent = beast.name;
-      document.getElementById('statElement').textContent = beast.element;
-      document.getElementById('statElement').style.color = beast.color;
-      document.getElementById('statAction').textContent = beast.actionDesc;
-      document.getElementById('imgSpritesheetPreview').src = beast.sheetSrc;
-      document.getElementById('btnDownloadSheet').href = beast.sheetSrc;
-      document.getElementById('btnDownloadSheet').setAttribute('download', `${beast.id}_spritesheet.png`);
-
-      document.querySelectorAll('.beast-item').forEach((b, i) => b.classList.toggle('active', i === idx));
-
-      renderFrameStrip();
-      drawCurrentFrame();
-    }
-
-    function renderBeastList() {
-      const container = document.getElementById('beastListContainer');
+    /* ==========================================================
+       4. ĐIỀU KHIỂN & GIAO DIỆN
+    ========================================================== */
+    function renderPartsList() {
+      const container = document.getElementById('partsListContainer');
       container.innerHTML = '';
 
-      BEASTS_DB.forEach((b, idx) => {
+      MODULAR_PARTS.forEach((part, idx) => {
         const item = document.createElement('div');
-        item.className = 'beast-item' + (idx === currentBeastIdx ? ' active' : '');
-        item.style.setProperty('--item-color', b.color);
-        item.style.setProperty('--item-glow', b.glow);
-
+        item.className = 'part-item' + (idx === selectedPartIdx ? ' active' : '');
         item.innerHTML = `
-          <div class="beast-thumb">
-            <img src="${b.frames[0]}" alt="${b.name}">
+          <div class="part-tag">
+            <div class="part-color-dot" style="background: ${idx === selectedPartIdx ? '#ff5e36' : '#888'}"></div>
+            <strong>${part.name}</strong>
           </div>
-          <div>
-            <h4 style="font-size:13.5px; font-weight:800; color:#fff;">${b.name}</h4>
-            <span style="font-size:11px; color:${b.color}; font-weight:700;">${b.element}</span>
-          </div>
+          <span style="font-size:11px; color:var(--text-sub);">${part.rot}°</span>
         `;
-        item.onclick = () => selectBeast(idx);
+        item.onclick = () => selectPart(idx);
         container.appendChild(item);
       });
+    }
+
+    function selectPart(idx) {
+      selectedPartIdx = idx;
+      const part = MODULAR_PARTS[idx];
+      document.getElementById('hudSelectedPart').textContent = part.name;
+      document.getElementById('sldRot').value = part.rot;
+      document.getElementById('txtRotVal').textContent = `${part.rot}°`;
+      document.getElementById('sldOffX').value = part.offX;
+      document.getElementById('txtOffXVal').textContent = `${part.offX}px`;
+      document.getElementById('sldOffY').value = part.offY;
+      document.getElementById('txtOffYVal').textContent = `${part.offY}px`;
+
+      renderPartsList();
+      drawScene();
+    }
+
+    function updatePartTransform() {
+      const part = MODULAR_PARTS[selectedPartIdx];
+      part.rot = parseInt(document.getElementById('sldRot').value);
+      document.getElementById('txtRotVal').textContent = `${part.rot}°`;
+
+      part.offX = parseInt(document.getElementById('sldOffX').value);
+      document.getElementById('txtOffXVal').textContent = `${part.offX}px`;
+
+      part.offY = parseInt(document.getElementById('sldOffY').value);
+      document.getElementById('txtOffYVal').textContent = `${part.offY}px`;
+
+      autoMotion = 'none';
+      document.getElementById('selAutoMotion').value = 'none';
+
+      renderPartsList();
+      drawScene();
+    }
+
+    function applyPresetPose(pose) {
+      autoMotion = 'none';
+      document.getElementById('selAutoMotion').value = 'none';
+
+      if (pose === 'wave') {
+        MODULAR_PARTS.find(p => p.id === 'arm_r').rot = -55;
+        MODULAR_PARTS.find(p => p.id === 'head').rot = -8;
+      } else if (pose === 'fly') {
+        MODULAR_PARTS.find(p => p.id === 'wing_l').rot = 35;
+        MODULAR_PARTS.find(p => p.id === 'wing_r').rot = -35;
+        MODULAR_PARTS.find(p => p.id === 'tail').rot = 20;
+      } else if (pose === 'attack') {
+        MODULAR_PARTS.find(p => p.id === 'arm_l').rot = 45;
+        MODULAR_PARTS.find(p => p.id === 'arm_r').rot = -45;
+        MODULAR_PARTS.find(p => p.id === 'head').rot = 12;
+      } else if (pose === 'idle') {
+        MODULAR_PARTS.forEach(p => { p.rot = 0; p.offX = 0; p.offY = 0; });
+      }
+
+      selectPart(selectedPartIdx);
+    }
+
+    function setAutoMotion(val) {
+      autoMotion = val;
+    }
+
+    /* ==========================================================
+       5. TIMELINE KHUNG HÌNH (LƯU & PHÁT KEYFRAMES)
+    ========================================================== */
+    function initDefaultFrames() {
+      savedFrames = [];
+
+      // Frame 1: Dáng Chuẩn
+      applyPresetPose('idle');
+      savedFrames.push(JSON.parse(JSON.stringify(MODULAR_PARTS)));
+
+      // Frame 2: Hít Sâu & Nâng Cánh
+      applyPresetPose('fly');
+      savedFrames.push(JSON.parse(JSON.stringify(MODULAR_PARTS)));
+
+      // Frame 3: Cào Vuốt Tấn Công
+      applyPresetPose('attack');
+      savedFrames.push(JSON.parse(JSON.stringify(MODULAR_PARTS)));
+
+      // Frame 4: Vẫy Tay Chào
+      applyPresetPose('wave');
+      savedFrames.push(JSON.parse(JSON.stringify(MODULAR_PARTS)));
+
+      currentFrameIdx = 0;
+      renderFrameStrip();
     }
 
     function renderFrameStrip() {
       const container = document.getElementById('frameStripContainer');
       container.innerHTML = '';
-      const beast = BEASTS_DB[currentBeastIdx];
 
-      beast.frames.forEach((src, idx) => {
-        const card = document.createElement('div');
-        card.className = 'frame-card' + (idx === currentFrameIdx ? ' active' : '');
-        card.innerHTML = `
-          <span class="frame-num-badge">F${idx + 1}</span>
-          <img src="${src}" alt="Frame ${idx + 1}">
+      savedFrames.forEach((f, idx) => {
+        const box = document.createElement('div');
+        box.className = 'frame-box' + (idx === currentFrameIdx ? ' active' : '');
+        box.innerHTML = `
+          <span class="frame-num">F${idx + 1}</span>
+          <span style="font-size:22px;">🐾</span>
         `;
-        card.onclick = () => {
+        box.onclick = () => {
           currentFrameIdx = idx;
-          updateActiveFrameCard();
-          drawCurrentFrame();
-          if (isPlaying) togglePlay(); // Tạm dừng để xem kỹ frame
+          loadFramePose(idx);
+          renderFrameStrip();
         };
-        container.appendChild(card);
+        container.appendChild(box);
       });
+
+      const addBtn = document.createElement('div');
+      addBtn.className = 'btn-add-frame';
+      addBtn.innerHTML = `<span>➕</span><span>Thêm</span>`;
+      addBtn.onclick = savePoseToCurrentFrame;
+      container.appendChild(addBtn);
     }
 
-    function updateActiveFrameCard() {
-      document.querySelectorAll('.frame-card').forEach((card, idx) => {
-        card.classList.toggle('active', idx === currentFrameIdx);
+    function savePoseToCurrentFrame() {
+      savedFrames.push(JSON.parse(JSON.stringify(MODULAR_PARTS)));
+      currentFrameIdx = savedFrames.length - 1;
+      renderFrameStrip();
+      alert(`Đã lưu dáng hiện tại vào Frame ${savedFrames.length}!`);
+    }
+
+    function loadFramePose(idx) {
+      if (!savedFrames[idx]) return;
+      savedFrames[idx].forEach(srcPart => {
+        const p = MODULAR_PARTS.find(mp => mp.id === srcPart.id);
+        if (p) {
+          p.rot = srcPart.rot;
+          p.offX = srcPart.offX;
+          p.offY = srcPart.offY;
+        }
       });
+      selectPart(selectedPartIdx);
+    }
+
+    function togglePlayback() {
+      isPlaying = !isPlaying;
+      document.getElementById('playIcon').textContent = isPlaying ? '⏸️' : '▶️';
+
+      if (isPlaying) {
+        autoMotion = 'none';
+        document.getElementById('selAutoMotion').value = 'none';
+        if (playbackTimer) clearInterval(playbackTimer);
+        playbackTimer = setInterval(() => {
+          currentFrameIdx = (currentFrameIdx + 1) % savedFrames.length;
+          loadFramePose(currentFrameIdx);
+          renderFrameStrip();
+        }, 1000 / playbackFps);
+      } else {
+        if (playbackTimer) clearInterval(playbackTimer);
+      }
+    }
+
+    function setFPS(fps) {
+      playbackFps = parseInt(fps);
+      if (isPlaying) { togglePlayback(); togglePlayback(); }
+    }
+
+    function animationLoop(t) {
+      globalTimer = t / 1000;
+      drawScene();
+      requestAnimationFrame(animationLoop);
     }
 
     window.onload = () => {
-      resizeStage();
-      renderBeastList();
-      selectBeast(0);
-      startPlayback();
+      resizeCanvas();
+      renderPartsList();
+      selectPart(5);
+      initDefaultFrames();
+      requestAnimationFrame(animationLoop);
     };
   </script>
 </body>

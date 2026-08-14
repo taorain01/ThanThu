@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Beast Animation Studio - Thiết Kế Hoạt Ảnh Từng Khung Hình (Frame-by-Frame & Sprite Sheet)</title>
+  <title>Beast Sprite Studio - Trình Diễn Hoạt Ảnh 5 Siêu Thú Khung Hình Thực Tế</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #06080f;
+      --bg-dark: #06080e;
       --panel-bg: rgba(14, 18, 33, 0.92);
       --panel-border: rgba(255, 255, 255, 0.1);
       --accent-color: #ff5e36;
@@ -36,8 +36,8 @@
       flex-direction: column;
       overflow: hidden;
       background-image: 
-        radial-gradient(circle at 15% 15%, rgba(255, 94, 54, 0.12) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(0, 210, 211, 0.12) 0%, transparent 40%);
+        radial-gradient(circle at 10% 15%, rgba(255, 94, 54, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 85%, rgba(0, 210, 211, 0.12) 0%, transparent 40%);
     }
 
     /* TOP HEADER */
@@ -47,7 +47,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(8, 11, 20, 0.95);
+      background: rgba(8, 11, 20, 0.96);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--panel-border);
       z-index: 100;
@@ -85,7 +85,7 @@
       gap: 8px;
     }
 
-    .btn-action {
+    .btn-top {
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--panel-border);
       color: var(--text-main);
@@ -100,12 +100,12 @@
       transition: all 0.2s;
     }
 
-    .btn-action:hover {
+    .btn-top:hover {
       background: rgba(255, 255, 255, 0.12);
       border-color: rgba(255, 255, 255, 0.25);
     }
 
-    .btn-action.btn-accent {
+    .btn-top.btn-accent {
       background: linear-gradient(135deg, #ff5e36, #ff9f43);
       border: none;
       color: #fff;
@@ -116,8 +116,8 @@
     .studio-workspace {
       flex: 1;
       display: grid;
-      grid-template-columns: 280px 1fr 310px;
-      grid-template-rows: 1fr 145px;
+      grid-template-columns: 290px 1fr 320px;
+      grid-template-rows: 1fr 140px;
       gap: 10px;
       padding: 10px 14px;
       height: calc(100vh - 52px);
@@ -152,47 +152,54 @@
       padding-bottom: 6px;
     }
 
-    /* ACTION SELECTOR */
-    .action-chips-list {
+    /* BEAST SELECTOR */
+    .beast-list {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
-    .action-chip {
+    .beast-item {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 9px 12px;
+      gap: 12px;
+      padding: 8px 10px;
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.06);
       cursor: pointer;
-      font-size: 12.5px;
-      font-weight: 700;
       transition: all 0.2s;
     }
 
-    .action-chip:hover {
+    .beast-item:hover {
       background: rgba(255, 255, 255, 0.08);
+      transform: translateX(3px);
     }
 
-    .action-chip.active {
-      background: linear-gradient(135deg, rgba(255, 94, 54, 0.2), rgba(255, 255, 255, 0.04));
-      border-color: var(--accent-color);
-      color: #fff;
-      box-shadow: 0 2px 12px var(--accent-glow);
+    .beast-item.active {
+      border-color: var(--item-color, #ff5e36);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+      box-shadow: 0 2px 14px var(--item-glow, rgba(255, 94, 54, 0.3));
     }
 
-    .badge-count {
-      font-size: 10.5px;
-      padding: 2px 6px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--accent-gold);
+    .beast-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: #111422;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
-    /* CENTER VIEWPORT (CANVAS STAGE) */
+    .beast-thumb img {
+      width: 90%;
+      height: 90%;
+      object-fit: contain;
+    }
+
+    /* CENTER VIEWPORT */
     .viewport-container {
       position: relative;
       background: radial-gradient(circle at 50% 35%, #151a2e 0%, #070912 80%);
@@ -211,7 +218,6 @@
       display: block;
     }
 
-    /* ONION SKINNING TOGGLE & HUD */
     .viewport-hud {
       position: absolute;
       top: 12px;
@@ -235,21 +241,21 @@
       pointer-events: auto;
     }
 
-    /* BOTTOM TIMELINE (FRAME STRIP) */
+    /* BOTTOM TIMELINE */
     .timeline-panel {
       grid-column: 1 / span 3;
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
       backdrop-filter: blur(20px);
       border-radius: 16px;
-      padding: 10px 16px;
+      padding: 8px 16px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
     }
 
-    .timeline-controls {
+    .timeline-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -262,13 +268,13 @@
     }
 
     .btn-play {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: var(--accent-color);
       border: none;
       color: #fff;
-      font-size: 15px;
+      font-size: 14px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -276,43 +282,17 @@
       box-shadow: 0 2px 10px var(--accent-glow);
     }
 
-    .fps-picker {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--text-sub);
-    }
-
-    .fps-btn {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--panel-border);
-      color: var(--text-sub);
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .fps-btn.active {
-      background: var(--accent-color);
-      color: #fff;
-      border-color: var(--accent-color);
-    }
-
-    /* FRAME STRIP THUMBNAILS */
     .frame-strip {
       display: flex;
       align-items: center;
       gap: 10px;
       overflow-x: auto;
-      padding: 4px 0 8px 0;
+      padding: 2px 0 6px 0;
     }
 
     .frame-card {
-      width: 78px;
-      height: 78px;
+      width: 76px;
+      height: 76px;
       border-radius: 12px;
       background: #111422;
       border: 2px solid rgba(255, 255, 255, 0.1);
@@ -339,7 +319,7 @@
     .frame-card.active {
       border-color: var(--accent-color);
       box-shadow: 0 0 15px var(--accent-glow);
-      background: rgba(255, 94, 54, 0.1);
+      background: rgba(255, 94, 54, 0.12);
     }
 
     .frame-num-badge {
@@ -354,32 +334,7 @@
       color: #ffd166;
     }
 
-    .btn-add-frame {
-      width: 78px;
-      height: 78px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 2px dashed rgba(255, 255, 255, 0.2);
-      color: var(--text-sub);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 700;
-      flex-shrink: 0;
-      transition: all 0.2s;
-    }
-
-    .btn-add-frame:hover {
-      border-color: var(--accent-color);
-      color: #fff;
-      background: rgba(255, 94, 54, 0.08);
-    }
-
-    /* RIGHT PANEL: PROPERTIES & SPRITESHEET EXPORTER */
+    /* RIGHT PANEL */
     .prop-row {
       display: flex;
       justify-content: space-between;
@@ -394,11 +349,11 @@
       color: #fff;
     }
 
-    .spritesheet-preview-box {
+    .spritesheet-preview {
       width: 100%;
       height: 140px;
       border-radius: 12px;
-      background: #0f1220;
+      background: #0d101c;
       border: 1px solid var(--panel-border);
       overflow: hidden;
       display: flex;
@@ -407,7 +362,7 @@
       margin-top: 4px;
     }
 
-    .spritesheet-preview-box img {
+    .spritesheet-preview img {
       width: 100%;
       height: 100%;
       object-fit: contain;
@@ -420,123 +375,100 @@
   <header>
     <div class="brand">
       <div class="brand-badge">🎞️</div>
-      <div class="brand-title">BEAST ANIMATION STUDIO - FRAME-BY-FRAME & SPRITE SHEET</div>
+      <div class="brand-title">BEAST SPRITE STUDIO - FRAME-BY-FRAME & SPRITE SHEET</div>
     </div>
     <div class="header-actions">
-      <a href="anh/sieu_thu/fire_dragon_spritesheet.png" download="fire_dragon_spritesheet.png" class="btn-action btn-accent" style="text-decoration: none;">
-        <span>📥</span> Tải Sprite Sheet PNG (Game Ready)
+      <a id="btnDownloadSheet" href="anh/sieu_thu/fire_dragon_spritesheet.png" download class="btn-top btn-accent" style="text-decoration: none;">
+        <span>📥</span> Tải Sprite Sheet PNG Này
       </a>
-      <a href="sieu_thu_animation.html" class="btn-action" style="text-decoration: none;">
-        <span>🏟️</span> Quay lại Đấu Trường
+      <a href="sieu_thu_animation.html" class="btn-top" style="text-decoration: none;">
+        <span>🏟️</span> Đấu Trường
       </a>
     </div>
   </header>
 
-  <!-- MAIN WORKSPACE -->
+  <!-- WORKSPACE -->
   <div class="studio-workspace">
     
-    <!-- LEFT: CHỌN HÀNH ĐỘNG / ANIMATION SEQUENCE -->
+    <!-- LEFT: CHỌN 5 SIÊU THÚ -->
     <aside class="studio-panel">
       <div class="panel-header">
-        <span>🎬 1. Các Chuỗi Hoạt Ảnh</span>
+        <span>🐾 1. Danh Sách 5 Siêu Thú</span>
       </div>
 
-      <div class="action-chips-list">
-        <div class="action-chip active" id="chipIdle" onclick="selectSequence('idle')">
-          <span>🧘 1. Thở & Đứng (Idle)</span>
-          <span class="badge-count">4 Khung Hình</span>
-        </div>
-        <div class="action-chip" id="chipAttack" onclick="selectSequence('attack')">
-          <span>⚔️ 2. Cào Vuốt & Phun Lửa (Attack)</span>
-          <span class="badge-count">5 Khung Hình</span>
-        </div>
-        <div class="action-chip" id="chipFly" onclick="selectSequence('fly')">
-          <span>🪽 3. Vỗ Cánh Bay (Fly)</span>
-          <span class="badge-count">4 Khung Hình</span>
-        </div>
-      </div>
-
-      <div class="panel-header" style="margin-top: 8px;">
-        <span>🧅 Công Cụ Họa Sĩ Hoạt Hình</span>
-      </div>
-      <div class="action-chips-list">
-        <div class="action-chip" id="chipOnion" onclick="toggleOnionSkin()">
-          <span>🧅 Onion Skinning (Bóng mờ)</span>
-          <span id="onionStatus" style="color:#ffd166; font-size:11px;">BẬT</span>
-        </div>
-        <div class="action-chip" id="chipGrid" onclick="toggleGrid()">
-          <span>📐 Lưới Tỷ Lệ Pixel & Khớp</span>
-          <span id="gridStatus" style="color:#4ade80; font-size:11px;">BẬT</span>
-        </div>
+      <div class="beast-list" id="beastListContainer">
+        <!-- Render 5 Beasts -->
       </div>
     </aside>
 
-    <!-- CENTER: STAGE PREVIEW CANVAS -->
+    <!-- CENTER: PREVIEW STAGE -->
     <main class="viewport-container" id="viewportContainer">
       <div class="viewport-hud">
         <div class="hud-chip">
-          🐾 <strong>Hỏa Long Mini</strong> • Chuỗi: <span id="hudSeqName" style="color:#ff5e36;">Idle (4 Frames)</span>
+          🐉 Siêu Thú: <strong id="hudBeastName" style="color:#ff5e36;">Hỏa Long Mini</strong>
         </div>
         <div class="hud-chip">
-          ⏱️ Khung hình hiện tại: <strong id="hudFrameIndex" style="color:#ffd166;">1 / 4</strong>
+          ⏱️ Khung hình: <strong id="hudFrameIndex" style="color:#ffd166;">1 / 4</strong>
         </div>
       </div>
       <canvas id="stageCanvas"></canvas>
     </main>
 
-    <!-- RIGHT: THUỘC TÍNH & XUẤT SPRITESHEET -->
+    <!-- RIGHT: THUỘC TÍNH & SPRITESHEET ATLAS -->
     <aside class="studio-panel">
       <div class="panel-header">
         <span>📊 Thông Số Khung Hình</span>
       </div>
       <div class="prop-row">
-        <span>Hành động:</span>
-        <strong id="statActionName">Đứng Thở (Idle)</strong>
+        <span>Tên nhân vật:</span>
+        <strong id="statName">Hỏa Long Mini</strong>
       </div>
       <div class="prop-row">
-        <span>Số lượng Frame:</span>
-        <strong id="statFrameCount">4 Frames</strong>
+        <span>Hệ nguyên tố:</span>
+        <strong id="statElement" style="color:#ff5e36;">Hỏa (Fire)</strong>
       </div>
       <div class="prop-row">
-        <span>Kích thước mỗi Frame:</span>
-        <strong>400 x 400 px</strong>
+        <span>Số Khung Hình Động:</span>
+        <strong>4 Frames (Hành động liên hoàn)</strong>
       </div>
       <div class="prop-row">
-        <span>Tốc độ Playback:</span>
-        <strong id="statFpsVal" style="color:#00d2d3;">6 FPS</strong>
+        <span>Hành động diễn xuất:</span>
+        <strong id="statAction" style="color:#00d2d3; font-size:11px;">Thở ➔ Hít sâu ➔ Phun lửa ➔ Nhảy mừng</strong>
       </div>
 
       <div class="panel-header" style="margin-top: 8px;">
         <span>🖼️ Sprite Sheet Texture Atlas</span>
       </div>
-      <div class="spritesheet-preview-box">
-        <img src="anh/sieu_thu/fire_dragon_spritesheet.png" alt="SpriteSheet">
+      <div class="spritesheet-preview">
+        <img id="imgSpritesheetPreview" src="anh/sieu_thu/fire_dragon_spritesheet.png" alt="SpriteSheet">
       </div>
       <p style="font-size:11px; color:var(--text-sub); line-height:1.4;">
-        Đã xuất sẵn lưới 4x3 gồm 12 khung hình liên hoàn, tương thích 100% với <strong>Unity Sprite Editor</strong>, <strong>Godot AnimatedSprite2D</strong> và <strong>Cocos Creator</strong>.
+        Ảnh PNG trong suốt 100%, chuẩn kích thước game 2D, kéo thả trực tiếp vào <strong>Unity</strong>, <strong>Godot</strong>, <strong>Cocos Creator</strong>.
       </p>
     </aside>
 
-    <!-- BOTTOM: TIMELINE & FRAME STRIP -->
+    <!-- BOTTOM: TIMELINE KHUNG HÌNH (FRAME STRIP) -->
     <footer class="timeline-panel">
-      <div class="timeline-controls">
+      <div class="timeline-bar">
         <div class="timeline-playback">
           <button class="btn-play" id="btnPlayPause" onclick="togglePlay()">
             <span id="playIcon">⏸️</span>
           </button>
-          <span style="font-size: 12.5px; font-weight: 800;">Phát Chuỗi Hoạt Ảnh</span>
+          <span style="font-size: 12.5px; font-weight: 800;">Phát Hoạt Ảnh Khung Hình</span>
         </div>
 
-        <div class="fps-picker">
-          <span>Tốc độ khung hình (FPS):</span>
-          <button class="fps-btn" onclick="setFPS(3, this)">3 FPS</button>
-          <button class="fps-btn active" onclick="setFPS(6, this)">6 FPS</button>
-          <button class="fps-btn" onclick="setFPS(10, this)">10 FPS</button>
-          <button class="fps-btn" onclick="setFPS(15, this)">15 FPS</button>
+        <div style="display:flex; align-items:center; gap: 8px; font-size:12px; color:var(--text-sub);">
+          <span>Tốc độ:</span>
+          <select id="selFps" onchange="setFPS(this.value)" style="background:#111422; color:#fff; border:1px solid var(--panel-border); border-radius:6px; padding:2px 6px; font-weight:700;">
+            <option value="2">2 FPS (Chậm từng động tác)</option>
+            <option value="4" selected>4 FPS (Chuẩn Frame)</option>
+            <option value="6">6 FPS (Nhanh)</option>
+            <option value="8">8 FPS (Siêu tốc)</option>
+          </select>
         </div>
       </div>
 
-      <!-- DẢI KHUNG HÌNH (FRAME STRIP) -->
+      <!-- DẢI KHUNG HÌNH -->
       <div class="frame-strip" id="frameStripContainer">
         <!-- Render frame cards -->
       </div>
@@ -545,160 +477,161 @@
 
   <script>
     /* ==========================================================
-       1. DATA CÁC CHUỖI FRAME RIÊNG BIỆT CHO HỎA LONG
+       1. DATA 5 SIÊU THÚ VỚI CÁC KHUNG HÌNH THẬT SỰ
     ========================================================== */
-    const SEQUENCES_DATA = {
-      idle: {
-        name: 'Đứng Thở (Idle)',
-        fps: 6,
+    const BEASTS_DB = [
+      {
+        id: 'fire_dragon',
+        name: 'Hỏa Long Mini',
+        element: 'Hỏa (Fire)',
+        color: '#ff5e36',
+        glow: 'rgba(255, 94, 54, 0.5)',
+        sheetSrc: 'anh/sieu_thu/fire_dragon_spritesheet.png',
         frames: [
-          'anh/sieu_thu/frames/fire_dragon_idle_f1.png',
-          'anh/sieu_thu/frames/fire_dragon_idle_f2.png',
-          'anh/sieu_thu/frames/fire_dragon_idle_f3.png',
-          'anh/sieu_thu/frames/fire_dragon_idle_f4.png'
+          'anh/sieu_thu/fire_dragon_f1.png',
+          'anh/sieu_thu/fire_dragon_f2.png',
+          'anh/sieu_thu/fire_dragon_f3.png',
+          'anh/sieu_thu/fire_dragon_f4.png'
         ],
-        desc: 'F1: Chuẩn bị • F2: Hít thở ngực phồng • F3: Mắt chớp nhẹ cánh mở • F4: Thở ra hạ cánh'
+        actionDesc: 'F1: Đứng thở • F2: Hít sâu ngực phồng • F3: Há miệng phun lửa rực cháy • F4: Nhảy cẫng mừng rỡ sao sáng'
       },
-      attack: {
-        name: 'Cào Vuốt & Phun Lửa (Attack)',
-        fps: 8,
+      {
+        id: 'thunder_fox',
+        name: 'Lôi Hồ Tia Chớp',
+        element: 'Lôi (Thunder)',
+        color: '#feca57',
+        glow: 'rgba(254, 202, 87, 0.5)',
+        sheetSrc: 'anh/sieu_thu/thunder_fox_spritesheet.png',
         frames: [
-          'anh/sieu_thu/frames/fire_dragon_attack_f1.png',
-          'anh/sieu_thu/frames/fire_dragon_attack_f2.png',
-          'anh/sieu_thu/frames/fire_dragon_attack_f3.png',
-          'anh/sieu_thu/frames/fire_dragon_attack_f4.png',
-          'anh/sieu_thu/frames/fire_dragon_attack_f5.png'
+          'anh/sieu_thu/thunder_fox_f1.png',
+          'anh/sieu_thu/thunder_fox_f2.png',
+          'anh/sieu_thu/thunder_fox_f3.png',
+          'anh/sieu_thu/thunder_fox_f4.png'
         ],
-        desc: 'F1: Lùi lấy đà • F2: Lao tới giương vuốt • F3: Cào chém lửa tóe • F4: Phun cầu lửa bùng nổ • F5: Thu thế'
+        actionDesc: 'F1: Đứng tích điện • F2: Lao nhanh vút tới • F3: Giậm chân phóng bão sét neon • F4: Nhảy tưng mừng rỡ'
       },
-      fly: {
-        name: 'Vỗ Cánh Bay (Fly)',
-        fps: 6,
+      {
+        id: 'water_turtle',
+        name: 'Thủy Quy Pha Lê',
+        element: 'Thủy (Water)',
+        color: '#00d2d3',
+        glow: 'rgba(0, 210, 211, 0.5)',
+        sheetSrc: 'anh/sieu_thu/water_turtle_spritesheet.png',
         frames: [
-          'anh/sieu_thu/frames/fire_dragon_fly_f1.png',
-          'anh/sieu_thu/frames/fire_dragon_fly_f2.png',
-          'anh/sieu_thu/frames/fire_dragon_fly_f3.png',
-          'anh/sieu_thu/frames/fire_dragon_fly_f4.png'
+          'anh/sieu_thu/water_turtle_f1.png',
+          'anh/sieu_thu/water_turtle_f2.png',
+          'anh/sieu_thu/water_turtle_f3.png',
+          'anh/sieu_thu/water_turtle_f4.png'
         ],
-        desc: 'F1: Cánh cụp • F2: Cánh ngang • F3: Dang rộng hết cỡ nâng người • F4: Đập mạnh xuống đẩy thân lên cao'
+        actionDesc: 'F1: Đứng nổi bọt • F2: Thu mình giọt nước tạo khiên • F3: Phun cột sóng thần đại dương • F4: Bật nhảy tóe nước'
+      },
+      {
+        id: 'plant_golem',
+        name: 'Mộc Linh Thần Thú',
+        element: 'Mộc (Plant/Nature)',
+        color: '#1dd1a1',
+        glow: 'rgba(29, 209, 161, 0.5)',
+        sheetSrc: 'anh/sieu_thu/plant_golem_spritesheet.png',
+        frames: [
+          'anh/sieu_thu/plant_golem_f1.png',
+          'anh/sieu_thu/plant_golem_f2.png',
+          'anh/sieu_thu/plant_golem_f3.png',
+          'anh/sieu_thu/plant_golem_f4.png'
+        ],
+        actionDesc: 'F1: Nụ hoa trên đầu • F2: Hoa sen đá nở bung phát sáng • F3: Triệu hồi lốc xoáy lá xanh • F4: Nhảy ôm đóa hoa'
+      },
+      {
+        id: 'shadow_dragon',
+        name: 'Dạ Ảnh Long',
+        element: 'Ám (Dark/Void)',
+        color: '#a55eea',
+        glow: 'rgba(165, 94, 234, 0.5)',
+        sheetSrc: 'anh/sieu_thu/shadow_dragon_spritesheet.png',
+        frames: [
+          'anh/sieu_thu/shadow_dragon_f1.png',
+          'anh/sieu_thu/shadow_dragon_f2.png',
+          'anh/sieu_thu/shadow_dragon_f3.png',
+          'anh/sieu_thu/shadow_dragon_f4.png'
+        ],
+        actionDesc: 'F1: Sừng tím dạ quang • F2: Dang cánh dơi bay lên • F3: Phun hố đen bóng đêm hư không • F4: Dang cánh bay siêu ngầu'
       }
-    };
+    ];
 
-    let currentSeqKey = 'idle';
+    let currentBeastIdx = 0;
     let currentFrameIdx = 0;
     let isPlaying = true;
-    let currentFps = 6;
+    let currentFps = 4;
     let playInterval = null;
 
-    let showOnionSkin = true;
-    let showGrid = true;
+    const canvas = document.getElementById('stageCanvas');
+    const ctx = canvas.getContext('2d');
+    const loadedImages = {};
 
-    // Cache preloaded images
-    const loadedImagesCache = {};
-
-    function preloadAllFrames() {
-      Object.keys(SEQUENCES_DATA).forEach(k => {
-        SEQUENCES_DATA[k].frames.forEach(src => {
-          if (!loadedImagesCache[src]) {
+    function preloadImages() {
+      BEASTS_DB.forEach(b => {
+        b.frames.forEach(src => {
+          if (!loadedImages[src]) {
             const img = new Image();
             img.src = src;
-            loadedImagesCache[src] = img;
+            loadedImages[src] = img;
           }
         });
       });
     }
-    preloadAllFrames();
-
-    /* ==========================================================
-       2. CANVAS STAGE RENDERING
-    ========================================================== */
-    const stageCanvas = document.getElementById('stageCanvas');
-    const ctx = stageCanvas.getContext('2d');
+    preloadImages();
 
     function resizeStage() {
       const container = document.getElementById('viewportContainer');
-      stageCanvas.width = container.offsetWidth;
-      stageCanvas.height = container.offsetHeight;
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
       drawCurrentFrame();
     }
     window.addEventListener('resize', resizeStage);
 
     function drawCurrentFrame() {
-      ctx.clearRect(0, 0, stageCanvas.width, stageCanvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const seq = SEQUENCES_DATA[currentSeqKey];
-      const frameSrc = seq.frames[currentFrameIdx];
-      const img = loadedImagesCache[frameSrc];
+      const beast = BEASTS_DB[currentBeastIdx];
+      const frameSrc = beast.frames[currentFrameIdx];
+      const img = loadedImages[frameSrc];
 
-      const size = Math.min(stageCanvas.width, stageCanvas.height) * 0.75;
-      const x = (stageCanvas.width - size) / 2;
-      const y = (stageCanvas.height - size) / 2 + 10;
+      const size = Math.min(canvas.width, canvas.height) * 0.72;
+      const x = (canvas.width - size) / 2;
+      const y = (canvas.height - size) / 2 + 10;
 
-      // 1. Vẽ Lưới (Grid)
-      if (showGrid) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 1;
-        const step = 40;
-        for (let gx = 0; gx < stageCanvas.width; gx += step) {
-          ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, stageCanvas.height); ctx.stroke();
-        }
-        for (let gy = 0; gy < stageCanvas.height; gy += step) {
-          ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(stageCanvas.width, gy); ctx.stroke();
-        }
-        // Trục giữa
-        ctx.strokeStyle = 'rgba(255, 94, 54, 0.2)';
-        ctx.beginPath(); ctx.moveTo(stageCanvas.width/2, 0); ctx.lineTo(stageCanvas.width/2, stageCanvas.height); ctx.stroke();
-        ctx.restore();
-      }
-
-      // 2. Sàn Đấu 3D
+      // 1. Sàn đấu 3D
       ctx.save();
-      ctx.translate(stageCanvas.width / 2, y + size - 15);
+      ctx.translate(canvas.width / 2, y + size - 20);
       ctx.scale(1, 0.3);
       ctx.beginPath();
       ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 94, 54, 0.15)';
+      ctx.fillStyle = beast.glow;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
 
-      // 3. Onion Skinning (Bóng mờ khung hình trước đó)
-      if (showOnionSkin && seq.frames.length > 1) {
-        const prevIdx = (currentFrameIdx - 1 + seq.frames.length) % seq.frames.length;
-        const prevImg = loadedImagesCache[seq.frames[prevIdx]];
-        if (prevImg && prevImg.complete) {
-          ctx.save();
-          ctx.globalAlpha = 0.25;
-          ctx.filter = 'hue-rotate(180deg)'; // Nhuộm xanh bóng ma
-          ctx.drawImage(prevImg, x, y, size, size);
-          ctx.restore();
-        }
-      }
-
-      // 4. Khung Hình Chính Hiện Tại (Current Frame)
+      // 2. Vẽ Frame ảnh thực tế (100% trong suốt)
       if (img && img.complete) {
         ctx.save();
-        ctx.shadowColor = 'rgba(255, 94, 54, 0.4)';
-        ctx.shadowBlur = 20;
+        ctx.shadowColor = beast.glow;
+        ctx.shadowBlur = 25;
         ctx.drawImage(img, x, y, size, size);
         ctx.restore();
       }
 
-      // Cập nhật HUD
-      document.getElementById('hudFrameIndex').textContent = `${currentFrameIdx + 1} / ${seq.frames.length}`;
+      document.getElementById('hudFrameIndex').textContent = `${currentFrameIdx + 1} / ${beast.frames.length}`;
     }
 
     /* ==========================================================
-       3. TIMELINE CONTROLS & PLAYBACK ENGINE
+       2. TIMELINE & PLAYBACK ENGINE
     ========================================================== */
     function startPlayback() {
       if (playInterval) clearInterval(playInterval);
       playInterval = setInterval(() => {
-        const seq = SEQUENCES_DATA[currentSeqKey];
-        currentFrameIdx = (currentFrameIdx + 1) % seq.frames.length;
+        const beast = BEASTS_DB[currentBeastIdx];
+        currentFrameIdx = (currentFrameIdx + 1) % beast.frames.length;
         updateActiveFrameCard();
         drawCurrentFrame();
       }, 1000 / currentFps);
@@ -714,44 +647,64 @@
       }
     }
 
-    function setFPS(fps, btn) {
-      currentFps = fps;
-      document.querySelectorAll('.fps-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('statFpsVal').textContent = `${fps} FPS`;
+    function setFPS(fps) {
+      currentFps = parseInt(fps);
       if (isPlaying) startPlayback();
     }
 
-    function selectSequence(key) {
-      currentSeqKey = key;
+    function selectBeast(idx) {
+      currentBeastIdx = idx;
       currentFrameIdx = 0;
+      const beast = BEASTS_DB[idx];
 
-      document.querySelectorAll('.action-chip').forEach(c => c.classList.remove('active'));
-      const activeChip = document.getElementById('chip' + key.charAt(0).toUpperCase() + key.slice(1));
-      if (activeChip) activeChip.classList.add('active');
+      document.documentElement.style.setProperty('--accent-color', beast.color);
+      document.documentElement.style.setProperty('--accent-glow', beast.glow);
 
-      const seq = SEQUENCES_DATA[key];
-      document.getElementById('hudSeqName').textContent = `${seq.name} (${seq.frames.length} Frames)`;
-      document.getElementById('statActionName').textContent = seq.name;
-      document.getElementById('statFrameCount').textContent = `${seq.frames.length} Frames`;
+      document.getElementById('hudBeastName').textContent = beast.name;
+      document.getElementById('statName').textContent = beast.name;
+      document.getElementById('statElement').textContent = beast.element;
+      document.getElementById('statElement').style.color = beast.color;
+      document.getElementById('statAction').textContent = beast.actionDesc;
+      document.getElementById('imgSpritesheetPreview').src = beast.sheetSrc;
+      document.getElementById('btnDownloadSheet').href = beast.sheetSrc;
+      document.getElementById('btnDownloadSheet').setAttribute('download', `${beast.id}_spritesheet.png`);
 
-      setFPS(seq.fps, document.querySelectorAll('.fps-btn')[1]);
+      document.querySelectorAll('.beast-item').forEach((b, i) => b.classList.toggle('active', i === idx));
+
       renderFrameStrip();
       drawCurrentFrame();
     }
 
-    function selectFrame(idx) {
-      currentFrameIdx = idx;
-      updateActiveFrameCard();
-      drawCurrentFrame();
+    function renderBeastList() {
+      const container = document.getElementById('beastListContainer');
+      container.innerHTML = '';
+
+      BEASTS_DB.forEach((b, idx) => {
+        const item = document.createElement('div');
+        item.className = 'beast-item' + (idx === currentBeastIdx ? ' active' : '');
+        item.style.setProperty('--item-color', b.color);
+        item.style.setProperty('--item-glow', b.glow);
+
+        item.innerHTML = `
+          <div class="beast-thumb">
+            <img src="${b.frames[0]}" alt="${b.name}">
+          </div>
+          <div>
+            <h4 style="font-size:13.5px; font-weight:800; color:#fff;">${b.name}</h4>
+            <span style="font-size:11px; color:${b.color}; font-weight:700;">${b.element}</span>
+          </div>
+        `;
+        item.onclick = () => selectBeast(idx);
+        container.appendChild(item);
+      });
     }
 
     function renderFrameStrip() {
       const container = document.getElementById('frameStripContainer');
       container.innerHTML = '';
-      const seq = SEQUENCES_DATA[currentSeqKey];
+      const beast = BEASTS_DB[currentBeastIdx];
 
-      seq.frames.forEach((src, idx) => {
+      beast.frames.forEach((src, idx) => {
         const card = document.createElement('div');
         card.className = 'frame-card' + (idx === currentFrameIdx ? ' active' : '');
         card.innerHTML = `
@@ -759,8 +712,10 @@
           <img src="${src}" alt="Frame ${idx + 1}">
         `;
         card.onclick = () => {
-          selectFrame(idx);
-          if (isPlaying) togglePlay(); // Pause to inspect frame
+          currentFrameIdx = idx;
+          updateActiveFrameCard();
+          drawCurrentFrame();
+          if (isPlaying) togglePlay(); // Tạm dừng để xem kỹ frame
         };
         container.appendChild(card);
       });
@@ -772,24 +727,10 @@
       });
     }
 
-    function toggleOnionSkin() {
-      showOnionSkin = !showOnionSkin;
-      document.getElementById('onionStatus').textContent = showOnionSkin ? 'BẬT' : 'TẮT';
-      document.getElementById('onionStatus').style.color = showOnionSkin ? '#ffd166' : '#9ca3af';
-      drawCurrentFrame();
-    }
-
-    function toggleGrid() {
-      showGrid = !showGrid;
-      document.getElementById('gridStatus').textContent = showGrid ? 'BẬT' : 'TẮT';
-      document.getElementById('gridStatus').style.color = showGrid ? '#4ade80' : '#9ca3af';
-      drawCurrentFrame();
-    }
-
-    // INITIALIZE
     window.onload = () => {
       resizeStage();
-      selectSequence('idle');
+      renderBeastList();
+      selectBeast(0);
       startPlayback();
     };
   </script>

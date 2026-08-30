@@ -44,6 +44,7 @@ OpenClaw không cần cài Discord channel native để dùng sender này. Promp
 - `. openclaw`: bật OpenClaw cho text channel hiện tại; mỗi channel có phiên riêng.
 - `. openclaw status`: mở dashboard embed gồm Gateway, channel/model/session, scheduler, job, media và cảnh báo quyền.
 - `. openclaw jobs`: liệt kê 10 job gần nhất cùng ID và trạng thái.
+- `. o upload [status|list|start [item-id...]|stop [run-id]]`: điều khiển đúng hàng đợi YouTube đang mở trong Rainder; nếu Rainder tắt bot chỉ báo offline.
 - `. openclaw model local`: chuyển riêng channel hiện tại sang model Ollama local.
 - `. openclaw model 9router`: chuyển riêng channel hiện tại về model qua 9Router.
 - `. openclaw resend [job-id] [all|số]`: gửi các file chưa delivery hoặc chủ động gửi lại một file đã delivery.

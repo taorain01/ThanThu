@@ -19,6 +19,8 @@ const {
 } = require('discord.js');
 const { loadConfig } = require('./config');
 const { parseCommand } = require('./commands');
+const { RainderClient } = require('./rainder-client');
+const { executeRainderUploadCommand } = require('./rainder-command');
 const { StateStore, StateStoreError } = require('./state-store');
 const { JobStore, JobStoreError } = require('./job-store');
 const {
@@ -141,6 +143,7 @@ const messageCursorStore = new MessageCursorStore(
   path.join(BOT_ROOT, 'data', 'message-cursors.json'),
 );
 const openclaw = new OpenClawClient(config);
+const rainder = new RainderClient();
 const taskClient = new OpenClawTaskClient({
   baseUrl: config.openclawBaseUrl,
   gatewayToken: config.openclawGatewayToken,
@@ -1698,6 +1701,14 @@ async function handleCommand(message, command) {
   }
 
   let current = stateStore.getChannel(config.guildId, message.channel.id);
+  if (command.action === 'upload') {
+    await message.channel.sendTyping().catch(() => {});
+    const response = await executeRainderUploadCommand(rainder, command.args || [], {
+      requestId: `discord:${message.id}`,
+    });
+    await sendChunks(message, response);
+    return;
+  }
   if (command.action === 'system') {
     await message.channel.sendTyping().catch(() => {});
     const gatewayPromise = (async () => {
@@ -2087,6 +2098,7 @@ async function handleCommand(message, command) {
     `\`${config.prefix} openclaw resetbot\` · nhanh: \`${config.prefix} o rb\` — reset bot`,
     `\`${config.prefix} openclaw restartoc\` · nhanh: \`${config.prefix} o rsoc\` — restart bot (tương đương)`,
     `\`${config.prefix} openclaw jobs\``,
+    `\`${config.prefix} o upload [status|list|start [item-id...]|stop [run-id]]\` — điều khiển upload Rainder`,
     `\`${config.prefix} openclaw resend [job-id] [all|số]\``,
     `\`${config.prefix} openclaw resume [job-id]\``,
     `\`${config.prefix} openclaw stop [job-id|all]\` · nhanh: \`${config.prefix} o stop [job-id|all]\``,

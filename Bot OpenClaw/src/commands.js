@@ -4,6 +4,7 @@ const VALID_ACTIONS = new Set([
   'status',
   'system',
   'jobs',
+  'upload',
   'model',
   'reset',
   'resume',
@@ -40,6 +41,9 @@ function parseCommand(content, prefix) {
 
     const action = {
       status: 'status',
+      u: 'upload',
+      upload: 'upload',
+      yt: 'upload',
       s: 'stop',
       stop: 'stop',
       m: 'model',

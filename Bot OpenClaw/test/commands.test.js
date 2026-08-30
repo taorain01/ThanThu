@@ -15,6 +15,7 @@ test('nhận diện lệnh bind và các subcommand', () => {
   assert.deepEqual(parseCommand('> openclaw model local', '>'), { action: 'model', args: ['local'] });
   assert.deepEqual(parseCommand('> openclaw model 9router', '>'), { action: 'model', args: ['9router'] });
   assert.deepEqual(parseCommand('> openclaw off', '>'), { action: 'off' });
+  assert.deepEqual(parseCommand('> openclaw upload start yt_1', '>'), { action: 'upload', args: ['start', 'yt_1'] });
 });
 
 test('trả help cho subcommand lạ và bỏ qua tin nhắn thường', () => {
@@ -44,6 +45,9 @@ test('nhận diện alias model và để nội dung khác đi vào chat trực 
   assert.deepEqual(parseCommand('> o m 9router', '>'), { action: 'model', args: ['9router'] });
   assert.deepEqual(parseCommand('> o model local', '>'), { action: 'model', args: ['local'] });
   assert.equal(parseCommand('> o x', '>'), null);
+  assert.deepEqual(parseCommand('> o upload list', '>'), { action: 'upload', args: ['list'] });
+  assert.deepEqual(parseCommand('> o u start yt_1', '>'), { action: 'upload', args: ['start', 'yt_1'] });
+  assert.deepEqual(parseCommand('> o yt stop', '>'), { action: 'upload', args: ['stop'] });
 });
 
 test('nhận diện lệnh reset bot với nhiều cách gõ', () => {

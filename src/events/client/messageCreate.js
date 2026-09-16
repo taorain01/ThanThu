@@ -718,6 +718,12 @@ module.exports = {
             return tongroleCommand.execute(message, args);
         }
 
+        // ?xoarole, ?clearroles, ?xoatoanborole - Xóa toàn bộ role thường, giữ lại 6 role chỉ định (Owner only)
+        if (['xoarole', 'clearroles', 'xoatoanborole'].includes(commandName)) {
+            const xoaroleCommand = require('../../commands/quanly/xoarole');
+            return xoaroleCommand.execute(message, args);
+        }
+
         // ?addhelp - Show help
         if (commandName === 'addhelp') {
             return addhelpCommand.execute(message, args);
